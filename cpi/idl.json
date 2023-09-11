@@ -1,0 +1,1683 @@
+{
+  "version": "0.1.1",
+  "name": "lb_clmm",
+  "constants": [
+    {
+      "name": "BASIS_POINT_MAX",
+      "type": "i32",
+      "value": "10000"
+    },
+    {
+      "name": "MAX_DELTA_IDS",
+      "type": {
+        "defined": "usize"
+      },
+      "value": "200"
+    },
+    {
+      "name": "MAX_BIN_PER_ARRAY",
+      "type": {
+        "defined": "usize"
+      },
+      "value": "120"
+    },
+    {
+      "name": "MIN_BIN_ID",
+      "type": "i32",
+      "value": "- 443636"
+    },
+    {
+      "name": "MAX_BIN_ID",
+      "type": "i32",
+      "value": "443636"
+    },
+    {
+      "name": "MAX_FEE_RATE",
+      "type": "u64",
+      "value": "100_000_000"
+    },
+    {
+      "name": "FEE_PRECISION",
+      "type": "u64",
+      "value": "1_000_000_000"
+    },
+    {
+      "name": "MAX_PROTOCOL_SHARE",
+      "type": "u16",
+      "value": "2_500"
+    },
+    {
+      "name": "NUM_REWARDS",
+      "type": {
+        "defined": "usize"
+      },
+      "value": "2"
+    },
+    {
+      "name": "MIN_REWARD_DURATION",
+      "type": "u64",
+      "value": "1"
+    },
+    {
+      "name": "MAX_REWARD_DURATION",
+      "type": "u64",
+      "value": "31536000"
+    },
+    {
+      "name": "BIN_ARRAY",
+      "type": "bytes",
+      "value": "[98, 105, 110, 95, 97, 114, 114, 97, 121]"
+    }
+  ],
+  "instructions": [
+    {
+      "name": "initializeLbPair",
+      "accounts": [
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenMintX",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenMintY",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "reserveX",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "reserveY",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "funder",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "rent",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "activeId",
+          "type": "i32"
+        },
+        {
+          "name": "binStep",
+          "type": "u16"
+        }
+      ]
+    },
+    {
+      "name": "initializeBinArray",
+      "accounts": [
+        {
+          "name": "lbPair",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "binArray",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "funder",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "index",
+          "type": "i64"
+        }
+      ]
+    },
+    {
+      "name": "addLiquidity",
+      "accounts": [
+        {
+          "name": "position",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userTokenX",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userTokenY",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "reserveX",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "reserveY",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenXMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenYMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayLower",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayUpper",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "owner",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "tokenXProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenYProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "liquidityParameter",
+          "type": {
+            "defined": "LiquidityParameter"
+          }
+        }
+      ]
+    },
+    {
+      "name": "removeLiquidity",
+      "accounts": [
+        {
+          "name": "position",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userTokenX",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userTokenY",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "reserveX",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "reserveY",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenXMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenYMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayLower",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayUpper",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "owner",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "tokenXProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenYProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "binIds",
+          "type": {
+            "vec": "i32"
+          }
+        },
+        {
+          "name": "bpsToRemove",
+          "type": {
+            "vec": "u16"
+          }
+        }
+      ]
+    },
+    {
+      "name": "initializePosition",
+      "accounts": [
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "position",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "lbPair",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "owner",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "rent",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "positionBound",
+          "type": {
+            "defined": "PositionBound"
+          }
+        }
+      ]
+    },
+    {
+      "name": "swap",
+      "accounts": [
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "reserveX",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "reserveY",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userTokenIn",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userTokenOut",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "binArray0",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "binArray1",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "binArray2",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenXMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenYMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "user",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "tokenXProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenYProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "amountIn",
+          "type": "u64"
+        },
+        {
+          "name": "minAmountOut",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "withdrawProtocolFee",
+      "accounts": [
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "reserveX",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "reserveY",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenXMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenYMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "receiverTokenX",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "receiverTokenY",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "feeOwner",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "tokenXProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenYProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "amountX",
+          "type": "u64"
+        },
+        {
+          "name": "amountY",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "updateFeeOwner",
+      "accounts": [
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "newFeeOwner",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "admin",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "initializeReward",
+      "accounts": [
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "rewardVault",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "rewardMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "admin",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "rent",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "rewardIndex",
+          "type": "u64"
+        },
+        {
+          "name": "rewardDuration",
+          "type": "u64"
+        },
+        {
+          "name": "funder",
+          "type": "publicKey"
+        }
+      ]
+    },
+    {
+      "name": "fundReward",
+      "accounts": [
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "rewardVault",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "rewardMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "funderTokenAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "funder",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "binArray",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "rewardIndex",
+          "type": "u64"
+        },
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "updateRewardFunder",
+      "accounts": [
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "admin",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "rewardIndex",
+          "type": "u64"
+        },
+        {
+          "name": "newFunder",
+          "type": "publicKey"
+        }
+      ]
+    },
+    {
+      "name": "updateRewardDuration",
+      "accounts": [
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "admin",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "binArray",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "rewardIndex",
+          "type": "u64"
+        },
+        {
+          "name": "newDuration",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "claimReward",
+      "accounts": [
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "position",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayLower",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayUpper",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "owner",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "rewardVault",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "rewardMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "userTokenAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "rewardIndex",
+          "type": "u64"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "BinArray",
+      "docs": [
+        "An account to contain a range of bin. For example: Bin 100 <-> 200.",
+        "For example:",
+        "BinArray index: 0 contains bin 0 <-> 599",
+        "index: 2 contains bin 600 <-> 1199, ..."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "index",
+            "type": "i64"
+          },
+          {
+            "name": "padding",
+            "type": "u64"
+          },
+          {
+            "name": "lbPair",
+            "type": "publicKey"
+          },
+          {
+            "name": "bins",
+            "type": {
+              "array": [
+                {
+                  "defined": "Bin"
+                },
+                120
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "LbPair",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "parameters",
+            "type": {
+              "defined": "StaticParameters"
+            }
+          },
+          {
+            "name": "vParameters",
+            "type": {
+              "defined": "VariableParameters"
+            }
+          },
+          {
+            "name": "bumpSeed",
+            "docs": [
+              "Bump signer seed"
+            ],
+            "type": {
+              "array": [
+                "u8",
+                1
+              ]
+            }
+          },
+          {
+            "name": "binStepSeed",
+            "docs": [
+              "Bin step signer seed"
+            ],
+            "type": {
+              "array": [
+                "u8",
+                2
+              ]
+            }
+          },
+          {
+            "name": "activeId",
+            "docs": [
+              "Active bin id"
+            ],
+            "type": "i32"
+          },
+          {
+            "name": "binStep",
+            "docs": [
+              "Bin step. Represent the price increment / decrement."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "tokenXMint",
+            "docs": [
+              "Token X mint"
+            ],
+            "type": "publicKey"
+          },
+          {
+            "name": "tokenYMint",
+            "docs": [
+              "Token Y mint"
+            ],
+            "type": "publicKey"
+          },
+          {
+            "name": "reserveX",
+            "docs": [
+              "LB token X vault"
+            ],
+            "type": "publicKey"
+          },
+          {
+            "name": "reserveY",
+            "docs": [
+              "LB token Y vault"
+            ],
+            "type": "publicKey"
+          },
+          {
+            "name": "protocolFee",
+            "docs": [
+              "Uncollected protocol fee"
+            ],
+            "type": {
+              "defined": "ProtocolFee"
+            }
+          },
+          {
+            "name": "feeOwner",
+            "docs": [
+              "Protocol fee owner,"
+            ],
+            "type": "publicKey"
+          },
+          {
+            "name": "rewardInfos",
+            "docs": [
+              "reward_infos"
+            ],
+            "type": {
+              "array": [
+                {
+                  "defined": "RewardInfo"
+                },
+                2
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Position",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "lbPair",
+            "docs": [
+              "The LB pair of this position"
+            ],
+            "type": "publicKey"
+          },
+          {
+            "name": "owner",
+            "docs": [
+              "Owner of the position. Client rely on this to to fetch their positions."
+            ],
+            "type": "publicKey"
+          },
+          {
+            "name": "lowerBinId",
+            "docs": [
+              "Lower bin ID"
+            ],
+            "type": "i32"
+          },
+          {
+            "name": "upperBinId",
+            "docs": [
+              "Upper bin ID"
+            ],
+            "type": "i32"
+          },
+          {
+            "name": "liquidityShares",
+            "docs": [
+              "Liquidity shares of this position in bins (lower_bin_id <-> upper_bin_id). This is the same as LP concept."
+            ],
+            "type": {
+              "vec": "u128"
+            }
+          },
+          {
+            "name": "rewardInfos",
+            "docs": [
+              "reward_infos"
+            ],
+            "type": {
+              "vec": {
+                "array": [
+                  {
+                    "defined": "UserRewardInfo"
+                  },
+                  2
+                ]
+              }
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "types": [
+    {
+      "name": "LiquidityParameter",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "amountX",
+            "docs": [
+              "Amount of X token to deposit"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "amountY",
+            "docs": [
+              "Amount of Y token to deposit"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "amountXMin",
+            "type": "u64"
+          },
+          {
+            "name": "amountYMin",
+            "type": "u64"
+          },
+          {
+            "name": "activeIdDesired",
+            "type": "i32"
+          },
+          {
+            "name": "idSlippage",
+            "type": "i32"
+          },
+          {
+            "name": "deltaIds",
+            "docs": [
+              "Define which bin liquidity will be added relative to activeId. Negative will contains only token Y. Positive will contains only token X. 0 may contains both token X and Y."
+            ],
+            "type": {
+              "vec": "i32"
+            }
+          },
+          {
+            "name": "distributionX",
+            "docs": [
+              "DistributionX (or distributionY) is the percentages of amountX (or amountY) you want to add to each bin."
+            ],
+            "type": {
+              "vec": "u16"
+            }
+          },
+          {
+            "name": "distributionY",
+            "docs": [
+              "DistributionX (or distributionY) is the percentages of amountX (or amountY) you want to add to each bin."
+            ],
+            "type": {
+              "vec": "u16"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "PositionBound",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "lowerBinId",
+            "type": "i32"
+          },
+          {
+            "name": "upperBinId",
+            "type": "i32"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Bin",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "amountX",
+            "docs": [
+              "Amount of token X in the bin. This already excluded protocol fees."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "amountY",
+            "docs": [
+              "Amount of token Y in the bin. This already excluded protocol fees."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "price",
+            "docs": [
+              "Bin price"
+            ],
+            "type": "u128"
+          },
+          {
+            "name": "liquiditySupply",
+            "docs": [
+              "Liquidities of the bin. This is the same as LP mint supply."
+            ],
+            "type": "u128"
+          },
+          {
+            "name": "rewardPerTokenStored",
+            "docs": [
+              "reward_a_per_token_stored"
+            ],
+            "type": {
+              "array": [
+                "u128",
+                2
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "ProtocolFee",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "amountX",
+            "type": "u64"
+          },
+          {
+            "name": "amountY",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RewardInfo",
+      "docs": [
+        "Stores the state relevant for tracking liquidity mining rewards"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "mint",
+            "docs": [
+              "Reward token mint."
+            ],
+            "type": "publicKey"
+          },
+          {
+            "name": "vault",
+            "docs": [
+              "Reward vault token account."
+            ],
+            "type": "publicKey"
+          },
+          {
+            "name": "funder",
+            "docs": [
+              "Authority account that allows to fund rewards"
+            ],
+            "type": "publicKey"
+          },
+          {
+            "name": "rewardDuration",
+            "docs": [
+              "TODO check whether we need to store it in pool"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "rewardDurationEnd",
+            "docs": [
+              "TODO check whether we need to store it in pool"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "rewardRate",
+            "docs": [
+              "TODO check whether we need to store it in pool"
+            ],
+            "type": "u128"
+          },
+          {
+            "name": "lastUpdateTime",
+            "docs": [
+              "The last time reward states were updated."
+            ],
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "StaticParameters",
+      "docs": [
+        "Parameter that set by the protocol"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "baseFactor",
+            "docs": [
+              "Used for base fee calculation. base_fee_rate = base_factor * bin_step"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "filterPeriod",
+            "docs": [
+              "Filter period determine high frequency trading time window."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "decayPeriod",
+            "docs": [
+              "Decay period determine when the volatile fee start decay / decrease."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "reductionFactor",
+            "docs": [
+              "Reduction factor controls the volatile fee rate decrement rate."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "variableFeeControl",
+            "docs": [
+              "Used to scale the variable fee component depending on the dynamic of the market"
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "protocolShare",
+            "docs": [
+              "Portion of swap fees retained by the protocol by controlling protocol_share parameter. protocol_swap_fee = protocol_share * total_swap_fee"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "maxVolatilityAccumulator",
+            "docs": [
+              "Maximum number of bin crossed can be accumulated. Used to cap volatile fee rate."
+            ],
+            "type": "u32"
+          }
+        ]
+      }
+    },
+    {
+      "name": "VariableParameters",
+      "docs": [
+        "Parameters that changes based on dynamic of the market"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "volatilityAccumulator",
+            "docs": [
+              "Volatility accumulator measure the number of bin crossed since reference bin ID. Normally (without filter period taken into consideration), reference bin ID is the active bin of last swap.",
+              "It affects the variable fee rate"
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "volatilityReference",
+            "docs": [
+              "Volatility reference is decayed volatility accumulator. It is always <= volatility_accumulator"
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "indexReference",
+            "docs": [
+              "Active bin id of last swap."
+            ],
+            "type": "i32"
+          },
+          {
+            "name": "lastUpdateTimestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "UserRewardInfo",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "rewardPerTokenComplete",
+            "type": "u128"
+          },
+          {
+            "name": "rewardPending",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Rounding",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Up"
+          },
+          {
+            "name": "Down"
+          }
+        ]
+      }
+    }
+  ],
+  "events": [
+    {
+      "name": "CompositionFee",
+      "fields": [
+        {
+          "name": "from",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "binId",
+          "type": "i16",
+          "index": false
+        },
+        {
+          "name": "tokenXFeeAmount",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "tokenYFeeAmount",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "protocolTokenXFeeAmount",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "protocolTokenYFeeAmount",
+          "type": "u64",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "AddLiquidity",
+      "fields": [
+        {
+          "name": "from",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "binIds",
+          "type": {
+            "vec": "i32"
+          },
+          "index": false
+        },
+        {
+          "name": "amounts",
+          "type": {
+            "vec": {
+              "array": [
+                "u64",
+                2
+              ]
+            }
+          },
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "RemoveLiquidity",
+      "fields": [
+        {
+          "name": "from",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "binIds",
+          "type": {
+            "vec": "i32"
+          },
+          "index": false
+        },
+        {
+          "name": "amounts",
+          "type": {
+            "vec": {
+              "array": [
+                "u64",
+                2
+              ]
+            }
+          },
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "Swap",
+      "fields": [
+        {
+          "name": "from",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "binId",
+          "type": "i32",
+          "index": false
+        },
+        {
+          "name": "amountIn",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "amountOut",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "swapForY",
+          "type": "bool",
+          "index": false
+        },
+        {
+          "name": "fee",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "protocolFee",
+          "type": "u64",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "ClaimReward",
+      "fields": [
+        {
+          "name": "owner",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "rewardIndex",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "totalReward",
+          "type": "u64",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "FundReward",
+      "fields": [
+        {
+          "name": "funder",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "rewardIndex",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "amount",
+          "type": "u64",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "InitializeReward",
+      "fields": [
+        {
+          "name": "rewardMint",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "funder",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "rewardIndex",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "rewardDuration",
+          "type": "u64",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "UpdateRewardDuration",
+      "fields": [
+        {
+          "name": "rewardIndex",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "oldRewardDuration",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "newRewardDuration",
+          "type": "u64",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "UpdateRewardFunder",
+      "fields": [
+        {
+          "name": "rewardIndex",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "oldFunder",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "newFunder",
+          "type": "publicKey",
+          "index": false
+        }
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "InvalidStartBinIndex",
+      "msg": "Invalid start bin index"
+    },
+    {
+      "code": 6001,
+      "name": "InvalidBinId",
+      "msg": "Invalid bin id"
+    },
+    {
+      "code": 6002,
+      "name": "InvalidInput",
+      "msg": "Invalid input data"
+    },
+    {
+      "code": 6003,
+      "name": "ExceededIdSlippageTolerance",
+      "msg": "Exceeded id slippage tolerance"
+    },
+    {
+      "code": 6004,
+      "name": "ExceededAmountSlippageTolerance",
+      "msg": "Exceeded amount slippage tolerance"
+    },
+    {
+      "code": 6005,
+      "name": "CompositionFactorFlawed",
+      "msg": "Composition factor flawed"
+    },
+    {
+      "code": 6006,
+      "name": "NonPresetBinStep",
+      "msg": "Non preset bin step"
+    },
+    {
+      "code": 6007,
+      "name": "ZeroLiquidity",
+      "msg": "Zero liquidity"
+    },
+    {
+      "code": 6008,
+      "name": "InvalidPosition",
+      "msg": "Invalid position"
+    },
+    {
+      "code": 6009,
+      "name": "BinArrayNotFound",
+      "msg": "Bin array not found"
+    },
+    {
+      "code": 6010,
+      "name": "InvalidTokenMint",
+      "msg": "Invalid token mint"
+    },
+    {
+      "code": 6011,
+      "name": "BinInsufficientLiquidity",
+      "msg": "Bin insufficient liquidity"
+    },
+    {
+      "code": 6012,
+      "name": "InvalidFeeOwner",
+      "msg": "Invalid fee owner"
+    },
+    {
+      "code": 6013,
+      "name": "InvalidFeeWithdrawAmount",
+      "msg": "Invalid fee withdraw amount"
+    },
+    {
+      "code": 6014,
+      "name": "InvalidAdmin",
+      "msg": "Invalid admin"
+    },
+    {
+      "code": 6015,
+      "name": "IdenticalFeeOwner",
+      "msg": "Identical fee owner"
+    },
+    {
+      "code": 6016,
+      "name": "InvalidBps",
+      "msg": "Invalid basis point"
+    },
+    {
+      "code": 6017,
+      "name": "MathOverflow",
+      "msg": "Math operation overflow"
+    },
+    {
+      "code": 6018,
+      "name": "TypeCastFailed",
+      "msg": "Type cast error"
+    },
+    {
+      "code": 6019,
+      "name": "InvalidRewardIndex",
+      "msg": "Invalid reward index"
+    },
+    {
+      "code": 6020,
+      "name": "InvalidRewardDuration",
+      "msg": "Invalid reward duration"
+    },
+    {
+      "code": 6021,
+      "name": "RewardInitialized",
+      "msg": "Reward already initialized"
+    },
+    {
+      "code": 6022,
+      "name": "RewardUninitialized",
+      "msg": "Reward not initialized"
+    },
+    {
+      "code": 6023,
+      "name": "IdenticalFunder",
+      "msg": "Identical funder"
+    },
+    {
+      "code": 6024,
+      "name": "RewardCampaignInProgress",
+      "msg": "Reward campaign in progress"
+    },
+    {
+      "code": 6025,
+      "name": "IdenticalRewardDuration",
+      "msg": "Reward duration is the same"
+    },
+    {
+      "code": 6026,
+      "name": "InvalidBinArray",
+      "msg": "Invalid bin array"
+    },
+    {
+      "code": 6027,
+      "name": "NonContinuousBinArrays",
+      "msg": "Bin arrays must be continuous"
+    }
+  ]
+}
