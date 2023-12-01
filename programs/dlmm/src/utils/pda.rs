@@ -1,0 +1,48 @@
+use super::seeds::{BIN_ARRAY, BIN_ARRAY_BITMAP_SEED, ORACLE};
+use anchor_lang::prelude::Pubkey;
+use std::{cmp::max, cmp::min};
+
+pub fn derive_lb_pair_pda(
+    token_x_mint: Pubkey,
+    token_y_mint: Pubkey,
+    bin_step: u16,
+) -> (Pubkey, u8) {
+    Pubkey::find_program_address(
+        &[
+            min(token_x_mint, token_y_mint).as_ref(),
+            max(token_x_mint, token_y_mint).as_ref(),
+            &bin_step.to_le_bytes(),
+        ],
+        &crate::ID,
+    )
+}
+
+pub fn derive_oracle_pda(lb_pair: Pubkey) -> (Pubkey, u8) {
+    Pubkey::find_program_address(&[ORACLE, lb_pair.as_ref()], &crate::ID)
+}
+
+pub fn derive_bin_array_pda(lb_pair: Pubkey, bin_array_index: i64) -> (Pubkey, u8) {
+    Pubkey::find_program_address(
+        &[BIN_ARRAY, lb_pair.as_ref(), &bin_array_index.to_le_bytes()],
+        &crate::ID,
+    )
+}
+
+pub fn derive_bin_array_bitmap_extension(lb_pair: Pubkey) -> (Pubkey, u8) {
+    Pubkey::find_program_address(&[BIN_ARRAY_BITMAP_SEED, lb_pair.as_ref()], &crate::ID)
+}
+
+pub fn derive_reserve_pda(token_mint: Pubkey, lb_pair: Pubkey) -> (Pubkey, u8) {
+    Pubkey::find_program_address(&[lb_pair.as_ref(), token_mint.as_ref()], &crate::ID)
+}
+
+pub fn derive_reward_vault_pda(lb_pair: Pubkey, reward_index: u64) -> (Pubkey, u8) {
+    Pubkey::find_program_address(
+        &[lb_pair.as_ref(), reward_index.to_le_bytes().as_ref()],
+        &crate::ID,
+    )
+}
+
+pub fn derive_event_authority_pda() -> (Pubkey, u8) {
+    Pubkey::find_program_address(&[b"__event_authority"], &crate::ID)
+}

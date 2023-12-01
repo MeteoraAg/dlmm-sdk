@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "cpi",
+    "programs/*",
 ]
 
 [profile.release]
