@@ -9,6 +9,7 @@ pub mod utils;
 
 use instructions::add_liquidity::*;
 use instructions::add_liquidity_by_weight::*;
+use instructions::add_liquidity_one_side::*;
 use instructions::claim_fee::*;
 use instructions::claim_reward::*;
 use instructions::close_position::*;
@@ -89,5 +90,12 @@ pub mod dlmm {
         length_to_add: u64,
     ) -> Result<()> {
         instructions::increase_oracle_length::handle(ctx, length_to_add)
+    }
+
+    pub fn add_liquidity_one_side(
+        ctx: Context<ModifyLiquidityOneSide>,
+        liquidity_parameter: LiquidityOneSideParameter,
+    ) -> Result<()> {
+        instructions::add_liquidity_one_side::handle(ctx, liquidity_parameter)
     }
 }

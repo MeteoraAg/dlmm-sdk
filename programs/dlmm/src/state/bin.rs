@@ -38,3 +38,23 @@ pub struct BinArray {
     pub lb_pair: Pubkey,
     pub bins: [Bin; MAX_BIN_PER_ARRAY],
 }
+
+/// Get bin array index from bin id
+pub fn bin_id_to_bin_array_index(bin_id: i32) -> i32 {
+    let idx = bin_id / MAX_BIN_PER_ARRAY as i32;
+    let rem = bin_id % MAX_BIN_PER_ARRAY as i32;
+
+    if bin_id.is_negative() && rem != 0 {
+        idx - 1
+    } else {
+        idx
+    }
+}
+
+/// Get lower and upper bin id of the given bin array index
+pub fn get_bin_array_lower_upper_bin_id(index: i32) -> (i32, i32) {
+    let lower_bin_id = index * MAX_BIN_PER_ARRAY as i32;
+    let upper_bin_id = lower_bin_id + MAX_BIN_PER_ARRAY as i32 - 1;
+
+    (lower_bin_id, upper_bin_id)
+}

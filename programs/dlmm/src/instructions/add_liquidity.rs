@@ -8,9 +8,9 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 pub struct BinLiquidityDistribution {
     /// Define the bin ID wish to deposit to.
     pub bin_id: i32,
-    /// DistributionX (or distributionY) is the percentages of amountX (or amountY) you want to add to each bin.
+    /// DistributionX (or distributionY) is the percentages of amountX (or amountY) you want to add to each bin. Max is 10_000.
     pub distribution_x: u16,
-    /// DistributionX (or distributionY) is the percentages of amountX (or amountY) you want to add to each bin.
+    /// DistributionX (or distributionY) is the percentages of amountX (or amountY) you want to add to each bin. Max is 10_000.
     pub distribution_y: u16,
 }
 
@@ -20,7 +20,7 @@ pub struct LiquidityParameter {
     pub amount_x: u64,
     /// Amount of Y token to deposit
     pub amount_y: u64,
-    /// Liquidity distribution to each bins
+    /// Liquidity distribution to each bins. Sum of distribution_x must <= 10_000. Same for distribution_y.
     pub bin_liquidity_dist: Vec<BinLiquidityDistribution>,
 }
 

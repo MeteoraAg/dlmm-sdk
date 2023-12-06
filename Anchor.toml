@@ -3,7 +3,9 @@ seeds = false
 skip-lint = false
 
 [programs.localnet]
-lb_clmm = "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo"
+dlmm_program_interface = "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo"
+dlmm_integration_example = "EgU8zEJe77AZsDEzm9BLoXLpepsneh3JhdM1KxPNxBDs"
+
 
 [registry]
 url = "https://api.apr.dev"

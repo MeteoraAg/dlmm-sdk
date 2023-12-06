@@ -1,0 +1,19 @@
+[package]
+name = "dlmm-integration-example"
+version = "0.0.1"
+edition = "2021"
+description = "DLMM program integration example"
+license = "Apache-2.0"
+
+[features]
+default = ["cpi"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+
+[dependencies]
+dlmm-program-interface = { path = "../dlmm", features = ["cpi"] }
+anchor-lang = { version = "0.28.0" }
+anchor-spl = "0.28.0"
+bytemuck = { version = "1.13.1", features = ["derive", "min_const_generics"] }
