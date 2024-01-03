@@ -1,0 +1,10 @@
+[features]
+seeds = false
+skip-lint = false
+
+[registry]
+url = "https://api.apr.dev"
+
+[provider]
+cluster = "Localnet"
+wallet = ""
