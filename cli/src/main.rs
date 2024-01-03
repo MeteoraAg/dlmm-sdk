@@ -42,7 +42,6 @@ use crate::{
         initialize_bin_array_with_price_range::{
             initialize_bin_array_with_price_range, InitBinArrayWithPriceRangeParameters,
         },
-        initialize_existing_preset_binstep::initialize_existing_preset_binstep,
         initialize_position::{initialize_position, InitPositionParameters},
         initialize_preset_parameter::initialize_preset_parameter,
         initialize_reward::*,
@@ -341,9 +340,6 @@ fn main() -> Result<()> {
         }
         Command::ClosePresetParameter { bin_step } => {
             close_preset_parameter(bin_step, &amm_program, transaction_config)?;
-        }
-        Command::InitializeExistingPresetBinStep {} => {
-            initialize_existing_preset_binstep(&amm_program, transaction_config)?;
         }
         Command::ShowPresetParameter { bin_step } => {
             let (preset_param_pda, _bump) = derive_preset_parameter_pda(bin_step);

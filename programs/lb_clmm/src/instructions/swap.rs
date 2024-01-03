@@ -55,6 +55,7 @@ pub struct Swap<'info> {
     pub token_y_program: Interface<'info, TokenInterface>,
 }
 
+/// BinArray needs to be passed in remaining accounts, refer CLI for swap tx
 pub fn handle<'a, 'b, 'c, 'info>(
     ctx: Context<'a, 'b, 'c, 'info, Swap<'info>>,
     amount_in: u64,

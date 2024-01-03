@@ -258,8 +258,6 @@ pub enum Command {
         /// Bin step. Represent the price increment / decrement.
         bin_step: u16,
     },
-    // TODO: Remove this after initialized preset bin step we have in the program
-    InitializeExistingPresetBinStep {},
 
     /// Remove whitelisted wallet from a permission pool
     UpdateWhitelistedWallet {

@@ -39,7 +39,6 @@ pub struct ClaimReward<'info> {
     pub token_program: Interface<'info, TokenInterface>,
 }
 
-// TODO: Should we pass in range of bin we are going to collect reward ? It could help us in heap / compute unit issue by chunking into multiple tx.
 pub fn handle(ctx: Context<ClaimReward>, index: u64) -> Result<()> {
     Ok(())
 }

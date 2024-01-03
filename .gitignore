@@ -4,8 +4,6 @@
 **/*.rs.bk
 node_modules
 test-ledger
-keys/mainnet
-keys/devnet
 .yarn
 yarn.lock
 .yarnrc.yml

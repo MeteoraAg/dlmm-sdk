@@ -7,7 +7,6 @@ pub mod instructions;
 pub mod manager;
 pub mod math;
 pub mod state;
-pub mod tests;
 pub mod utils;
 
 use instructions::add_liquidity::*;
