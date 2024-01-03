@@ -25,6 +25,7 @@ use anchor_spl::associated_token::get_associated_token_address;
 use anchor_spl::token::spl_token;
 use anchor_spl::token::Mint;
 use anchor_spl::token::TokenAccount;
+use anyhow::Ok;
 use anyhow::*;
 use lb_clmm::accounts;
 use lb_clmm::constants::MAX_BIN_PER_ARRAY;
@@ -434,6 +435,7 @@ impl Core {
         amount_x: u64,
         amount_y: u64,
         active_id: i32,
+        is_simulation: bool,
     ) -> Result<()> {
         // let state = self.get_state();
         let payer = read_keypair_file(self.wallet.clone().unwrap())
@@ -560,22 +562,24 @@ impl Core {
             .into_iter()
             .fold(builder, |bld, ix| bld.instruction(ix));
 
-        // let simulate_tx = simulate_transaction(
-        //     vec![&payer, &position_kp],
-        //     payer.pubkey(),
-        //     &program,
-        //     &builder,
-        // )
-        // .map_err(|_| Error::msg("Cannot simulate tx"))?;
-        // info!("deposit {amount_x} {amount_y} {position} {:?}", simulate_tx);
-
-        let signature = send_tx(
-            vec![&payer, &position_kp],
-            payer.pubkey(),
-            &program,
-            &builder,
-        )?;
-        info!("deposit {amount_x} {amount_y} {position} {signature}");
+        if is_simulation {
+            let simulate_tx = simulate_transaction(
+                vec![&payer, &position_kp],
+                payer.pubkey(),
+                &program,
+                &builder,
+            )
+            .map_err(|_| Error::msg("Cannot simulate tx"))?;
+            info!("deposit {amount_x} {amount_y} {position} {:?}", simulate_tx);
+        } else {
+            let signature = send_tx(
+                vec![&payer, &position_kp],
+                payer.pubkey(),
+                &program,
+                &builder,
+            )?;
+            info!("deposit {amount_x} {amount_y} {position} {signature}");
+        }
 
         Ok(())
     }
@@ -696,8 +700,28 @@ impl Core {
 
         // deposit again, just test with 1 position only
         info!("deposit {}", state.lb_pair);
-        self.deposit(state, amount_x, amount_y, state.lb_pair_state.active_id)
-            .await?;
+        match self
+            .deposit(
+                state,
+                amount_x,
+                amount_y,
+                state.lb_pair_state.active_id,
+                false,
+            )
+            .await
+        {
+            Err(_) => {
+                self.deposit(
+                    state,
+                    amount_x,
+                    amount_y,
+                    state.lb_pair_state.active_id,
+                    true,
+                )
+                .await?;
+            }
+            _ => {}
+        }
         info!("refresh state {}", state.lb_pair);
         // fetch positions again
         self.refresh_state().await?;
@@ -731,8 +755,28 @@ impl Core {
         // sanity check with real balances
         let (amount_x, amount_y) = self.get_deposit_amount(state, amount_x, amount_y).await?;
         info!("deposit {}", state.lb_pair);
-        self.deposit(state, amount_x, amount_y, state.lb_pair_state.active_id)
-            .await?;
+        match self
+            .deposit(
+                state,
+                amount_x,
+                amount_y,
+                state.lb_pair_state.active_id,
+                false,
+            )
+            .await
+        {
+            Err(_) => {
+                self.deposit(
+                    state,
+                    amount_x,
+                    amount_y,
+                    state.lb_pair_state.active_id,
+                    true,
+                )
+                .await?;
+            }
+            _ => {}
+        }
 
         info!("refresh state {}", state.lb_pair);
         // fetch positions again
