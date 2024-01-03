@@ -1,0 +1,14 @@
+[
+    {
+        "pair_address": "jKzkEPEnoGkrR7QQqzsTDQ1MuGDSyHM3yCgYpNKwREm",
+        "x_amount": 15000000000,
+        "y_amount": 2000000,
+        "mode": "ModeBoth"
+    },
+    {
+        "pair_address": "FoSDw2L5DmTuQTFe55gWPDXf88euaxAEKFre74CnvQbX",
+        "x_amount": 17000000,
+        "y_amount": 2000000,
+        "mode": "ModeBoth"
+    }
+]

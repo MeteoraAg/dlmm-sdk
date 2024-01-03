@@ -1,6 +1,8 @@
 [workspace]
 members = [
-    "cpi",
+    "programs/*",
+    "cli",
+    "market_making"
 ]
 
 [profile.release]
