@@ -117,7 +117,7 @@ pub fn simulate_transaction<C: Clone + std::ops::Deref<Target = impl Signer>>(
     payer: Pubkey,
     program: &Program<C>,
     builder: &RequestBuilder<C>,
-) -> Result<Response<RpcSimulateTransactionResult>, Box<dyn std::error::Error>> {
+) -> Result<Response<RpcSimulateTransactionResult>> {
     let instructions = builder.instructions()?;
     let rpc_client = program.rpc();
     let recent_blockhash = rpc_client.get_latest_blockhash()?;

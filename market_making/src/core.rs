@@ -42,15 +42,11 @@ use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::Mutex;
-use ureq::get;
 pub struct Core {
     pub provider: Cluster,
     pub wallet: Option<String>,
     pub owner: Pubkey,
     pub config: Vec<PairConfig>,
-    // pub pair_address: Pubkey,
-    // pub min_x_amount: u64,
-    // pub min_y_amount: u64,
     pub state: Arc<Mutex<AllPosition>>,
 }
 
@@ -189,7 +185,7 @@ impl Core {
     }
 
     // withdraw all positions
-    pub async fn withdraw(&self, state: &SinglePosition) -> Result<()> {
+    pub async fn withdraw(&self, state: &SinglePosition, is_simulation: bool) -> Result<()> {
         // let state = self.get_state();
         if state.position_pks.len() == 0 {
             return Ok(());
@@ -289,8 +285,14 @@ impl Core {
                 .into_iter()
                 .fold(builder, |bld, ix| bld.instruction(ix));
 
-            let signature = send_tx(vec![&payer], payer.pubkey(), &program, &builder)?;
-            info!("close popsition {position} {signature}");
+            if is_simulation {
+                let response =
+                    simulate_transaction(vec![&payer], payer.pubkey(), &program, &builder)?;
+                println!("{:?}", response);
+            } else {
+                let signature = send_tx(vec![&payer], payer.pubkey(), &program, &builder)?;
+                info!("close popsition {position} {signature}");
+            }
         }
 
         Ok(())
@@ -302,6 +304,7 @@ impl Core {
         state: &SinglePosition,
         amount_in: u64,
         swap_for_y: bool,
+        is_simulation: bool,
     ) -> Result<SwapEvent> {
         // let state = self.get_state();
         let lb_pair_state = state.lb_pair_state;
@@ -397,6 +400,24 @@ impl Core {
             .accounts(accounts)
             .accounts(remaining_accounts)
             .args(ix);
+
+        if is_simulation {
+            let response = simulate_transaction(vec![&payer], payer.pubkey(), &program, &builder)?;
+            println!("{:?}", response);
+            return Ok(SwapEvent {
+                lb_pair: Pubkey::default(),
+                from: Pubkey::default(),
+                start_bin_id: 0,
+                end_bin_id: 0,
+                amount_in: 0,
+                amount_out: 0,
+                swap_for_y,
+                fee: 0,
+                protocol_fee: 0,
+                fee_bps: 0,
+                host_fee: 0,
+            });
+        }
 
         let signature = send_tx(vec![&payer], payer.pubkey(), &program, &builder)?;
         info!("swap {amount_in} {swap_for_y} {signature}");
@@ -623,23 +644,23 @@ impl Core {
             if pair_config.mode == MarketMakingMode::ModeRight
                 && position.lb_pair_state.active_id > position.max_bin_id
             {
-                self.inc_rebalance_time(position.lb_pair);
                 self.shift_right(&position).await?;
+                self.inc_rebalance_time(position.lb_pair);
             }
 
             if pair_config.mode == MarketMakingMode::ModeLeft
                 && position.lb_pair_state.active_id < position.min_bin_id
             {
-                self.inc_rebalance_time(position.lb_pair);
                 self.shift_left(&position).await?;
+                self.inc_rebalance_time(position.lb_pair);
             }
             if pair_config.mode == MarketMakingMode::ModeBoth {
                 if position.lb_pair_state.active_id < position.min_bin_id {
-                    self.inc_rebalance_time(position.lb_pair);
                     self.shift_left(&position).await?;
-                } else if position.lb_pair_state.active_id > position.max_bin_id {
                     self.inc_rebalance_time(position.lb_pair);
+                } else if position.lb_pair_state.active_id > position.max_bin_id {
                     self.shift_right(&position).await?;
+                    self.inc_rebalance_time(position.lb_pair);
                 }
             }
         }
@@ -652,23 +673,23 @@ impl Core {
         // validate that y amount is zero
         info!("shift right {}", state.lb_pair);
         let position = state.get_positions()?;
-        if position.amount_y != 0 {
-            return Err(Error::msg("Amount y is not zero"));
+        if position.amount_x != 0 {
+            return Err(Error::msg("Amount x is not zero"));
         }
 
         info!("withdraw {}", state.lb_pair);
         // withdraw
-        self.withdraw(state).await?;
+        self.withdraw(state, false).await?;
 
-        // sell base
-        let amount_x_for_sell = position
-            .amount_x
+        // buy base
+        let amount_y_for_buy = position
+            .amount_y
             .safe_div(2)
             .map_err(|_| Error::msg("Math is overflow"))?;
-        let (amount_x, amount_y) = if amount_x_for_sell != 0 {
+        let (amount_x, amount_y) = if amount_y_for_buy != 0 {
             info!("swap {}", state.lb_pair);
-            let swap_event = self.swap(state, amount_x_for_sell, true).await?;
-            (position.amount_x - amount_x_for_sell, swap_event.amount_out)
+            let swap_event = self.swap(state, amount_y_for_buy, false, false).await?;
+            (swap_event.amount_out, position.amount_y - amount_y_for_buy)
         } else {
             (pair_config.x_amount, pair_config.y_amount)
         };
@@ -687,22 +708,22 @@ impl Core {
         info!("shift left {}", state.lb_pair);
         // validate that y amount is zero
         let position = state.get_positions()?;
-        if position.amount_x != 0 {
-            return Err(Error::msg("Amount x is not zero"));
+        if position.amount_y != 0 {
+            return Err(Error::msg("Amount y is not zero"));
         }
         info!("withdraw {}", state.lb_pair);
         // withdraw
-        self.withdraw(state).await?;
+        self.withdraw(state, false).await?;
 
-        // buy base
-        let amount_y_for_buy = position
-            .amount_y
+        // sell base
+        let amount_x_for_sell = position
+            .amount_x
             .safe_div(2)
             .map_err(|_| Error::msg("Math is overflow"))?;
-        let (amount_x, amount_y) = if amount_y_for_buy != 0 {
+        let (amount_x, amount_y) = if amount_x_for_sell != 0 {
             info!("swap {}", state.lb_pair);
-            let swap_event = self.swap(state, amount_y_for_buy, false).await?;
-            (swap_event.amount_out, position.amount_y - amount_y_for_buy)
+            let swap_event = self.swap(state, amount_x_for_sell, true, false).await?;
+            (position.amount_x - amount_x_for_sell, swap_event.amount_out)
         } else {
             (pair_config.x_amount, pair_config.y_amount)
         };
@@ -737,5 +758,71 @@ impl Core {
             position_infos.push(position_raw.to_position_info(x_decimals, y_decimals)?);
         }
         return Ok(position_infos);
+    }
+}
+
+#[cfg(test)]
+mod core_test {
+    use super::*;
+    use std::env;
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_withdraw() {
+        let wallet = env::var("MM_WALLET").unwrap();
+        let cluster = env::var("MM_CLUSTER").unwrap();
+        let payer = read_keypair_file(wallet.clone()).unwrap();
+
+        let lp_pair = Pubkey::from_str("FoSDw2L5DmTuQTFe55gWPDXf88euaxAEKFre74CnvQbX").unwrap();
+
+        let config = vec![PairConfig {
+            pair_address: lp_pair.to_string(),
+            x_amount: 17000000,
+            y_amount: 2000000,
+            mode: MarketMakingMode::ModeBoth,
+        }];
+
+        let core = &Core {
+            provider: Cluster::from_str(&cluster).unwrap(),
+            wallet: Some(wallet),
+            owner: payer.pubkey(),
+            config: config.clone(),
+            state: Arc::new(Mutex::new(AllPosition::new(&config))),
+        };
+
+        core.refresh_state().await.unwrap();
+
+        let state = core.get_position_state(lp_pair);
+
+        // withdraw
+        core.withdraw(&state, true).await.unwrap();
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_swap() {
+        let wallet = env::var("MM_WALLET").unwrap();
+        let cluster = env::var("MM_CLUSTER").unwrap();
+        let payer = read_keypair_file(wallet.clone()).unwrap();
+
+        let lp_pair = Pubkey::from_str("FoSDw2L5DmTuQTFe55gWPDXf88euaxAEKFre74CnvQbX").unwrap();
+
+        let config = vec![PairConfig {
+            pair_address: lp_pair.to_string(),
+            x_amount: 17000000,
+            y_amount: 2000000,
+            mode: MarketMakingMode::ModeBoth,
+        }];
+
+        let core = &Core {
+            provider: Cluster::from_str(&cluster).unwrap(),
+            wallet: Some(wallet),
+            owner: payer.pubkey(),
+            config: config.clone(),
+            state: Arc::new(Mutex::new(AllPosition::new(&config))),
+        };
+
+        core.refresh_state().await.unwrap();
+
+        let state = core.get_position_state(lp_pair);
+
+        core.swap(&state, 1000000, true, true).await.unwrap();
     }
 }
