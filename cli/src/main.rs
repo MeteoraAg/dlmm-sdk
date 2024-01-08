@@ -362,18 +362,14 @@ fn main() -> Result<()> {
         }
         Command::SimulateSwapDemand {
             lb_pair,
-            min_x_amount,
-            max_x_amount,
-            min_y_amount,
-            max_y_amount,
+            x_amount,
+            y_amount,
             side_ratio,
         } => {
             let params = SimulateSwapDemandParameters {
                 lb_pair,
-                min_x_amount,
-                max_x_amount,
-                min_y_amount,
-                max_y_amount,
+                x_amount,
+                y_amount,
                 side_ratio,
             };
             simulate_swap_demand(params, &amm_program, transaction_config)?;
