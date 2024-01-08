@@ -1,3 +1,4 @@
+use crate::instructions::utils::get_or_create_ata;
 use crate::swap;
 use crate::SwapParameters;
 use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
@@ -11,10 +12,8 @@ use std::result::Result::Ok;
 #[derive(Debug)]
 pub struct SimulateSwapDemandParameters {
     pub lb_pair: Pubkey,
-    pub min_x_amount: u64, // ex: 10 jup
-    pub max_x_amount: u64, // ex: 1k jup
-    pub min_y_amount: u64, // ex: 10 usdc
-    pub max_y_amount: u64, // ex: 1k usdc
+    pub x_amount: f64, // ex: 10 jup
+    pub y_amount: f64, // ex: 1k jup
     pub side_ratio: u64,
 }
 
@@ -25,10 +24,8 @@ pub fn simulate_swap_demand<C: Deref<Target = impl Signer> + Clone>(
 ) -> Result<()> {
     let SimulateSwapDemandParameters {
         lb_pair,
-        min_x_amount,
-        min_y_amount,
-        max_x_amount,
-        max_y_amount,
+        x_amount,
+        y_amount,
         side_ratio,
     } = params;
 
@@ -36,17 +33,29 @@ pub fn simulate_swap_demand<C: Deref<Target = impl Signer> + Clone>(
     let token_mint_base: Mint = program.account(lb_pair_state.token_x_mint)?;
     let token_mint_quote: Mint = program.account(lb_pair_state.token_y_mint)?;
 
+    get_or_create_ata(
+        &program,
+        transaction_config,
+        lb_pair_state.token_x_mint,
+        program.payer(),
+    )?;
+    get_or_create_ata(
+        &program,
+        transaction_config,
+        lb_pair_state.token_y_mint,
+        program.payer(),
+    )?;
+
     // random amount
     let mut rng = rand::thread_rng();
     loop {
         let side = rng.gen_range(0..side_ratio);
         if side == 0 {
             // sell side
-            let amount_x = rng.gen_range(min_x_amount..max_x_amount);
-
-            println!("try to sell {amount_x} jup");
+            println!("try to sell {x_amount} jup");
+            let amount_x = x_amount * (10u64.pow(token_mint_base.decimals as u32) as f64);
             let params = SwapParameters {
-                amount_in: amount_x * 10u64.pow(token_mint_base.decimals as u32),
+                amount_in: amount_x.round() as u64,
                 lb_pair,
                 swap_for_y: true,
             };
@@ -58,11 +67,11 @@ pub fn simulate_swap_demand<C: Deref<Target = impl Signer> + Clone>(
             }
         } else {
             // buy side
-            let amount_y = rng.gen_range(min_y_amount..max_y_amount);
-            println!("try to buy with {amount_y} usd");
+            println!("try to buy with {y_amount} usd");
+            let amount_y = y_amount * (10u64.pow(token_mint_quote.decimals as u32) as f64);
 
             let params = SwapParameters {
-                amount_in: amount_y * 10u64.pow(token_mint_quote.decimals as u32),
+                amount_in: amount_y.round() as u64,
                 lb_pair,
                 swap_for_y: false,
             };

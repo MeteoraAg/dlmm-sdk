@@ -273,10 +273,8 @@ pub enum Command {
 
     SimulateSwapDemand {
         lb_pair: Pubkey,
-        min_x_amount: u64, // ex: 10 jup
-        max_x_amount: u64, // ex: 1k jup
-        min_y_amount: u64, // ex: 10 usdc
-        max_y_amount: u64, // ex: 1k usdc
+        x_amount: f64, // ex: 10 jup
+        y_amount: f64, // ex: 1k usdc
         side_ratio: u64,
     },
 
