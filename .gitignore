@@ -10,5 +10,6 @@ yarn.lock
 
 target/*
 !target/types
+!target/idl
 !target/debug/cli
 deployment
