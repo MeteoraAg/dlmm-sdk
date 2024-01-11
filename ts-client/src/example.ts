@@ -4,12 +4,13 @@ import {
   PublicKey,
   sendAndConfirmTransaction,
 } from "@solana/web3.js";
+import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import { DLMM } from "./dlmm";
 import { calculateSpotDistribution } from "./dlmm/helpers";
 import BN from "bn.js";
 
 const user = Keypair.fromSecretKey(
-  new Uint8Array(JSON.parse(process.env.USER_PRIVATE_KEY))
+  new Uint8Array(bs58.decode(process.env.USER_PRIVATE_KEY))
 );
 const RPC = process.env.RPC || "https://api.devnet.solana.com";
 const connection = new Connection(RPC, "finalized");
@@ -44,7 +45,7 @@ async function main() {
     Number(activeBin.price)
   );
   const totalXAmount = new BN(100);
-  const totalYAmount = totalXAmount.mul(new BN(activeBinPricePerToken));
+  const totalYAmount = totalXAmount.mul(new BN(Number(activeBinPricePerToken)));
 
   // Get spot distribution
   const spotXYAmountDistribution = calculateSpotDistribution(
@@ -52,7 +53,7 @@ async function main() {
     bins
   );
 
-  // Add Liquidity
+  // Create Position
   const newPosition = new Keypair();
   const createPositionTx =
     await dlmmPool.initializePositionAndAddLiquidityByWeight({
@@ -71,8 +72,7 @@ async function main() {
       const createPositionTxHash = await sendAndConfirmTransaction(
         connection,
         tx,
-        [user, newPosition],
-        { skipPreflight: false, preflightCommitment: "singleGossip" }
+        [user, newPosition]
       );
       console.log("🚀 ~ createPositionTxHash:", createPositionTxHash);
     }
@@ -82,9 +82,34 @@ async function main() {
 
   // Get position state
   const { userPositions } = await dlmmPool.getPositionsByUserAndLbPair(
-    newPosition.publicKey
+    user.publicKey
   );
   console.log("🚀 ~ userPositions:", userPositions);
+
+  // Add Liquidity to existing position
+  const addLiquidityTx = await dlmmPool.addLiquidityByWeight({
+    positionPubKey: userPositions[0].publicKey,
+    lbPairPubKey: dlmmPool.pubkey,
+    user: user.publicKey,
+    totalXAmount,
+    totalYAmount,
+    xYAmountDistribution: spotXYAmountDistribution,
+  });
+
+  try {
+    for (let tx of Array.isArray(addLiquidityTx)
+      ? addLiquidityTx
+      : [addLiquidityTx]) {
+      const addLiquidityTxHash = await sendAndConfirmTransaction(
+        connection,
+        tx,
+        [user, newPosition]
+      );
+      console.log("🚀 ~ addLiquidityTxHash:", addLiquidityTxHash);
+    }
+  } catch (error) {
+    console.log("🚀 ~ error:", JSON.parse(JSON.stringify(error)));
+  }
 
   // Remove Liquidity
   const binIdsToRemove = userPositions[0].positionData.positionBinData.map(
@@ -110,7 +135,7 @@ async function main() {
         [user, newPosition],
         { skipPreflight: false, preflightCommitment: "singleGossip" }
       );
-      console.log("🚀 ~ createPositionTxHash:", removeLiquidityTxHash);
+      console.log("🚀 ~ removeLiquidityTxHash:", removeLiquidityTxHash);
     }
   } catch (error) {
     console.log("🚀 ~ error:", JSON.parse(JSON.stringify(error)));
