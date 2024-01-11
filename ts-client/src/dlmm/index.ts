@@ -1,6 +1,5 @@
 import {
   Cluster,
-  ComputeBudgetProgram,
   Connection,
   PublicKey,
   TransactionInstruction,
@@ -79,6 +78,7 @@ import {
   deriveLbPair,
   deriveOracle,
   derivePresetParameter,
+  computeBudgetIx,
 } from "./helpers";
 import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import Decimal from "decimal.js";
@@ -1453,9 +1453,7 @@ export class DLMM {
       closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
     }
 
-    const setComputeUnitLimitIx = ComputeBudgetProgram.setComputeUnitLimit({
-      units: 1_400_000,
-    });
+    const setComputeUnitLimitIx = computeBudgetIx();
 
     const minBinId = Math.min(...binIds);
     const maxBinId = Math.max(...binIds);
@@ -1745,9 +1743,7 @@ export class DLMM {
       closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
     }
 
-    const setComputeUnitLimitIx = ComputeBudgetProgram.setComputeUnitLimit({
-      units: 1_400_000,
-    });
+    const setComputeUnitLimitIx = computeBudgetIx();
 
     const liquidityParams: LiquidityParameterByWeight = {
       amountX: totalXAmount,
@@ -1909,9 +1905,7 @@ export class DLMM {
     );
 
     const preInstructions: Array<TransactionInstruction> = [];
-    const setComputeUnitLimitIx = ComputeBudgetProgram.setComputeUnitLimit({
-      units: 1_400_000,
-    });
+    const setComputeUnitLimitIx = computeBudgetIx();
     preInstructions.push(setComputeUnitLimitIx);
 
     const [
@@ -2093,7 +2087,7 @@ export class DLMM {
     position,
   }: {
     owner: PublicKey;
-    position: { publicKey: PublicKey; positionData: PositionData };
+    position: Position;
   }): Promise<Transaction> {
     const { lowerBinId } = await this.program.account.positionV2.fetch(
       position.publicKey
@@ -2287,11 +2281,7 @@ export class DLMM {
     const { tokenXMint, tokenYMint, reserveX, reserveY, activeId, oracle } =
       await this.program.account.lbPair.fetch(lbPair);
 
-    const preInstructions: TransactionInstruction[] = [
-      ComputeBudgetProgram.setComputeUnitLimit({
-        units: 1_400_000,
-      }),
-    ];
+    const preInstructions: TransactionInstruction[] = [computeBudgetIx()];
 
     const [
       { ataPubKey: userTokenIn, ix: createInTokenAccountIx },
@@ -2422,16 +2412,17 @@ export class DLMM {
 
     const chunkedClaimAllTx = chunks(claimAllTxs, MAX_CLAIM_ALL_ALLOWED);
 
+    const { blockhash, lastValidBlockHeight } =
+      await this.program.provider.connection.getLatestBlockhash("confirmed");
     return Promise.all(
       chunkedClaimAllTx.map(async (claimAllTx) => {
         return new Transaction({
           feePayer: owner,
-          ...(await this.program.provider.connection.getLatestBlockhash(
-            "finalized"
-          )),
+          blockhash,
+          lastValidBlockHeight,
         })
-          .add(...claimAllTx)
-          .add(ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 }));
+          .add(computeBudgetIx())
+          .add(...claimAllTx);
       })
     );
   }
@@ -2466,7 +2457,7 @@ export class DLMM {
    * @param
    *    - `owner`: The public key of the owner of the positions.
    *    - `positions`: An array of objects of type `PositionData` that represents the positions to claim swap fees from.
-   * @returns a Promise that resolves to an array of Transaction objects.
+   * @returns {Promise<Transaction[]>}
    */
   public async claimAllSwapFee({
     owner,
@@ -2492,12 +2483,58 @@ export class DLMM {
 
     return Promise.all(
       chunkedClaimAllTx.map(async (claimAllTx) => {
+        const { recentBlockhash, lastValidBlockHeight } = claimAllTx[0];
         return new Transaction({
           feePayer: owner,
-          ...(await this.program.provider.connection.getLatestBlockhash(
-            "finalized"
-          )),
-        }).add(...claimAllTx);
+          blockhash: recentBlockhash,
+          lastValidBlockHeight,
+        })
+          .add(computeBudgetIx())
+          .add(...claimAllTx);
+      })
+    );
+  }
+
+  /**
+   * The function `claimAllRewardsByPosition` allows a user to claim all rewards for a specific
+   * position.
+   * @param
+   *    - `owner`: The public key of the owner of the position.
+   *    - `position`: The public key of the position account.
+   * @returns {Promise<Transaction[]>}
+   */
+  public async claimAllRewardsByPosition({
+    owner,
+    position,
+  }: {
+    owner: PublicKey;
+    position: Position;
+  }): Promise<Transaction[]> {
+    const claimAllSwapFeeTxs = await this.createClaimSwapFeeMethod({
+      owner,
+      position,
+    });
+    const claimAllLMTxs = await this.createClaimBuildMethod({
+      owner,
+      position,
+    });
+
+    const claimAllTxs = chunks(
+      [claimAllSwapFeeTxs, ...claimAllLMTxs],
+      MAX_CLAIM_ALL_ALLOWED
+    );
+
+    const { blockhash, lastValidBlockHeight } =
+      await this.program.provider.connection.getLatestBlockhash("confirmed");
+    return Promise.all(
+      claimAllTxs.map(async (claimAllTx) => {
+        return new Transaction({
+          feePayer: owner,
+          blockhash,
+          lastValidBlockHeight,
+        })
+          .add(computeBudgetIx())
+          .add(...claimAllTx);
       })
     );
   }
@@ -2546,14 +2583,17 @@ export class DLMM {
       MAX_CLAIM_ALL_ALLOWED
     );
 
+    const { blockhash, lastValidBlockHeight } =
+      await this.program.provider.connection.getLatestBlockhash("confirmed");
     return Promise.all(
       chunkedClaimAllTx.map(async (claimAllTx) => {
         return new Transaction({
           feePayer: owner,
-          ...(await this.program.provider.connection.getLatestBlockhash(
-            "finalized"
-          )),
-        }).add(...claimAllTx);
+          blockhash,
+          lastValidBlockHeight,
+        })
+          .add(computeBudgetIx())
+          .add(...claimAllTx);
       })
     );
   }
@@ -3163,7 +3203,7 @@ export class DLMM {
       const rewardInfo = this.lbPair.rewardInfos[i];
       if (!rewardInfo || rewardInfo.mint.equals(PublicKey.default)) continue;
 
-      const preInstructions: Array<TransactionInstruction> = [];
+      const preInstructions = [];
       const { ataPubKey, ix } = await getOrCreateATAInstruction(
         this.program.provider.connection,
         rewardInfo.mint,
@@ -3230,10 +3270,6 @@ export class DLMM {
     );
 
     const preInstructions: TransactionInstruction[] = [];
-    const computeBudgetIx = ComputeBudgetProgram.setComputeUnitLimit({
-      units: 1_400_000,
-    });
-    preInstructions.push(computeBudgetIx);
     const [
       { ataPubKey: userTokenX, ix: createInTokenAccountIx },
       { ataPubKey: userTokenY, ix: createOutTokenAccountIx },
