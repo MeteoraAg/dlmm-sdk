@@ -13,3 +13,5 @@ target/*
 !target/idl
 !target/debug/cli
 deployment
+
+ts-client/dist
