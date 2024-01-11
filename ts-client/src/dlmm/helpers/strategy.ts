@@ -9,8 +9,7 @@ import {
 } from "../types";
 import Decimal from "decimal.js";
 
-/** private */
-function getPriceOfBinByBinId(binId: number, binStep: number): Decimal {
+export function getPriceOfBinByBinId(binId: number, binStep: number): Decimal {
   const binStepNum = new Decimal(binStep).div(new Decimal(BASIS_POINT_MAX));
   return new Decimal(1).add(new Decimal(binStepNum)).pow(new Decimal(binId));
 }
