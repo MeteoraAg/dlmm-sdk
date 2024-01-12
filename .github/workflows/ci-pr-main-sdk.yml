@@ -4,7 +4,6 @@ on:
   pull_request:
     branches:
       - main
-      - main-update-non-audit-2
 
 env:
   SOLANA_CLI_VERSION: 1.16.1

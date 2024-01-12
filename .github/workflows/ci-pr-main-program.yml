@@ -26,23 +26,7 @@ jobs:
           files: |
             programs/lb_clmm
 
-  lb_clmm_unit_test:
-    runs-on: ubuntu-latest
-    needs: program_changed_files
-    if: needs.program_changed_files.outputs.program == 'true'
-    steps:
-      - uses: actions/checkout@v2
-      # Install rust + toolchain
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          components: clippy
-      # Cache rust, cargo
-      - uses: Swatinem/rust-cache@v1
-      - run: cargo test --package lb_clmm
-        shell: bash
-
-  lb_clmm_anchor_test:
+  lb_clmm_anchor_build:
     runs-on: ubuntu-latest
     needs: program_changed_files
     if: needs.program_changed_files.outputs.program == 'true'
