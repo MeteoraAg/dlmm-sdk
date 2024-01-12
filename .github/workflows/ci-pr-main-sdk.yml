@@ -44,11 +44,11 @@ jobs:
       - uses: actions/cache@v2
         id: cache-node-modules
         with:
-          path: ./sdk/node_modules
+          path: ./ts-client/node_modules
           key: ${{ runner.os }}-${{ hashFiles('./package-lock.json') }}
       - run: anchor build -- --features localnet
         shell: bash
       - run: anchor localnet -- --features localnet & sleep 2
         shell: bash
-      - run: cd sdk && npm install && npm run test
+      - run: cd ts-client && npm install && npm run test
         shell: bash
