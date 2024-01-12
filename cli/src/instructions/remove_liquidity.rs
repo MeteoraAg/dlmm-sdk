@@ -74,7 +74,7 @@ pub fn remove_liquidity<C: Deref<Target = impl Signer> + Clone>(
         reserve_y: lb_pair_state.reserve_y,
         token_x_mint: lb_pair_state.token_x_mint,
         token_y_mint: lb_pair_state.token_y_mint,
-        owner: program.payer(),
+        sender: program.payer(),
         user_token_x,
         user_token_y,
         token_x_program: anchor_spl::token::ID,

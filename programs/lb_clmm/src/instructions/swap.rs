@@ -1,10 +1,9 @@
 use crate::errors::LBError;
 use crate::state::bin_array_bitmap_extension::BinArrayBitmapExtension;
+use crate::state::lb_pair::*;
 use crate::state::oracle::Oracle;
-use crate::state::{bin::BinArray, lb_pair::*};
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
-use std::cell::RefMut;
 
 #[event_cpi]
 #[derive(Accounts)]
@@ -55,7 +54,6 @@ pub struct Swap<'info> {
     pub token_y_program: Interface<'info, TokenInterface>,
 }
 
-/// BinArray needs to be passed in remaining accounts, refer CLI for swap tx
 pub fn handle<'a, 'b, 'c, 'info>(
     ctx: Context<'a, 'b, 'c, 'info, Swap<'info>>,
     amount_in: u64,

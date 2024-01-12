@@ -1,5 +1,6 @@
 use anchor_lang::prelude::*;
 
+use crate::authorize_modify_position;
 use crate::state::{bin::BinArray, lb_pair::LbPair, position::PositionV2};
 
 #[event_cpi]
@@ -7,8 +8,8 @@ use crate::state::{bin::BinArray, lb_pair::LbPair, position::PositionV2};
 pub struct ClosePosition<'info> {
     #[account(
         mut,
-        has_one = owner,
         has_one = lb_pair,
+        constraint = authorize_modify_position(&position, sender.key())?,
         close = rent_receiver
     )]
     pub position: AccountLoader<'info, PositionV2>,
@@ -27,7 +28,7 @@ pub struct ClosePosition<'info> {
     )]
     pub bin_array_upper: AccountLoader<'info, BinArray>,
 
-    pub owner: Signer<'info>,
+    pub sender: Signer<'info>,
 
     /// CHECK: Account to receive closed account rental SOL
     #[account(mut)]

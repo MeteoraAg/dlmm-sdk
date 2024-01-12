@@ -1,6 +1,7 @@
 use std::ops::Deref;
 
 use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
+use anchor_client::solana_sdk::signature::Keypair;
 use anchor_client::{solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, Program};
 
 use anchor_spl::token::Mint;
@@ -62,7 +63,9 @@ pub fn initialize_lb_pair<C: Deref<Target = impl Signer> + Clone>(
     let (preset_parameter, _bump) = derive_preset_parameter_pda(bin_step);
 
     if permission {
+        let base_kp = Keypair::new();
         let accounts = accounts::InitializePermissionLbPair {
+            base: base_kp.pubkey(),
             lb_pair,
             bin_array_bitmap_extension: None,
             reserve_x,
@@ -70,7 +73,7 @@ pub fn initialize_lb_pair<C: Deref<Target = impl Signer> + Clone>(
             token_mint_x,
             token_mint_y,
             oracle,
-            funder: program.payer(),
+            admin: program.payer(),
             preset_parameter,
             rent: anchor_client::solana_sdk::sysvar::rent::ID,
             system_program: anchor_client::solana_sdk::system_program::ID,
@@ -88,6 +91,7 @@ pub fn initialize_lb_pair<C: Deref<Target = impl Signer> + Clone>(
         let signature = request_builder
             .accounts(accounts)
             .args(ix)
+            .signer(&base_kp)
             .send_with_spinner_and_config(transaction_config);
 
         println!("Initialize Permission LB pair {lb_pair}. Signature: {signature:#?}");

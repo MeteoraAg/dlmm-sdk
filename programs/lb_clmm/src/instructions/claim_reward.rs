@@ -1,3 +1,4 @@
+use crate::authorize_modify_position;
 use crate::state::{bin::BinArray, lb_pair::LbPair, position::PositionV2};
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
@@ -12,7 +13,7 @@ pub struct ClaimReward<'info> {
     #[account(
         mut,
         has_one = lb_pair,
-        has_one = owner
+        constraint = authorize_modify_position(&position, sender.key())?
     )]
     pub position: AccountLoader<'info, PositionV2>,
 
@@ -27,7 +28,7 @@ pub struct ClaimReward<'info> {
     )]
     pub bin_array_upper: AccountLoader<'info, BinArray>,
 
-    pub owner: Signer<'info>,
+    pub sender: Signer<'info>,
 
     #[account(mut)]
     pub reward_vault: Box<InterfaceAccount<'info, TokenAccount>>,
@@ -39,6 +40,7 @@ pub struct ClaimReward<'info> {
     pub token_program: Interface<'info, TokenInterface>,
 }
 
+// TODO: Should we pass in range of bin we are going to collect reward ? It could help us in heap / compute unit issue by chunking into multiple tx.
 pub fn handle(ctx: Context<ClaimReward>, index: u64) -> Result<()> {
     Ok(())
 }

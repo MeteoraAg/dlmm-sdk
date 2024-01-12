@@ -1,3 +1,4 @@
+use crate::assert_eq_admin;
 use crate::constants::DEFAULT_OBSERVATION_LENGTH;
 use crate::errors::LBError;
 use crate::state::bin_array_bitmap_extension::BinArrayBitmapExtension;
@@ -6,7 +7,6 @@ use crate::state::oracle::Oracle;
 use crate::state::preset_parameters::PresetParameter;
 use crate::utils::seeds::BIN_ARRAY_BITMAP_SEED;
 use crate::utils::seeds::ORACLE;
-use crate::utils::seeds::PERMISSION as PERMISSION_SEED;
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use std::cmp::{max, min};
@@ -15,16 +15,18 @@ use std::cmp::{max, min};
 #[derive(Accounts)]
 #[instruction(active_id: i32, bin_step: u16)]
 pub struct InitializePermissionLbPair<'info> {
+    pub base: Signer<'info>,
+
     #[account(
         init,
         seeds = [
-            PERMISSION_SEED,
+            base.key().as_ref(),
             min(token_mint_x.key(), token_mint_y.key()).as_ref(),
             max(token_mint_x.key(), token_mint_y.key()).as_ref(),
             &bin_step.to_le_bytes(),
         ],
         bump,
-        payer = funder,
+        payer = admin,
         space = 8 + LbPair::INIT_SPACE
     )]
     pub lb_pair: AccountLoader<'info, LbPair>,
@@ -36,7 +38,7 @@ pub struct InitializePermissionLbPair<'info> {
             lb_pair.key().as_ref(),
         ],
         bump,
-        payer = funder,
+        payer = admin,
         space = 8 + BinArrayBitmapExtension::INIT_SPACE
     )]
     pub bin_array_bitmap_extension: Option<AccountLoader<'info, BinArrayBitmapExtension>>,
@@ -52,7 +54,7 @@ pub struct InitializePermissionLbPair<'info> {
             token_mint_x.key().as_ref()
         ],
         bump,
-        payer = funder,
+        payer = admin,
         token::mint = token_mint_x,
         token::authority = lb_pair,
     )]
@@ -64,7 +66,7 @@ pub struct InitializePermissionLbPair<'info> {
             token_mint_y.key().as_ref()
         ],
         bump,
-        payer = funder,
+        payer = admin,
         token::mint = token_mint_y,
         token::authority = lb_pair,
     )]
@@ -77,7 +79,7 @@ pub struct InitializePermissionLbPair<'info> {
             lb_pair.key().as_ref()
         ],
         bump,
-        payer = funder,
+        payer = admin,
         space = Oracle::space(DEFAULT_OBSERVATION_LENGTH)
     )]
     pub oracle: AccountLoader<'info, Oracle>,
@@ -87,8 +89,11 @@ pub struct InitializePermissionLbPair<'info> {
     )]
     pub preset_parameter: Account<'info, PresetParameter>,
 
-    #[account(mut)]
-    pub funder: Signer<'info>,
+    #[account(
+        mut,
+        constraint = assert_eq_admin(admin.key()) @ LBError::InvalidAdmin,
+    )]
+    pub admin: Signer<'info>,
 
     // #[account(address = Token2022::id())]
     pub token_program: Interface<'info, TokenInterface>,

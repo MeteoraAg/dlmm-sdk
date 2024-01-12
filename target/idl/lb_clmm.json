@@ -209,6 +209,11 @@
       "name": "initializePermissionLbPair",
       "accounts": [
         {
+          "name": "base",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
           "name": "lbPair",
           "isMut": true,
           "isSigner": false
@@ -250,7 +255,7 @@
           "isSigner": false
         },
         {
-          "name": "funder",
+          "name": "admin",
           "isMut": true,
           "isSigner": true
         },
@@ -416,7 +421,7 @@
           "isSigner": false
         },
         {
-          "name": "owner",
+          "name": "sender",
           "isMut": false,
           "isSigner": true
         },
@@ -510,7 +515,7 @@
           "isSigner": false
         },
         {
-          "name": "owner",
+          "name": "sender",
           "isMut": false,
           "isSigner": true
         },
@@ -604,7 +609,7 @@
           "isSigner": false
         },
         {
-          "name": "owner",
+          "name": "sender",
           "isMut": false,
           "isSigner": true
         },
@@ -683,7 +688,7 @@
           "isSigner": false
         },
         {
-          "name": "owner",
+          "name": "sender",
           "isMut": false,
           "isSigner": true
         },
@@ -757,7 +762,7 @@
           "isSigner": false
         },
         {
-          "name": "owner",
+          "name": "sender",
           "isMut": false,
           "isSigner": true
         },
@@ -846,7 +851,7 @@
           "isSigner": false
         },
         {
-          "name": "owner",
+          "name": "sender",
           "isMut": false,
           "isSigner": true
         },
@@ -963,7 +968,10 @@
         {
           "name": "owner",
           "isMut": false,
-          "isSigner": true
+          "isSigner": true,
+          "docs": [
+            "owner"
+          ]
         },
         {
           "name": "systemProgram",
@@ -994,6 +1002,104 @@
         {
           "name": "width",
           "type": "i32"
+        }
+      ]
+    },
+    {
+      "name": "initializePositionByOperator",
+      "accounts": [
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "base",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "position",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "lbPair",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "operator",
+          "isMut": false,
+          "isSigner": true,
+          "docs": [
+            "operator"
+          ]
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "rent",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "lowerBinId",
+          "type": "i32"
+        },
+        {
+          "name": "width",
+          "type": "i32"
+        },
+        {
+          "name": "owner",
+          "type": "publicKey"
+        }
+      ]
+    },
+    {
+      "name": "updatePositionOperator",
+      "accounts": [
+        {
+          "name": "position",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "owner",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "operator",
+          "type": "publicKey"
         }
       ]
     },
@@ -1402,7 +1508,7 @@
           "isSigner": false
         },
         {
-          "name": "owner",
+          "name": "sender",
           "isMut": false,
           "isSigner": true
         },
@@ -1468,7 +1574,7 @@
           "isSigner": false
         },
         {
-          "name": "owner",
+          "name": "sender",
           "isMut": false,
           "isSigner": true
         },
@@ -1544,7 +1650,7 @@
           "isSigner": false
         },
         {
-          "name": "owner",
+          "name": "sender",
           "isMut": false,
           "isSigner": true
         },
@@ -1749,7 +1855,7 @@
           "isSigner": false
         },
         {
-          "name": "owner",
+          "name": "sender",
           "isMut": false,
           "isSigner": true
         },
@@ -2235,9 +2341,16 @@
             "type": {
               "array": [
                 "publicKey",
-                3
+                2
               ]
             }
+          },
+          {
+            "name": "baseKey",
+            "docs": [
+              "Base keypair. Only required for permission pair"
+            ],
+            "type": "publicKey"
           },
           {
             "name": "reserved",
@@ -2511,6 +2624,13 @@
             }
           },
           {
+            "name": "operator",
+            "docs": [
+              "Operator of position"
+            ],
+            "type": "publicKey"
+          },
+          {
             "name": "reserved",
             "docs": [
               "Reserved space for future use"
@@ -2518,7 +2638,7 @@
             "type": {
               "array": [
                 "u8",
-                160
+                128
               ]
             }
           }
@@ -2739,13 +2859,30 @@
           {
             "name": "aAsk",
             "docs": [
-              "amplification"
+              "amplification in ask side"
             ],
             "type": "i16"
           },
           {
             "name": "aBid",
+            "docs": [
+              "amplification in bid side"
+            ],
             "type": "i16"
+          },
+          {
+            "name": "aActiveBin",
+            "docs": [
+              "amplification in active bin"
+            ],
+            "type": "i16"
+          },
+          {
+            "name": "centerBinId",
+            "docs": [
+              "center bin id"
+            ],
+            "type": "i32"
           }
         ]
       }
@@ -3982,6 +4119,26 @@
           "index": false
         }
       ]
+    },
+    {
+      "name": "UpdatePositionOperator",
+      "fields": [
+        {
+          "name": "position",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "oldOperator",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "newOperator",
+          "type": "publicKey",
+          "index": false
+        }
+      ]
     }
   ],
   "errors": [
@@ -4225,8 +4382,5 @@
       "name": "MustWithdrawnIneligibleReward",
       "msg": "Must withdraw ineligible reward"
     }
-  ],
-  "metadata": {
-    "address": "GrAkKfEpTKQuVHG2Y97Y2FF4i7y7Q5AHLK94JBy7Y5yv"
-  }
+  ]
 }

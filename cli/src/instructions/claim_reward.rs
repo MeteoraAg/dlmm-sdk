@@ -47,7 +47,7 @@ pub fn claim_reward<C: Deref<Target = impl Signer> + Clone>(
         token_program: anchor_spl::token::ID,
         position,
         user_token_account,
-        owner: program.payer(),
+        sender: program.payer(),
         event_authority,
         program: lb_clmm::ID,
     };
