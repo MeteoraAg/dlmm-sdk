@@ -1,8 +1,15 @@
+use crate::authorize_modify_position;
 use crate::state::bin_array_bitmap_extension::BinArrayBitmapExtension;
 use crate::state::position::PositionV2;
 use crate::state::{bin::BinArray, lb_pair::LbPair};
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
+
+pub struct CompositeDepositInfo {
+    pub liquidity_share: u128,
+    pub protocol_token_x_fee_amount: u64,
+    pub protocol_token_y_fee_amount: u64,
+}
 
 #[derive(AnchorSerialize, AnchorDeserialize, Eq, PartialEq, Clone, Debug)]
 pub struct BinLiquidityDistribution {
@@ -30,7 +37,7 @@ pub struct ModifyLiquidity<'info> {
     #[account(
         mut,
         has_one = lb_pair,
-        has_one = owner
+        constraint = authorize_modify_position(&position, sender.key())?
     )]
     pub position: AccountLoader<'info, PositionV2>,
 
@@ -79,7 +86,7 @@ pub struct ModifyLiquidity<'info> {
     )]
     pub bin_array_upper: AccountLoader<'info, BinArray>,
 
-    pub owner: Signer<'info>,
+    pub sender: Signer<'info>,
     pub token_x_program: Interface<'info, TokenInterface>,
     pub token_y_program: Interface<'info, TokenInterface>,
 }

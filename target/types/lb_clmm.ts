@@ -209,6 +209,11 @@ export type LbClmm = {
       "name": "initializePermissionLbPair",
       "accounts": [
         {
+          "name": "base",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
           "name": "lbPair",
           "isMut": true,
           "isSigner": false
@@ -250,7 +255,7 @@ export type LbClmm = {
           "isSigner": false
         },
         {
-          "name": "funder",
+          "name": "admin",
           "isMut": true,
           "isSigner": true
         },
@@ -416,7 +421,7 @@ export type LbClmm = {
           "isSigner": false
         },
         {
-          "name": "owner",
+          "name": "sender",
           "isMut": false,
           "isSigner": true
         },
@@ -510,7 +515,7 @@ export type LbClmm = {
           "isSigner": false
         },
         {
-          "name": "owner",
+          "name": "sender",
           "isMut": false,
           "isSigner": true
         },
@@ -604,7 +609,7 @@ export type LbClmm = {
           "isSigner": false
         },
         {
-          "name": "owner",
+          "name": "sender",
           "isMut": false,
           "isSigner": true
         },
@@ -683,7 +688,7 @@ export type LbClmm = {
           "isSigner": false
         },
         {
-          "name": "owner",
+          "name": "sender",
           "isMut": false,
           "isSigner": true
         },
@@ -757,7 +762,7 @@ export type LbClmm = {
           "isSigner": false
         },
         {
-          "name": "owner",
+          "name": "sender",
           "isMut": false,
           "isSigner": true
         },
@@ -846,7 +851,7 @@ export type LbClmm = {
           "isSigner": false
         },
         {
-          "name": "owner",
+          "name": "sender",
           "isMut": false,
           "isSigner": true
         },
@@ -963,7 +968,10 @@ export type LbClmm = {
         {
           "name": "owner",
           "isMut": false,
-          "isSigner": true
+          "isSigner": true,
+          "docs": [
+            "owner"
+          ]
         },
         {
           "name": "systemProgram",
@@ -994,6 +1002,104 @@ export type LbClmm = {
         {
           "name": "width",
           "type": "i32"
+        }
+      ]
+    },
+    {
+      "name": "initializePositionByOperator",
+      "accounts": [
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "base",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "position",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "lbPair",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "operator",
+          "isMut": false,
+          "isSigner": true,
+          "docs": [
+            "operator"
+          ]
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "rent",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "lowerBinId",
+          "type": "i32"
+        },
+        {
+          "name": "width",
+          "type": "i32"
+        },
+        {
+          "name": "owner",
+          "type": "publicKey"
+        }
+      ]
+    },
+    {
+      "name": "updatePositionOperator",
+      "accounts": [
+        {
+          "name": "position",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "owner",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "operator",
+          "type": "publicKey"
         }
       ]
     },
@@ -1402,7 +1508,7 @@ export type LbClmm = {
           "isSigner": false
         },
         {
-          "name": "owner",
+          "name": "sender",
           "isMut": false,
           "isSigner": true
         },
@@ -1468,7 +1574,7 @@ export type LbClmm = {
           "isSigner": false
         },
         {
-          "name": "owner",
+          "name": "sender",
           "isMut": false,
           "isSigner": true
         },
@@ -1544,7 +1650,7 @@ export type LbClmm = {
           "isSigner": false
         },
         {
-          "name": "owner",
+          "name": "sender",
           "isMut": false,
           "isSigner": true
         },
@@ -1749,7 +1855,7 @@ export type LbClmm = {
           "isSigner": false
         },
         {
-          "name": "owner",
+          "name": "sender",
           "isMut": false,
           "isSigner": true
         },
@@ -2235,9 +2341,16 @@ export type LbClmm = {
             "type": {
               "array": [
                 "publicKey",
-                3
+                2
               ]
             }
+          },
+          {
+            "name": "baseKey",
+            "docs": [
+              "Base keypair. Only required for permission pair"
+            ],
+            "type": "publicKey"
           },
           {
             "name": "reserved",
@@ -2511,6 +2624,13 @@ export type LbClmm = {
             }
           },
           {
+            "name": "operator",
+            "docs": [
+              "Operator of position"
+            ],
+            "type": "publicKey"
+          },
+          {
             "name": "reserved",
             "docs": [
               "Reserved space for future use"
@@ -2518,7 +2638,7 @@ export type LbClmm = {
             "type": {
               "array": [
                 "u8",
-                160
+                128
               ]
             }
           }
@@ -2739,13 +2859,30 @@ export type LbClmm = {
           {
             "name": "aAsk",
             "docs": [
-              "amplification"
+              "amplification in ask side"
             ],
             "type": "i16"
           },
           {
             "name": "aBid",
+            "docs": [
+              "amplification in bid side"
+            ],
             "type": "i16"
+          },
+          {
+            "name": "aActiveBin",
+            "docs": [
+              "amplification in active bin"
+            ],
+            "type": "i16"
+          },
+          {
+            "name": "centerBinId",
+            "docs": [
+              "center bin id"
+            ],
+            "type": "i32"
           }
         ]
       }
@@ -3979,6 +4116,26 @@ export type LbClmm = {
         {
           "name": "amount",
           "type": "u64",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "UpdatePositionOperator",
+      "fields": [
+        {
+          "name": "position",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "oldOperator",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "newOperator",
+          "type": "publicKey",
           "index": false
         }
       ]
@@ -4439,6 +4596,11 @@ export const IDL: LbClmm = {
       "name": "initializePermissionLbPair",
       "accounts": [
         {
+          "name": "base",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
           "name": "lbPair",
           "isMut": true,
           "isSigner": false
@@ -4480,7 +4642,7 @@ export const IDL: LbClmm = {
           "isSigner": false
         },
         {
-          "name": "funder",
+          "name": "admin",
           "isMut": true,
           "isSigner": true
         },
@@ -4646,7 +4808,7 @@ export const IDL: LbClmm = {
           "isSigner": false
         },
         {
-          "name": "owner",
+          "name": "sender",
           "isMut": false,
           "isSigner": true
         },
@@ -4740,7 +4902,7 @@ export const IDL: LbClmm = {
           "isSigner": false
         },
         {
-          "name": "owner",
+          "name": "sender",
           "isMut": false,
           "isSigner": true
         },
@@ -4834,7 +4996,7 @@ export const IDL: LbClmm = {
           "isSigner": false
         },
         {
-          "name": "owner",
+          "name": "sender",
           "isMut": false,
           "isSigner": true
         },
@@ -4913,7 +5075,7 @@ export const IDL: LbClmm = {
           "isSigner": false
         },
         {
-          "name": "owner",
+          "name": "sender",
           "isMut": false,
           "isSigner": true
         },
@@ -4987,7 +5149,7 @@ export const IDL: LbClmm = {
           "isSigner": false
         },
         {
-          "name": "owner",
+          "name": "sender",
           "isMut": false,
           "isSigner": true
         },
@@ -5076,7 +5238,7 @@ export const IDL: LbClmm = {
           "isSigner": false
         },
         {
-          "name": "owner",
+          "name": "sender",
           "isMut": false,
           "isSigner": true
         },
@@ -5193,7 +5355,10 @@ export const IDL: LbClmm = {
         {
           "name": "owner",
           "isMut": false,
-          "isSigner": true
+          "isSigner": true,
+          "docs": [
+            "owner"
+          ]
         },
         {
           "name": "systemProgram",
@@ -5224,6 +5389,104 @@ export const IDL: LbClmm = {
         {
           "name": "width",
           "type": "i32"
+        }
+      ]
+    },
+    {
+      "name": "initializePositionByOperator",
+      "accounts": [
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "base",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "position",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "lbPair",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "operator",
+          "isMut": false,
+          "isSigner": true,
+          "docs": [
+            "operator"
+          ]
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "rent",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "lowerBinId",
+          "type": "i32"
+        },
+        {
+          "name": "width",
+          "type": "i32"
+        },
+        {
+          "name": "owner",
+          "type": "publicKey"
+        }
+      ]
+    },
+    {
+      "name": "updatePositionOperator",
+      "accounts": [
+        {
+          "name": "position",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "owner",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "operator",
+          "type": "publicKey"
         }
       ]
     },
@@ -5632,7 +5895,7 @@ export const IDL: LbClmm = {
           "isSigner": false
         },
         {
-          "name": "owner",
+          "name": "sender",
           "isMut": false,
           "isSigner": true
         },
@@ -5698,7 +5961,7 @@ export const IDL: LbClmm = {
           "isSigner": false
         },
         {
-          "name": "owner",
+          "name": "sender",
           "isMut": false,
           "isSigner": true
         },
@@ -5774,7 +6037,7 @@ export const IDL: LbClmm = {
           "isSigner": false
         },
         {
-          "name": "owner",
+          "name": "sender",
           "isMut": false,
           "isSigner": true
         },
@@ -5979,7 +6242,7 @@ export const IDL: LbClmm = {
           "isSigner": false
         },
         {
-          "name": "owner",
+          "name": "sender",
           "isMut": false,
           "isSigner": true
         },
@@ -6465,9 +6728,16 @@ export const IDL: LbClmm = {
             "type": {
               "array": [
                 "publicKey",
-                3
+                2
               ]
             }
+          },
+          {
+            "name": "baseKey",
+            "docs": [
+              "Base keypair. Only required for permission pair"
+            ],
+            "type": "publicKey"
           },
           {
             "name": "reserved",
@@ -6741,6 +7011,13 @@ export const IDL: LbClmm = {
             }
           },
           {
+            "name": "operator",
+            "docs": [
+              "Operator of position"
+            ],
+            "type": "publicKey"
+          },
+          {
             "name": "reserved",
             "docs": [
               "Reserved space for future use"
@@ -6748,7 +7025,7 @@ export const IDL: LbClmm = {
             "type": {
               "array": [
                 "u8",
-                160
+                128
               ]
             }
           }
@@ -6969,13 +7246,30 @@ export const IDL: LbClmm = {
           {
             "name": "aAsk",
             "docs": [
-              "amplification"
+              "amplification in ask side"
             ],
             "type": "i16"
           },
           {
             "name": "aBid",
+            "docs": [
+              "amplification in bid side"
+            ],
             "type": "i16"
+          },
+          {
+            "name": "aActiveBin",
+            "docs": [
+              "amplification in active bin"
+            ],
+            "type": "i16"
+          },
+          {
+            "name": "centerBinId",
+            "docs": [
+              "center bin id"
+            ],
+            "type": "i32"
           }
         ]
       }
@@ -8209,6 +8503,26 @@ export const IDL: LbClmm = {
         {
           "name": "amount",
           "type": "u64",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "UpdatePositionOperator",
+      "fields": [
+        {
+          "name": "position",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "oldOperator",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "newOperator",
+          "type": "publicKey",
           "index": false
         }
       ]

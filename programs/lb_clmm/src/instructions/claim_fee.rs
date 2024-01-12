@@ -1,7 +1,7 @@
+use crate::authorize_modify_position;
 use crate::state::{bin::BinArray, lb_pair::LbPair, position::PositionV2};
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
-
 #[event_cpi]
 #[derive(Accounts)]
 pub struct ClaimFee<'info> {
@@ -17,7 +17,7 @@ pub struct ClaimFee<'info> {
     #[account(
         mut,
         has_one = lb_pair,
-        has_one = owner
+        constraint = authorize_modify_position(&position, sender.key())?
     )]
     pub position: AccountLoader<'info, PositionV2>,
 
@@ -32,7 +32,7 @@ pub struct ClaimFee<'info> {
     )]
     pub bin_array_upper: AccountLoader<'info, BinArray>,
 
-    pub owner: Signer<'info>,
+    pub sender: Signer<'info>,
 
     #[account(mut)]
     pub reserve_x: Box<InterfaceAccount<'info, TokenAccount>>,

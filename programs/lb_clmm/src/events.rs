@@ -206,3 +206,13 @@ pub struct WithdrawIneligibleReward {
     // Amount of ineligible reward withdrawn
     pub amount: u64,
 }
+
+#[event]
+pub struct UpdatePositionOperator {
+    // Position public key
+    pub position: Pubkey,
+    // Old operator
+    pub old_operator: Pubkey,
+    // New operator
+    pub new_operator: Pubkey,
+}

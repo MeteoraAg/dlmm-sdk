@@ -103,7 +103,7 @@ export class DLMM {
     public tokenX: TokenReserve,
     public tokenY: TokenReserve,
     private opt?: Opt
-  ) {}
+  ) { }
 
   /** Static public method */
 
@@ -510,13 +510,13 @@ export class DLMM {
       let i = binArrayPubkeyArray.length + lbPairArray.length;
       i <
       binArrayPubkeyArray.length +
-        lbPairArray.length +
-        binArrayPubkeyArrayV2.length;
+      lbPairArray.length +
+      binArrayPubkeyArrayV2.length;
       i++
     ) {
       const binArrayPubkey =
         binArrayPubkeyArrayV2[
-          i - (binArrayPubkeyArray.length + lbPairArray.length)
+        i - (binArrayPubkeyArray.length + lbPairArray.length)
         ];
       const binArrayAccInfoBufferV2 = binArraysAccInfo[i];
       if (!binArrayAccInfoBufferV2)
@@ -541,10 +541,10 @@ export class DLMM {
     ) {
       const lbPairPubkey =
         lbPairArrayV2[
-          i -
-            (binArrayPubkeyArray.length +
-              lbPairArray.length +
-              binArrayPubkeyArrayV2.length)
+        i -
+        (binArrayPubkeyArray.length +
+          lbPairArray.length +
+          binArrayPubkeyArrayV2.length)
         ];
       const lbPairAccInfoBufferV2 = binArraysAccInfo[i];
       if (!lbPairAccInfoBufferV2)
@@ -1509,7 +1509,7 @@ export class DLMM {
       binArrayLower,
       binArrayUpper,
       binArrayBitmapExtension,
-      owner: user,
+      sender: user,
       tokenXProgram: TOKEN_PROGRAM_ID,
       tokenYProgram: TOKEN_PROGRAM_ID,
     };
@@ -1526,7 +1526,7 @@ export class DLMM {
       binArrayUpper,
       lbPair: this.pubkey,
       binArrayBitmapExtension: null,
-      owner: user,
+      sender: user,
       position: positionPubKey,
       reserve: totalXAmount.isZero()
         ? this.lbPair.reserveY
@@ -1769,7 +1769,7 @@ export class DLMM {
       binArrayLower,
       binArrayUpper,
       binArrayBitmapExtension,
-      owner: user,
+      sender: user,
       tokenXProgram: TOKEN_PROGRAM_ID,
       tokenYProgram: TOKEN_PROGRAM_ID,
     };
@@ -1786,7 +1786,7 @@ export class DLMM {
       binArrayUpper,
       lbPair: this.pubkey,
       binArrayBitmapExtension: null,
-      owner: user,
+      sender: user,
       position: positionPubKey,
       reserve: totalXAmount.isZero()
         ? this.lbPair.reserveY
@@ -1942,7 +1942,7 @@ export class DLMM {
           binArrayLower,
           binArrayUpper,
           lbPair: this.pubkey,
-          owner: user,
+          sender: user,
           position,
           reserveX,
           reserveY,
@@ -1970,7 +1970,7 @@ export class DLMM {
           .claimReward(new BN(i))
           .accounts({
             lbPair: this.pubkey,
-            owner: user,
+            sender: user,
             position,
             binArrayLower,
             binArrayUpper,
@@ -1991,7 +1991,7 @@ export class DLMM {
           rentReceiver: user,
           position,
           lbPair: this.pubkey,
-          owner: user,
+          sender: user,
         })
         .instruction();
       if (secondTransactionsIx.length) {
@@ -2050,7 +2050,7 @@ export class DLMM {
         binArrayBitmapExtension,
         tokenXProgram: TOKEN_PROGRAM_ID,
         tokenYProgram: TOKEN_PROGRAM_ID,
-        owner: user,
+        sender: user,
       })
       .preInstructions(preInstructions)
       .postInstructions(postInstructions)
@@ -2121,7 +2121,7 @@ export class DLMM {
         rentReceiver: owner,
         position: position.publicKey,
         lbPair: this.pubkey,
-        owner,
+        sender: owner,
       })
       .transaction();
 
@@ -3124,7 +3124,7 @@ export class DLMM {
       if (elapsed < sParameter.decayPeriod) {
         const decayedVolatilityReference = Math.floor(
           (vParameter.volatilityAccumulator * sParameter.reductionFactor) /
-            BASIS_POINT_MAX
+          BASIS_POINT_MAX
         );
         vParameter.volatilityReference = decayedVolatilityReference;
       } else {
@@ -3174,7 +3174,7 @@ export class DLMM {
         .claimReward(new BN(i))
         .accounts({
           lbPair: this.pubkey,
-          owner,
+          sender: owner,
           position: position.publicKey,
           binArrayLower,
           binArrayUpper,
@@ -3269,7 +3269,7 @@ export class DLMM {
         binArrayLower,
         binArrayUpper,
         lbPair: this.pubkey,
-        owner,
+        sender: owner,
         position: position.publicKey,
         reserveX,
         reserveY,

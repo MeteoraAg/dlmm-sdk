@@ -26,7 +26,7 @@ pub fn close_position<C: Deref<Target = impl Signer> + Clone>(
         bin_array_lower,
         bin_array_upper,
         lb_pair: position_state.lb_pair,
-        owner: position_state.owner,
+        sender: position_state.owner,
         rent_receiver: position_state.owner,
         position,
         event_authority,

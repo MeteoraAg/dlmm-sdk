@@ -1,4 +1,4 @@
-use super::assert_eq_admin;
+use crate::assert_eq_admin;
 use crate::{errors::LBError, state::lb_pair::LbPair};
 use anchor_lang::prelude::*;
 

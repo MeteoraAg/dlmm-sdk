@@ -39,7 +39,7 @@ pub fn claim_fee<C: Deref<Target = impl Signer> + Clone>(
         bin_array_lower,
         bin_array_upper,
         lb_pair: position_state.lb_pair,
-        owner: program.payer(),
+        sender: program.payer(),
         position,
         reserve_x: lb_pair_state.reserve_x,
         reserve_y: lb_pair_state.reserve_y,

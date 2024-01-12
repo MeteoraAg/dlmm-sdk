@@ -1,5 +1,5 @@
+use crate::assert_eq_admin;
 use crate::errors::LBError;
-use crate::instructions::assert_eq_admin;
 use crate::state::preset_parameters::PresetParameter;
 use crate::utils::seeds::PRESET_PARAMETER;
 use anchor_lang::prelude::*;

@@ -25,23 +25,25 @@ use instructions::initialize_bin_array_bitmap_extension::*;
 use instructions::initialize_lb_pair::*;
 use instructions::initialize_permission_lb_pair::*;
 use instructions::initialize_position::*;
+use instructions::initialize_position_by_operator::*;
 use instructions::initialize_position_pda::*;
 use instructions::initialize_preset_parameters::*;
 use instructions::initialize_reward::*;
 use instructions::migrate_bin_array::*;
 use instructions::migrate_position::*;
+use instructions::position_authorize::*;
 use instructions::remove_liquidity::*;
 use instructions::swap::*;
 use instructions::toggle_pair_status::*;
 use instructions::update_fee_owner::*;
 use instructions::update_fee_parameters::*;
 use instructions::update_fees_and_rewards::*;
+use instructions::update_position_operator::*;
 use instructions::update_reward_duration::*;
 use instructions::update_reward_funder::*;
 use instructions::update_whitelisted_wallet::*;
 use instructions::withdraw_ineligible_reward::*;
 use instructions::withdraw_protocol_fee::*;
-
 #[cfg(feature = "localnet")]
 declare_id!("LbVRzDTvBDEcrthxfZ4RL6yiq3uZw8bS6MwtdY6UhFQ");
 
@@ -50,11 +52,35 @@ declare_id!("LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo");
 
 pub mod admin {
     use super::*;
+    use anchor_lang::solana_program::pubkey;
+
+    #[cfg(feature = "localnet")]
+    pub const ADMINS: [Pubkey; 1] = [pubkey!("bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1")];
+
+    #[cfg(not(feature = "localnet"))]
+    pub const ADMINS: [Pubkey; 3] = [
+        pubkey!("5unTfT2kssBuNvHPY6LbJfJpLqEcdMxGYLWHwShaeTLi"),
+        pubkey!("ChSAh3XXTxpp5n2EmgSCm6vVvVPoD1L9VrK3mcQkYz7m"),
+        pubkey!("DHLXnJdACTY83yKwnUkeoDjqi4QBbsYGa1v8tJL76ViX"),
+    ];
+}
+
+/// Authorized pubkey to withdraw protocol fee
+pub mod fee_owner {
+    use super::*;
+
     #[cfg(feature = "localnet")]
     declare_id!("bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1");
 
     #[cfg(not(feature = "localnet"))]
     declare_id!("6WaLrrRfReGKBYUSkmx2K6AuT21ida4j8at2SUiZdXu8");
+}
+
+pub fn assert_eq_admin(admin: Pubkey) -> bool {
+    crate::admin::ADMINS
+        .iter()
+        .position(|predefined_admin| predefined_admin.eq(&admin))
+        .is_some()
 }
 
 #[program]
@@ -143,6 +169,22 @@ pub mod lb_clmm {
         width: i32,
     ) -> Result<()> {
         instructions::initialize_position_pda::handle(ctx, lower_bin_id, width)
+    }
+
+    pub fn initialize_position_by_operator(
+        ctx: Context<InitializePositionByOperator>,
+        lower_bin_id: i32,
+        width: i32,
+        owner: Pubkey,
+    ) -> Result<()> {
+        instructions::initialize_position_by_operator::handle(ctx, lower_bin_id, width, owner)
+    }
+
+    pub fn update_position_operator(
+        ctx: Context<UpdatePositionOperator>,
+        operator: Pubkey,
+    ) -> Result<()> {
+        instructions::update_position_operator::handle(ctx, operator)
     }
 
     pub fn swap<'a, 'b, 'c, 'info>(

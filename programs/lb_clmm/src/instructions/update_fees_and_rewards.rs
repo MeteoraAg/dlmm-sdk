@@ -1,3 +1,4 @@
+use crate::authorize_modify_position;
 use crate::state::{bin::BinArray, lb_pair::LbPair, position::PositionV2};
 use anchor_lang::prelude::*;
 
@@ -6,7 +7,7 @@ pub struct UpdateFeesAndRewards<'info> {
     #[account(
         mut,
         has_one = lb_pair,
-        has_one = owner
+        constraint = authorize_modify_position(&position, owner.key())?
     )]
     pub position: AccountLoader<'info, PositionV2>,
 

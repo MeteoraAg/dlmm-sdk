@@ -2,6 +2,7 @@ use std::cmp::min;
 
 use super::bin::BinArray;
 use super::parameters::{StaticParameters, VariableParameters};
+use crate::assert_eq_admin;
 use crate::constants::{
     BASIS_POINT_MAX, BIN_ARRAY_BITMAP_SIZE, FEE_PRECISION, MAX_BIN_ID, MAX_FEE_RATE,
     MAX_FEE_UPDATE_WINDOW, MIN_BIN_ID,
@@ -11,7 +12,6 @@ use crate::math::u128x128_math::Rounding;
 use crate::math::u64x64_math::SCALE_OFFSET;
 use crate::math::utils_math::{one, safe_mul_div_cast, safe_mul_shr_cast, safe_shl_div_cast};
 use crate::state::bin_array_bitmap_extension::BinArrayBitmapExtension;
-use crate::utils::seeds::PERMISSION;
 use crate::{errors::LBError, math::safe_math::SafeMath};
 use anchor_lang::prelude::*;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -38,11 +38,15 @@ impl PairType {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, IntoPrimitive, TryFromPrimitive)]
+#[derive(
+    AnchorSerialize, AnchorDeserialize, Debug, PartialEq, Eq, IntoPrimitive, TryFromPrimitive,
+)]
 #[repr(u8)]
 /// Pair status. 0 = Enabled, 1 = Disabled. Putting 0 as enabled for backward compatibility.
 pub enum PairStatus {
+    // Fully enabled. Normal pool.
     Enabled,
+    // Similar as emergency mode. User can only withdraw (Only outflow). Except whitelisted wallet still have full privileges.
     Disabled,
 }
 
@@ -91,7 +95,9 @@ pub struct LbPair {
     /// Last time the pool fee parameter was updated
     pub last_updated_at: i64,
     /// Whitelisted wallet
-    pub whitelisted_wallet: [Pubkey; 3],
+    pub whitelisted_wallet: [Pubkey; 2],
+    /// Base keypair. Only required for permission pair
+    pub base_key: Pubkey,
     /// Reserved space for future use
     pub _reserved: [u8; 88],
 }
@@ -117,7 +123,8 @@ impl Default for LbPair {
             last_updated_at: 0,
             pair_type: PairType::Permissionless.into(),
             status: PairStatus::Enabled.into(),
-            whitelisted_wallet: [Pubkey::default(); 3],
+            whitelisted_wallet: [Pubkey::default(); 2],
+            base_key: Pubkey::default(),
             _padding1: [0u8; 5],
             _reserved: [0u8; 88],
         }
@@ -154,7 +161,7 @@ impl RewardInfo {
     }
 
     pub fn is_valid_funder(&self, funder: Pubkey) -> bool {
-        funder.eq(&crate::admin::ID) || funder.eq(&self.funder)
+        assert_eq_admin(funder) || funder.eq(&self.funder)
     }
 
     pub fn init_reward(
@@ -259,6 +266,7 @@ impl LbPair {
         static_parameter: StaticParameters,
         pair_type: u8,
         pair_status: u8,
+        base_key: Pubkey,
     ) -> Result<()> {
         self.parameters = static_parameter;
         self.active_id = active_id;
@@ -267,12 +275,13 @@ impl LbPair {
         self.token_y_mint = token_mint_y;
         self.reserve_x = reserve_x;
         self.reserve_y = reserve_y;
-        self.fee_owner = crate::admin::ID;
+        self.fee_owner = crate::fee_owner::ID;
         self.bump_seed = [bump];
         self.bin_step_seed = bin_step.to_le_bytes();
         self.oracle = oracle;
         self.pair_type = pair_type;
         self.status = pair_status;
+        self.base_key = base_key;
 
         Ok(())
     }
@@ -323,13 +332,17 @@ impl LbPair {
         Ok(pair_type.eq(&PairType::Permission))
     }
 
-    pub fn is_enabled(&self) -> Result<bool> {
+    pub fn status(&self) -> Result<PairStatus> {
         let status: PairStatus = self
             .status
             .try_into()
             .map_err(|_| LBError::TypeCastFailed)?;
 
-        Ok(status.eq(&PairStatus::Enabled))
+        Ok(status)
+    }
+
+    pub fn is_enabled(&self) -> Result<bool> {
+        Ok(self.status()?.eq(&PairStatus::Enabled))
     }
 
     pub fn is_deposit_allowed(&self, wallet: Pubkey) -> Result<bool> {
@@ -337,6 +350,14 @@ impl LbPair {
             Ok(self.is_wallet_whitelisted(wallet) || self.is_enabled()?)
         } else {
             self.is_enabled()
+        }
+    }
+
+    pub fn is_whitelisted_address(&self, wallet: Pubkey) -> Result<bool> {
+        if self.is_permission_pair()? {
+            Ok(self.is_wallet_whitelisted(wallet))
+        } else {
+            Ok(false)
         }
     }
 
@@ -366,7 +387,7 @@ impl LbPair {
         };
         if self.is_permission_pair()? {
             Ok(vec![
-                PERMISSION,
+                self.base_key.as_ref(),
                 min_key_ref,
                 max_key_ref,
                 &self.bin_step_seed,

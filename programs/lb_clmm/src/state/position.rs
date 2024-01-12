@@ -66,8 +66,10 @@ pub struct PositionV2 {
     pub total_claimed_fee_y_amount: u64,
     /// Total claimed rewards
     pub total_claimed_rewards: [u64; 2],
+    /// Operator of position
+    pub operator: Pubkey,
     /// Reserved space for future use
-    pub _reserved: [u8; 160],
+    pub _reserved: [u8; 128],
 }
 
 impl Default for PositionV2 {
@@ -84,7 +86,8 @@ impl Default for PositionV2 {
             total_claimed_fee_x_amount: 0,
             total_claimed_fee_y_amount: 0,
             total_claimed_rewards: [0u64; 2],
-            _reserved: [0u8; 160],
+            operator: Pubkey::default(),
+            _reserved: [0u8; 128],
         }
     }
 }
@@ -110,12 +113,14 @@ impl PositionV2 {
         &mut self,
         lb_pair: Pubkey,
         owner: Pubkey,
+        operator: Pubkey,
         lower_bin_id: i32,
         upper_bin_id: i32,
         current_time: i64,
     ) -> Result<()> {
         self.lb_pair = lb_pair;
         self.owner = owner;
+        self.operator = operator;
 
         self.lower_bin_id = lower_bin_id;
         self.upper_bin_id = upper_bin_id;
