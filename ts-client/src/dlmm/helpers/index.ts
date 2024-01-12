@@ -11,6 +11,7 @@ import {
 } from "@solana/spl-token";
 import { SCALE_OFFSET } from "../constants";
 import {
+  ComputeBudgetProgram,
   Connection,
   PublicKey,
   SystemProgram,
@@ -179,3 +180,9 @@ export async function chunkedGetMultipleAccountInfos(
 
   return accountInfos;
 }
+
+export const computeBudgetIx = () => {
+  return ComputeBudgetProgram.setComputeUnitLimit({
+    units: 1_400_000,
+  });
+};

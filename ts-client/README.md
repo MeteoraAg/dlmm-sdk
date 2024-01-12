@@ -5,6 +5,189 @@
 </p>
 <br>
 
+## Getting started
+
+NPM: https://www.npmjs.com/package/@meteora-ag/dlmm-sdk-public
+
+SDK: https://github.com/MeteoraAg/dlmm-sdk
+
+<!-- Docs: https://docs.mercurial.finance/mercurial-dynamic-yield-infra/ -->
+
+Discord: https://discord.com/channels/841152225564950528/864859354335412224
+
+## Install
+
+1. Install deps
+
+```
+npm i @meteora-ag/dlmm-sdk-public @coral-xyz/anchor @solana/web3.js
+```
+
+2. Initialize DLMM instance
+
+```ts
+const USDC_USDT_POOL = new PublicKey('ARwi1S4DaiTG5DX7S4M4ZsrXqpMD1MrTmbu9ue2tpmEq') // You can get your desired pool address from the API https://dlmm-api.meteora.ag/pair/all
+const dlmmPool = await DLMM.create(connection, USDC_USDT_POOL, {
+    cluster: "devnet",
+});
+
+// If you need to create multiple, can consider using `createMultiple`
+const dlmmPool = await DLMM.create(connection, [USDC_USDT_POOL, ...], {
+    cluster: "devnet",
+});
+
+```
+
+3. To interact with the AmmImpl
+
+- Get Active Bin
+
+```ts
+const activeBin = await dlmmPool.getActiveBin();
+const activeBinPriceLamport = activeBin.price;
+const activeBinPricePerToken = dlmmPool.fromPricePerLamport(
+  Number(activeBin.price)
+);
+```
+
+- Create Position
+
+```ts
+const TOTAL_RANGE_INTERVAL = 10; // 10 bins on each side of the active bin
+const bins = [activeBin.binId]; // Make sure bins is less than 70, as currently only support up to 70 bins for 1 position
+for (
+  let i = activeBin.binId;
+  i < activeBin.binId + TOTAL_RANGE_INTERVAL / 2;
+  i++
+) {
+  const rightNextBinId = i + 1;
+  const leftPrevBinId = activeBin.binId - (rightNextBinId - activeBin.binId);
+  bins.push(rightNextBinId);
+  bins.unshift(leftPrevBinId);
+}
+
+const activeBinPricePerToken = dlmmPool.fromPricePerLamport(
+  Number(activeBin.price)
+);
+const totalXAmount = new BN(100);
+const totalYAmount = totalXAmount.mul(new BN(Number(activeBinPricePerToken)));
+
+// Get spot distribution (You can calculate with other strategy `calculateSpotDistribution`, `calculateNormalDistribution`)
+const spotXYAmountDistribution = calculateSpotDistribution(
+  activeBin.binId,
+  bins
+);
+const newPosition = new Keypair();
+const createPositionTx =
+  await dlmmPool.initializePositionAndAddLiquidityByWeight({
+    positionPubKey: newPosition.publicKey,
+    lbPairPubKey: dlmmPool.pubkey,
+    user: user.publicKey,
+    totalXAmount,
+    totalYAmount,
+    xYAmountDistribution: spotXYAmountDistribution,
+  });
+
+try {
+  for (let tx of Array.isArray(createPositionTx)
+    ? createPositionTx
+    : [createPositionTx]) {
+    const createPositionTxHash = await sendAndConfirmTransaction(
+      connection,
+      tx,
+      [user, newPosition]
+    );
+  }
+} catch (error) {}
+```
+
+- Get list of positions
+
+```ts
+const { userPositions } = await dlmmPool.getPositionsByUserAndLbPair(
+  user.publicKey
+);
+const binData = userPositions[0].positionData.positionBinData;
+```
+
+- Add liquidity to existing position
+
+```ts
+const addLiquidityTx = await dlmmPool.addLiquidityByWeight({
+  positionPubKey: userPositions[0].publicKey,
+  lbPairPubKey: dlmmPool.pubkey,
+  user: user.publicKey,
+  totalXAmount,
+  totalYAmount,
+  xYAmountDistribution: spotXYAmountDistribution,
+});
+
+try {
+  for (let tx of Array.isArray(addLiquidityTx)
+    ? addLiquidityTx
+    : [addLiquidityTx]) {
+    const addLiquidityTxHash = await sendAndConfirmTransaction(connection, tx, [
+      user,
+      newPosition,
+    ]);
+  }
+} catch (error) {}
+```
+
+- Remove Liquidity
+
+```ts
+const binIdsToRemove = userPositions[0].positionData.positionBinData.map(
+  (bin) => bin.binId
+);
+const removeLiquidityTx = await dlmmPool.removeLiquidity({
+  position: userPositions[0].publicKey,
+  user: user.publicKey,
+  binIds: binIdsToRemove,
+  liquiditiesBpsToRemove: new Array(binIdsToRemove.length).fill(
+    new BN(100 * 100)
+  ), // 100% (range from 0 to 100)
+  shouldClaimAndClose: true, // should claim swap fee and close position together
+});
+
+try {
+  for (let tx of Array.isArray(removeLiquidityTx)
+    ? removeLiquidityTx
+    : [removeLiquidityTx]) {
+    const removeLiquidityTxHash = await sendAndConfirmTransaction(
+      connection,
+      tx,
+      [user, newPosition]
+    );
+  }
+} catch (error) {}
+```
+
+- Swap
+
+```ts
+const swapAmount = new BN(100);
+// Swap quote
+const swapQuote = await dlmmPool.swapQuote(swapAmount, true, new BN(10));
+
+// Swap
+const swapTx = await dlmmPool.swap({
+  inToken: dlmmPool.tokenX.publicKey,
+  binArraysPubkey: swapQuote.binArraysPubkey,
+  inAmount: swapAmount,
+  lbPair: dlmmPool.pubkey,
+  user: user.publicKey,
+  minOutAmount: swapQuote.minOutAmount,
+  outToken: dlmmPool.tokenY.publicKey,
+});
+
+try {
+  const swapTxHash = await sendAndConfirmTransaction(connection, swapTx, [
+    user,
+  ]);
+} catch (error) {}
+```
+
 ## Static functions
 
 | Function                      | Description                                                                        | Return                               |
@@ -41,3 +224,7 @@
 | `claimSwapFee`                              | Claim swap fees for a specific position owned by a specific owner                                                             | `Promise<Transaction>`                                                                   |
 | `claimAllSwapFee`                           | Claim swap fees for multiple positions owned by a specific owner                                                              | `Promise<Transaction>`                                                                   |
 | `claimAllRewards`                           | Claim swap fees and LM rewards for multiple positions owned by a specific owner                                               | `Promise<Transaction[]>`                                                                 |
+
+```
+
+```
