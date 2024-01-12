@@ -24,12 +24,12 @@ jobs:
         uses: tj-actions/changed-files@v18.6
         with:
           files: |
-            sdk
+            ts-client
 
   sdk_test:
     runs-on: ubuntu-latest
     needs: sdk_changed_files
-    if: needs.sdk_changed_files.outputs.program == 'true'
+    if: needs.sdk_changed_files.outputs.ts-client == 'true'
     steps:
       - uses: actions/checkout@v2
       - uses: ./.github/actions/setup-solana
