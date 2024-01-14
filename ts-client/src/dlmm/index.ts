@@ -103,7 +103,7 @@ export class DLMM {
     public tokenX: TokenReserve,
     public tokenY: TokenReserve,
     private opt?: Opt
-  ) { }
+  ) {}
 
   /** Static public method */
 
@@ -510,13 +510,13 @@ export class DLMM {
       let i = binArrayPubkeyArray.length + lbPairArray.length;
       i <
       binArrayPubkeyArray.length +
-      lbPairArray.length +
-      binArrayPubkeyArrayV2.length;
+        lbPairArray.length +
+        binArrayPubkeyArrayV2.length;
       i++
     ) {
       const binArrayPubkey =
         binArrayPubkeyArrayV2[
-        i - (binArrayPubkeyArray.length + lbPairArray.length)
+          i - (binArrayPubkeyArray.length + lbPairArray.length)
         ];
       const binArrayAccInfoBufferV2 = binArraysAccInfo[i];
       if (!binArrayAccInfoBufferV2)
@@ -541,10 +541,10 @@ export class DLMM {
     ) {
       const lbPairPubkey =
         lbPairArrayV2[
-        i -
-        (binArrayPubkeyArray.length +
-          lbPairArray.length +
-          binArrayPubkeyArrayV2.length)
+          i -
+            (binArrayPubkeyArray.length +
+              lbPairArray.length +
+              binArrayPubkeyArrayV2.length)
         ];
       const lbPairAccInfoBufferV2 = binArraysAccInfo[i];
       if (!lbPairAccInfoBufferV2)
@@ -2691,6 +2691,7 @@ export class DLMM {
                 : binState.liquiditySupply.shrn(64);
             const rewardPerTokenStoredDelta = pairRewardInfo.rewardRate
               .mul(delta)
+              .div(new BN(15))
               .div(liquiditySupply);
             rewardPerTokenStored = rewardPerTokenStored.add(
               rewardPerTokenStoredDelta
@@ -3164,7 +3165,7 @@ export class DLMM {
       if (elapsed < sParameter.decayPeriod) {
         const decayedVolatilityReference = Math.floor(
           (vParameter.volatilityAccumulator * sParameter.reductionFactor) /
-          BASIS_POINT_MAX
+            BASIS_POINT_MAX
         );
         vParameter.volatilityReference = decayedVolatilityReference;
       } else {
