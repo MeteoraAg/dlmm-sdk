@@ -7,6 +7,7 @@ import {
   AccountMeta,
   SYSVAR_RENT_PUBKEY,
   SystemProgram,
+  SYSVAR_CLOCK_PUBKEY,
 } from "@solana/web3.js";
 import { IDL } from "./idl";
 import {
@@ -42,7 +43,6 @@ import {
   BinArray,
   LiquidityParameterByWeight,
   LiquidityOneSideParameter,
-  PositionDataXs,
   BinArrayBitmapExtension,
   PositionVersion,
   Position,
@@ -53,7 +53,7 @@ import {
   SwapFee,
   LMRewards,
 } from "./types";
-import { AnchorProvider, BN, EventParser, Program } from "@coral-xyz/anchor";
+import { AnchorProvider, BN, Program } from "@coral-xyz/anchor";
 import {
   binIdToBinArrayIndex,
   chunks,
@@ -103,7 +103,7 @@ export class DLMM {
     public tokenX: TokenReserve,
     public tokenY: TokenReserve,
     private opt?: Opt
-  ) { }
+  ) {}
 
   /** Static public method */
 
@@ -462,12 +462,14 @@ export class DLMM {
       (pubkey) => new PublicKey(pubkey)
     );
 
-    const binArraysAccInfo = await chunkedGetMultipleAccountInfos(connection, [
-      ...binArrayPubkeyArray,
-      ...lbPairArray,
-      ...binArrayPubkeyArrayV2,
-      ...lbPairArrayV2,
-    ]);
+    const [clockAccInfo, ...binArraysAccInfo] =
+      await chunkedGetMultipleAccountInfos(connection, [
+        SYSVAR_CLOCK_PUBKEY,
+        ...binArrayPubkeyArray,
+        ...lbPairArray,
+        ...binArrayPubkeyArrayV2,
+        ...lbPairArrayV2,
+      ]);
 
     const positionBinArraysMap = new Map();
     for (let i = 0; i < binArrayPubkeyArray.length; i++) {
@@ -510,13 +512,13 @@ export class DLMM {
       let i = binArrayPubkeyArray.length + lbPairArray.length;
       i <
       binArrayPubkeyArray.length +
-      lbPairArray.length +
-      binArrayPubkeyArrayV2.length;
+        lbPairArray.length +
+        binArrayPubkeyArrayV2.length;
       i++
     ) {
       const binArrayPubkey =
         binArrayPubkeyArrayV2[
-        i - (binArrayPubkeyArray.length + lbPairArray.length)
+          i - (binArrayPubkeyArray.length + lbPairArray.length)
         ];
       const binArrayAccInfoBufferV2 = binArraysAccInfo[i];
       if (!binArrayAccInfoBufferV2)
@@ -541,10 +543,10 @@ export class DLMM {
     ) {
       const lbPairPubkey =
         lbPairArrayV2[
-        i -
-        (binArrayPubkeyArray.length +
-          lbPairArray.length +
-          binArrayPubkeyArrayV2.length)
+          i -
+            (binArrayPubkeyArray.length +
+              lbPairArray.length +
+              binArrayPubkeyArrayV2.length)
         ];
       const lbPairAccInfoBufferV2 = binArraysAccInfo[i];
       if (!lbPairAccInfoBufferV2)
@@ -609,6 +611,9 @@ export class DLMM {
       });
     });
 
+    const onChainTimestamp = new BN(
+      clockAccInfo.data.readBigInt64LE(32).toString()
+    ).toNumber();
     const positionsMap: Map<
       string,
       {
@@ -618,7 +623,7 @@ export class DLMM {
         tokenY: TokenReserve;
         lbPairPositionsData: Array<{
           publicKey: PublicKey;
-          positionData: PositionDataXs;
+          positionData: PositionData;
           version: PositionVersion;
         }>;
       }
@@ -671,6 +676,7 @@ export class DLMM {
         program,
         PositionVersion.V1,
         lbPairAcc,
+        onChainTimestamp,
         account,
         baseTokenDecimal,
         quoteTokenDecimal,
@@ -744,6 +750,7 @@ export class DLMM {
         program,
         PositionVersion.V2,
         lbPairAcc,
+        onChainTimestamp,
         account,
         baseTokenDecimal,
         quoteTokenDecimal,
@@ -770,6 +777,69 @@ export class DLMM {
     }
 
     return positionsMap;
+  }
+
+  static async migratePosition(
+    connection: Connection,
+    positions: PublicKey[],
+    newPositions: PublicKey[],
+    walletPubkey: PublicKey,
+    opt?: Opt
+  ): Promise<Transaction[]> {
+    const cluster = opt?.cluster || "mainnet-beta";
+
+    const provider = new AnchorProvider(
+      connection,
+      {} as any,
+      AnchorProvider.defaultOptions()
+    );
+    const program = new Program(IDL, LBCLMM_PROGRAM_IDS[cluster], provider);
+
+    const positionsState = await program.account.position.fetchMultiple(
+      positions
+    );
+
+    const { blockhash, lastValidBlockHeight } =
+      await connection.getLatestBlockhash("confirmed");
+    return Promise.all(
+      positionsState.map(async ({ lbPair, lowerBinId }, idx) => {
+        const position = positions[idx];
+        const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(lowerBinId));
+        const upperBinArrayIndex = lowerBinArrayIndex.add(new BN(1));
+
+        const [lowerBinArrayPubKey] = deriveBinArray(
+          lbPair,
+          lowerBinArrayIndex,
+          program.programId
+        );
+        const [upperBinArrayPubKey] = deriveBinArray(
+          lbPair,
+          upperBinArrayIndex,
+          program.programId
+        );
+
+        const migrateTx = await program.methods
+          .migratePosition()
+          .accounts({
+            binArrayLower: lowerBinArrayPubKey,
+            binArrayUpper: upperBinArrayPubKey,
+            lbPair,
+            owner: walletPubkey,
+            positionV1: position,
+            positionV2: newPositions[idx],
+            program: program.programId,
+            rentReceiver: walletPubkey,
+            systemProgram: SystemProgram.programId,
+          })
+          .transaction();
+
+        return new Transaction({
+          blockhash,
+          lastValidBlockHeight,
+          feePayer: walletPubkey,
+        }).add(migrateTx);
+      })
+    );
   }
 
   /** Public methods */
@@ -1207,10 +1277,16 @@ export class DLMM {
 
     const lbPairAndBinArrays = await chunkedGetMultipleAccountInfos(
       this.program.provider.connection,
-      [this.pubkey, ...binArrayPubkeyArray, ...binArrayPubkeyArrayV2]
+      [
+        this.pubkey,
+        SYSVAR_CLOCK_PUBKEY,
+        ...binArrayPubkeyArray,
+        ...binArrayPubkeyArrayV2,
+      ]
     );
 
-    const [lbPairAccInfo, ...binArraysAccInfo] = lbPairAndBinArrays;
+    const [lbPairAccInfo, clockAccInfo, ...binArraysAccInfo] =
+      lbPairAndBinArrays;
 
     const positionBinArraysMap = new Map();
     for (let i = 0; i < binArrayPubkeyArray.length; i++) {
@@ -1250,6 +1326,9 @@ export class DLMM {
       lbPairAccInfo.data
     );
 
+    const onChainTimestamp = new BN(
+      clockAccInfo.data.readBigInt64LE(32).toString()
+    ).toNumber();
     const userPositions = await Promise.all(
       positions.map(async ({ publicKey, account }) => {
         const { lowerBinId, upperBinId } = account;
@@ -1278,6 +1357,7 @@ export class DLMM {
             this.program,
             PositionVersion.V1,
             this.lbPair,
+            onChainTimestamp,
             account,
             this.tokenX.decimal,
             this.tokenY.decimal,
@@ -1317,6 +1397,7 @@ export class DLMM {
             this.program,
             PositionVersion.V2,
             this.lbPair,
+            onChainTimestamp,
             account,
             this.tokenX.decimal,
             this.tokenY.decimal,
@@ -2145,7 +2226,8 @@ export class DLMM {
   public swapQuote(
     inAmount: BN,
     swapForY: boolean,
-    allowedSlippage: BN
+    allowedSlippage: BN,
+    binArrays: BinArrayAccount[]
   ): SwapQuote {
     // TODO: Should we use onchain clock ? Volatile fee rate is sensitive to time. Caching clock might causes the quoted fee off ...
     const currentTimestamp = Date.now() / 1000;
@@ -2176,7 +2258,7 @@ export class DLMM {
         activeId,
         this.lbPair,
         this.binArrayBitmapExtension?.account,
-        this.binArrays
+        binArrays
       );
 
       if (binArrayAccountToSwap == null) {
@@ -2618,13 +2700,12 @@ export class DLMM {
     program: ClmmProgram,
     positionVersion: PositionVersion,
     lbPair: LbPairAccount,
+    onChainTimestamp: number,
     position: PositionAccount,
     lowerBinArray?: BinArray,
     upperBinArray?: BinArray
   ): Promise<LMRewards> {
     const lowerBinArrayIdx = binIdToBinArrayIndex(new BN(position.lowerBinId));
-    // Shall be using on chain clock
-    const currentTimestamp = Date.now() / 1000;
 
     let rewards = [new BN(0), new BN(0)];
 
@@ -2680,7 +2761,7 @@ export class DLMM {
           if (i == lbPair.activeId && !binState.liquiditySupply.isZero()) {
             const currentTime = new BN(
               Math.min(
-                currentTimestamp,
+                onChainTimestamp,
                 pairRewardInfo.rewardDurationEnd.toNumber()
               )
             );
@@ -2691,6 +2772,7 @@ export class DLMM {
                 : binState.liquiditySupply.shrn(64);
             const rewardPerTokenStoredDelta = pairRewardInfo.rewardRate
               .mul(delta)
+              .div(new BN(15))
               .div(liquiditySupply);
             rewardPerTokenStored = rewardPerTokenStored.add(
               rewardPerTokenStoredDelta
@@ -2799,6 +2881,7 @@ export class DLMM {
     program: ClmmProgram,
     version: PositionVersion,
     lbPair: LbPairAccount,
+    onChainTimestamp: number,
     positionAccount: PositionAccount,
     baseTokenDecimal: number,
     quoteTokenDecimal: number,
@@ -2878,6 +2961,7 @@ export class DLMM {
       program,
       version,
       lbPair,
+      onChainTimestamp,
       positionAccount,
       lowerBinArray,
       upperBinArray
@@ -3164,7 +3248,7 @@ export class DLMM {
       if (elapsed < sParameter.decayPeriod) {
         const decayedVolatilityReference = Math.floor(
           (vParameter.volatilityAccumulator * sParameter.reductionFactor) /
-          BASIS_POINT_MAX
+            BASIS_POINT_MAX
         );
         vParameter.volatilityReference = decayedVolatilityReference;
       } else {

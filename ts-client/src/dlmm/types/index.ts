@@ -62,7 +62,7 @@ export type LiquidityOneSideParameter =
 
 export interface Position {
   publicKey: PublicKey;
-  positionData: PositionDataXs;
+  positionData: PositionData;
   version: PositionVersion;
 }
 
@@ -191,11 +191,6 @@ export interface PositionData {
   rewardOne: BN;
   rewardTwo: BN;
 }
-
-export type PositionDataXs = Omit<
-  PositionData,
-  "feeX" | "feeY" | "rewardOne" | "rewardTwo"
->;
 
 export interface SwapParams {
   /**

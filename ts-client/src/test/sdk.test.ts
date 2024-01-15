@@ -473,8 +473,9 @@ describe("SDK test", () => {
 
       btcInAmount = btcAmountToSwapHalfUsdcOfActiveBin;
 
+      const binArrays = await lbClmm.getBinArrays();
       const { fee, outAmount, priceImpact, protocolFee, binArraysPubkey } =
-        lbClmm.swapQuote(btcInAmount, true, new BN(0));
+        lbClmm.swapQuote(btcInAmount, true, new BN(0), binArrays);
       expect(outAmount.toString()).not.toEqual("0");
       expect(fee.toString()).not.toEqual("0");
       // Swap within active bin has no price impact
@@ -544,8 +545,9 @@ describe("SDK test", () => {
       );
 
       usdcInAmount = usdcAmountToSwapHalfBtcOfActiveBin;
+      const binArrays = await lbClmm.getBinArrays();
       const { fee, outAmount, priceImpact, protocolFee, binArraysPubkey } =
-        lbClmm.swapQuote(usdcInAmount, false, new BN(0));
+        lbClmm.swapQuote(usdcInAmount, false, new BN(0), binArrays);
       expect(outAmount.toString()).not.toEqual("0");
       expect(fee.toString()).not.toEqual("0");
       // Swap within active bin has no price impact
@@ -631,8 +633,9 @@ describe("SDK test", () => {
 
       btcInAmount = new BN(btcAmountToCrossBin + 1);
 
+      const binArrays = await lbClmm.getBinArrays();
       const { fee, outAmount, priceImpact, protocolFee, binArraysPubkey } =
-        lbClmm.swapQuote(btcInAmount, true, new BN(0));
+        lbClmm.swapQuote(btcInAmount, true, new BN(0), binArrays);
       expect(outAmount.toString()).not.toEqual("0");
       expect(fee.toString()).not.toEqual("0");
       // Swap with crossing bins has price impact
@@ -703,8 +706,9 @@ describe("SDK test", () => {
           Number.parseFloat(afterActiveBin.price);
       usdcInAmount = new BN(usdcAmountToCrossBin + 1);
 
+      const binArrays = await lbClmm.getBinArrays();
       const { fee, outAmount, priceImpact, protocolFee, binArraysPubkey } =
-        lbClmm.swapQuote(usdcInAmount, false, new BN(0));
+        lbClmm.swapQuote(usdcInAmount, false, new BN(0), binArrays);
       expect(outAmount.toString()).not.toEqual("0");
       expect(fee.toString()).not.toEqual("0");
       // Swap with crossing bins has price impact

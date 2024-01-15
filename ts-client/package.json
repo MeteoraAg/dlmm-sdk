@@ -2,7 +2,13 @@
   "name": "@meteora-ag/dlmm-sdk-public",
   "version": "1.0.1",
   "description": "",
-  "main": "index.js",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "source": "./src/index.ts",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist/**"
+  ],
   "scripts": {
     "build": "tsup",
     "start": "npm run build -- --watch",
