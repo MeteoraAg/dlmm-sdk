@@ -432,8 +432,8 @@ describe("SDK test", () => {
   });
 
   it("fetch all bin arrays of the lb pair", async () => {
-    await lbClmm.refetchStates();
-    for (const binArray of lbClmm.binArrays) {
+    const binArrays = await lbClmm.getBinArrays();
+    for (const binArray of binArrays) {
       expect(binArray.account.lbPair.toBase58()).toBe(lbPairPubkey.toBase58());
     }
 
