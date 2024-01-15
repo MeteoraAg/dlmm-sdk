@@ -90,17 +90,17 @@ export function toWeightDistribution(
 ): { binId: number; weight: number }[] {
   // get all quote amount
   let totalQuote = new BN(0);
-  let precision = 1_000_000_000_000;
-  let quoteDistributions = distributions.map((bin) => {
-    let price = new BN(
-      getPriceOfBinByBinId(bin.binId, binStep).mul(precision).toNumber()
+  const precision = 1_000_000_000_000;
+  const quoteDistributions = distributions.map((bin) => {
+    const price = new BN(
+      getPriceOfBinByBinId(bin.binId, binStep).mul(precision).floor().toString()
     );
-    let quoteValue = amountX
+    const quoteValue = amountX
       .mul(new BN(bin.xAmountBpsOfTotal))
       .mul(new BN(price))
       .div(new BN(BASIS_POINT_MAX))
       .div(new BN(precision));
-    let quoteAmount = quoteValue.add(
+    const quoteAmount = quoteValue.add(
       amountY.mul(new BN(bin.yAmountBpsOfTotal)).div(new BN(BASIS_POINT_MAX))
     );
     totalQuote = totalQuote.add(quoteAmount);
