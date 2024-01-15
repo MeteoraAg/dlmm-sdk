@@ -1,6 +1,6 @@
 {
-  "name": "@meteora-ag/dlmm-sdk-public",
-  "version": "1.0.2",
+  "name": "@meteora-ag/dlmm",
+  "version": "1.0.0",
   "description": "",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
