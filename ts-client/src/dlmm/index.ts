@@ -98,7 +98,6 @@ export class DLMM {
     public pubkey: PublicKey,
     public program: ClmmProgram,
     public lbPair: LbPairAccount,
-    public binArrays: BinArrayAccount[],
     public binArrayBitmapExtension: BinArrayBitmapExtensionAccount | null,
     public tokenX: TokenReserve,
     public tokenY: TokenReserve,
@@ -188,7 +187,6 @@ export class DLMM {
       program.provider.connection,
       [lbPairAccInfo.reserveX, lbPairAccInfo.reserveY]
     );
-    const binArrays = await this.getBinArrays(program, dlmm);
     let binArrayBitmapExtension: BinArrayBitmapExtensionAccount | null;
     if (binArrayBitMapExtensionAccInfo) {
       binArrayBitmapExtension = {
@@ -219,7 +217,6 @@ export class DLMM {
       dlmm,
       program,
       lbPairAccInfo,
-      binArrays,
       binArrayBitmapExtension,
       tokenX,
       tokenY,
@@ -304,7 +301,6 @@ export class DLMM {
 
     const lbClmmImpl = await Promise.all(
       dlmmList.map(async (lbPair, index) => {
-        const binArrays = await this.getBinArrays(program, lbPair);
         const lbPairState = lbPairArraysMap.get(lbPair.toBase58());
         if (!lbPairState)
           throw new Error(`LB Pair ${lbPair.toBase58()} state not found`);
@@ -353,7 +349,6 @@ export class DLMM {
           lbPair,
           program,
           lbPairState,
-          binArrays,
           binArrayBitmapExtension,
           tokenX,
           tokenY,
@@ -898,8 +893,6 @@ export class DLMM {
    * and lb pairs.
    */
   public async refetchStates(): Promise<void> {
-    this.binArrays = await this.getBinArrays();
-
     const binArrayBitmapExtensionPubkey = deriveBinArrayBitmapExtension(
       this.pubkey,
       this.program.programId
