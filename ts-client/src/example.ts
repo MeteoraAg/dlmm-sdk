@@ -143,7 +143,13 @@ async function main() {
 
   const swapAmount = new BN(100);
   // Swap quote
-  const swapQuote = await dlmmPool.swapQuote(swapAmount, true, new BN(10));
+  const binArrays = await dlmmPool.getBinArrays();
+  const swapQuote = await dlmmPool.swapQuote(
+    swapAmount,
+    true,
+    new BN(10),
+    binArrays
+  );
   console.log("🚀 ~ swapQuote:", swapQuote);
 
   // Swap
