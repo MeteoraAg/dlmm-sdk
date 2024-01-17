@@ -19,15 +19,21 @@ const devnetPool = new PublicKey(
   "3W2HKgUa96Z69zzG3LK1g8KdcRAWzAttiLiHfYnKuPw5"
 );
 
-async function main() {
-  const dlmmPool = await DLMM.create(connection, devnetPool, {
-    cluster: "devnet",
-  });
+let activeBin;
+let userPositions;
+let totalXAmount;
+let totalYAmount;
+let spotXYAmountDistribution;
 
+const newPosition = new Keypair();
+
+async function getActiveBin(dlmmPool: DLMM) {
   // Get pool state
   const activeBin = await dlmmPool.getActiveBin();
   console.log("🚀 ~ activeBin:", activeBin);
+}
 
+async function createPosition(dlmmPool: DLMM) {
   const TOTAL_RANGE_INTERVAL = 10; // 10 bins on each side of the active bin
   const bins = [activeBin.binId]; // Make sure bins is less than 70, as currently only support up to 70 bins for 1 position
   for (
@@ -44,17 +50,13 @@ async function main() {
   const activeBinPricePerToken = dlmmPool.fromPricePerLamport(
     Number(activeBin.price)
   );
-  const totalXAmount = new BN(100);
-  const totalYAmount = totalXAmount.mul(new BN(Number(activeBinPricePerToken)));
+  totalXAmount = new BN(100);
+  totalYAmount = totalXAmount.mul(new BN(Number(activeBinPricePerToken)));
 
   // Get spot distribution
-  const spotXYAmountDistribution = calculateSpotDistribution(
-    activeBin.binId,
-    bins
-  );
+  spotXYAmountDistribution = calculateSpotDistribution(activeBin.binId, bins);
 
   // Create Position
-  const newPosition = new Keypair();
   const createPositionTx =
     await dlmmPool.initializePositionAndAddLiquidityByWeight({
       positionPubKey: newPosition.publicKey,
@@ -79,13 +81,19 @@ async function main() {
   } catch (error) {
     console.log("🚀 ~ error:", JSON.parse(JSON.stringify(error)));
   }
+}
 
+async function getPositionsState(dlmmPool: DLMM) {
   // Get position state
-  const { userPositions } = await dlmmPool.getPositionsByUserAndLbPair(
+  const positionsState = await dlmmPool.getPositionsByUserAndLbPair(
     user.publicKey
   );
-  console.log("🚀 ~ userPositions:", userPositions);
 
+  console.log("🚀 ~ userPositions:", userPositions);
+  userPositions = positionsState.userPositions;
+}
+
+async function addLiquidityToExistingPosition(dlmmPool: DLMM) {
   // Add Liquidity to existing position
   const addLiquidityTx = await dlmmPool.addLiquidityByWeight({
     positionPubKey: userPositions[0].publicKey,
@@ -110,7 +118,9 @@ async function main() {
   } catch (error) {
     console.log("🚀 ~ error:", JSON.parse(JSON.stringify(error)));
   }
+}
 
+async function removeLiquidity(dlmmPool: DLMM) {
   // Remove Liquidity
   const binIdsToRemove = userPositions[0].positionData.positionBinData.map(
     (bin) => bin.binId
@@ -140,10 +150,19 @@ async function main() {
   } catch (error) {
     console.log("🚀 ~ error:", JSON.parse(JSON.stringify(error)));
   }
+}
 
+async function swap(dlmmPool: DLMM) {
   const swapAmount = new BN(100);
   // Swap quote
-  const swapQuote = await dlmmPool.swapQuote(swapAmount, true, new BN(10));
+  const swapYtoX = true;
+  const binArrays = await dlmmPool.getBinArrayForSwap(swapYtoX);
+  const swapQuote = await dlmmPool.swapQuote(
+    swapAmount,
+    swapYtoX,
+    new BN(10),
+    binArrays
+  );
   console.log("🚀 ~ swapQuote:", swapQuote);
 
   // Swap
@@ -165,6 +184,18 @@ async function main() {
   } catch (error) {
     console.log("🚀 ~ error:", JSON.parse(JSON.stringify(error)));
   }
+}
+
+async function main() {
+  const dlmmPool = await DLMM.create(connection, devnetPool, {
+    cluster: "devnet",
+  });
+
+  await getActiveBin(dlmmPool);
+  await createPosition(dlmmPool);
+  await addLiquidityToExistingPosition(dlmmPool);
+  await removeLiquidity(dlmmPool);
+  await swap(dlmmPool);
 }
 
 main();

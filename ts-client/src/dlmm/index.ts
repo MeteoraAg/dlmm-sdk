@@ -79,6 +79,7 @@ import {
   deriveOracle,
   derivePresetParameter,
   computeBudgetIx,
+  findNextBinArrayIndexWithLiquidity,
 } from "./helpers";
 import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import Decimal from "decimal.js";
@@ -927,6 +928,77 @@ export class DLMM {
         },
       },
     ]);
+  }
+
+  /**
+   * The function `getBinArrayAroundActiveBin` retrieves a specified number of `BinArrayAccount`
+   * objects from the blockchain, based on the active bin and its surrounding bin arrays.
+   * @param
+   *    swapForY - The `swapForY` parameter is a boolean value that indicates whether the swap is using quote token as input.
+   *    [count=4] - The `count` parameter is the number of bin arrays to retrieve on left and right respectively. By default, it is set to 4.
+   * @returns an array of `BinArrayAccount` objects.
+   */
+  public async getBinArrayForSwap(
+    swapForY,
+    count = 4
+  ): Promise<BinArrayAccount[]> {
+    await this.refetchStates();
+
+    const binArraysPubkey = new Set<string>();
+
+    let shouldStop = false;
+    let activeIdToLoop = this.lbPair.activeId;
+
+    while (!shouldStop) {
+      const binArrayIndex = findNextBinArrayIndexWithLiquidity(
+        swapForY,
+        new BN(activeIdToLoop),
+        this.lbPair,
+        this.binArrayBitmapExtension?.account ?? null
+      );
+      if (binArrayIndex === null) shouldStop = true;
+      else {
+        const [binArrayPubKey] = deriveBinArray(
+          this.pubkey,
+          binArrayIndex,
+          this.program.programId
+        );
+        binArraysPubkey.add(binArrayPubKey.toBase58());
+
+        const [lowerBinId, upperBinId] =
+          getBinArrayLowerUpperBinId(binArrayIndex);
+        activeIdToLoop = swapForY
+          ? lowerBinId.toNumber() - 1
+          : upperBinId.toNumber() + 1;
+      }
+
+      if (binArraysPubkey.size === count) shouldStop = true;
+    }
+
+    const accountsToFetch = Array.from(binArraysPubkey).map(
+      (pubkey) => new PublicKey(pubkey)
+    );
+
+    const binArraysAccInfoBuffer = await chunkedGetMultipleAccountInfos(
+      this.program.provider.connection,
+      accountsToFetch
+    );
+
+    const binArrays: BinArrayAccount[] = await Promise.all(
+      binArraysAccInfoBuffer.map(async (accInfo, idx) => {
+        const account: BinArray = this.program.coder.accounts.decode(
+          "binArray",
+          accInfo.data
+        );
+        const publicKey = accountsToFetch[idx];
+        return {
+          account,
+          publicKey,
+        };
+      })
+    );
+
+    return binArrays;
   }
 
   /**

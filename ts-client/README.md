@@ -7,7 +7,7 @@
 
 ## Getting started
 
-NPM: https://www.npmjs.com/package/@meteora-ag/dlmm-sdk-public
+NPM: https://www.npmjs.com/package/@meteora-ag/dlmm
 
 SDK: https://github.com/MeteoraAg/dlmm-sdk
 
@@ -20,21 +20,19 @@ Discord: https://discord.com/channels/841152225564950528/864859354335412224
 1. Install deps
 
 ```
-npm i @meteora-ag/dlmm-sdk-public @coral-xyz/anchor @solana/web3.js
+npm i @meteora-ag/dlmm @coral-xyz/anchor @solana/web3.js
 ```
 
 2. Initialize DLMM instance
 
 ```ts
+import DLMM from '@meteora-ag/dlmm'
+
 const USDC_USDT_POOL = new PublicKey('ARwi1S4DaiTG5DX7S4M4ZsrXqpMD1MrTmbu9ue2tpmEq') // You can get your desired pool address from the API https://dlmm-api.meteora.ag/pair/all
-const dlmmPool = await DLMM.create(connection, USDC_USDT_POOL, {
-    cluster: "devnet",
-});
+const dlmmPool = await DLMM.create(connection, USDC_USDT_POOL);
 
 // If you need to create multiple, can consider using `createMultiple`
-const dlmmPool = await DLMM.create(connection, [USDC_USDT_POOL, ...], {
-    cluster: "devnet",
-});
+const dlmmPool = await DLMM.create(connection, [USDC_USDT_POOL, ...]);
 
 ```
 
@@ -168,7 +166,14 @@ try {
 ```ts
 const swapAmount = new BN(100);
 // Swap quote
-const swapQuote = await dlmmPool.swapQuote(swapAmount, true, new BN(10));
+const swapYtoX = true;
+const binArrays = await dlmmPool.getBinArrayForSwap(swapYtoX);
+const swapQuote = await dlmmPool.swapQuote(
+  swapAmount,
+  swapYtoX,
+  new BN(10),
+  binArrays
+);
 
 // Swap
 const swapTx = await dlmmPool.swap({
@@ -202,6 +207,7 @@ try {
 | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
 | `refetchStates`                             | Update onchain state of DLMM instance. It's recommend to call this before interact with the program (Deposit/ Withdraw/ Swap) | `Promise<void>`                                                                          |
 | `getBinArrays`                              | Retrieves List of Bin Arrays                                                                                                  | `Promise<BinArrayAccount[]>`                                                             |
+| `getBinArrayForSwap`                        | Retrieves List of Bin Arrays for swap purpose                                                                                 | `Promise<BinArrayAccount[]>`                                                             |
 | `getFeeInfo`                                | Retrieves LbPair's fee info including `base fee`, `protocol fee` & `max fee`                                                  | `FeeInfo`                                                                                |
 | `getDynamicFee`                             | Retrieves LbPair's dynamic fee                                                                                                | `Decimal`                                                                                |
 | `getBinsAroundActiveBin`                    | retrieves a specified number of bins to the left and right of the active bin and returns them along with the active bin ID.   | `Promise<{ activeBin: number; bins: BinLiquidity[] }>`                                   |
