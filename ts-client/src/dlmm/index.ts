@@ -898,17 +898,22 @@ export class DLMM {
       this.pubkey,
       this.program.programId
     )[0];
-    const newLbPair = await this.program.account.lbPair.fetch(this.pubkey);
     const [
+      lbPairAccountInfo,
       binArrayBitmapExtensionAccountInfo,
       reserveXAccountInfo,
       reserveYAccountInfo,
     ] = await chunkedGetMultipleAccountInfos(this.program.provider.connection, [
+      this.pubkey,
       binArrayBitmapExtensionPubkey,
-      newLbPair.reserveX,
-      newLbPair.reserveY,
+      this.lbPair.reserveX,
+      this.lbPair.reserveY,
     ]);
 
+    const lbPairState = this.program.coder.accounts.decode(
+      "lbPair",
+      lbPairAccountInfo.data
+    );
     const binArrayBitmapExtensionState = this.program.coder.accounts.decode(
       "binArrayBitmapExtension",
       binArrayBitmapExtensionAccountInfo.data
@@ -923,24 +928,30 @@ export class DLMM {
     const reserveXBalance = AccountLayout.decode(reserveXAccountInfo.data);
     const reserveYBalance = AccountLayout.decode(reserveYAccountInfo.data);
     const [tokenXDecimal, tokenYDecimal] = await Promise.all([
-      getTokenDecimals(this.program.provider.connection, newLbPair.tokenXMint),
-      getTokenDecimals(this.program.provider.connection, newLbPair.tokenYMint),
+      getTokenDecimals(
+        this.program.provider.connection,
+        lbPairState.tokenXMint
+      ),
+      getTokenDecimals(
+        this.program.provider.connection,
+        lbPairState.tokenYMint
+      ),
     ]);
 
     this.tokenX = {
       amount: reserveXBalance.amount,
       decimal: tokenXDecimal,
-      publicKey: newLbPair.tokenXMint,
-      reserve: newLbPair.reserveX,
+      publicKey: lbPairState.tokenXMint,
+      reserve: lbPairState.reserveX,
     };
     this.tokenY = {
       amount: reserveYBalance.amount,
       decimal: tokenYDecimal,
-      publicKey: newLbPair.tokenYMint,
-      reserve: newLbPair.reserveY,
+      publicKey: lbPairState.tokenYMint,
+      reserve: lbPairState.reserveY,
     };
 
-    this.lbPair = newLbPair;
+    this.lbPair = lbPairState;
   }
 
   /**
