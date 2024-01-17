@@ -898,21 +898,63 @@ export class DLMM {
       this.pubkey,
       this.program.programId
     )[0];
-    const binArrayBitmapExtensionState =
-      await this.program.account.binArrayBitmapExtension.fetchNullable(
-        binArrayBitmapExtensionPubkey
+    const [
+      lbPairAccountInfo,
+      binArrayBitmapExtensionAccountInfo,
+      reserveXAccountInfo,
+      reserveYAccountInfo,
+    ] = await chunkedGetMultipleAccountInfos(this.program.provider.connection, [
+      this.pubkey,
+      binArrayBitmapExtensionPubkey,
+      this.lbPair.reserveX,
+      this.lbPair.reserveY,
+    ]);
+
+    const lbPairState = this.program.coder.accounts.decode(
+      "lbPair",
+      lbPairAccountInfo.data
+    );
+    if (binArrayBitmapExtensionAccountInfo) {
+      const binArrayBitmapExtensionState = this.program.coder.accounts.decode(
+        "binArrayBitmapExtension",
+        binArrayBitmapExtensionAccountInfo.data
       );
 
-    if (binArrayBitmapExtensionState) {
-      this.binArrayBitmapExtension = {
-        account: binArrayBitmapExtensionState,
-        publicKey: binArrayBitmapExtensionPubkey,
-      };
+      if (binArrayBitmapExtensionState) {
+        this.binArrayBitmapExtension = {
+          account: binArrayBitmapExtensionState,
+          publicKey: binArrayBitmapExtensionPubkey,
+        };
+      }
     }
 
-    const newLbPair = await this.program.account.lbPair.fetch(this.pubkey);
+    const reserveXBalance = AccountLayout.decode(reserveXAccountInfo.data);
+    const reserveYBalance = AccountLayout.decode(reserveYAccountInfo.data);
+    const [tokenXDecimal, tokenYDecimal] = await Promise.all([
+      getTokenDecimals(
+        this.program.provider.connection,
+        lbPairState.tokenXMint
+      ),
+      getTokenDecimals(
+        this.program.provider.connection,
+        lbPairState.tokenYMint
+      ),
+    ]);
 
-    this.lbPair = newLbPair;
+    this.tokenX = {
+      amount: reserveXBalance.amount,
+      decimal: tokenXDecimal,
+      publicKey: lbPairState.tokenXMint,
+      reserve: lbPairState.reserveX,
+    };
+    this.tokenY = {
+      amount: reserveYBalance.amount,
+      decimal: tokenYDecimal,
+      publicKey: lbPairState.tokenYMint,
+      reserve: lbPairState.reserveY,
+    };
+
+    this.lbPair = lbPairState;
   }
 
   /**
