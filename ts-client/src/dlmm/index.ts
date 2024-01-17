@@ -933,28 +933,30 @@ export class DLMM {
   /**
    * The function `getBinArrayAroundActiveBin` retrieves a specified number of `BinArrayAccount`
    * objects from the blockchain, based on the active bin and its surrounding bin arrays.
-   * @param [count=2] - The `count` parameter is the number of bin arrays to retrieve on left and right respectively. By default, it
-   * is set to 2.
+   * @param
+   *    swapForY - The `swapForY` parameter is a boolean value that indicates whether the swap is using quote token as input.
+   *    [count=4] - The `count` parameter is the number of bin arrays to retrieve on left and right respectively. By default, it is set to 4.
    * @returns an array of `BinArrayAccount` objects.
    */
-  public async getBinArrayAroundActiveBin(
-    count = 2
+  public async getBinArrayForSwap(
+    swapForY,
+    count = 4
   ): Promise<BinArrayAccount[]> {
     await this.refetchStates();
 
     const binArraysPubkey = new Set<string>();
 
-    let shouldStopRight = false;
+    let shouldStop = false;
     let activeIdToLoop = this.lbPair.activeId;
 
-    while (!shouldStopRight) {
+    while (!shouldStop) {
       const binArrayIndex = findNextBinArrayIndexWithLiquidity(
-        false,
+        swapForY,
         new BN(activeIdToLoop),
         this.lbPair,
         this.binArrayBitmapExtension?.account ?? null
       );
-      if (binArrayIndex === null) shouldStopRight = true;
+      if (binArrayIndex === null) shouldStop = true;
       else {
         const [binArrayPubKey] = deriveBinArray(
           this.pubkey,
@@ -963,37 +965,14 @@ export class DLMM {
         );
         binArraysPubkey.add(binArrayPubKey.toBase58());
 
-        const [, upperBinId] = getBinArrayLowerUpperBinId(binArrayIndex);
-        activeIdToLoop = upperBinId.toNumber() + 1;
+        const [lowerBinId, upperBinId] =
+          getBinArrayLowerUpperBinId(binArrayIndex);
+        activeIdToLoop = swapForY
+          ? lowerBinId.toNumber() - 1
+          : upperBinId.toNumber() + 1;
       }
 
-      if (binArraysPubkey.size === count) shouldStopRight = true;
-    }
-
-    let shouldStopLeft = false;
-    activeIdToLoop = this.lbPair.activeId;
-
-    while (!shouldStopLeft) {
-      const binArrayIndex = findNextBinArrayIndexWithLiquidity(
-        true,
-        new BN(activeIdToLoop),
-        this.lbPair,
-        this.binArrayBitmapExtension?.account ?? null
-      );
-      if (binArrayIndex === null) shouldStopLeft = true;
-      else {
-        const [binArrayPubKey] = deriveBinArray(
-          this.pubkey,
-          binArrayIndex,
-          this.program.programId
-        );
-        binArraysPubkey.add(binArrayPubKey.toBase58());
-
-        const [lowerBinId] = getBinArrayLowerUpperBinId(binArrayIndex);
-        activeIdToLoop = lowerBinId.toNumber() - 1;
-      }
-
-      if (binArraysPubkey.size === count * 2) shouldStopLeft = true;
+      if (binArraysPubkey.size === count) shouldStop = true;
     }
 
     const accountsToFetch = Array.from(binArraysPubkey).map(
