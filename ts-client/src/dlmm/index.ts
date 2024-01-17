@@ -898,11 +898,21 @@ export class DLMM {
       this.pubkey,
       this.program.programId
     )[0];
-    const binArrayBitmapExtensionState =
-      await this.program.account.binArrayBitmapExtension.fetchNullable(
-        binArrayBitmapExtensionPubkey
-      );
+    const newLbPair = await this.program.account.lbPair.fetch(this.pubkey);
+    const [
+      binArrayBitmapExtensionAccountInfo,
+      reserveXAccountInfo,
+      reserveYAccountInfo,
+    ] = await chunkedGetMultipleAccountInfos(this.program.provider.connection, [
+      binArrayBitmapExtensionPubkey,
+      newLbPair.reserveX,
+      newLbPair.reserveY,
+    ]);
 
+    const binArrayBitmapExtensionState = this.program.coder.accounts.decode(
+      "binArrayBitmapExtension",
+      binArrayBitmapExtensionAccountInfo.data
+    );
     if (binArrayBitmapExtensionState) {
       this.binArrayBitmapExtension = {
         account: binArrayBitmapExtensionState,
@@ -910,7 +920,25 @@ export class DLMM {
       };
     }
 
-    const newLbPair = await this.program.account.lbPair.fetch(this.pubkey);
+    const reserveXBalance = AccountLayout.decode(reserveXAccountInfo.data);
+    const reserveYBalance = AccountLayout.decode(reserveYAccountInfo.data);
+    const [tokenXDecimal, tokenYDecimal] = await Promise.all([
+      getTokenDecimals(this.program.provider.connection, newLbPair.tokenXMint),
+      getTokenDecimals(this.program.provider.connection, newLbPair.tokenYMint),
+    ]);
+
+    this.tokenX = {
+      amount: reserveXBalance.amount,
+      decimal: tokenXDecimal,
+      publicKey: newLbPair.tokenXMint,
+      reserve: newLbPair.reserveX,
+    };
+    this.tokenY = {
+      amount: reserveYBalance.amount,
+      decimal: tokenYDecimal,
+      publicKey: newLbPair.tokenYMint,
+      reserve: newLbPair.reserveY,
+    };
 
     this.lbPair = newLbPair;
   }
