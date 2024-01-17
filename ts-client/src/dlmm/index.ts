@@ -914,15 +914,18 @@ export class DLMM {
       "lbPair",
       lbPairAccountInfo.data
     );
-    const binArrayBitmapExtensionState = this.program.coder.accounts.decode(
-      "binArrayBitmapExtension",
-      binArrayBitmapExtensionAccountInfo.data
-    );
-    if (binArrayBitmapExtensionState) {
-      this.binArrayBitmapExtension = {
-        account: binArrayBitmapExtensionState,
-        publicKey: binArrayBitmapExtensionPubkey,
-      };
+    if (binArrayBitmapExtensionAccountInfo) {
+      const binArrayBitmapExtensionState = this.program.coder.accounts.decode(
+        "binArrayBitmapExtension",
+        binArrayBitmapExtensionAccountInfo.data
+      );
+
+      if (binArrayBitmapExtensionState) {
+        this.binArrayBitmapExtension = {
+          account: binArrayBitmapExtensionState,
+          publicKey: binArrayBitmapExtensionPubkey,
+        };
+      }
     }
 
     const reserveXBalance = AccountLayout.decode(reserveXAccountInfo.data);
