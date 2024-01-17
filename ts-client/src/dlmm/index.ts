@@ -79,6 +79,7 @@ import {
   deriveOracle,
   derivePresetParameter,
   computeBudgetIx,
+  findNextBinArrayIndexWithLiquidity,
 } from "./helpers";
 import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import Decimal from "decimal.js";
@@ -927,6 +928,98 @@ export class DLMM {
         },
       },
     ]);
+  }
+
+  /**
+   * The function `getBinArrayAroundActiveBin` retrieves a specified number of `BinArrayAccount`
+   * objects from the blockchain, based on the active bin and its surrounding bin arrays.
+   * @param [count=2] - The `count` parameter is the number of bin arrays to retrieve on left and right respectively. By default, it
+   * is set to 2.
+   * @returns an array of `BinArrayAccount` objects.
+   */
+  public async getBinArrayAroundActiveBin(
+    count = 2
+  ): Promise<BinArrayAccount[]> {
+    await this.refetchStates();
+
+    const binArraysPubkey = new Set<string>();
+
+    let shouldStopRight = false;
+    let activeIdToLoop = this.lbPair.activeId;
+
+    while (!shouldStopRight) {
+      const binArrayIndex = findNextBinArrayIndexWithLiquidity(
+        false,
+        new BN(activeIdToLoop),
+        this.lbPair,
+        this.binArrayBitmapExtension?.account ?? null
+      );
+      if (binArrayIndex === null) shouldStopRight = true;
+      else {
+        const [binArrayPubKey] = deriveBinArray(
+          this.pubkey,
+          binArrayIndex,
+          this.program.programId
+        );
+        binArraysPubkey.add(binArrayPubKey.toBase58());
+
+        const [, upperBinId] = getBinArrayLowerUpperBinId(binArrayIndex);
+        activeIdToLoop = upperBinId.toNumber() + 1;
+      }
+
+      if (binArraysPubkey.size === count) shouldStopRight = true;
+    }
+
+    let shouldStopLeft = false;
+    activeIdToLoop = this.lbPair.activeId;
+
+    while (!shouldStopLeft) {
+      const binArrayIndex = findNextBinArrayIndexWithLiquidity(
+        true,
+        new BN(activeIdToLoop),
+        this.lbPair,
+        this.binArrayBitmapExtension?.account ?? null
+      );
+      if (binArrayIndex === null) shouldStopLeft = true;
+      else {
+        const [binArrayPubKey] = deriveBinArray(
+          this.pubkey,
+          binArrayIndex,
+          this.program.programId
+        );
+        binArraysPubkey.add(binArrayPubKey.toBase58());
+
+        const [lowerBinId] = getBinArrayLowerUpperBinId(binArrayIndex);
+        activeIdToLoop = lowerBinId.toNumber() - 1;
+      }
+
+      if (binArraysPubkey.size === count * 2) shouldStopLeft = true;
+    }
+
+    const accountsToFetch = Array.from(binArraysPubkey).map(
+      (pubkey) => new PublicKey(pubkey)
+    );
+
+    const binArraysAccInfoBuffer = await chunkedGetMultipleAccountInfos(
+      this.program.provider.connection,
+      accountsToFetch
+    );
+
+    const binArrays: BinArrayAccount[] = await Promise.all(
+      binArraysAccInfoBuffer.map(async (accInfo, idx) => {
+        const account: BinArray = this.program.coder.accounts.decode(
+          "binArray",
+          accInfo.data
+        );
+        const publicKey = accountsToFetch[idx];
+        return {
+          account,
+          publicKey,
+        };
+      })
+    );
+
+    return binArrays;
   }
 
   /**

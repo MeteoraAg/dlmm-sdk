@@ -166,7 +166,7 @@ try {
 ```ts
 const swapAmount = new BN(100);
 // Swap quote
-const binArrays = await dlmmPool.getBinArrays();
+const binArrays = await dlmmPool.getBinArrayAroundActiveBin();
 const swapQuote = await dlmmPool.swapQuote(
   swapAmount,
   true,
@@ -206,6 +206,7 @@ try {
 | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
 | `refetchStates`                             | Update onchain state of DLMM instance. It's recommend to call this before interact with the program (Deposit/ Withdraw/ Swap) | `Promise<void>`                                                                          |
 | `getBinArrays`                              | Retrieves List of Bin Arrays                                                                                                  | `Promise<BinArrayAccount[]>`                                                             |
+| `getBinArrayAroundActiveBin`                | Retrieves List of Bin Arrays around Active Bin                                                                                | `Promise<BinArrayAccount[]>`                                                             |
 | `getFeeInfo`                                | Retrieves LbPair's fee info including `base fee`, `protocol fee` & `max fee`                                                  | `FeeInfo`                                                                                |
 | `getDynamicFee`                             | Retrieves LbPair's dynamic fee                                                                                                | `Decimal`                                                                                |
 | `getBinsAroundActiveBin`                    | retrieves a specified number of bins to the left and right of the active bin and returns them along with the active bin ID.   | `Promise<{ activeBin: number; bins: BinLiquidity[] }>`                                   |
