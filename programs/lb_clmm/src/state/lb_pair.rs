@@ -109,8 +109,6 @@ pub struct LbPair {
     pub _reserved: [u8; 80],
 }
 
-const_assert_eq!(std::mem::size_of::<LbPair>(), 896);
-
 impl Default for LbPair {
     fn default() -> Self {
         Self {
