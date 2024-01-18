@@ -33,6 +33,7 @@ use instructions::migrate_bin_array::*;
 use instructions::migrate_position::*;
 use instructions::position_authorize::*;
 use instructions::remove_liquidity::*;
+use instructions::set_activation_slot::*;
 use instructions::swap::*;
 use instructions::toggle_pair_status::*;
 use instructions::update_fee_owner::*;
@@ -313,5 +314,12 @@ pub mod lb_clmm {
         reward_index: u64,
     ) -> Result<()> {
         instructions::withdraw_ineligible_reward::handle(ctx, reward_index)
+    }
+
+    pub fn set_activation_slot(
+        ctx: Context<SetActivationSlot>,
+        activation_slot: u64,
+    ) -> Result<()> {
+        instructions::set_activation_slot::handle(ctx, activation_slot)
     }
 }

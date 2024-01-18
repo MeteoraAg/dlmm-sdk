@@ -2076,6 +2076,27 @@ export type LbClmm = {
           "type": "u64"
         }
       ]
+    },
+    {
+      "name": "setActivationSlot",
+      "accounts": [
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "admin",
+          "isMut": true,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "activationSlot",
+          "type": "u64"
+        }
+      ]
     }
   ],
   "accounts": [
@@ -2236,7 +2257,7 @@ export type LbClmm = {
           {
             "name": "status",
             "docs": [
-              "Status of the pair"
+              "Status of the pair. Check PairStatus enum."
             ],
             "type": "u8"
           },
@@ -2353,6 +2374,13 @@ export type LbClmm = {
             "type": "publicKey"
           },
           {
+            "name": "activationSlot",
+            "docs": [
+              "Slot to enable the pair. Only available for permission pair."
+            ],
+            "type": "u64"
+          },
+          {
             "name": "reserved",
             "docs": [
               "Reserved space for future use"
@@ -2360,7 +2388,7 @@ export type LbClmm = {
             "type": {
               "array": [
                 "u8",
-                88
+                80
               ]
             }
           }
@@ -6463,6 +6491,27 @@ export const IDL: LbClmm = {
           "type": "u64"
         }
       ]
+    },
+    {
+      "name": "setActivationSlot",
+      "accounts": [
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "admin",
+          "isMut": true,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "activationSlot",
+          "type": "u64"
+        }
+      ]
     }
   ],
   "accounts": [
@@ -6623,7 +6672,7 @@ export const IDL: LbClmm = {
           {
             "name": "status",
             "docs": [
-              "Status of the pair"
+              "Status of the pair. Check PairStatus enum."
             ],
             "type": "u8"
           },
@@ -6740,6 +6789,13 @@ export const IDL: LbClmm = {
             "type": "publicKey"
           },
           {
+            "name": "activationSlot",
+            "docs": [
+              "Slot to enable the pair. Only available for permission pair."
+            ],
+            "type": "u64"
+          },
+          {
             "name": "reserved",
             "docs": [
               "Reserved space for future use"
@@ -6747,7 +6803,7 @@ export const IDL: LbClmm = {
             "type": {
               "array": [
                 "u8",
-                88
+                80
               ]
             }
           }

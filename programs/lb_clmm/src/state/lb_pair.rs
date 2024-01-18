@@ -1,7 +1,5 @@
 use std::cmp::min;
 
-use super::bin::BinArray;
-use super::parameters::{StaticParameters, VariableParameters};
 use crate::assert_eq_admin;
 use crate::constants::{
     BASIS_POINT_MAX, BIN_ARRAY_BITMAP_SIZE, FEE_PRECISION, MAX_BIN_ID, MAX_FEE_RATE,
@@ -11,15 +9,16 @@ use crate::instructions::update_fee_parameters::FeeParameter;
 use crate::math::u128x128_math::Rounding;
 use crate::math::u64x64_math::SCALE_OFFSET;
 use crate::math::utils_math::{one, safe_mul_div_cast, safe_mul_shr_cast, safe_shl_div_cast};
+use crate::state::bin::BinArray;
 use crate::state::bin_array_bitmap_extension::BinArrayBitmapExtension;
+use crate::state::parameters::{StaticParameters, VariableParameters};
 use crate::{errors::LBError, math::safe_math::SafeMath};
 use anchor_lang::prelude::*;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
+use ruint::aliases::{U1024, U256};
 use std::ops::BitXor;
 use std::ops::Shl;
 use std::ops::Shr;
-
-use ruint::aliases::{U1024, U256};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, IntoPrimitive, TryFromPrimitive)]
 #[repr(u8)]
@@ -30,10 +29,12 @@ pub enum PairType {
 }
 
 impl PairType {
-    pub fn get_default_pair_status(&self) -> PairStatus {
+    pub fn get_pair_default_activation_slot(&self) -> u64 {
         match self {
-            Self::Permission => PairStatus::Disabled,
-            Self::Permissionless => PairStatus::Enabled,
+            // The slot is unreachable. Therefore by default, the pair will be disabled until admin update the activation slot.
+            Self::Permission => u64::MAX,
+            // Activation slot is not used in permissionless pair. Therefore, default to 0.
+            Self::Permissionless => 0,
         }
     }
 }
@@ -44,7 +45,10 @@ impl PairType {
 #[repr(u8)]
 /// Pair status. 0 = Enabled, 1 = Disabled. Putting 0 as enabled for backward compatibility.
 pub enum PairStatus {
-    // Fully enabled. Normal pool.
+    // Fully enabled.
+    // Condition:
+    // Permissionless: PairStatus::Enabled
+    // Permission: PairStatus::Enabled and clock.slot > activation_slot
     Enabled,
     // Similar as emergency mode. User can only withdraw (Only outflow). Except whitelisted wallet still have full privileges.
     Disabled,
@@ -71,7 +75,7 @@ pub struct LbPair {
     pub active_id: i32,
     /// Bin step. Represent the price increment / decrement.
     pub bin_step: u16,
-    /// Status of the pair
+    /// Status of the pair. Check PairStatus enum.
     pub status: u8,
     pub _padding1: [u8; 5],
     /// Token X mint
@@ -98,8 +102,10 @@ pub struct LbPair {
     pub whitelisted_wallet: [Pubkey; 2],
     /// Base keypair. Only required for permission pair
     pub base_key: Pubkey,
+    /// Slot to enable the pair. Only available for permission pair.
+    pub activation_slot: u64,
     /// Reserved space for future use
-    pub _reserved: [u8; 88],
+    pub _reserved: [u8; 80],
 }
 
 impl Default for LbPair {
@@ -122,11 +128,12 @@ impl Default for LbPair {
             bin_array_bitmap: [0u64; 16],
             last_updated_at: 0,
             pair_type: PairType::Permissionless.into(),
-            status: PairStatus::Enabled.into(),
+            status: 0,
             whitelisted_wallet: [Pubkey::default(); 2],
             base_key: Pubkey::default(),
+            activation_slot: PairType::Permissionless.get_pair_default_activation_slot(),
             _padding1: [0u8; 5],
-            _reserved: [0u8; 88],
+            _reserved: [0u8; 80],
         }
     }
 }
@@ -266,6 +273,7 @@ impl LbPair {
         static_parameter: StaticParameters,
         pair_type: u8,
         pair_status: u8,
+        activation_slot: u64,
         base_key: Pubkey,
     ) -> Result<()> {
         self.parameters = static_parameter;
@@ -280,19 +288,11 @@ impl LbPair {
         self.bin_step_seed = bin_step.to_le_bytes();
         self.oracle = oracle;
         self.pair_type = pair_type;
-        self.status = pair_status;
         self.base_key = base_key;
+        self.status = pair_status;
+        self.activation_slot = activation_slot;
 
         Ok(())
-    }
-
-    pub fn is_wallet_whitelisted(&self, wallet: Pubkey) -> bool {
-        !wallet.eq(&Pubkey::default())
-            && self
-                .whitelisted_wallet
-                .iter()
-                .find(|&&w| w.eq(&wallet))
-                .is_some()
     }
 
     pub fn update_whitelisted_wallet(&mut self, idx: usize, wallet: Pubkey) -> Result<()> {
@@ -323,42 +323,27 @@ impl LbPair {
         }
     }
 
-    pub fn is_permission_pair(&self) -> Result<bool> {
+    pub fn status(&self) -> Result<PairStatus> {
+        let pair_status: PairStatus = self
+            .status
+            .try_into()
+            .map_err(|_| LBError::TypeCastFailed)?;
+
+        Ok(pair_status)
+    }
+
+    pub fn pair_type(&self) -> Result<PairType> {
         let pair_type: PairType = self
             .pair_type
             .try_into()
             .map_err(|_| LBError::TypeCastFailed)?;
 
+        Ok(pair_type)
+    }
+
+    pub fn is_permission_pair(&self) -> Result<bool> {
+        let pair_type = self.pair_type()?;
         Ok(pair_type.eq(&PairType::Permission))
-    }
-
-    pub fn status(&self) -> Result<PairStatus> {
-        let status: PairStatus = self
-            .status
-            .try_into()
-            .map_err(|_| LBError::TypeCastFailed)?;
-
-        Ok(status)
-    }
-
-    pub fn is_enabled(&self) -> Result<bool> {
-        Ok(self.status()?.eq(&PairStatus::Enabled))
-    }
-
-    pub fn is_deposit_allowed(&self, wallet: Pubkey) -> Result<bool> {
-        if self.is_permission_pair()? {
-            Ok(self.is_wallet_whitelisted(wallet) || self.is_enabled()?)
-        } else {
-            self.is_enabled()
-        }
-    }
-
-    pub fn is_whitelisted_address(&self, wallet: Pubkey) -> Result<bool> {
-        if self.is_permission_pair()? {
-            Ok(self.is_wallet_whitelisted(wallet))
-        } else {
-            Ok(false)
-        }
     }
 
     pub fn update_fee_parameters(&mut self, parameter: &FeeParameter) -> Result<()> {
