@@ -16,7 +16,6 @@ use crate::{errors::LBError, math::safe_math::SafeMath};
 use anchor_lang::prelude::*;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use ruint::aliases::{U1024, U256};
-use static_assertions::const_assert_eq;
 use std::ops::BitXor;
 use std::ops::Shl;
 use std::ops::Shr;
