@@ -2518,7 +2518,7 @@ export class DLMM {
       };
     });
 
-    return await this.program.methods
+    const swapTx = await this.program.methods
       .swap(inAmount, minOutAmount)
       .accounts({
         lbPair,
@@ -2541,6 +2541,14 @@ export class DLMM {
       .preInstructions(preInstructions)
       .postInstructions(postInstructions)
       .transaction();
+
+    const { blockhash, lastValidBlockHeight } =
+      await this.program.provider.connection.getLatestBlockhash("confirmed");
+    return new Transaction({
+      blockhash,
+      lastValidBlockHeight,
+      feePayer: user,
+    }).add(swapTx);
   }
 
   /**
