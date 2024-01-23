@@ -16,7 +16,7 @@ pub struct InitializeRewardParams {
     pub funder: Pubkey,
 }
 
-pub fn initialize_reward<C: Deref<Target = impl Signer> + Clone>(
+pub async fn initialize_reward<C: Deref<Target = impl Signer> + Clone>(
     params: InitializeRewardParams,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
@@ -58,7 +58,7 @@ pub fn initialize_reward<C: Deref<Target = impl Signer> + Clone>(
     let signature = request_builder
         .accounts(accounts)
         .args(ix)
-        .send_with_spinner_and_config(transaction_config);
+        .send_with_spinner_and_config(transaction_config).await;
 
     println!("Initialize reward. Signature: {signature:#?}");
 

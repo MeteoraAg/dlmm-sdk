@@ -14,7 +14,7 @@ pub struct UpdateRewardFunderParams {
     pub funder: Pubkey,
 }
 
-pub fn update_reward_funder<C: Deref<Target = impl Signer> + Clone>(
+pub async fn update_reward_funder<C: Deref<Target = impl Signer> + Clone>(
     params: UpdateRewardFunderParams,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
@@ -43,7 +43,7 @@ pub fn update_reward_funder<C: Deref<Target = impl Signer> + Clone>(
     let signature = request_builder
         .accounts(accounts)
         .args(ix)
-        .send_with_spinner_and_config(transaction_config);
+        .send_with_spinner_and_config(transaction_config).await;
 
     println!("Fund reward. Signature: {:#?}", signature);
 

@@ -27,7 +27,7 @@ pub struct CheckMyBalanceParameters {
     pub max_price: f64,
 }
 
-pub fn check_my_balance<C: Deref<Target = impl Signer> + Clone>(
+pub async fn check_my_balance<C: Deref<Target = impl Signer> + Clone>(
     params: CheckMyBalanceParameters,
     program: &Program<C>,
 ) -> Result<()> {
@@ -42,10 +42,10 @@ pub fn check_my_balance<C: Deref<Target = impl Signer> + Clone>(
     } = params;
     let (lb_pair, _bump) = derive_lb_pair_pda(token_mint_x, token_mint_y, bin_step, permission);
 
-    let token_mint_base: Mint = program.account(token_mint_x)?;
-    let token_mint_quote: Mint = program.account(token_mint_y)?;
+    let token_mint_base: Mint = program.account(token_mint_x).await?;
+    let token_mint_quote: Mint = program.account(token_mint_y).await?;
 
-    let lb_pair_state: LbPair = program.account(lb_pair)?;
+    let lb_pair_state: LbPair = program.account(lb_pair).await?;
 
     println!("active bin {}", lb_pair_state.active_id);
 
@@ -76,7 +76,7 @@ pub fn check_my_balance<C: Deref<Target = impl Signer> + Clone>(
 
     for i in min_active_id..max_active_id {
         let (position, _bump) = derive_position_pda(lb_pair, base_position_key, i, width);
-        match program.account::<PositionV2>(position) {
+        match program.account::<PositionV2>(position).await {
             Ok(position_state) => {
                 let lower_bin_array_idx =
                     BinArray::bin_id_to_bin_array_index(position_state.lower_bin_id)?;
@@ -87,7 +87,7 @@ pub fn check_my_balance<C: Deref<Target = impl Signer> + Clone>(
                 for i in lower_bin_array_idx..=upper_bin_array_idx {
                     let (bin_array, _bump) = derive_bin_array_pda(lb_pair, i.into());
 
-                    match program.account::<BinArray>(bin_array) {
+                    match program.account::<BinArray>(bin_array).await {
                         Ok(bin_array_state) => bin_arrays.push(bin_array_state),
                         Err(_err) => {}
                     }
@@ -126,7 +126,7 @@ pub fn check_my_balance<C: Deref<Target = impl Signer> + Clone>(
     let total_fee_y_pending =
         total_fee_y_pending as f64 / (10u64.pow(token_mint_quote.decimals as u32) as f64);
 
-    let reserve_x: TokenAccount = program.account(lb_pair_state.reserve_x).unwrap();
+    let reserve_x: TokenAccount = program.account(lb_pair_state.reserve_x).await.unwrap();
     println!("{}", reserve_x.amount);
 
     println!(

@@ -19,7 +19,7 @@ pub struct WithdrawProtocolFeeParams {
     pub amount_y: u64,
 }
 
-pub fn withdraw_protocol_fee<C: Deref<Target = impl Signer> + Clone>(
+pub async fn withdraw_protocol_fee<C: Deref<Target = impl Signer> + Clone>(
     params: WithdrawProtocolFeeParams,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
@@ -30,7 +30,7 @@ pub fn withdraw_protocol_fee<C: Deref<Target = impl Signer> + Clone>(
         amount_y,
     } = params;
 
-    let lb_pair_state: LbPair = program.account(lb_pair)?;
+    let lb_pair_state: LbPair = program.account(lb_pair).await?;
 
     let receiver_token_x =
         get_associated_token_address(&program.payer(), &lb_pair_state.token_x_mint);
@@ -60,7 +60,7 @@ pub fn withdraw_protocol_fee<C: Deref<Target = impl Signer> + Clone>(
         .instruction(compute_budget_ix)
         .accounts(accounts)
         .args(ix)
-        .send_with_spinner_and_config(transaction_config);
+        .send_with_spinner_and_config(transaction_config).await;
 
     println!("WithdrawProtocolFee. Signature: {:#?}", signature);
 

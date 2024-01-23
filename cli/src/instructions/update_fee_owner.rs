@@ -13,7 +13,7 @@ pub struct UpdateFeeOwnerParam {
     pub fee_owner: Pubkey,
 }
 
-pub fn update_fee_owner<C: Deref<Target = impl Signer> + Clone>(
+pub async fn update_fee_owner<C: Deref<Target = impl Signer> + Clone>(
     params: UpdateFeeOwnerParam,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
@@ -32,7 +32,7 @@ pub fn update_fee_owner<C: Deref<Target = impl Signer> + Clone>(
     let signature = request_builder
         .accounts(accounts)
         .args(ix)
-        .send_with_spinner_and_config(transaction_config);
+        .send_with_spinner_and_config(transaction_config).await;
 
     println!("Add Liquidity. Signature: {:#?}", signature);
 

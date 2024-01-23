@@ -15,7 +15,7 @@ pub struct ClaimRewardParams {
     pub position: Pubkey,
 }
 
-pub fn claim_reward<C: Deref<Target = impl Signer> + Clone>(
+pub async fn claim_reward<C: Deref<Target = impl Signer> + Clone>(
     params: ClaimRewardParams,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
@@ -27,14 +27,14 @@ pub fn claim_reward<C: Deref<Target = impl Signer> + Clone>(
     } = params;
 
     let (reward_vault, _bump) = derive_reward_vault_pda(lb_pair, reward_index);
-    let lb_pair_state: LbPair = program.account(lb_pair)?;
+    let lb_pair_state: LbPair = program.account(lb_pair).await?;
     let reward_info = lb_pair_state.reward_infos[reward_index as usize];
     let reward_mint = reward_info.mint;
 
     let user_token_account =
-        get_or_create_ata(&program, transaction_config, reward_mint, program.payer())?;
+        get_or_create_ata(&program, transaction_config, reward_mint, program.payer()).await?;
 
-    let [bin_array_lower, bin_array_upper] = get_bin_arrays_for_position(&program, position)?;
+    let [bin_array_lower, bin_array_upper] = get_bin_arrays_for_position(&program, position).await?;
 
     let (event_authority, _bump) = derive_event_authority_pda();
 
@@ -58,7 +58,7 @@ pub fn claim_reward<C: Deref<Target = impl Signer> + Clone>(
     let signature = request_builder
         .accounts(accounts)
         .args(ix)
-        .send_with_spinner_and_config(transaction_config);
+        .send_with_spinner_and_config(transaction_config).await;
 
     println!("Claim reward. Signature: {:#?}", signature);
 

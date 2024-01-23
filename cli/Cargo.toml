@@ -19,6 +19,6 @@ lb_clmm =  { path = "../programs/lb_clmm", features = ["cpi"] }
 spl-associated-token-account = "1"
 mpl-token-metadata = "3.0.1"
 rand = "0.8.5"
-
+tokio = {version = "1", features = ["full", "parking_lot"]}
 [dev-dependencies]
 proptest = "1.2.0"
