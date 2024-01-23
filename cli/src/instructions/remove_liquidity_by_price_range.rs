@@ -30,7 +30,7 @@ pub struct RemoveLiquidityByPriceRangeParameters {
     pub max_price: f64,
 }
 
-pub fn remove_liquidity_by_price_range<C: Deref<Target = impl Signer> + Clone>(
+pub async fn remove_liquidity_by_price_range<C: Deref<Target = impl Signer> + Clone>(
     params: RemoveLiquidityByPriceRangeParameters,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
@@ -47,11 +47,11 @@ pub fn remove_liquidity_by_price_range<C: Deref<Target = impl Signer> + Clone>(
 
     let (lb_pair, _bump) = derive_lb_pair_pda(token_mint_x, token_mint_y, bin_step, permission);
 
-    let lb_pair_state: LbPair = program.account(lb_pair)?;
+    let lb_pair_state: LbPair = program.account(lb_pair).await?;
     let bin_step = lb_pair_state.bin_step;
 
-    let token_mint_base: Mint = program.account(token_mint_x)?;
-    let token_mint_quote: Mint = program.account(token_mint_y)?;
+    let token_mint_base: Mint = program.account(token_mint_x).await?;
+    let token_mint_quote: Mint = program.account(token_mint_y).await?;
 
     let min_price_per_lamport = price_per_token_to_per_lamport(
         min_price,
@@ -84,7 +84,7 @@ pub fn remove_liquidity_by_price_range<C: Deref<Target = impl Signer> + Clone>(
         // }
         // continue;
 
-        match program.account::<Position>(position) {
+        match program.account::<Position>(position).await {
             Ok(position_state) => {
                 let lower_bin_array_idx =
                     BinArray::bin_id_to_bin_array_index(position_state.lower_bin_id)?;
@@ -100,14 +100,14 @@ pub fn remove_liquidity_by_price_range<C: Deref<Target = impl Signer> + Clone>(
                     transaction_config,
                     lb_pair_state.token_x_mint,
                     program.payer(),
-                )?;
+                ).await?;
 
                 let user_token_y = get_or_create_ata(
                     &program,
                     transaction_config,
                     lb_pair_state.token_y_mint,
                     program.payer(),
-                )?;
+                ).await?;
                 let (event_authority, _bump) = derive_event_authority_pda();
 
                 let instructions = vec![
@@ -177,7 +177,7 @@ pub fn remove_liquidity_by_price_range<C: Deref<Target = impl Signer> + Clone>(
                 let builder = instructions
                     .into_iter()
                     .fold(builder, |bld, ix| bld.instruction(ix));
-                let signature = builder.send_with_spinner_and_config(transaction_config)?;
+                let signature = builder.send_with_spinner_and_config(transaction_config).await?;
                 println!("close popsition min_bin_id {i} {signature}");
             }
             Err(_err) => continue,

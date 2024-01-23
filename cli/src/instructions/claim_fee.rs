@@ -10,28 +10,28 @@ use lb_clmm::state::{lb_pair::LbPair, position::Position};
 use lb_clmm::utils::pda::derive_event_authority_pda;
 use std::ops::Deref;
 
-pub fn claim_fee<C: Deref<Target = impl Signer> + Clone>(
+pub async fn claim_fee<C: Deref<Target = impl Signer> + Clone>(
     position: Pubkey,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
 ) -> Result<()> {
-    let position_state: Position = program.account(position)?;
-    let lb_pair_state: LbPair = program.account(position_state.lb_pair)?;
+    let position_state: Position = program.account(position).await?;
+    let lb_pair_state: LbPair = program.account(position_state.lb_pair).await?;
 
     let user_token_x = get_or_create_ata(
         program,
         transaction_config,
         lb_pair_state.token_x_mint,
         program.payer(),
-    )?;
+    ).await?;
     let user_token_y = get_or_create_ata(
         program,
         transaction_config,
         lb_pair_state.token_y_mint,
         program.payer(),
-    )?;
+    ).await?;
 
-    let [bin_array_lower, bin_array_upper] = get_bin_arrays_for_position(&program, position)?;
+    let [bin_array_lower, bin_array_upper] = get_bin_arrays_for_position(&program, position).await?;
 
     let (event_authority, _bump) = derive_event_authority_pda();
 
@@ -58,7 +58,7 @@ pub fn claim_fee<C: Deref<Target = impl Signer> + Clone>(
     let signature = request_builder
         .accounts(accounts)
         .args(ix)
-        .send_with_spinner_and_config(transaction_config);
+        .send_with_spinner_and_config(transaction_config).await;
 
     println!("Claim fee. Signature: {:#?}", signature);
 

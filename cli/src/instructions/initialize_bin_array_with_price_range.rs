@@ -21,7 +21,7 @@ pub struct InitBinArrayWithPriceRangeParameters {
     pub upper_price: f64,
 }
 
-pub fn initialize_bin_array_with_price_range<C: Deref<Target = impl Signer> + Clone>(
+pub async fn initialize_bin_array_with_price_range<C: Deref<Target = impl Signer> + Clone>(
     params: InitBinArrayWithPriceRangeParameters,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
@@ -32,7 +32,7 @@ pub fn initialize_bin_array_with_price_range<C: Deref<Target = impl Signer> + Cl
         upper_price,
     } = params;
 
-    let lb_pair_state = program.account::<LbPair>(lb_pair)?;
+    let lb_pair_state = program.account::<LbPair>(lb_pair).await?;
 
     let lower_bin_id = get_id_from_price(
         lb_pair_state.bin_step,
@@ -54,5 +54,5 @@ pub fn initialize_bin_array_with_price_range<C: Deref<Target = impl Signer> + Cl
         upper_bin_id,
     };
 
-    initialize_bin_array_with_bin_range(params, program, transaction_config)
+    initialize_bin_array_with_bin_range(params, program, transaction_config).await
 }

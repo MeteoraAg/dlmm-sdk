@@ -16,7 +16,7 @@ pub struct IncreaseLengthParams {
     pub length_to_add: u64,
 }
 
-pub fn increase_length<C: Deref<Target = impl Signer> + Clone>(
+pub async fn increase_length<C: Deref<Target = impl Signer> + Clone>(
     params: IncreaseLengthParams,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
@@ -43,7 +43,7 @@ pub fn increase_length<C: Deref<Target = impl Signer> + Clone>(
     let signature = request_builder
         .accounts(accounts)
         .args(ix)
-        .send_with_spinner_and_config(transaction_config);
+        .send_with_spinner_and_config(transaction_config).await;
 
     println!("Increase oracle {oracle} length. Signature: {signature:#?}");
 

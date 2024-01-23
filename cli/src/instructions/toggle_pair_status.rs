@@ -7,7 +7,7 @@ use lb_clmm::accounts;
 use lb_clmm::instruction;
 use std::ops::Deref;
 
-pub fn toggle_pool_status<C: Deref<Target = impl Signer> + Clone>(
+pub async fn toggle_pool_status<C: Deref<Target = impl Signer> + Clone>(
     lb_pair: Pubkey,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
@@ -23,7 +23,7 @@ pub fn toggle_pool_status<C: Deref<Target = impl Signer> + Clone>(
     let signature = request_builder
         .accounts(accounts)
         .args(ix)
-        .send_with_spinner_and_config(transaction_config);
+        .send_with_spinner_and_config(transaction_config).await;
 
     println!("Toggle pool status. Signature: {:#?}", signature);
 

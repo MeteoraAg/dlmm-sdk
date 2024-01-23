@@ -9,7 +9,7 @@ use lb_clmm::accounts;
 use lb_clmm::instruction;
 use lb_clmm::utils::pda::derive_preset_parameter_pda;
 
-pub fn close_preset_parameter<C: Deref<Target = impl Signer> + Clone>(
+pub async fn close_preset_parameter<C: Deref<Target = impl Signer> + Clone>(
     bin_step: u16,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
@@ -29,7 +29,7 @@ pub fn close_preset_parameter<C: Deref<Target = impl Signer> + Clone>(
     let signature = request_builder
         .accounts(accounts)
         .args(ix)
-        .send_with_spinner_and_config(transaction_config);
+        .send_with_spinner_and_config(transaction_config).await;
 
     println!(
         "Close preset parameter {}. Signature: {signature:#?}",

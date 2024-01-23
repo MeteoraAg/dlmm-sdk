@@ -12,7 +12,7 @@ use anchor_spl::associated_token::get_associated_token_address;
 use anchor_spl::token::spl_token;
 use anyhow::*;
 
-pub fn get_or_create_ata<C: Deref<Target = impl Signer> + Clone>(
+pub async fn get_or_create_ata<C: Deref<Target = impl Signer> + Clone>(
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
     token_mint: Pubkey,
@@ -35,17 +35,17 @@ pub fn get_or_create_ata<C: Deref<Target = impl Signer> + Clone>(
                     &spl_token::ID,
                 ));
 
-            builder.send_with_spinner_and_config(transaction_config)?;
+            builder.send_with_spinner_and_config(transaction_config).await?;
             Ok(user_ata)
         }
     }
 }
 
-pub fn get_bin_arrays_for_position<C: Deref<Target = impl Signer> + Clone>(
+pub async fn get_bin_arrays_for_position<C: Deref<Target = impl Signer> + Clone>(
     program: &Program<C>,
     position_address: Pubkey,
 ) -> Result<[Pubkey; 2]> {
-    let position: Position = program.account(position_address)?;
+    let position: Position = program.account(position_address).await?;
 
     let lower_bin_array_idx = BinArray::bin_id_to_bin_array_index(position.lower_bin_id)?;
     let upper_bin_array_idx = lower_bin_array_idx.checked_add(1).context("MathOverflow")?;

@@ -34,7 +34,7 @@ pub struct InitPresetParameters {
     pub protocol_share: u16,
 }
 
-pub fn initialize_preset_parameter<C: Deref<Target = impl Signer> + Clone>(
+pub async fn initialize_preset_parameter<C: Deref<Target = impl Signer> + Clone>(
     params: InitPresetParameters,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
@@ -81,7 +81,7 @@ pub fn initialize_preset_parameter<C: Deref<Target = impl Signer> + Clone>(
     let signature = request_builder
         .accounts(accounts)
         .args(ix)
-        .send_with_spinner_and_config(transaction_config);
+        .send_with_spinner_and_config(transaction_config).await;
 
     println!(
         "Initialize preset parameter {}. Signature: {signature:#?}",

@@ -15,7 +15,7 @@ pub struct UpdateRewardDurationParams {
     pub reward_duration: u64,
 }
 
-pub fn update_reward_duration<C: Deref<Target = impl Signer> + Clone>(
+pub async fn update_reward_duration<C: Deref<Target = impl Signer> + Clone>(
     params: UpdateRewardDurationParams,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
@@ -26,7 +26,7 @@ pub fn update_reward_duration<C: Deref<Target = impl Signer> + Clone>(
         reward_duration,
     } = params;
 
-    let lb_pair_state: LbPair = program.account(lb_pair)?;
+    let lb_pair_state: LbPair = program.account(lb_pair).await?;
 
     let active_bin_array_idx = BinArray::bin_id_to_bin_array_index(lb_pair_state.active_id)?;
     let (bin_array, _bump) = derive_bin_array_pda(lb_pair, active_bin_array_idx as i64);
@@ -50,7 +50,7 @@ pub fn update_reward_duration<C: Deref<Target = impl Signer> + Clone>(
     let signature = request_builder
         .accounts(accounts)
         .args(ix)
-        .send_with_spinner_and_config(transaction_config);
+        .send_with_spinner_and_config(transaction_config).await;
 
     println!("Fund reward. Signature: {:#?}", signature);
 
