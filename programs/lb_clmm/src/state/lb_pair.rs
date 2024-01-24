@@ -121,7 +121,7 @@ pub struct LbPair {
     pub activation_slot: u64,
     /// Last slot until pool remove max_swapped_amount for buying
     pub swap_cap_deactivate_slot: u64,
-    /// Max X swapped amount user can swap from y to x between activation_slot and last_sloi
+    /// Max X swapped amount user can swap from y to x between activation_slot and last_slot
     pub max_swapped_amount: u64,
     /// Reserved space for future use
     pub _reserved: [u8; 64],
