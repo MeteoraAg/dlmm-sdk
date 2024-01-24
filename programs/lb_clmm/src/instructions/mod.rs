@@ -24,6 +24,7 @@ pub mod position_authorize;
 pub mod remove_all_liquidity;
 pub mod remove_liquidity;
 pub mod set_activation_slot;
+pub mod set_max_swapped_amount;
 pub mod swap;
 pub mod toggle_pair_status;
 pub mod update_fee_owner;

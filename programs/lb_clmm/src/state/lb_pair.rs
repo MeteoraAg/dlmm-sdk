@@ -9,6 +9,7 @@ use crate::instructions::update_fee_parameters::FeeParameter;
 use crate::math::u128x128_math::Rounding;
 use crate::math::u64x64_math::SCALE_OFFSET;
 use crate::math::utils_math::{one, safe_mul_div_cast, safe_mul_shr_cast, safe_shl_div_cast};
+use crate::state::action_access::get_lb_pair_type_access_validator;
 use crate::state::bin::BinArray;
 use crate::state::bin_array_bitmap_extension::BinArrayBitmapExtension;
 use crate::state::parameters::{StaticParameters, VariableParameters};
@@ -28,13 +29,27 @@ pub enum PairType {
     Permission,
 }
 
+pub struct LaunchPadParams {
+    pub activation_slot: u64,
+    pub swap_cap_deactivate_slot: u64,
+    pub max_swapped_amount: u64,
+}
+
 impl PairType {
-    pub fn get_pair_default_activation_slot(&self) -> u64 {
+    pub fn get_pair_default_launch_pad_params(&self) -> LaunchPadParams {
         match self {
             // The slot is unreachable. Therefore by default, the pair will be disabled until admin update the activation slot.
-            Self::Permission => u64::MAX,
+            Self::Permission => LaunchPadParams {
+                activation_slot: u64::MAX,
+                swap_cap_deactivate_slot: u64::MAX,
+                max_swapped_amount: u64::MAX,
+            },
             // Activation slot is not used in permissionless pair. Therefore, default to 0.
-            Self::Permissionless => 0,
+            Self::Permissionless => LaunchPadParams {
+                activation_slot: 0,
+                swap_cap_deactivate_slot: 0,
+                max_swapped_amount: 0,
+            },
         }
     }
 }
@@ -104,12 +119,21 @@ pub struct LbPair {
     pub base_key: Pubkey,
     /// Slot to enable the pair. Only available for permission pair.
     pub activation_slot: u64,
+    /// Last slot until pool remove max_swapped_amount for buying
+    pub swap_cap_deactivate_slot: u64,
+    /// Max X swapped amount user can swap from y to x between activation_slot and last_slot
+    pub max_swapped_amount: u64,
     /// Reserved space for future use
-    pub _reserved: [u8; 80],
+    pub _reserved: [u8; 64],
 }
 
 impl Default for LbPair {
     fn default() -> Self {
+        let LaunchPadParams {
+            activation_slot,
+            max_swapped_amount,
+            swap_cap_deactivate_slot,
+        } = PairType::Permissionless.get_pair_default_launch_pad_params();
         Self {
             active_id: 0,
             parameters: StaticParameters::default(),
@@ -131,9 +155,11 @@ impl Default for LbPair {
             status: 0,
             whitelisted_wallet: [Pubkey::default(); 2],
             base_key: Pubkey::default(),
-            activation_slot: PairType::Permissionless.get_pair_default_activation_slot(),
+            activation_slot,
+            swap_cap_deactivate_slot,
+            max_swapped_amount,
             _padding1: [0u8; 5],
-            _reserved: [0u8; 80],
+            _reserved: [0u8; 64],
         }
     }
 }
@@ -271,9 +297,8 @@ impl LbPair {
         reserve_y: Pubkey,
         oracle: Pubkey,
         static_parameter: StaticParameters,
-        pair_type: u8,
+        pair_type: PairType,
         pair_status: u8,
-        activation_slot: u64,
         base_key: Pubkey,
     ) -> Result<()> {
         self.parameters = static_parameter;
@@ -287,11 +312,17 @@ impl LbPair {
         self.bump_seed = [bump];
         self.bin_step_seed = bin_step.to_le_bytes();
         self.oracle = oracle;
-        self.pair_type = pair_type;
+        self.pair_type = pair_type.into();
         self.base_key = base_key;
         self.status = pair_status;
+        let LaunchPadParams {
+            activation_slot,
+            swap_cap_deactivate_slot,
+            max_swapped_amount,
+        } = pair_type.get_pair_default_launch_pad_params();
         self.activation_slot = activation_slot;
-
+        self.swap_cap_deactivate_slot = swap_cap_deactivate_slot;
+        self.max_swapped_amount = max_swapped_amount;
         Ok(())
     }
 
@@ -321,6 +352,15 @@ impl LbPair {
             }
             None => Err(LBError::ExceedMaxWhitelist.into()),
         }
+    }
+
+    pub fn get_swap_cap_status_and_amount(
+        &self,
+        current_time: u64,
+        swap_for_y: bool,
+    ) -> Result<(bool, u64)> {
+        let pair_type_access_validator = get_lb_pair_type_access_validator(self, current_time)?;
+        Ok(pair_type_access_validator.get_swap_cap_status_and_amount(swap_for_y))
     }
 
     pub fn status(&self) -> Result<PairStatus> {
