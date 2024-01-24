@@ -1,4 +1,5 @@
-use crate::state::lb_pair::{LbPair, PairStatus};
+use super::lb_pair::{LbPair, PairStatus};
+
 use anchor_lang::prelude::*;
 use solana_program::pubkey::Pubkey;
 
@@ -7,11 +8,14 @@ pub trait LbPairTypeActionAccess {
     fn validate_initialize_bin_array_access(&self, wallet: Pubkey) -> bool;
     fn validate_initialize_position_access(&self, wallet: Pubkey) -> bool;
     fn validate_swap_access(&self) -> bool;
+    fn get_swap_cap_status_and_amount(&self, swap_for_y: bool) -> (bool, u64);
 }
 
 struct PermissionLbPairActionAccess<'a> {
     is_enabled: bool,
     activated: bool,
+    throttled: bool,
+    max_swapped_amount: u64,
     whitelisted_wallet: &'a [Pubkey],
 }
 
@@ -21,6 +25,8 @@ impl<'a> PermissionLbPairActionAccess<'a> {
             whitelisted_wallet: &lb_pair.whitelisted_wallet,
             is_enabled: lb_pair.status == Into::<u8>::into(PairStatus::Enabled),
             activated: current_slot >= lb_pair.activation_slot,
+            throttled: current_slot <= lb_pair.swap_cap_deactivate_slot,
+            max_swapped_amount: lb_pair.max_swapped_amount,
         }
     }
 }
@@ -46,6 +52,17 @@ impl<'a> LbPairTypeActionAccess for PermissionLbPairActionAccess<'a> {
 
     fn validate_swap_access(&self) -> bool {
         self.is_enabled && self.activated
+    }
+
+    fn get_swap_cap_status_and_amount(&self, swap_for_y: bool) -> (bool, u64) {
+        // no cap when user sell
+        if swap_for_y {
+            return (false, u64::MAX);
+        }
+        return (
+            self.throttled && self.max_swapped_amount < u64::MAX,
+            self.max_swapped_amount,
+        );
     }
 }
 
@@ -76,6 +93,9 @@ impl LbPairTypeActionAccess for PermissionlessLbPairActionAccess {
 
     fn validate_swap_access(&self) -> bool {
         self.is_enabled
+    }
+    fn get_swap_cap_status_and_amount(&self, swap_for_y: bool) -> (bool, u64) {
+        (false, u64::MAX)
     }
 }
 

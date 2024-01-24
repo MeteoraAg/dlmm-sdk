@@ -2097,6 +2097,31 @@ export type LbClmm = {
           "type": "u64"
         }
       ]
+    },
+    {
+      "name": "setMaxSwappedAmount",
+      "accounts": [
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "admin",
+          "isMut": true,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "swapCapDeactivateSlot",
+          "type": "u64"
+        },
+        {
+          "name": "maxSwappedAmount",
+          "type": "u64"
+        }
+      ]
     }
   ],
   "accounts": [
@@ -2381,6 +2406,20 @@ export type LbClmm = {
             "type": "u64"
           },
           {
+            "name": "swapCapDeactivateSlot",
+            "docs": [
+              "Last slot until pool remove max_swapped_amount for buying"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "maxSwappedAmount",
+            "docs": [
+              "Max X swapped amount user can swap from y to x between activation_slot and last_sloi"
+            ],
+            "type": "u64"
+          },
+          {
             "name": "reserved",
             "docs": [
               "Reserved space for future use"
@@ -2388,7 +2427,7 @@ export type LbClmm = {
             "type": {
               "array": [
                 "u8",
-                80
+                64
               ]
             }
           }
@@ -6512,6 +6551,31 @@ export const IDL: LbClmm = {
           "type": "u64"
         }
       ]
+    },
+    {
+      "name": "setMaxSwappedAmount",
+      "accounts": [
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "admin",
+          "isMut": true,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "swapCapDeactivateSlot",
+          "type": "u64"
+        },
+        {
+          "name": "maxSwappedAmount",
+          "type": "u64"
+        }
+      ]
     }
   ],
   "accounts": [
@@ -6796,6 +6860,20 @@ export const IDL: LbClmm = {
             "type": "u64"
           },
           {
+            "name": "swapCapDeactivateSlot",
+            "docs": [
+              "Last slot until pool remove max_swapped_amount for buying"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "maxSwappedAmount",
+            "docs": [
+              "Max X swapped amount user can swap from y to x between activation_slot and last_sloi"
+            ],
+            "type": "u64"
+          },
+          {
             "name": "reserved",
             "docs": [
               "Reserved space for future use"
@@ -6803,7 +6881,7 @@ export const IDL: LbClmm = {
             "type": {
               "array": [
                 "u8",
-                80
+                64
               ]
             }
           }

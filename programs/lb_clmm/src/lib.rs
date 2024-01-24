@@ -34,6 +34,7 @@ use instructions::migrate_position::*;
 use instructions::position_authorize::*;
 use instructions::remove_liquidity::*;
 use instructions::set_activation_slot::*;
+use instructions::set_max_swapped_amount::*;
 use instructions::swap::*;
 use instructions::toggle_pair_status::*;
 use instructions::update_fee_owner::*;
@@ -321,5 +322,16 @@ pub mod lb_clmm {
         activation_slot: u64,
     ) -> Result<()> {
         instructions::set_activation_slot::handle(ctx, activation_slot)
+    }
+    pub fn set_max_swapped_amount(
+        ctx: Context<SetMaxSwappedAmount>,
+        swap_cap_deactivate_slot: u64,
+        max_swapped_amount: u64,
+    ) -> Result<()> {
+        instructions::set_max_swapped_amount::handle(
+            ctx,
+            swap_cap_deactivate_slot,
+            max_swapped_amount,
+        )
     }
 }
