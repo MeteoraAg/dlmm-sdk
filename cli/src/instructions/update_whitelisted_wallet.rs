@@ -7,7 +7,7 @@ use lb_clmm::accounts;
 use lb_clmm::instruction;
 use std::ops::Deref;
 
-pub fn update_whitelisted_wallet<C: Deref<Target = impl Signer> + Clone>(
+pub async fn update_whitelisted_wallet<C: Deref<Target = impl Signer> + Clone>(
     lb_pair: Pubkey,
     idx: u8,
     wallet: Pubkey,
@@ -25,7 +25,7 @@ pub fn update_whitelisted_wallet<C: Deref<Target = impl Signer> + Clone>(
     let signature = request_builder
         .accounts(accounts)
         .args(ix)
-        .send_with_spinner_and_config(transaction_config);
+        .send_with_spinner_and_config(transaction_config).await;
 
     println!("Update whitelisted wallet. Signature: {:#?}", signature);
 

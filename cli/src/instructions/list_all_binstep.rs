@@ -5,10 +5,10 @@ use std::ops::Deref;
 
 use anyhow::*;
 
-pub fn list_all_binstep<C: Deref<Target = impl Signer> + Clone>(
+pub async fn list_all_binstep<C: Deref<Target = impl Signer> + Clone>(
     program: &Program<C>,
 ) -> Result<()> {
-    let preset_parameters = program.accounts::<PresetParameter>(vec![])?;
+    let preset_parameters = program.accounts::<PresetParameter>(vec![]).await?;
 
     for (_, param) in preset_parameters {
         let base_fee = (param.bin_step as u128 * param.base_factor as u128 * 1000) as f64

@@ -17,7 +17,7 @@ pub struct SimulateSwapDemandParameters {
     pub side_ratio: u64,
 }
 
-pub fn simulate_swap_demand<C: Deref<Target = impl Signer> + Clone>(
+pub async fn simulate_swap_demand<C: Deref<Target = impl Signer> + Clone>(
     params: SimulateSwapDemandParameters,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
@@ -29,22 +29,22 @@ pub fn simulate_swap_demand<C: Deref<Target = impl Signer> + Clone>(
         side_ratio,
     } = params;
 
-    let lb_pair_state: LbPair = program.account(lb_pair)?;
-    let token_mint_base: Mint = program.account(lb_pair_state.token_x_mint)?;
-    let token_mint_quote: Mint = program.account(lb_pair_state.token_y_mint)?;
+    let lb_pair_state: LbPair = program.account(lb_pair).await?;
+    let token_mint_base: Mint = program.account(lb_pair_state.token_x_mint).await?;
+    let token_mint_quote: Mint = program.account(lb_pair_state.token_y_mint).await?;
 
     get_or_create_ata(
         &program,
         transaction_config,
         lb_pair_state.token_x_mint,
         program.payer(),
-    )?;
+    ).await?;
     get_or_create_ata(
         &program,
         transaction_config,
         lb_pair_state.token_y_mint,
         program.payer(),
-    )?;
+    ).await?;
 
     // random amount
     let mut rng = rand::thread_rng();
@@ -59,7 +59,7 @@ pub fn simulate_swap_demand<C: Deref<Target = impl Signer> + Clone>(
                 lb_pair,
                 swap_for_y: true,
             };
-            match swap(params, &program, transaction_config) {
+            match swap(params, &program, transaction_config).await {
                 Ok(_) => {}
                 Err(err) => {
                     println!("{err}");
@@ -75,7 +75,7 @@ pub fn simulate_swap_demand<C: Deref<Target = impl Signer> + Clone>(
                 lb_pair,
                 swap_for_y: false,
             };
-            match swap(params, &program, transaction_config) {
+            match swap(params, &program, transaction_config).await {
                 Ok(_) => {}
                 Err(err) => {
                     println!("{err}");

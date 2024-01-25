@@ -21,7 +21,7 @@ pub struct InitPositionParameters {
     pub nft_mint: Option<Pubkey>,
 }
 
-pub fn initialize_position<C: Deref<Target = impl Signer> + Clone>(
+pub async fn initialize_position<C: Deref<Target = impl Signer> + Clone>(
     params: InitPositionParameters,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
@@ -67,7 +67,7 @@ pub fn initialize_position<C: Deref<Target = impl Signer> + Clone>(
         .accounts(accounts)
         .args(ix)
         .signer(&position_keypair)
-        .send_with_spinner_and_config(transaction_config);
+        .send_with_spinner_and_config(transaction_config).await;
 
     println!(
         "Initialize position {}. Signature: {signature:#?}",

@@ -20,7 +20,7 @@ pub struct InitPositionWithPriceRangeParameters {
     pub nft_mint: Option<Pubkey>,
 }
 
-pub fn initialize_position_with_price_range<C: Deref<Target = impl Signer> + Clone>(
+pub async fn initialize_position_with_price_range<C: Deref<Target = impl Signer> + Clone>(
     params: InitPositionWithPriceRangeParameters,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
@@ -32,7 +32,7 @@ pub fn initialize_position_with_price_range<C: Deref<Target = impl Signer> + Clo
         nft_mint,
     } = params;
 
-    let lb_pair_state = program.account::<LbPair>(lb_pair)?;
+    let lb_pair_state = program.account::<LbPair>(lb_pair).await?;
 
     let lower_bin_id = get_id_from_price(
         lb_pair_state.bin_step,
@@ -48,5 +48,5 @@ pub fn initialize_position_with_price_range<C: Deref<Target = impl Signer> + Clo
         nft_mint,
     };
 
-    initialize_position(params, program, transaction_config)
+    initialize_position(params, program, transaction_config).await
 }

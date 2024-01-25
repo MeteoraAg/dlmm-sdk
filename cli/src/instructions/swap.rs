@@ -22,7 +22,7 @@ pub struct SwapParameters {
     pub swap_for_y: bool,
 }
 
-pub fn swap<C: Deref<Target = impl Signer> + Clone>(
+pub async fn swap<C: Deref<Target = impl Signer> + Clone>(
     params: SwapParameters,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
@@ -33,7 +33,7 @@ pub fn swap<C: Deref<Target = impl Signer> + Clone>(
         swap_for_y,
     } = params;
 
-    let lb_pair_state: LbPair = program.account(lb_pair)?;
+    let lb_pair_state: LbPair = program.account(lb_pair).await?;
 
     let active_bin_array_idx = BinArray::bin_id_to_bin_array_index(lb_pair_state.active_id)?;
     let (bin_array_0, _bump) = derive_bin_array_pda(lb_pair, active_bin_array_idx as i64);
@@ -117,7 +117,7 @@ pub fn swap<C: Deref<Target = impl Signer> + Clone>(
         .accounts(accounts)
         .accounts(remaining_accounts)
         .args(ix)
-        .send_with_spinner_and_config(transaction_config);
+        .send_with_spinner_and_config(transaction_config).await;
 
     println!("Swap. Signature: {:#?}", signature);
 

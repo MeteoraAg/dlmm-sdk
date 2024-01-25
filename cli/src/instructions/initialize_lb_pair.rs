@@ -22,7 +22,7 @@ pub struct InitLbPairParameters {
     pub permission: bool,
 }
 
-pub fn initialize_lb_pair<C: Deref<Target = impl Signer> + Clone>(
+pub async fn initialize_lb_pair<C: Deref<Target = impl Signer> + Clone>(
     params: InitLbPairParameters,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
@@ -35,8 +35,8 @@ pub fn initialize_lb_pair<C: Deref<Target = impl Signer> + Clone>(
         permission,
     } = params;
 
-    let token_mint_base: Mint = program.account(token_mint_x)?;
-    let token_mint_quote: Mint = program.account(token_mint_y)?;
+    let token_mint_base: Mint = program.account(token_mint_x).await?;
+    let token_mint_quote: Mint = program.account(token_mint_y).await?;
 
     let price_per_lamport = price_per_token_to_per_lamport(
         initial_price,
@@ -92,7 +92,7 @@ pub fn initialize_lb_pair<C: Deref<Target = impl Signer> + Clone>(
             .accounts(accounts)
             .args(ix)
             .signer(&base_kp)
-            .send_with_spinner_and_config(transaction_config);
+            .send_with_spinner_and_config(transaction_config).await;
 
         println!("Initialize Permission LB pair {lb_pair}. Signature: {signature:#?}");
 
@@ -124,7 +124,7 @@ pub fn initialize_lb_pair<C: Deref<Target = impl Signer> + Clone>(
         let signature = request_builder
             .accounts(accounts)
             .args(ix)
-            .send_with_spinner_and_config(transaction_config);
+            .send_with_spinner_and_config(transaction_config).await;
 
         println!("Initialize LB pair {lb_pair}. Signature: {signature:#?}");
 

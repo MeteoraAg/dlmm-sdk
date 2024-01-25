@@ -134,7 +134,7 @@ pub const existing_preset_parameters: [PresetParameter; 10] = [
     },
 ];
 
-pub fn initialize_existing_preset_binstep<C: Deref<Target = impl Signer> + Clone>(
+pub async fn initialize_existing_preset_binstep<C: Deref<Target = impl Signer> + Clone>(
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
 ) -> Result<()> {
@@ -169,7 +169,7 @@ pub fn initialize_existing_preset_binstep<C: Deref<Target = impl Signer> + Clone
             let signature = request_builder
                 .accounts(accounts)
                 .args(ix)
-                .send_with_spinner_and_config(transaction_config);
+                .send_with_spinner_and_config(transaction_config).await;
 
             println!(
                 "Initialize preset param {preset_param_pda} bin_step. Signature: {signature:#?}"

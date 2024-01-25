@@ -21,14 +21,14 @@ fn fee_rate_to_fee_pct(fee_rate: u128) -> Option<Decimal> {
     fee_rate.checked_mul(Decimal::ONE_HUNDRED)
 }
 
-pub fn show_pair<C: Deref<Target = impl Signer> + Clone>(
+pub async fn show_pair<C: Deref<Target = impl Signer> + Clone>(
     lb_pair: Pubkey,
     program: &Program<C>,
 ) -> Result<()> {
-    let lb_pair_state: LbPair = program.account(lb_pair)?;
+    let lb_pair_state: LbPair = program.account(lb_pair).await?;
 
     let lb_pair_filter = RpcFilterType::Memcmp(Memcmp::new_base58_encoded(16, &lb_pair.to_bytes()));
-    let mut bin_arrays: Vec<(Pubkey, BinArray)> = program.accounts(vec![lb_pair_filter])?;
+    let mut bin_arrays: Vec<(Pubkey, BinArray)> = program.accounts(vec![lb_pair_filter]).await?;
     bin_arrays.sort_by(|a, b| a.1.index.cmp(&b.1.index));
 
     println!("{:#?}", lb_pair_state);
@@ -48,8 +48,8 @@ pub fn show_pair<C: Deref<Target = impl Signer> + Clone>(
         }
     }
 
-    let x_mint: Mint = program.account(lb_pair_state.token_x_mint)?;
-    let y_mint: Mint = program.account(lb_pair_state.token_y_mint)?;
+    let x_mint: Mint = program.account(lb_pair_state.token_x_mint).await?;
+    let y_mint: Mint = program.account(lb_pair_state.token_y_mint).await?;
 
     let q64x64_price = get_price_from_id(lb_pair_state.active_id, lb_pair_state.bin_step)?;
     let decimal_price_per_lamport =

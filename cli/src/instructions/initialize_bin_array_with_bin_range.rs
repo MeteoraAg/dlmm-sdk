@@ -14,7 +14,7 @@ pub struct InitBinArrayWithBinRangeParameters {
     pub upper_bin_id: i32,
 }
 
-pub fn initialize_bin_array_with_bin_range<C: Deref<Target = impl Signer> + Clone>(
+pub async fn initialize_bin_array_with_bin_range<C: Deref<Target = impl Signer> + Clone>(
     params: InitBinArrayWithBinRangeParameters,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
@@ -35,7 +35,7 @@ pub fn initialize_bin_array_with_bin_range<C: Deref<Target = impl Signer> + Clon
             bin_array_index: idx.into(),
             lb_pair,
         };
-        let bin_array_pubkey = initialize_bin_array(params, program, transaction_config)?;
+        let bin_array_pubkey = initialize_bin_array(params, program, transaction_config).await?;
         bin_arrays_pubkey.push(bin_array_pubkey);
     }
 

@@ -37,7 +37,7 @@ pub struct SeedLiquidityParameters {
     pub max_price: f64,
 }
 
-pub fn seed_liquidity<C: Deref<Target = impl Signer> + Clone>(
+pub async fn seed_liquidity<C: Deref<Target = impl Signer> + Clone>(
     params: SeedLiquidityParameters,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
@@ -55,11 +55,11 @@ pub fn seed_liquidity<C: Deref<Target = impl Signer> + Clone>(
 
     let (lb_pair, _bump) = derive_lb_pair_pda(token_mint_x, token_mint_y, bin_step, permission);
 
-    let lb_pair_state: LbPair = program.account(lb_pair)?;
+    let lb_pair_state: LbPair = program.account(lb_pair).await?;
     let bin_step = lb_pair_state.bin_step;
 
-    let token_mint_base: Mint = program.account(token_mint_x)?;
-    let token_mint_quote: Mint = program.account(token_mint_y)?;
+    let token_mint_base: Mint = program.account(token_mint_x).await?;
+    let token_mint_quote: Mint = program.account(token_mint_y).await?;
 
     // convert to wei amount
     let amount = amount
@@ -103,14 +103,14 @@ pub fn seed_liquidity<C: Deref<Target = impl Signer> + Clone>(
         transaction_config,
         lb_pair_state.token_x_mint,
         program.payer(),
-    )?;
+    ).await?;
 
     let user_token_y = get_or_create_ata(
         &program,
         transaction_config,
         lb_pair_state.token_y_mint,
         program.payer(),
-    )?;
+    ).await?;
 
     let width = MAX_BIN_PER_POSITION as i32;
 
@@ -139,7 +139,7 @@ pub fn seed_liquidity<C: Deref<Target = impl Signer> + Clone>(
                 let signature = request_builder
                     .accounts(accounts)
                     .args(ix)
-                    .send_with_spinner_and_config(transaction_config)?;
+                    .send_with_spinner_and_config(transaction_config).await?;
                 println!("Init bin array {idx} {signature}");
             }
         }
@@ -177,12 +177,12 @@ pub fn seed_liquidity<C: Deref<Target = impl Signer> + Clone>(
                 .data(),
             };
             let builder = program.request().instruction(ix).signer(&position_base_kp);
-            let signature = builder.send_with_spinner_and_config(transaction_config);
+            let signature = builder.send_with_spinner_and_config(transaction_config).await;
             println!("Create position lower bin id {lower_bin_id} upper bin id {upper_bin_id}. signature {:#?}", signature);
             signature?;
         }
 
-        let position_state: PositionV2 = program.account(position).unwrap();
+        let position_state: PositionV2 = program.account(position).await.unwrap();
         if !position_state.is_empty() {
             continue;
         }
@@ -257,7 +257,7 @@ pub fn seed_liquidity<C: Deref<Target = impl Signer> + Clone>(
         let builder = instructions
             .into_iter()
             .fold(builder, |bld, ix| bld.instruction(ix));
-        let signature = builder.send_with_spinner_and_config(transaction_config);
+        let signature = builder.send_with_spinner_and_config(transaction_config).await;
         println!(
             "seed liquidity min_bin_id {lower_bin_id} max_bin_id {upper_bin_id} {:#?}",
             signature
@@ -265,7 +265,7 @@ pub fn seed_liquidity<C: Deref<Target = impl Signer> + Clone>(
         signature?;
     }
 
-    let reserve_x_state: TokenAccount = program.account(lb_pair_state.reserve_x).unwrap();
+    let reserve_x_state: TokenAccount = program.account(lb_pair_state.reserve_x).await.unwrap();
     let leftover = amount.checked_sub(reserve_x_state.amount).unwrap();
 
     if leftover > 0 {
@@ -321,7 +321,7 @@ pub fn seed_liquidity<C: Deref<Target = impl Signer> + Clone>(
             .instruction(ComputeBudgetInstruction::set_compute_unit_limit(1_400_000))
             .instruction(ix);
 
-        let signature = builder.send_with_spinner_and_config(transaction_config);
+        let signature = builder.send_with_spinner_and_config(transaction_config).await;
         println!(
             "seed liquidity for precision loss bin id {max_active_id} amount {leftover} {:#?}",
             signature
@@ -330,7 +330,7 @@ pub fn seed_liquidity<C: Deref<Target = impl Signer> + Clone>(
     }
 
     // sanity check
-    let reserve_x_state: TokenAccount = program.account(lb_pair_state.reserve_x).unwrap();
+    let reserve_x_state: TokenAccount = program.account(lb_pair_state.reserve_x).await.unwrap();
     assert!(reserve_x_state.amount == amount);
 
     Ok(())

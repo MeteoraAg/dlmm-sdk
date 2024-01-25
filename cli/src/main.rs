@@ -64,7 +64,8 @@ use crate::{
 };
 use lb_clmm::utils::pda::derive_lb_pair_pda;
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     let payer =
@@ -104,7 +105,7 @@ fn main() -> Result<()> {
                 initial_price,
                 permission,
             };
-            initialize_lb_pair(params, &amm_program, transaction_config)?;
+            initialize_lb_pair(params, &amm_program, transaction_config).await?;
         }
         Command::InitializeBinArray {
             bin_array_index,
@@ -114,7 +115,7 @@ fn main() -> Result<()> {
                 bin_array_index,
                 lb_pair,
             };
-            initialize_bin_array(params, &amm_program, transaction_config)?;
+            initialize_bin_array(params, &amm_program, transaction_config).await?;
         }
         Command::InitializeBinArrayWithPriceRange {
             lower_price,
@@ -126,7 +127,7 @@ fn main() -> Result<()> {
                 lower_price,
                 upper_price,
             };
-            initialize_bin_array_with_price_range(params, &amm_program, transaction_config)?;
+            initialize_bin_array_with_price_range(params, &amm_program, transaction_config).await?;
         }
         Command::InitializeBinArrayWithBinRange {
             lb_pair,
@@ -138,7 +139,7 @@ fn main() -> Result<()> {
                 lower_bin_id,
                 upper_bin_id,
             };
-            initialize_bin_array_with_bin_range(params, &amm_program, transaction_config)?;
+            initialize_bin_array_with_bin_range(params, &amm_program, transaction_config).await?;
         }
         Command::InitializePositionWithPriceRange {
             lb_pair,
@@ -152,7 +153,7 @@ fn main() -> Result<()> {
                 width,
                 nft_mint,
             };
-            initialize_position_with_price_range(params, &amm_program, transaction_config)?;
+            initialize_position_with_price_range(params, &amm_program, transaction_config).await?;
         }
         Command::InitializePosition {
             lb_pair,
@@ -166,7 +167,7 @@ fn main() -> Result<()> {
                 nft_mint,
                 width,
             };
-            initialize_position(params, &amm_program, transaction_config)?;
+            initialize_position(params, &amm_program, transaction_config).await?;
         }
         Command::AddLiquidity {
             lb_pair,
@@ -182,7 +183,7 @@ fn main() -> Result<()> {
                 bin_liquidity_distribution,
                 position,
             };
-            add_liquidity(params, &amm_program, transaction_config)?;
+            add_liquidity(params, &amm_program, transaction_config).await?;
         }
         Command::RemoveLiquidity {
             lb_pair,
@@ -194,7 +195,7 @@ fn main() -> Result<()> {
                 position,
                 bin_liquidity_removal,
             };
-            remove_liquidity(params, &amm_program, transaction_config)?;
+            remove_liquidity(params, &amm_program, transaction_config).await?;
         }
         Command::Swap {
             lb_pair,
@@ -206,7 +207,7 @@ fn main() -> Result<()> {
                 lb_pair,
                 swap_for_y,
             };
-            swap(params, &amm_program, transaction_config)?;
+            swap(params, &amm_program, transaction_config).await?;
         }
         Command::WithdrawProtocolFee {
             lb_pair,
@@ -218,17 +219,17 @@ fn main() -> Result<()> {
                 amount_x,
                 amount_y,
             };
-            withdraw_protocol_fee(params, &amm_program, transaction_config)?;
+            withdraw_protocol_fee(params, &amm_program, transaction_config).await?;
         }
         Command::UpdateFeeOwner { lb_pair, fee_owner } => {
             let params = UpdateFeeOwnerParam { fee_owner, lb_pair };
-            update_fee_owner(params, &amm_program, transaction_config)?;
+            update_fee_owner(params, &amm_program, transaction_config).await?;
         }
         Command::ShowPair { lb_pair } => {
-            show_pair(lb_pair, &amm_program)?;
+            show_pair(lb_pair, &amm_program).await?;
         }
         Command::ShowPosition { position } => {
-            let position: lb_clmm::state::position::Position = amm_program.account(position)?;
+            let position: lb_clmm::state::position::Position = amm_program.account(position).await?;
             println!("{:#?}", position);
         }
         Command::InitializeReward {
@@ -245,7 +246,7 @@ fn main() -> Result<()> {
                 reward_duration,
                 funder,
             };
-            initialize_reward(params, &amm_program, transaction_config)?;
+            initialize_reward(params, &amm_program, transaction_config).await?;
         }
         Command::FundReward {
             lb_pair,
@@ -257,7 +258,7 @@ fn main() -> Result<()> {
                 reward_index,
                 funding_amount,
             };
-            fund_reward(params, &amm_program, transaction_config)?;
+            fund_reward(params, &amm_program, transaction_config).await?;
         }
         Command::ClaimReward {
             lb_pair,
@@ -269,7 +270,7 @@ fn main() -> Result<()> {
                 reward_index,
                 position,
             };
-            claim_reward(params, &amm_program, transaction_config)?;
+            claim_reward(params, &amm_program, transaction_config).await?;
         }
         Command::UpdateRewardDuration {
             lb_pair,
@@ -281,7 +282,7 @@ fn main() -> Result<()> {
                 reward_index,
                 reward_duration,
             };
-            update_reward_duration(params, &amm_program, transaction_config)?;
+            update_reward_duration(params, &amm_program, transaction_config).await?;
         }
         Command::UpdateRewardFunder {
             lb_pair,
@@ -293,13 +294,13 @@ fn main() -> Result<()> {
                 reward_index,
                 funder,
             };
-            update_reward_funder(params, &amm_program, transaction_config)?;
+            update_reward_funder(params, &amm_program, transaction_config).await?;
         }
         Command::ClosePosition { position } => {
-            close_position(position, &amm_program, transaction_config)?;
+            close_position(position, &amm_program, transaction_config).await?;
         }
         Command::ClaimFee { position } => {
-            claim_fee(position, &amm_program, transaction_config)?;
+            claim_fee(position, &amm_program, transaction_config).await?;
         }
         Command::IncreaseLength {
             lb_pair,
@@ -309,7 +310,7 @@ fn main() -> Result<()> {
                 lb_pair,
                 length_to_add,
             };
-            increase_length(params, &amm_program, transaction_config)?;
+            increase_length(params, &amm_program, transaction_config).await?;
         }
         Command::InitializePresetParameter {
             bin_step,
@@ -336,14 +337,14 @@ fn main() -> Result<()> {
                 reduction_factor,
                 variable_fee_control,
             };
-            initialize_preset_parameter(params, &amm_program, transaction_config)?;
+            initialize_preset_parameter(params, &amm_program, transaction_config).await?;
         }
         Command::ClosePresetParameter { bin_step } => {
-            close_preset_parameter(bin_step, &amm_program, transaction_config)?;
+            close_preset_parameter(bin_step, &amm_program, transaction_config).await?;
         }
         Command::ShowPresetParameter { bin_step } => {
             let (preset_param_pda, _bump) = derive_preset_parameter_pda(bin_step);
-            let preset_param_state: PresetParameter = amm_program.account(preset_param_pda)?;
+            let preset_param_state: PresetParameter = amm_program.account(preset_param_pda).await?;
             println!("{:#?}", preset_param_state);
         }
         Command::UpdateWhitelistedWallet {
@@ -356,9 +357,9 @@ fn main() -> Result<()> {
             wallet_address,
             &amm_program,
             transaction_config,
-        )?,
+        ).await?,
         Command::ListAllBinStep => {
-            list_all_binstep(&amm_program)?;
+            list_all_binstep(&amm_program).await?;
         }
         Command::SimulateSwapDemand {
             lb_pair,
@@ -372,11 +373,11 @@ fn main() -> Result<()> {
                 y_amount,
                 side_ratio,
             };
-            simulate_swap_demand(params, &amm_program, transaction_config)?;
+            simulate_swap_demand(params, &amm_program, transaction_config).await?;
         }
         Command::Admin(admin_command) => match admin_command {
             AdminCommand::TogglePoolStatus { lb_pair } => {
-                toggle_pool_status(lb_pair, &amm_program, transaction_config)?;
+                toggle_pool_status(lb_pair, &amm_program, transaction_config).await?;
             }
             AdminCommand::TogglePoolStatus2 {
                 bin_step,
@@ -386,7 +387,7 @@ fn main() -> Result<()> {
             } => {
                 let (lb_pair, _bump) =
                     derive_lb_pair_pda(token_mint_x, token_mint_y, bin_step, permission);
-                toggle_pool_status(lb_pair, &amm_program, transaction_config)?;
+                toggle_pool_status(lb_pair, &amm_program, transaction_config).await?;
             }
             AdminCommand::UpdateWhitelistedWallet2 {
                 bin_step,
@@ -404,7 +405,7 @@ fn main() -> Result<()> {
                     wallet_address,
                     &amm_program,
                     transaction_config,
-                )?;
+                ).await?;
             }
             AdminCommand::SeedLiquidity {
                 bin_step,
@@ -428,7 +429,7 @@ fn main() -> Result<()> {
                     min_price,
                     max_price,
                 };
-                seed_liquidity(params, &amm_program, transaction_config)?;
+                seed_liquidity(params, &amm_program, transaction_config).await?;
             }
             AdminCommand::RemoveLiquidityByPriceRange {
                 bin_step,
@@ -448,7 +449,7 @@ fn main() -> Result<()> {
                     min_price,
                     max_price,
                 };
-                remove_liquidity_by_price_range(params, &amm_program, transaction_config)?;
+                remove_liquidity_by_price_range(params, &amm_program, transaction_config).await?;
             }
             AdminCommand::CheckMyBalance {
                 bin_step,
@@ -468,7 +469,7 @@ fn main() -> Result<()> {
                     min_price,
                     max_price,
                 };
-                check_my_balance(params, &amm_program)?;
+                check_my_balance(params, &amm_program).await?;
             }
         },
     };

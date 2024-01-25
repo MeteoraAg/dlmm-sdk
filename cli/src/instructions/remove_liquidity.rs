@@ -21,7 +21,7 @@ pub struct RemoveLiquidityParameters {
     pub bin_liquidity_removal: Vec<(i32, f64)>,
 }
 
-pub fn remove_liquidity<C: Deref<Target = impl Signer> + Clone>(
+pub async fn remove_liquidity<C: Deref<Target = impl Signer> + Clone>(
     params: RemoveLiquidityParameters,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
@@ -32,23 +32,23 @@ pub fn remove_liquidity<C: Deref<Target = impl Signer> + Clone>(
         bin_liquidity_removal,
     } = params;
 
-    let lb_pair_state: LbPair = program.account(lb_pair)?;
+    let lb_pair_state: LbPair = program.account(lb_pair).await?;
 
-    let [bin_array_lower, bin_array_upper] = get_bin_arrays_for_position(&program, position)?;
+    let [bin_array_lower, bin_array_upper] = get_bin_arrays_for_position(&program, position).await?;
 
     let user_token_x = get_or_create_ata(
         &program,
         transaction_config,
         lb_pair_state.token_x_mint,
         program.payer(),
-    )?;
+    ).await?;
 
     let user_token_y = get_or_create_ata(
         &program,
         transaction_config,
         lb_pair_state.token_y_mint,
         program.payer(),
-    )?;
+    ).await?;
 
     // TODO: id and price slippage
     let (bin_array_bitmap_extension, _bump) = derive_bin_array_bitmap_extension(lb_pair);
@@ -102,7 +102,7 @@ pub fn remove_liquidity<C: Deref<Target = impl Signer> + Clone>(
         .instruction(compute_budget_ix)
         .accounts(accounts)
         .args(ix)
-        .send_with_spinner_and_config(transaction_config);
+        .send_with_spinner_and_config(transaction_config).await;
 
     println!("Remove Liquidity. Signature: {:#?}", signature);
 
