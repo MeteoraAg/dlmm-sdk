@@ -75,6 +75,64 @@ export function computeProtocolFee(feeAmount: BN, sParameter: sParameters) {
     .div(new BN(BASIS_POINT_MAX));
 }
 
+export function swapQuoteAtBinWithCap(
+  bin: Bin,
+  binStep: number,
+  sParameter: sParameters,
+  vParameter: vParameters,
+  inAmount: BN,
+  swapForY: boolean,
+  remainingCap: BN,
+): {
+  isReachCap: boolean,
+  amountIn: BN;
+  amountOut: BN;
+  fee: BN;
+  protocolFee: BN;
+} {
+  let maxAmountOut: BN;
+  if (swapForY) {
+    maxAmountOut = bin.amountY;
+  } else {
+    maxAmountOut = bin.amountX;
+  }
+
+  if (maxAmountOut.lt(remainingCap)) {
+    const { amountIn, amountOut, fee, protocolFee } = swapQuoteAtBin(
+      bin,
+      binStep,
+      sParameter,
+      vParameter,
+      inAmount,
+      swapForY
+    );
+    return {
+      isReachCap: false,
+      amountIn,
+      amountOut,
+      fee,
+      protocolFee
+    }
+  }
+  let amountInWithCap = getAmountIn(remainingCap, bin.price, swapForY);
+  let actualAmountIn = inAmount.gt(amountInWithCap) ? amountInWithCap : inAmount;
+  const { amountIn, amountOut, fee, protocolFee } = swapQuoteAtBin(
+    bin,
+    binStep,
+    sParameter,
+    vParameter,
+    actualAmountIn,
+    swapForY
+  );
+  return {
+    isReachCap: true,
+    amountIn,
+    amountOut,
+    fee,
+    protocolFee
+  }
+}
+
 export function swapQuoteAtBin(
   bin: Bin,
   binStep: number,
@@ -148,4 +206,13 @@ export function swapQuoteAtBin(
     fee,
     protocolFee,
   };
+}
+
+
+function getAmountIn(amountOut: BN, price: BN, swapForY: Boolean): BN {
+  if (swapForY) {
+    return shlDiv(amountOut, price, SCALE_OFFSET, Rounding.Down);
+  } else {
+    return mulShr(amountOut, price, SCALE_OFFSET, Rounding.Down);
+  }
 }

@@ -154,6 +154,7 @@ export interface BinLiquidity {
 }
 
 export interface SwapQuote {
+  consumedInAmount: BN;
   outAmount: BN;
   fee: BN;
   protocolFee: BN;
