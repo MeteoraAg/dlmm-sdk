@@ -40,7 +40,7 @@ export type Bin = IdlTypes<LbClmm>["Bin"];
 export type BinArray = IdlAccounts<LbClmm>["binArray"];
 export type BinArrayAccount = ProgramAccount<IdlAccounts<LbClmm>["binArray"]>;
 
-export type PositionAccount = IdlAccounts<LbClmm>["position"];
+export type Position = IdlAccounts<LbClmm>["position"];
 
 export type vParameters = IdlAccounts<LbClmm>["lbPair"]["vParameters"];
 export type sParameters = IdlAccounts<LbClmm>["lbPair"]["parameters"];
@@ -60,7 +60,7 @@ export type LiquidityParameterByWeight =
 export type LiquidityOneSideParameter =
   IdlTypes<LbClmm>["LiquidityOneSideParameter"];
 
-export interface Position {
+export interface LbPosition {
   publicKey: PublicKey;
   positionData: PositionData;
   version: PositionVersion;
@@ -71,7 +71,7 @@ export interface PositionInfo {
   lbPair: LbPair;
   tokenX: TokenReserve;
   tokenY: TokenReserve;
-  lbPairPositionsData: Array<Position>;
+  lbPairPositionsData: Array<LbPosition>;
 }
 
 export interface FeeInfo {

@@ -27,7 +27,7 @@ import {
   ClmmProgram,
   LbPair,
   LbPairAccount,
-  PositionAccount,
+  Position,
   PositionBinData,
   PositionData,
   TokenReserve,
@@ -45,7 +45,7 @@ import {
   LiquidityOneSideParameter,
   BinArrayBitmapExtension,
   PositionVersion,
-  Position,
+  LbPosition,
   FeeInfo,
   EmissionRate,
   PositionInfo,
@@ -1299,7 +1299,7 @@ export class DLMM {
       binId: any;
       price: string;
     };
-    userPositions: Array<Position>;
+    userPositions: Array<LbPosition>;
   }> {
     if (!userPubKey) {
       return {
@@ -2275,7 +2275,7 @@ export class DLMM {
     position,
   }: {
     owner: PublicKey;
-    position: Position;
+    position: LbPosition;
   }): Promise<Transaction> {
     const { lowerBinId } = await this.program.account.positionV2.fetch(
       position.publicKey
@@ -2563,7 +2563,7 @@ export class DLMM {
     position,
   }: {
     owner: PublicKey;
-    position: Position;
+    position: LbPosition;
   }): Promise<Transaction> {
     const claimTransactions = await this.createClaimBuildMethod({
       owner,
@@ -2593,7 +2593,7 @@ export class DLMM {
     positions,
   }: {
     owner: PublicKey;
-    positions: Position[];
+    positions: LbPosition[];
   }): Promise<Transaction[]> {
     const claimAllTxs = (
       await Promise.all(
@@ -2636,7 +2636,7 @@ export class DLMM {
     position,
   }: {
     owner: PublicKey;
-    position: Position;
+    position: LbPosition;
   }): Promise<Transaction> {
     const claimFeeTx = await this.createClaimSwapFeeMethod({ owner, position });
 
@@ -2661,7 +2661,7 @@ export class DLMM {
     positions,
   }: {
     owner: PublicKey;
-    positions: Position[];
+    positions: LbPosition[];
   }): Promise<Transaction[]> {
     const claimAllTxs = (
       await Promise.all(
@@ -2705,7 +2705,7 @@ export class DLMM {
     position,
   }: {
     owner: PublicKey;
-    position: Position;
+    position: LbPosition;
   }): Promise<Transaction[]> {
     const claimAllSwapFeeTxs = await this.createClaimSwapFeeMethod({
       owner,
@@ -2748,7 +2748,7 @@ export class DLMM {
     positions,
   }: {
     owner: PublicKey;
-    positions: Position[];
+    positions: LbPosition[];
   }): Promise<Transaction[]> {
     const claimAllSwapFeeTxs = (
       await Promise.all(
@@ -2816,7 +2816,7 @@ export class DLMM {
     positionVersion: PositionVersion,
     lbPair: LbPair,
     onChainTimestamp: number,
-    position: PositionAccount,
+    position: Position,
     lowerBinArray?: BinArray,
     upperBinArray?: BinArray
   ): Promise<LMRewards> {
@@ -2919,7 +2919,7 @@ export class DLMM {
   private static async getClaimableSwapFee(
     program: ClmmProgram,
     positionVersion: PositionVersion,
-    position: PositionAccount,
+    position: Position,
     lowerBinArray?: BinArray,
     upperBinArray?: BinArray
   ): Promise<SwapFee> {
@@ -2997,7 +2997,7 @@ export class DLMM {
     version: PositionVersion,
     lbPair: LbPair,
     onChainTimestamp: number,
-    positionAccount: PositionAccount,
+    position: Position,
     baseTokenDecimal: number,
     quoteTokenDecimal: number,
     lowerBinArray: BinArray,
@@ -3008,7 +3008,7 @@ export class DLMM {
       upperBinId,
       liquidityShares: posShares,
       lastUpdatedAt,
-    } = positionAccount;
+    } = position;
 
     const bins = this.getBinsBetweenLowerAndUpperBound(
       lbPair,
@@ -3068,7 +3068,7 @@ export class DLMM {
     const { feeX, feeY } = await this.getClaimableSwapFee(
       program,
       version,
-      positionAccount,
+      position,
       lowerBinArray,
       upperBinArray
     );
@@ -3077,7 +3077,7 @@ export class DLMM {
       version,
       lbPair,
       onChainTimestamp,
-      positionAccount,
+      position,
       lowerBinArray,
       upperBinArray
     );
@@ -3378,7 +3378,7 @@ export class DLMM {
     shouldIncludePreIx = true,
   }: {
     owner: PublicKey;
-    position: Position;
+    position: LbPosition;
     shouldIncludePreIx?: boolean;
   }) {
     const lowerBinArrayIndex = binIdToBinArrayIndex(
@@ -3437,7 +3437,7 @@ export class DLMM {
     shouldIncludePostIx = true,
   }: {
     owner: PublicKey;
-    position: Position;
+    position: LbPosition;
     shouldIncludePretIx?: boolean;
     shouldIncludePostIx?: boolean;
   }) {
