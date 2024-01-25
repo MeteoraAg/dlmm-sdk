@@ -2415,7 +2415,7 @@ export type LbClmm = {
           {
             "name": "maxSwappedAmount",
             "docs": [
-              "Max X swapped amount user can swap from y to x between activation_slot and last_sloi"
+              "Max X swapped amount user can swap from y to x between activation_slot and last_slot"
             ],
             "type": "u64"
           },
@@ -6869,7 +6869,7 @@ export const IDL: LbClmm = {
           {
             "name": "maxSwappedAmount",
             "docs": [
-              "Max X swapped amount user can swap from y to x between activation_slot and last_sloi"
+              "Max X swapped amount user can swap from y to x between activation_slot and last_slot"
             ],
             "type": "u64"
           },

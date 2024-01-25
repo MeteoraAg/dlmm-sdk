@@ -25,8 +25,8 @@ import {
 import {
   BinLiquidity,
   ClmmProgram,
+  LbPair,
   LbPairAccount,
-  LbPairAccountsStruct,
   PositionAccount,
   PositionBinData,
   PositionData,
@@ -98,12 +98,12 @@ export class DLMM {
   constructor(
     public pubkey: PublicKey,
     public program: ClmmProgram,
-    public lbPair: LbPairAccount,
+    public lbPair: LbPair,
     public binArrayBitmapExtension: BinArrayBitmapExtensionAccount | null,
     public tokenX: TokenReserve,
     public tokenY: TokenReserve,
     private opt?: Opt
-  ) {}
+  ) { }
 
   /** Static public method */
 
@@ -115,12 +115,12 @@ export class DLMM {
    * @param {Opt} [opt] - The `opt` parameter is an optional object that contains additional options
    * for the function. It can have the following properties:
    * @returns The function `getLbPairs` returns a Promise that resolves to an array of
-   * `LbPairAccountsStruct` objects.
+   * `LbPairAccount` objects.
    */
   public static async getLbPairs(
     connection: Connection,
     opt?: Opt
-  ): Promise<LbPairAccountsStruct[]> {
+  ): Promise<LbPairAccount[]> {
     const provider = new AnchorProvider(
       connection,
       {} as any,
@@ -171,7 +171,7 @@ export class DLMM {
     const lbPairAccountInfoBuffer = accountsInfo[0]?.data;
     if (!lbPairAccountInfoBuffer)
       throw new Error(`LB Pair account ${dlmm.toBase58()} not found`);
-    const lbPairAccInfo: LbPairAccount = program.coder.accounts.decode(
+    const lbPairAccInfo: LbPair = program.coder.accounts.decode(
       "lbPair",
       lbPairAccountInfoBuffer
     );
@@ -258,7 +258,7 @@ export class DLMM {
       accountsToFetch
     );
 
-    const lbPairArraysMap = new Map<string, LbPairAccount>();
+    const lbPairArraysMap = new Map<string, LbPair>();
     for (let i = 0; i < dlmmList.length; i++) {
       const lbPairPubKey = dlmmList[i];
       const lbPairAccountInfoBuffer = accountsInfo[i]?.data;
@@ -508,13 +508,13 @@ export class DLMM {
       let i = binArrayPubkeyArray.length + lbPairArray.length;
       i <
       binArrayPubkeyArray.length +
-        lbPairArray.length +
-        binArrayPubkeyArrayV2.length;
+      lbPairArray.length +
+      binArrayPubkeyArrayV2.length;
       i++
     ) {
       const binArrayPubkey =
         binArrayPubkeyArrayV2[
-          i - (binArrayPubkeyArray.length + lbPairArray.length)
+        i - (binArrayPubkeyArray.length + lbPairArray.length)
         ];
       const binArrayAccInfoBufferV2 = binArraysAccInfo[i];
       if (!binArrayAccInfoBufferV2)
@@ -539,10 +539,10 @@ export class DLMM {
     ) {
       const lbPairPubkey =
         lbPairArrayV2[
-          i -
-            (binArrayPubkeyArray.length +
-              lbPairArray.length +
-              binArrayPubkeyArrayV2.length)
+        i -
+        (binArrayPubkeyArray.length +
+          lbPairArray.length +
+          binArrayPubkeyArrayV2.length)
         ];
       const lbPairAccInfoBufferV2 = binArraysAccInfo[i];
       if (!lbPairAccInfoBufferV2)
@@ -614,7 +614,7 @@ export class DLMM {
       string,
       {
         publicKey: PublicKey;
-        lbPair: LbPairAccount;
+        lbPair: LbPair;
         tokenX: TokenReserve;
         tokenY: TokenReserve;
         lbPairPositionsData: Array<{
@@ -2814,7 +2814,7 @@ export class DLMM {
   private static async getClaimableLMReward(
     program: ClmmProgram,
     positionVersion: PositionVersion,
-    lbPair: LbPairAccount,
+    lbPair: LbPair,
     onChainTimestamp: number,
     position: PositionAccount,
     lowerBinArray?: BinArray,
@@ -2995,7 +2995,7 @@ export class DLMM {
   private static async processPosition(
     program: ClmmProgram,
     version: PositionVersion,
-    lbPair: LbPairAccount,
+    lbPair: LbPair,
     onChainTimestamp: number,
     positionAccount: PositionAccount,
     baseTokenDecimal: number,
@@ -3097,7 +3097,7 @@ export class DLMM {
   }
 
   private static getBinsBetweenLowerAndUpperBound(
-    lbPair: LbPairAccount,
+    lbPair: LbPair,
     lowerBinId: number,
     upperBinId: number,
     baseTokenDecimal: number,
@@ -3363,7 +3363,7 @@ export class DLMM {
       if (elapsed < sParameter.decayPeriod) {
         const decayedVolatilityReference = Math.floor(
           (vParameter.volatilityAccumulator * sParameter.reductionFactor) /
-            BASIS_POINT_MAX
+          BASIS_POINT_MAX
         );
         vParameter.volatilityReference = decayedVolatilityReference;
       } else {

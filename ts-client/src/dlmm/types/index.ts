@@ -31,8 +31,8 @@ export interface TokenReserve {
 
 export type ClmmProgram = Program<LbClmm>;
 
-export type LbPairAccount = IdlAccounts<LbClmm>["lbPair"];
-export type LbPairAccountsStruct = ProgramAccount<
+export type LbPair = IdlAccounts<LbClmm>["lbPair"];
+export type LbPairAccount = ProgramAccount<
   IdlAccounts<LbClmm>["lbPair"]
 >;
 
@@ -68,7 +68,7 @@ export interface Position {
 
 export interface PositionInfo {
   publicKey: PublicKey;
-  lbPair: LbPairAccount;
+  lbPair: LbPair;
   tokenX: TokenReserve;
   tokenY: TokenReserve;
   lbPairPositionsData: Array<Position>;
@@ -164,7 +164,7 @@ export interface SwapQuote {
 
 export interface IAccountsCache {
   binArrays: Map<String, BinArray>;
-  lbPair: LbPairAccount;
+  lbPair: LbPair;
 }
 
 export interface PositionBinData {
