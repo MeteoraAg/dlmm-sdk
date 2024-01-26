@@ -7,7 +7,7 @@ import {
   BinArrayAccount,
   BinArrayBitmapExtension,
   BitmapType,
-  LbPairAccount,
+  LbPair,
 } from "../types";
 import {
   EXTENSION_BINARRAY_BITMAP_SIZE,
@@ -182,7 +182,7 @@ export function getBinFromBinArray(binId: number, binArray: BinArray): Bin {
 export function findNextBinArrayIndexWithLiquidity(
   swapForY: boolean,
   activeId: BN,
-  lbPairState: LbPairAccount,
+  lbPairState: LbPair,
   binArrayBitmapExtension: BinArrayBitmapExtension | null
 ): BN | null {
   const [lowerBinArrayIndex, upperBinArrayIndex] = internalBitmapRange();
@@ -293,7 +293,7 @@ export function findNextBinArrayIndexWithLiquidity(
 export function findNextBinArrayWithLiquidity(
   swapForY: boolean,
   activeBinId: BN,
-  lbPairState: LbPairAccount,
+  lbPairState: LbPair,
   binArrayBitmapExtension: BinArrayBitmapExtension,
   binArrays: BinArrayAccount[]
 ): BinArrayAccount | null {

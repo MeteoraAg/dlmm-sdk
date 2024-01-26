@@ -31,8 +31,8 @@ export interface TokenReserve {
 
 export type ClmmProgram = Program<LbClmm>;
 
-export type LbPairAccount = IdlAccounts<LbClmm>["lbPair"];
-export type LbPairAccountsStruct = ProgramAccount<
+export type LbPair = IdlAccounts<LbClmm>["lbPair"];
+export type LbPairAccount = ProgramAccount<
   IdlAccounts<LbClmm>["lbPair"]
 >;
 
@@ -40,7 +40,7 @@ export type Bin = IdlTypes<LbClmm>["Bin"];
 export type BinArray = IdlAccounts<LbClmm>["binArray"];
 export type BinArrayAccount = ProgramAccount<IdlAccounts<LbClmm>["binArray"]>;
 
-export type PositionAccount = IdlAccounts<LbClmm>["position"];
+export type Position = IdlAccounts<LbClmm>["position"];
 
 export type vParameters = IdlAccounts<LbClmm>["lbPair"]["vParameters"];
 export type sParameters = IdlAccounts<LbClmm>["lbPair"]["parameters"];
@@ -60,7 +60,7 @@ export type LiquidityParameterByWeight =
 export type LiquidityOneSideParameter =
   IdlTypes<LbClmm>["LiquidityOneSideParameter"];
 
-export interface Position {
+export interface LbPosition {
   publicKey: PublicKey;
   positionData: PositionData;
   version: PositionVersion;
@@ -68,10 +68,10 @@ export interface Position {
 
 export interface PositionInfo {
   publicKey: PublicKey;
-  lbPair: LbPairAccount;
+  lbPair: LbPair;
   tokenX: TokenReserve;
   tokenY: TokenReserve;
-  lbPairPositionsData: Array<Position>;
+  lbPairPositionsData: Array<LbPosition>;
 }
 
 export interface FeeInfo {
@@ -154,6 +154,7 @@ export interface BinLiquidity {
 }
 
 export interface SwapQuote {
+  consumedInAmount: BN;
   outAmount: BN;
   fee: BN;
   protocolFee: BN;
@@ -164,7 +165,7 @@ export interface SwapQuote {
 
 export interface IAccountsCache {
   binArrays: Map<String, BinArray>;
-  lbPair: LbPairAccount;
+  lbPair: LbPair;
 }
 
 export interface PositionBinData {
