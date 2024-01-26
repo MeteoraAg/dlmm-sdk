@@ -3,6 +3,8 @@ import {
   Keypair,
   PublicKey,
   sendAndConfirmTransaction,
+  SYSVAR_CLOCK_PUBKEY,
+  ParsedAccountData,
 } from "@solana/web3.js";
 import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import { DLMM } from "./dlmm";
@@ -18,6 +20,21 @@ const connection = new Connection(RPC, "finalized");
 const devnetPool = new PublicKey(
   "3W2HKgUa96Z69zzG3LK1g8KdcRAWzAttiLiHfYnKuPw5"
 );
+
+/** Utils */
+export interface ParsedClockState {
+  info: {
+    epoch: number;
+    epochStartTimestamp: number;
+    leaderScheduleEpoch: number;
+    slot: number;
+    unixTimestamp: number;
+  };
+  type: string;
+  program: string;
+  space: number;
+}
+
 
 let activeBin;
 let userPositions;
@@ -157,12 +174,32 @@ async function swap(dlmmPool: DLMM) {
   // Swap quote
   const swapYtoX = true;
   const binArrays = await dlmmPool.getBinArrayForSwap(swapYtoX);
-  const swapQuote = await dlmmPool.swapQuote(
+
+  // check whether it is permission or permissionless pool
+  let maxSwappedAmount: BN;
+  let throttledStats: boolean;
+  if (!swapYtoX && dlmmPool.lbPair.pairType == 1) {
+    // get current slot 
+    const parsedClock = await connection.getParsedAccountInfo(SYSVAR_CLOCK_PUBKEY);
+    const parsedClockAccount = (parsedClock.value!.data as ParsedAccountData).parsed as ParsedClockState;
+    if (parsedClockAccount.info.slot <= dlmmPool.lbPair.swapCapDeactivateSlot.toNumber()) {
+      throttledStats = true;
+      maxSwappedAmount = dlmmPool.lbPair.maxSwappedAmount;
+    }
+  }
+  const swapQuote = throttledStats ? await dlmmPool.swapQuoteWithCap(
+    swapAmount,
+    swapYtoX,
+    new BN(10),
+    maxSwappedAmount,
+    binArrays
+  ) : await dlmmPool.swapQuote(
     swapAmount,
     swapYtoX,
     new BN(10),
     binArrays
   );
+
   console.log("🚀 ~ swapQuote:", swapQuote);
 
   // Swap
