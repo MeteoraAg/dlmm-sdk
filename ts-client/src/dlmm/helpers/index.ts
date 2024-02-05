@@ -2,10 +2,11 @@ import { BN, EventParser } from "@coral-xyz/anchor";
 import {
   NATIVE_MINT,
   TOKEN_PROGRAM_ID,
+  TokenAccountNotFoundError,
+  TokenInvalidAccountOwnerError,
   createAssociatedTokenAccountInstruction,
   createCloseAccountInstruction,
   getAccount,
-  getAssociatedTokenAddress,
   getAssociatedTokenAddressSync,
   getMint,
 } from "@solana/spl-token";
@@ -81,29 +82,34 @@ export const getOrCreateATAInstruction = async (
   payer: PublicKey = owner,
   allowOwnerOffCurve = true
 ): Promise<GetOrCreateATAResponse> => {
+  const toAccount = getAssociatedTokenAddressSync(
+    tokenMint,
+    owner,
+    allowOwnerOffCurve
+  );
+
   try {
-    const toAccount = await getAssociatedTokenAddress(
-      tokenMint,
-      owner,
-      allowOwnerOffCurve
-    );
+    await getAccount(connection, toAccount);
 
-    const account = await connection.getAccountInfo(toAccount);
-
-    if (account) return { ataPubKey: toAccount, ix: undefined };
-
-    const ix = createAssociatedTokenAccountInstruction(
-      payer,
-      toAccount,
-      owner,
-      tokenMint
-    );
-
-    return { ataPubKey: toAccount, ix };
+    return { ataPubKey: toAccount, ix: undefined };
   } catch (e) {
-    /* handle error */
-    console.error("Error::getOrCreateATAInstruction", e);
-    throw e;
+    if (
+      e instanceof TokenAccountNotFoundError ||
+      e instanceof TokenInvalidAccountOwnerError
+    ) {
+      const ix = createAssociatedTokenAccountInstruction(
+        payer,
+        toAccount,
+        owner,
+        tokenMint
+      );
+
+      return { ataPubKey: toAccount, ix };
+    } else {
+      /* handle error */
+      console.error("Error::getOrCreateATAInstruction", e);
+      throw e;
+    }
   }
 };
 
