@@ -86,6 +86,7 @@ import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import Decimal from "decimal.js";
 import {
   AccountLayout,
+  MintLayout,
   NATIVE_MINT,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
@@ -104,7 +105,7 @@ export class DLMM {
     public tokenX: TokenReserve,
     public tokenY: TokenReserve,
     private opt?: Opt
-  ) { }
+  ) {}
 
   /** Static public method */
 
@@ -187,7 +188,12 @@ export class DLMM {
 
     const reserveAccountsInfo = await chunkedGetMultipleAccountInfos(
       program.provider.connection,
-      [lbPairAccInfo.reserveX, lbPairAccInfo.reserveY]
+      [
+        lbPairAccInfo.reserveX,
+        lbPairAccInfo.reserveY,
+        lbPairAccInfo.tokenXMint,
+        lbPairAccInfo.tokenYMint,
+      ]
     );
     let binArrayBitmapExtension: BinArrayBitmapExtensionAccount | null;
     if (binArrayBitMapExtensionAccInfo) {
@@ -199,10 +205,12 @@ export class DLMM {
 
     const reserveXBalance = AccountLayout.decode(reserveAccountsInfo[0].data);
     const reserveYBalance = AccountLayout.decode(reserveAccountsInfo[1].data);
-    const [tokenXDecimal, tokenYDecimal] = await Promise.all([
-      getTokenDecimals(program.provider.connection, lbPairAccInfo.tokenXMint),
-      getTokenDecimals(program.provider.connection, lbPairAccInfo.tokenYMint),
-    ]);
+    const tokenXDecimal = MintLayout.decode(
+      reserveAccountsInfo[2].data
+    ).decimals;
+    const tokenYDecimal = MintLayout.decode(
+      reserveAccountsInfo[3].data
+    ).decimals;
     const tokenX = {
       publicKey: lbPairAccInfo.tokenXMint,
       reserve: lbPairAccInfo.reserveX,
@@ -296,10 +304,15 @@ export class DLMM {
       .map(({ reserveX, reserveY }) => [reserveX, reserveY])
       .flat();
 
-    const reserveAccountsInfo = await chunkedGetMultipleAccountInfos(
-      program.provider.connection,
-      reservePublicKeys
-    );
+    const tokenMintPublicKeys = Array.from(lbPairArraysMap.values())
+      .map(({ tokenXMint, tokenYMint }) => [tokenXMint, tokenYMint])
+      .flat();
+
+    const reserveAndTokenMintAccountsInfo =
+      await chunkedGetMultipleAccountInfos(program.provider.connection, [
+        ...reservePublicKeys,
+        ...tokenMintPublicKeys,
+      ]);
 
     const lbClmmImpl = await Promise.all(
       dlmmList.map(async (lbPair, index) => {
@@ -321,8 +334,15 @@ export class DLMM {
           };
         }
 
-        const reserveXAccountInfo = reserveAccountsInfo[index * 2];
-        const reserveYAccountInfo = reserveAccountsInfo[index * 2 + 1];
+        const reserveXAccountInfo = reserveAndTokenMintAccountsInfo[index * 2];
+        const reserveYAccountInfo =
+          reserveAndTokenMintAccountsInfo[index * 2 + 1];
+        const tokenXMintAccountInfo =
+          reserveAndTokenMintAccountsInfo[reservePublicKeys.length + index * 2];
+        const tokenYMintAccountInfo =
+          reserveAndTokenMintAccountsInfo[
+            reservePublicKeys.length + index * 2 + 1
+          ];
 
         if (!reserveXAccountInfo || !reserveYAccountInfo)
           throw new Error(
@@ -331,10 +351,12 @@ export class DLMM {
 
         const reserveXBalance = AccountLayout.decode(reserveXAccountInfo.data);
         const reserveYBalance = AccountLayout.decode(reserveYAccountInfo.data);
-        const [tokenXDecimal, tokenYDecimal] = await Promise.all([
-          getTokenDecimals(program.provider.connection, lbPairState.tokenXMint),
-          getTokenDecimals(program.provider.connection, lbPairState.tokenYMint),
-        ]);
+        const tokenXDecimal = MintLayout.decode(
+          tokenXMintAccountInfo.data
+        ).decimals;
+        const tokenYDecimal = MintLayout.decode(
+          tokenYMintAccountInfo.data
+        ).decimals;
         const tokenX = {
           publicKey: lbPairState.tokenXMint,
           reserve: lbPairState.reserveX,
@@ -509,13 +531,13 @@ export class DLMM {
       let i = binArrayPubkeyArray.length + lbPairArray.length;
       i <
       binArrayPubkeyArray.length +
-      lbPairArray.length +
-      binArrayPubkeyArrayV2.length;
+        lbPairArray.length +
+        binArrayPubkeyArrayV2.length;
       i++
     ) {
       const binArrayPubkey =
         binArrayPubkeyArrayV2[
-        i - (binArrayPubkeyArray.length + lbPairArray.length)
+          i - (binArrayPubkeyArray.length + lbPairArray.length)
         ];
       const binArrayAccInfoBufferV2 = binArraysAccInfo[i];
       if (!binArrayAccInfoBufferV2)
@@ -540,10 +562,10 @@ export class DLMM {
     ) {
       const lbPairPubkey =
         lbPairArrayV2[
-        i -
-        (binArrayPubkeyArray.length +
-          lbPairArray.length +
-          binArrayPubkeyArrayV2.length)
+          i -
+            (binArrayPubkeyArray.length +
+              lbPairArray.length +
+              binArrayPubkeyArrayV2.length)
         ];
       const lbPairAccInfoBufferV2 = binArraysAccInfo[i];
       if (!lbPairAccInfoBufferV2)
@@ -2318,21 +2340,21 @@ export class DLMM {
   }
 
   /**
- * The `swapQuoteWithCap` function returns a quote for a swap in permission pool
- * @param
- *    - `inAmount`: Amount of lamport to swap in
- *    - `swapForY`: Swap token X to Y when it is true, else reversed.
- *    - `allowedSlipage`: Allowed slippage for the swap. Expressed in BPS. To convert from slippage percentage to BPS unit: SLIPPAGE_PERCENTAGE * 100
- *    - `maxSwappedAmount`: Max swapped amount 
- * @returns {SwapQuote}
- *    - `consumedInAmount`: Amount of lamport to swap in
- *    - `outAmount`: Amount of lamport to swap out
- *    - `fee`: Fee amount
- *    - `protocolFee`: Protocol fee amount
- *    - `minOutAmount`: Minimum amount of lamport to swap out
- *    - `priceImpact`: Price impact of the swap
- *    - `binArraysPubkey`: Array of bin arrays involved in the swap
- */
+   * The `swapQuoteWithCap` function returns a quote for a swap in permission pool
+   * @param
+   *    - `inAmount`: Amount of lamport to swap in
+   *    - `swapForY`: Swap token X to Y when it is true, else reversed.
+   *    - `allowedSlipage`: Allowed slippage for the swap. Expressed in BPS. To convert from slippage percentage to BPS unit: SLIPPAGE_PERCENTAGE * 100
+   *    - `maxSwappedAmount`: Max swapped amount
+   * @returns {SwapQuote}
+   *    - `consumedInAmount`: Amount of lamport to swap in
+   *    - `outAmount`: Amount of lamport to swap out
+   *    - `fee`: Fee amount
+   *    - `protocolFee`: Protocol fee amount
+   *    - `minOutAmount`: Minimum amount of lamport to swap out
+   *    - `priceImpact`: Price impact of the swap
+   *    - `binArraysPubkey`: Array of bin arrays involved in the swap
+   */
   public swapQuoteWithCap(
     inAmount: BN,
     swapForY: boolean,
@@ -2391,15 +2413,16 @@ export class DLMM {
           activeId.toNumber(),
           binArrayAccountToSwap.account
         );
-        const { isReachCap, amountIn, amountOut, fee, protocolFee } = swapQuoteAtBinWithCap(
-          bin,
-          binStep,
-          sParameters,
-          vParameterClone,
-          inAmountLeft,
-          swapForY,
-          maxSwappedAmount.sub(actualOutAmount),
-        );
+        const { isReachCap, amountIn, amountOut, fee, protocolFee } =
+          swapQuoteAtBinWithCap(
+            bin,
+            binStep,
+            sParameters,
+            vParameterClone,
+            inAmountLeft,
+            swapForY,
+            maxSwappedAmount.sub(actualOutAmount)
+          );
 
         if (!amountIn.isZero()) {
           inAmountLeft = inAmountLeft.sub(amountIn);
@@ -3506,7 +3529,7 @@ export class DLMM {
       if (elapsed < sParameter.decayPeriod) {
         const decayedVolatilityReference = Math.floor(
           (vParameter.volatilityAccumulator * sParameter.reductionFactor) /
-          BASIS_POINT_MAX
+            BASIS_POINT_MAX
         );
         vParameter.volatilityReference = decayedVolatilityReference;
       } else {
