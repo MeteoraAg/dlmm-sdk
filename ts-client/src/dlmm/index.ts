@@ -505,7 +505,7 @@ export class DLMM {
       positionBinArraysMap.set(binArrayPubkey.toBase58(), binArrayAccInfo);
     }
 
-    const lbPairArraysMap = new Map();
+    const lbPairArraysMap = new Map<string, LbPair>();
     for (
       let i = binArrayPubkeyArray.length;
       i < binArrayPubkeyArray.length + lbPairArray.length;
@@ -523,7 +523,12 @@ export class DLMM {
     }
 
     const reservePublicKeys = Array.from(lbPairArraysMap.values())
-      .map(({ reserveX, reserveY }) => [reserveX, reserveY])
+      .map(({ reserveX, reserveY, tokenXMint, tokenYMint }) => [
+        reserveX,
+        reserveY,
+        tokenXMint,
+        tokenYMint,
+      ])
       .flat();
 
     const positionBinArraysMapV2 = new Map();
@@ -551,7 +556,7 @@ export class DLMM {
       positionBinArraysMapV2.set(binArrayPubkey.toBase58(), binArrayAccInfo);
     }
 
-    const lbPairArraysMapV2 = new Map();
+    const lbPairArraysMapV2 = new Map<string, LbPair>();
     for (
       let i =
         binArrayPubkeyArray.length +
@@ -578,7 +583,12 @@ export class DLMM {
     }
 
     const reservePublicKeysV2 = Array.from(lbPairArraysMapV2.values())
-      .map(({ reserveX, reserveY }) => [reserveX, reserveY])
+      .map(({ reserveX, reserveY, tokenXMint, tokenYMint }) => [
+        reserveX,
+        reserveY,
+        tokenXMint,
+        tokenYMint,
+      ])
       .flat();
 
     const reserveAccountsInfo = await chunkedGetMultipleAccountInfos(
@@ -590,8 +600,12 @@ export class DLMM {
       string,
       { reserveX: bigint; reserveY: bigint }
     >();
+    const lbPairMintMap = new Map<
+      string,
+      { mintXDecimal: number; mintYDecimal: number }
+    >();
     lbPairArray.forEach((lbPair, idx) => {
-      const index = idx * 2;
+      const index = idx * 4;
       const reserveAccBufferX = reserveAccountsInfo[index];
       const reserveAccBufferY = reserveAccountsInfo[index + 1];
       if (!reserveAccBufferX || !reserveAccBufferY)
@@ -605,14 +619,32 @@ export class DLMM {
         reserveX: reserveAccX.amount,
         reserveY: reserveAccY.amount,
       });
+
+      const mintXBuffer = reserveAccountsInfo[index + 2];
+      const mintYBuffer = reserveAccountsInfo[index + 3];
+      if (!mintXBuffer || !mintYBuffer)
+        throw new Error(
+          `Mint account for LB Pair ${lbPair.toBase58()} not found`
+        );
+      const mintX = MintLayout.decode(mintXBuffer.data);
+      const mintY = MintLayout.decode(mintYBuffer.data);
+
+      lbPairMintMap.set(lbPair.toBase58(), {
+        mintXDecimal: mintX.decimals,
+        mintYDecimal: mintY.decimals,
+      });
     });
 
     const lbPairReserveMapV2 = new Map<
       string,
       { reserveX: bigint; reserveY: bigint }
     >();
+    const lbPairMintMapV2 = new Map<
+      string,
+      { mintXDecimal: number; mintYDecimal: number }
+    >();
     lbPairArrayV2.forEach((lbPair, idx) => {
-      const index = idx * 2;
+      const index = idx * 4;
       const reserveAccBufferXV2 =
         reserveAccountsInfo[reservePublicKeys.length + index];
       const reserveAccBufferYV2 =
@@ -627,6 +659,21 @@ export class DLMM {
       lbPairReserveMapV2.set(lbPair.toBase58(), {
         reserveX: reserveAccX.amount,
         reserveY: reserveAccY.amount,
+      });
+
+      const mintXBufferV2 =
+        reserveAccountsInfo[reservePublicKeys.length + index + 2];
+      const mintYBufferV2 =
+        reserveAccountsInfo[reservePublicKeys.length + index + 3];
+      if (!mintXBufferV2 || !mintYBufferV2)
+        throw new Error(
+          `Mint account for LB Pair ${lbPair.toBase58()} not found`
+        );
+      const mintX = MintLayout.decode(mintXBufferV2.data);
+      const mintY = MintLayout.decode(mintYBufferV2.data);
+      lbPairMintMapV2.set(lbPair.toBase58(), {
+        mintXDecimal: mintX.decimals,
+        mintYDecimal: mintY.decimals,
       });
     });
 
@@ -671,10 +718,9 @@ export class DLMM {
         upperBinArrayPubKey.toBase58()
       );
       const lbPairAcc = lbPairArraysMap.get(lbPair.toBase58());
-      const [baseTokenDecimal, quoteTokenDecimal] = await Promise.all([
-        getTokenDecimals(program.provider.connection, lbPairAcc.tokenXMint),
-        getTokenDecimals(program.provider.connection, lbPairAcc.tokenYMint),
-      ]);
+      const { mintXDecimal, mintYDecimal } = lbPairMintMap.get(
+        lbPair.toBase58()
+      );
       const reserveXBalance =
         lbPairReserveMap.get(lbPair.toBase58())?.reserveX ?? BigInt(0);
       const reserveYBalance =
@@ -683,13 +729,13 @@ export class DLMM {
         publicKey: lbPairAcc.tokenXMint,
         reserve: lbPairAcc.reserveX,
         amount: reserveXBalance,
-        decimal: baseTokenDecimal,
+        decimal: mintXDecimal,
       };
       const tokenY = {
         publicKey: lbPairAcc.tokenYMint,
         reserve: lbPairAcc.reserveY,
         amount: reserveYBalance,
-        decimal: quoteTokenDecimal,
+        decimal: mintYDecimal,
       };
       const positionData = await DLMM.processPosition(
         program,
@@ -697,8 +743,8 @@ export class DLMM {
         lbPairAcc,
         onChainTimestamp,
         account,
-        baseTokenDecimal,
-        quoteTokenDecimal,
+        mintXDecimal,
+        mintYDecimal,
         lowerBinArray,
         upperBinArray
       );
@@ -2873,19 +2919,50 @@ export class DLMM {
     owner: PublicKey;
     position: LbPosition;
   }): Promise<Transaction[]> {
+    const preInstructions: TransactionInstruction[] = [];
+    const tokensInvolved = [this.tokenX.publicKey, this.tokenY.publicKey];
+    for (let i = 0; i < 2; i++) {
+      if (
+        !tokensInvolved.some((pubkey) =>
+          this.lbPair.rewardInfos[i].mint.equals(pubkey)
+        )
+      ) {
+        tokensInvolved.push(this.lbPair.rewardInfos[i].mint);
+      }
+    }
+    const createATAAccAndIx = await Promise.all(
+      tokensInvolved.map((token) =>
+        getOrCreateATAInstruction(
+          this.program.provider.connection,
+          token,
+          owner
+        )
+      )
+    );
+    createATAAccAndIx.forEach(({ ix }) => ix && preInstructions.push(ix));
+
     const claimAllSwapFeeTxs = await this.createClaimSwapFeeMethod({
       owner,
       position,
+      shouldIncludePostIx: false,
+      shouldIncludePretIx: false,
     });
     const claimAllLMTxs = await this.createClaimBuildMethod({
       owner,
       position,
+      shouldIncludePreIx: false,
     });
 
     const claimAllTxs = chunks(
       [claimAllSwapFeeTxs, ...claimAllLMTxs],
       MAX_CLAIM_ALL_ALLOWED
     );
+
+    const postInstructions: TransactionInstruction[] = [];
+    if (tokensInvolved.some((pubkey) => pubkey.equals(NATIVE_MINT))) {
+      const closeWrappedSOLIx = await unwrapSOLInstruction(owner);
+      closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
+    }
 
     const { blockhash, lastValidBlockHeight } =
       await this.program.provider.connection.getLatestBlockhash("confirmed");
@@ -2897,7 +2974,9 @@ export class DLMM {
           lastValidBlockHeight,
         })
           .add(computeBudgetIx())
-          .add(...claimAllTx);
+          .add(...preInstructions)
+          .add(...claimAllTx)
+          .add(...postInstructions);
       })
     );
   }
@@ -2916,14 +2995,36 @@ export class DLMM {
     owner: PublicKey;
     positions: LbPosition[];
   }): Promise<Transaction[]> {
+    const preInstructions: TransactionInstruction[] = [];
+    const tokensInvolved = [this.tokenX.publicKey, this.tokenY.publicKey];
+    for (let i = 0; i < 2; i++) {
+      if (
+        !tokensInvolved.some((pubkey) =>
+          this.lbPair.rewardInfos[i].mint.equals(pubkey)
+        )
+      ) {
+        tokensInvolved.push(this.lbPair.rewardInfos[i].mint);
+      }
+    }
+    const createATAAccAndIx = await Promise.all(
+      tokensInvolved.map((token) =>
+        getOrCreateATAInstruction(
+          this.program.provider.connection,
+          token,
+          owner
+        )
+      )
+    );
+    createATAAccAndIx.forEach(({ ix }) => ix && preInstructions.push(ix));
+
     const claimAllSwapFeeTxs = (
       await Promise.all(
-        positions.map(async (position, idx) => {
+        positions.map(async (position) => {
           return await this.createClaimSwapFeeMethod({
             owner,
             position,
-            shouldIncludePretIx: idx === 0,
-            shouldIncludePostIx: idx === positions.length - 1,
+            shouldIncludePretIx: false,
+            shouldIncludePostIx: false,
           });
         })
       )
@@ -2931,11 +3032,11 @@ export class DLMM {
 
     const claimAllLMTxs = (
       await Promise.all(
-        positions.map(async (position, idx) => {
+        positions.map(async (position) => {
           return await this.createClaimBuildMethod({
             owner,
             position,
-            shouldIncludePreIx: idx === 0,
+            shouldIncludePreIx: false,
           });
         })
       )
@@ -2945,6 +3046,12 @@ export class DLMM {
       [...claimAllSwapFeeTxs, ...claimAllLMTxs],
       MAX_CLAIM_ALL_ALLOWED
     );
+
+    const postInstructions: TransactionInstruction[] = [];
+    if (tokensInvolved.some((pubkey) => pubkey.equals(NATIVE_MINT))) {
+      const closeWrappedSOLIx = await unwrapSOLInstruction(owner);
+      closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
+    }
 
     const { blockhash, lastValidBlockHeight } =
       await this.program.provider.connection.getLatestBlockhash("confirmed");
@@ -2956,7 +3063,9 @@ export class DLMM {
           lastValidBlockHeight,
         })
           .add(computeBudgetIx())
-          .add(...claimAllTx);
+          .add(...preInstructions)
+          .add(...claimAllTx)
+          .add(...postInstructions);
       })
     );
   }
@@ -3210,10 +3319,10 @@ export class DLMM {
       }
       const positionXAmount = binSupply.eq(new Decimal("0"))
         ? new Decimal("0")
-        : posShare.mul(bin.xAmount.toString()).div(binSupply).floor();
+        : posShare.mul(bin.xAmount.toString()).div(binSupply);
       const positionYAmount = binSupply.eq(new Decimal("0"))
         ? new Decimal("0")
-        : posShare.mul(bin.yAmount.toString()).div(binSupply).floor();
+        : posShare.mul(bin.yAmount.toString()).div(binSupply);
 
       totalXAmount = totalXAmount.add(positionXAmount);
       totalYAmount = totalYAmount.add(positionYAmount);
