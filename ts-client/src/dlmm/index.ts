@@ -2919,19 +2919,50 @@ export class DLMM {
     owner: PublicKey;
     position: LbPosition;
   }): Promise<Transaction[]> {
+    const preInstructions: TransactionInstruction[] = [];
+    const tokensInvolved = [this.tokenX.publicKey, this.tokenY.publicKey];
+    for (let i = 0; i < 2; i++) {
+      if (
+        !tokensInvolved.some((pubkey) =>
+          this.lbPair.rewardInfos[i].mint.equals(pubkey)
+        )
+      ) {
+        tokensInvolved.push(this.lbPair.rewardInfos[i].mint);
+      }
+    }
+    const createATAAccAndIx = await Promise.all(
+      tokensInvolved.map((token) =>
+        getOrCreateATAInstruction(
+          this.program.provider.connection,
+          token,
+          owner
+        )
+      )
+    );
+    createATAAccAndIx.forEach(({ ix }) => ix && preInstructions.push(ix));
+
     const claimAllSwapFeeTxs = await this.createClaimSwapFeeMethod({
       owner,
       position,
+      shouldIncludePostIx: false,
+      shouldIncludePretIx: false,
     });
     const claimAllLMTxs = await this.createClaimBuildMethod({
       owner,
       position,
+      shouldIncludePreIx: false,
     });
 
     const claimAllTxs = chunks(
       [claimAllSwapFeeTxs, ...claimAllLMTxs],
       MAX_CLAIM_ALL_ALLOWED
     );
+
+    const postInstructions: TransactionInstruction[] = [];
+    if (tokensInvolved.some((pubkey) => pubkey.equals(NATIVE_MINT))) {
+      const closeWrappedSOLIx = await unwrapSOLInstruction(owner);
+      closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
+    }
 
     const { blockhash, lastValidBlockHeight } =
       await this.program.provider.connection.getLatestBlockhash("confirmed");
@@ -2943,7 +2974,9 @@ export class DLMM {
           lastValidBlockHeight,
         })
           .add(computeBudgetIx())
-          .add(...claimAllTx);
+          .add(...preInstructions)
+          .add(...claimAllTx)
+          .add(...postInstructions);
       })
     );
   }
@@ -2962,14 +2995,36 @@ export class DLMM {
     owner: PublicKey;
     positions: LbPosition[];
   }): Promise<Transaction[]> {
+    const preInstructions: TransactionInstruction[] = [];
+    const tokensInvolved = [this.tokenX.publicKey, this.tokenY.publicKey];
+    for (let i = 0; i < 2; i++) {
+      if (
+        !tokensInvolved.some((pubkey) =>
+          this.lbPair.rewardInfos[i].mint.equals(pubkey)
+        )
+      ) {
+        tokensInvolved.push(this.lbPair.rewardInfos[i].mint);
+      }
+    }
+    const createATAAccAndIx = await Promise.all(
+      tokensInvolved.map((token) =>
+        getOrCreateATAInstruction(
+          this.program.provider.connection,
+          token,
+          owner
+        )
+      )
+    );
+    createATAAccAndIx.forEach(({ ix }) => ix && preInstructions.push(ix));
+
     const claimAllSwapFeeTxs = (
       await Promise.all(
-        positions.map(async (position, idx) => {
+        positions.map(async (position) => {
           return await this.createClaimSwapFeeMethod({
             owner,
             position,
-            shouldIncludePretIx: idx === 0,
-            shouldIncludePostIx: idx === positions.length - 1,
+            shouldIncludePretIx: false,
+            shouldIncludePostIx: false,
           });
         })
       )
@@ -2977,11 +3032,11 @@ export class DLMM {
 
     const claimAllLMTxs = (
       await Promise.all(
-        positions.map(async (position, idx) => {
+        positions.map(async (position) => {
           return await this.createClaimBuildMethod({
             owner,
             position,
-            shouldIncludePreIx: idx === 0,
+            shouldIncludePreIx: false,
           });
         })
       )
@@ -2991,6 +3046,12 @@ export class DLMM {
       [...claimAllSwapFeeTxs, ...claimAllLMTxs],
       MAX_CLAIM_ALL_ALLOWED
     );
+
+    const postInstructions: TransactionInstruction[] = [];
+    if (tokensInvolved.some((pubkey) => pubkey.equals(NATIVE_MINT))) {
+      const closeWrappedSOLIx = await unwrapSOLInstruction(owner);
+      closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
+    }
 
     const { blockhash, lastValidBlockHeight } =
       await this.program.provider.connection.getLatestBlockhash("confirmed");
@@ -3002,7 +3063,9 @@ export class DLMM {
           lastValidBlockHeight,
         })
           .add(computeBudgetIx())
-          .add(...claimAllTx);
+          .add(...preInstructions)
+          .add(...claimAllTx)
+          .add(...postInstructions);
       })
     );
   }
