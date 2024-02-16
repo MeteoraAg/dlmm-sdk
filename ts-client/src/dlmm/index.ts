@@ -2922,10 +2922,10 @@ export class DLMM {
     const preInstructions: TransactionInstruction[] = [];
     const tokensInvolved = [this.tokenX.publicKey, this.tokenY.publicKey];
     for (let i = 0; i < 2; i++) {
+      const rewardMint = this.lbPair.rewardInfos[i].mint;
       if (
-        !tokensInvolved.some((pubkey) =>
-          this.lbPair.rewardInfos[i].mint.equals(pubkey)
-        )
+        !tokensInvolved.some((pubkey) => rewardMint.equals(pubkey)) &&
+        !rewardMint.equals(PublicKey.default)
       ) {
         tokensInvolved.push(this.lbPair.rewardInfos[i].mint);
       }
@@ -2968,15 +2968,17 @@ export class DLMM {
       await this.program.provider.connection.getLatestBlockhash("confirmed");
     return Promise.all(
       claimAllTxs.map(async (claimAllTx) => {
-        return new Transaction({
+        const tx = new Transaction({
           feePayer: owner,
           blockhash,
           lastValidBlockHeight,
-        })
-          .add(computeBudgetIx())
-          .add(...preInstructions)
-          .add(...claimAllTx)
-          .add(...postInstructions);
+        }).add(computeBudgetIx());
+
+        if (preInstructions.length) tx.add(...preInstructions);
+        tx.add(...claimAllTx);
+        if (postInstructions.length) tx.add(...postInstructions);
+
+        return tx;
       })
     );
   }
@@ -2998,10 +3000,10 @@ export class DLMM {
     const preInstructions: TransactionInstruction[] = [];
     const tokensInvolved = [this.tokenX.publicKey, this.tokenY.publicKey];
     for (let i = 0; i < 2; i++) {
+      const rewardMint = this.lbPair.rewardInfos[i].mint;
       if (
-        !tokensInvolved.some((pubkey) =>
-          this.lbPair.rewardInfos[i].mint.equals(pubkey)
-        )
+        !tokensInvolved.some((pubkey) => rewardMint.equals(pubkey)) &&
+        !rewardMint.equals(PublicKey.default)
       ) {
         tokensInvolved.push(this.lbPair.rewardInfos[i].mint);
       }
@@ -3057,15 +3059,17 @@ export class DLMM {
       await this.program.provider.connection.getLatestBlockhash("confirmed");
     return Promise.all(
       chunkedClaimAllTx.map(async (claimAllTx) => {
-        return new Transaction({
+        const tx = new Transaction({
           feePayer: owner,
           blockhash,
           lastValidBlockHeight,
-        })
-          .add(computeBudgetIx())
-          .add(...preInstructions)
-          .add(...claimAllTx)
-          .add(...postInstructions);
+        }).add(computeBudgetIx());
+
+        if (preInstructions.length) tx.add(...preInstructions);
+        tx.add(...claimAllTx);
+        if (postInstructions.length) tx.add(...postInstructions);
+
+        return tx;
       })
     );
   }
