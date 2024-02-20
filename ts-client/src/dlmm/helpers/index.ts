@@ -156,8 +156,15 @@ export const wrapSOLInstruction = (
   ];
 };
 
-export const unwrapSOLInstruction = async (owner: PublicKey) => {
-  const wSolATAAccount = getAssociatedTokenAddressSync(NATIVE_MINT, owner);
+export const unwrapSOLInstruction = async (
+  owner: PublicKey,
+  allowOwnerOffCurve = true
+) => {
+  const wSolATAAccount = getAssociatedTokenAddressSync(
+    NATIVE_MINT,
+    owner,
+    allowOwnerOffCurve
+  );
   if (wSolATAAccount) {
     const closedWrappedSolInstruction = createCloseAccountInstruction(
       wSolATAAccount,

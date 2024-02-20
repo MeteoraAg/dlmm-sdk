@@ -35,7 +35,6 @@ export interface ParsedClockState {
   space: number;
 }
 
-
 let activeBin;
 let userPositions;
 let totalXAmount;
@@ -46,7 +45,7 @@ const newPosition = new Keypair();
 
 async function getActiveBin(dlmmPool: DLMM) {
   // Get pool state
-  const activeBin = await dlmmPool.getActiveBin();
+  activeBin = await dlmmPool.getActiveBin();
   console.log("🚀 ~ activeBin:", activeBin);
 }
 
@@ -106,8 +105,8 @@ async function getPositionsState(dlmmPool: DLMM) {
     user.publicKey
   );
 
-  console.log("🚀 ~ userPositions:", userPositions);
   userPositions = positionsState.userPositions;
+  console.log("🚀 ~ userPositions:", userPositions);
 }
 
 async function addLiquidityToExistingPosition(dlmmPool: DLMM) {
@@ -179,26 +178,29 @@ async function swap(dlmmPool: DLMM) {
   let maxSwappedAmount: BN;
   let throttledStats: boolean;
   if (!swapYtoX && dlmmPool.lbPair.pairType == 1) {
-    // get current slot 
-    const parsedClock = await connection.getParsedAccountInfo(SYSVAR_CLOCK_PUBKEY);
-    const parsedClockAccount = (parsedClock.value!.data as ParsedAccountData).parsed as ParsedClockState;
-    if (parsedClockAccount.info.slot <= dlmmPool.lbPair.swapCapDeactivateSlot.toNumber()) {
+    // get current slot
+    const parsedClock = await connection.getParsedAccountInfo(
+      SYSVAR_CLOCK_PUBKEY
+    );
+    const parsedClockAccount = (parsedClock.value!.data as ParsedAccountData)
+      .parsed as ParsedClockState;
+    if (
+      parsedClockAccount.info.slot <=
+      dlmmPool.lbPair.swapCapDeactivateSlot.toNumber()
+    ) {
       throttledStats = true;
       maxSwappedAmount = dlmmPool.lbPair.maxSwappedAmount;
     }
   }
-  const swapQuote = throttledStats ? await dlmmPool.swapQuoteWithCap(
-    swapAmount,
-    swapYtoX,
-    new BN(10),
-    maxSwappedAmount,
-    binArrays
-  ) : await dlmmPool.swapQuote(
-    swapAmount,
-    swapYtoX,
-    new BN(10),
-    binArrays
-  );
+  const swapQuote = throttledStats
+    ? await dlmmPool.swapQuoteWithCap(
+        swapAmount,
+        swapYtoX,
+        new BN(10),
+        maxSwappedAmount,
+        binArrays
+      )
+    : await dlmmPool.swapQuote(swapAmount, swapYtoX, new BN(10), binArrays);
 
   console.log("🚀 ~ swapQuote:", swapQuote);
 
@@ -230,6 +232,7 @@ async function main() {
 
   await getActiveBin(dlmmPool);
   await createPosition(dlmmPool);
+  await getPositionsState(dlmmPool);
   await addLiquidityToExistingPosition(dlmmPool);
   await removeLiquidity(dlmmPool);
   await swap(dlmmPool);
