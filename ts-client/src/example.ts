@@ -194,12 +194,12 @@ async function swap(dlmmPool: DLMM) {
   }
   const swapQuote = throttledStats
     ? await dlmmPool.swapQuoteWithCap(
-        swapAmount,
-        swapYtoX,
-        new BN(10),
-        maxSwappedAmount,
-        binArrays
-      )
+      swapAmount,
+      swapYtoX,
+      new BN(10),
+      maxSwappedAmount,
+      binArrays
+    )
     : await dlmmPool.swapQuote(swapAmount, swapYtoX, new BN(10), binArrays);
 
   console.log("🚀 ~ swapQuote:", swapQuote);

@@ -635,8 +635,8 @@ describe("calculate_distribution", () => {
       console.log(babar(bars));
     });
 
-    test("from strategy to weight distribution", () => {
-      let activeBinId = 30;
+    test.only("from strategy to weight distribution", () => {
+      let centerBinId = 30;
       // spot
       {
         const stategyParameters = {
@@ -645,14 +645,13 @@ describe("calculate_distribution", () => {
           strategyType: StrategyType.Spot,
           aAsk: 0,
           aBid: 0,
-          aActiveBin: 0,
-          centerBinId: activeBinId,
+          aCenterBin: 0,
+          centerBinId,
           weightAsk: 1,
           weightBid: 2,
-          weightActiveBin: 2,
+          weightCenterBin: 2,
         };
         let weightDistribution = fromStrategyParamstoWeightDistribution(
-          activeBinId,
           stategyParameters
         );
         const bars = [];
@@ -670,14 +669,13 @@ describe("calculate_distribution", () => {
           strategyType: StrategyType.Curve,
           aAsk: -2000,
           aBid: -1000,
-          aActiveBin: -1000,
-          centerBinId: activeBinId,
+          aCenterBin: -2000,
+          centerBinId: 34,
           weightAsk: 0,
           weightBid: 0,
-          weightActiveBin: 0,
+          weightCenterBin: 0,
         };
         let weightDistribution = fromStrategyParamstoWeightDistribution(
-          activeBinId,
           stategyParameters
         );
         const bars = [];
@@ -695,14 +693,13 @@ describe("calculate_distribution", () => {
           strategyType: StrategyType.BidAsk,
           aAsk: 500,
           aBid: 300,
-          aActiveBin: 300,
-          centerBinId: activeBinId,
+          aCenterBin: 300,
+          centerBinId,
           weightAsk: 0,
           weightBid: 0,
-          weightActiveBin: 0,
+          weightCenterBin: 0,
         };
         let weightDistribution = fromStrategyParamstoWeightDistribution(
-          activeBinId,
           stategyParameters
         );
         const bars = [];

@@ -2938,9 +2938,9 @@ export type LbClmm = {
             "type": "i16"
           },
           {
-            "name": "aActiveBin",
+            "name": "aCenterBin",
             "docs": [
-              "amplification in active bin"
+              "amplification in center bin"
             ],
             "type": "i16"
           },
@@ -2974,11 +2974,18 @@ export type LbClmm = {
             "type": "u16"
           },
           {
-            "name": "weightActiveBin",
+            "name": "weightCenterBin",
             "docs": [
               "weight in active bin"
             ],
             "type": "u16"
+          },
+          {
+            "name": "centerBinId",
+            "docs": [
+              "center bin id"
+            ],
+            "type": "i32"
           }
         ]
       }
@@ -7392,9 +7399,9 @@ export const IDL: LbClmm = {
             "type": "i16"
           },
           {
-            "name": "aActiveBin",
+            "name": "aCenterBin",
             "docs": [
-              "amplification in active bin"
+              "amplification in center bin"
             ],
             "type": "i16"
           },
@@ -7428,11 +7435,18 @@ export const IDL: LbClmm = {
             "type": "u16"
           },
           {
-            "name": "weightActiveBin",
+            "name": "weightCenterBin",
             "docs": [
               "weight in active bin"
             ],
             "type": "u16"
+          },
+          {
+            "name": "centerBinId",
+            "docs": [
+              "center bin id"
+            ],
+            "type": "i32"
           }
         ]
       }

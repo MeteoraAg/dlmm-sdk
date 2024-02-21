@@ -18,15 +18,12 @@ pub struct LiquidityParameterByStrategyOneSide {
 }
 
 impl LiquidityParameterByStrategyOneSide {
-    fn to_liquidity_parameter_by_weight(
-        &self,
-        active_id: i32,
-    ) -> Result<LiquidityOneSideParameter> {
+    fn to_liquidity_parameter_by_weight(&self) -> Result<LiquidityOneSideParameter> {
         Ok(LiquidityOneSideParameter {
             amount: self.amount,
             active_id: self.active_id,
             max_active_bin_slippage: self.max_active_bin_slippage,
-            bin_liquidity_dist: self.strategy_parameters.to_weight_distribution(active_id)?,
+            bin_liquidity_dist: self.strategy_parameters.to_weight_distribution()?,
         })
     }
 }
@@ -35,9 +32,8 @@ pub fn handle<'a, 'b, 'c, 'info>(
     ctx: Context<'a, 'b, 'c, 'info, ModifyLiquidityOneSide<'info>>,
     liquidity_parameter: &LiquidityParameterByStrategyOneSide,
 ) -> Result<()> {
-    let active_id = ctx.accounts.lb_pair.load()?.active_id;
     add_liquidity_one_side::handle(
         &ctx,
-        &liquidity_parameter.to_liquidity_parameter_by_weight(active_id)?,
+        &liquidity_parameter.to_liquidity_parameter_by_weight()?,
     )
 }

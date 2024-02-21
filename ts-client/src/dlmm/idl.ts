@@ -2415,7 +2415,7 @@ export type LbClmm = {
           {
             "name": "maxSwappedAmount",
             "docs": [
-              "Max X swapped amount user can swap from y to x between activation_slot and last_sloi"
+              "Max X swapped amount user can swap from y to x between activation_slot and last_slot"
             ],
             "type": "u64"
           },
@@ -2938,9 +2938,9 @@ export type LbClmm = {
             "type": "i16"
           },
           {
-            "name": "aActiveBin",
+            "name": "aCenterBin",
             "docs": [
-              "amplification in active bin"
+              "amplification in center bin"
             ],
             "type": "i16"
           },
@@ -2974,11 +2974,18 @@ export type LbClmm = {
             "type": "u16"
           },
           {
-            "name": "weightActiveBin",
+            "name": "weightCenterBin",
             "docs": [
               "weight in active bin"
             ],
             "type": "u16"
+          },
+          {
+            "name": "centerBinId",
+            "docs": [
+              "center bin id"
+            ],
+            "type": "i32"
           }
         ]
       }
@@ -6869,7 +6876,7 @@ export const IDL: LbClmm = {
           {
             "name": "maxSwappedAmount",
             "docs": [
-              "Max X swapped amount user can swap from y to x between activation_slot and last_sloi"
+              "Max X swapped amount user can swap from y to x between activation_slot and last_slot"
             ],
             "type": "u64"
           },
@@ -7392,9 +7399,9 @@ export const IDL: LbClmm = {
             "type": "i16"
           },
           {
-            "name": "aActiveBin",
+            "name": "aCenterBin",
             "docs": [
-              "amplification in active bin"
+              "amplification in center bin"
             ],
             "type": "i16"
           },
@@ -7428,11 +7435,18 @@ export const IDL: LbClmm = {
             "type": "u16"
           },
           {
-            "name": "weightActiveBin",
+            "name": "weightCenterBin",
             "docs": [
               "weight in active bin"
             ],
             "type": "u16"
+          },
+          {
+            "name": "centerBinId",
+            "docs": [
+              "center bin id"
+            ],
+            "type": "i32"
           }
         ]
       }

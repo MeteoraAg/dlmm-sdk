@@ -20,16 +20,13 @@ pub struct LiquidityParameterByStrategy {
 }
 
 impl LiquidityParameterByStrategy {
-    pub fn to_liquidity_parameter_by_weight(
-        &self,
-        active_id: i32,
-    ) -> Result<LiquidityParameterByWeight> {
+    pub fn to_liquidity_parameter_by_weight(&self) -> Result<LiquidityParameterByWeight> {
         Ok(LiquidityParameterByWeight {
             amount_x: self.amount_x,
             amount_y: self.amount_y,
             active_id: self.active_id,
             max_active_bin_slippage: self.max_active_bin_slippage,
-            bin_liquidity_dist: self.strategy_parameters.to_weight_distribution(active_id)?, // TODO: should we use  lb_pair.active_id?
+            bin_liquidity_dist: self.strategy_parameters.to_weight_distribution()?, // TODO: should we use  lb_pair.active_id?
         })
     }
 }
@@ -53,8 +50,8 @@ pub struct ParabolicParameter {
     pub a_ask: i16,
     /// amplification in bid side
     pub a_bid: i16,
-    /// amplification in active bin
-    pub a_active_bin: i16,
+    /// amplification in center bin
+    pub a_center_bin: i16,
     /// center bin id
     pub center_bin_id: i32,
 }
@@ -66,42 +63,46 @@ pub struct SpotParameter {
     /// weight in bid side
     pub weight_bid: u16,
     /// weight in active bin
-    pub weight_active_bin: u16,
+    pub weight_center_bin: u16,
+    /// center bin id
+    pub center_bin_id: i32,
 }
 
 impl ParabolicParameter {
-    fn validate_curve(&self) -> Result<()> {
+    fn validate_curve(&self, min_bin_id: i32, max_bin_id: i32) -> Result<()> {
         require!(
-            self.a_ask <= 0 && self.a_bid <= 0 && self.a_active_bin <= 0,
+            self.a_ask <= 0 && self.a_bid <= 0 && self.a_center_bin <= 0,
+            LBError::InvalidInput
+        );
+        require!(
+            self.center_bin_id >= min_bin_id && self.center_bin_id <= max_bin_id,
             LBError::InvalidInput
         );
         Ok(())
     }
 
-    fn validate_bid_ask(&self) -> Result<()> {
+    fn validate_bid_ask(&self, min_bin_id: i32, max_bin_id: i32) -> Result<()> {
         require!(
-            self.a_ask >= 0 && self.a_bid >= 0 && self.a_active_bin >= 0,
+            self.a_ask >= 0 && self.a_bid >= 0 && self.a_center_bin >= 0,
+            LBError::InvalidInput
+        );
+        require!(
+            self.center_bin_id >= min_bin_id && self.center_bin_id <= max_bin_id,
             LBError::InvalidInput
         );
         Ok(())
     }
 
-    fn get_curve_weight_at_bin_id(
-        &self,
-        center_bin_id: i32,
-        bin_id: i32,
-        b: i32,
-        active_id: i32,
-    ) -> Result<u16> {
-        let a: i32 = if bin_id < active_id {
+    fn get_curve_weight_at_bin_id(&self, bin_id: i32, b: i32) -> Result<u16> {
+        let a: i32 = if bin_id < self.center_bin_id {
             self.a_bid.into()
-        } else if bin_id > active_id {
+        } else if bin_id > self.center_bin_id {
             self.a_ask.into()
         } else {
-            self.a_active_bin.into()
+            self.a_center_bin.into()
         };
 
-        let bin_delta = bin_id.safe_sub(center_bin_id)?;
+        let bin_delta = bin_id.safe_sub(self.center_bin_id)?;
 
         let weight = (a
             .safe_mul(bin_delta)?
@@ -112,21 +113,16 @@ impl ParabolicParameter {
         Ok(u16::try_from(weight.max(0)).map_err(|_| LBError::MathOverflow)?)
     }
 
-    fn get_bid_ask_weight_at_bin_id(
-        &self,
-        center_bin_id: i32,
-        bin_id: i32,
-        active_id: i32,
-    ) -> Result<u16> {
-        let a: i32 = if bin_id < active_id {
+    fn get_bid_ask_weight_at_bin_id(&self, bin_id: i32) -> Result<u16> {
+        let a: i32 = if bin_id < self.center_bin_id {
             self.a_bid.into()
-        } else if bin_id > active_id {
+        } else if bin_id > self.center_bin_id {
             self.a_ask.into()
         } else {
-            self.a_active_bin.into()
+            self.a_center_bin.into()
         };
 
-        let bin_delta = bin_id.safe_sub(center_bin_id)?;
+        let bin_delta = bin_id.safe_sub(self.center_bin_id)?;
 
         let weight = a
             .safe_mul(bin_delta)?
@@ -154,10 +150,7 @@ impl StrategyParameters {
     fn parse_parabolic_parameter(&self) -> Result<ParabolicParameter> {
         Ok(ParabolicParameter::deserialize(&mut &self.parameteres[..])?)
     }
-    pub fn to_weight_distribution(
-        &self,
-        active_id: i32,
-    ) -> Result<Vec<BinLiquidityDistributionByWeight>> {
+    pub fn to_weight_distribution(&self) -> Result<Vec<BinLiquidityDistributionByWeight>> {
         if self.max_bin_id < self.min_bin_id {
             return Err(LBError::InvalidInput.into());
         }
@@ -174,36 +167,34 @@ impl StrategyParameters {
                     let spot_parameters = self.parse_spot_parameter()?;
 
                     for i in self.min_bin_id..=self.max_bin_id {
-                        if i < active_id {
+                        if i < spot_parameters.center_bin_id {
                             bin_liquidity_dist.push(BinLiquidityDistributionByWeight {
                                 bin_id: i,
                                 weight: spot_parameters.weight_bid,
                             })
                         }
-                        if i > active_id {
+                        if i > spot_parameters.center_bin_id {
                             bin_liquidity_dist.push(BinLiquidityDistributionByWeight {
                                 bin_id: i,
                                 weight: spot_parameters.weight_ask,
                             })
                         }
-                        if i == active_id {
+                        if i == spot_parameters.center_bin_id {
                             bin_liquidity_dist.push(BinLiquidityDistributionByWeight {
                                 bin_id: i,
-                                weight: spot_parameters.weight_active_bin,
+                                weight: spot_parameters.weight_center_bin,
                             })
                         }
                     }
                 }
                 StrategyType::Curve => {
                     let curve_parameters = self.parse_parabolic_parameter()?;
-                    curve_parameters.validate_curve()?;
-                    let mid_bin_id = curve_parameters.center_bin_id;
-                    let bin_width = self.max_bin_id.safe_sub(self.min_bin_id)?;
+                    curve_parameters.validate_curve(self.min_bin_id, self.max_bin_id)?;
+                    let bin_width = (self.max_bin_id.safe_sub(self.min_bin_id)?).safe_div(2)?;
                     let b = bin_width.safe_mul(bin_width)?;
 
                     for i in self.min_bin_id..=self.max_bin_id {
-                        let weight = curve_parameters
-                            .get_curve_weight_at_bin_id(mid_bin_id, i, b, active_id)?;
+                        let weight = curve_parameters.get_curve_weight_at_bin_id(i, b)?;
 
                         // filter zero weight
                         if weight == 0 {
@@ -215,11 +206,10 @@ impl StrategyParameters {
                 }
                 StrategyType::BidAsk => {
                     let curve_parameters = self.parse_parabolic_parameter()?;
-                    curve_parameters.validate_bid_ask()?;
-                    let mid_bin_id = curve_parameters.center_bin_id;
+                    curve_parameters.validate_bid_ask(self.min_bin_id, self.max_bin_id)?;
+
                     for i in self.min_bin_id..=self.max_bin_id {
-                        let weight = curve_parameters
-                            .get_bid_ask_weight_at_bin_id(mid_bin_id, i, active_id)?;
+                        let weight = curve_parameters.get_bid_ask_weight_at_bin_id(i)?;
                         // filter zero weight
                         if weight == 0 {
                             continue;
@@ -247,9 +237,24 @@ pub fn handle<'a, 'b, 'c, 'info>(
     ctx: Context<'a, 'b, 'c, 'info, ModifyLiquidity<'info>>,
     liquidity_parameter: &LiquidityParameterByStrategy,
 ) -> Result<()> {
-    let active_id = ctx.accounts.lb_pair.load()?.active_id;
     add_liquidity_by_weight::handle(
         &ctx,
-        &liquidity_parameter.to_liquidity_parameter_by_weight(active_id)?,
+        &liquidity_parameter.to_liquidity_parameter_by_weight()?,
     )
+}
+
+pub fn parabonic_to_slice(parameter: &ParabolicParameter) -> [u8; 64] {
+    let mut buffer: Vec<u8> = vec![];
+    parameter.serialize(&mut buffer).unwrap();
+    let mut parameteres_slice = [0; 64];
+    parameteres_slice[..10].clone_from_slice(&buffer.as_slice());
+    parameteres_slice
+}
+
+pub fn spot_to_slice(parameter: &SpotParameter) -> [u8; 64] {
+    let mut buffer: Vec<u8> = vec![];
+    parameter.serialize(&mut buffer).unwrap();
+    let mut parameteres_slice = [0; 64];
+    parameteres_slice[..10].clone_from_slice(&buffer.as_slice());
+    parameteres_slice
 }
