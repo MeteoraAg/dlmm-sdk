@@ -360,6 +360,8 @@ impl Core {
 
         let mut versioned_transaction: VersionedTransaction =
             bincode::deserialize(&encoded_versioned_transaction.swap_transaction)?;
+
+        // Ensure blockhash is coming from the same rpc.
         versioned_transaction
             .message
             .set_recent_blockhash(rpc_client.get_latest_blockhash().await?);
@@ -367,7 +369,7 @@ impl Core {
         let signed_versioned_transaction =
             VersionedTransaction::try_new(versioned_transaction.message, &[&payer])?;
 
-        let amount_out = if is_simulation {
+        let amount_out = if !is_simulation {
             let signature = rpc_client
                 .send_and_confirm_transaction(&signed_versioned_transaction)
                 .await?;
@@ -796,70 +798,125 @@ impl Core {
 
 #[cfg(test)]
 mod core_test {
-    use crate::constant::JUP_BASE_URL;
-
     use super::*;
+    use crate::constant::JUP_BASE_URL;
     use std::env;
-    #[tokio::test(flavor = "multi_thread")]
-    async fn test_withdraw() {
-        let wallet = env::var("MM_WALLET").unwrap();
-        let cluster = env::var("MM_CLUSTER").unwrap();
-        let payer = read_keypair_file(wallet.clone()).unwrap();
+    use std::result::Result::Ok;
 
-        let lp_pair = Pubkey::from_str("FoSDw2L5DmTuQTFe55gWPDXf88euaxAEKFre74CnvQbX").unwrap();
-
-        let config = vec![PairConfig {
-            pair_address: lp_pair.to_string(),
-            x_amount: 17000000,
-            y_amount: 2000000,
-            mode: MarketMakingMode::ModeBoth,
-        }];
-
-        let core = &Core {
-            provider: Cluster::from_str(&cluster).unwrap(),
-            wallet: Some(wallet),
-            owner: payer.pubkey(),
-            config: config.clone(),
-            state: Arc::new(Mutex::new(AllPosition::new(&config))),
-            jup_base_url: JUP_BASE_URL.to_owned(),
-        };
-
-        core.refresh_state().await.unwrap();
-
-        let state = core.get_position_state(lp_pair);
-
-        // withdraw
-        core.withdraw(&state, true).await.unwrap();
+    struct TestContext {
+        wallet_file_path: String,
+        payer: Keypair,
+        pair: Pubkey,
+        cluster: String,
     }
 
-    #[tokio::test(flavor = "multi_thread")]
-    async fn test_swap() {
-        let wallet = env::var("MM_WALLET").unwrap();
-        let cluster = env::var("MM_CLUSTER").unwrap();
-        let payer = read_keypair_file(wallet.clone()).unwrap();
+    fn core_test_setup() -> Result<TestContext> {
+        let wallet_file_path = env::var("MM_WALLET")?;
+        let cluster = env::var("MM_CLUSTER")?;
+        let payer =
+            read_keypair_file(wallet_file_path.clone()).map_err(|e| anyhow!(e.to_string()))?;
+        let sol_usdc_pair = Pubkey::from_str("FoSDw2L5DmTuQTFe55gWPDXf88euaxAEKFre74CnvQbX")?;
 
-        let lp_pair = Pubkey::from_str("FoSDw2L5DmTuQTFe55gWPDXf88euaxAEKFre74CnvQbX").unwrap();
+        Ok(TestContext {
+            cluster,
+            payer,
+            pair: sol_usdc_pair,
+            wallet_file_path,
+        })
+    }
+
+    fn create_core(
+        config: Vec<PairConfig>,
+        cluster: String,
+        wallet_file_path: String,
+        payer: Keypair,
+    ) -> Result<Core> {
+        Ok(Core {
+            provider: Cluster::from_str(&cluster)?,
+            wallet: Some(wallet_file_path),
+            owner: payer.pubkey(),
+            config: config.clone(),
+            state: Arc::new(Mutex::new(AllPosition::new(&config))),
+            jup_base_url: JUP_BASE_URL.to_owned(),
+        })
+    }
+
+    #[tokio::test]
+    async fn test_withdraw() {
+        let test_context = core_test_setup();
+        let TestContext {
+            payer,
+            pair,
+            cluster,
+            wallet_file_path,
+        } = claim::assert_ok!(test_context);
 
         let config = vec![PairConfig {
-            pair_address: lp_pair.to_string(),
+            pair_address: pair.to_string(),
             x_amount: 17000000,
             y_amount: 2000000,
             mode: MarketMakingMode::ModeBoth,
         }];
 
-        let core = &Core {
-            provider: Cluster::from_str(&cluster).unwrap(),
-            wallet: Some(wallet),
-            owner: payer.pubkey(),
-            config: config.clone(),
-            state: Arc::new(Mutex::new(AllPosition::new(&config))),
-            jup_base_url: JUP_BASE_URL.to_owned(),
-        };
+        let core = claim::assert_ok!(create_core(config, cluster, wallet_file_path, payer));
 
+        claim::assert_ok!(core.refresh_state().await);
+
+        let state = core.get_position_state(pair);
+
+        // withdraw
+        claim::assert_ok!(core.withdraw(&state, true).await);
+    }
+
+    #[tokio::test]
+    async fn test_jupiter_swap_simulation() {
+        let test_context = core_test_setup();
+        let TestContext {
+            payer,
+            pair,
+            cluster,
+            wallet_file_path,
+        } = claim::assert_ok!(test_context);
+
+        let config = vec![PairConfig {
+            pair_address: pair.to_string(),
+            x_amount: 0,
+            y_amount: 0,
+            mode: MarketMakingMode::ModeBoth,
+        }];
+
+        let core = claim::assert_ok!(create_core(config, cluster, wallet_file_path, payer));
         core.refresh_state().await.unwrap();
 
-        let state = core.get_position_state(lp_pair);
+        let state = core.get_position_state(pair);
+        let simulated_amount_out = claim::assert_ok!(core.swap(&state, 1000000, true, true).await);
 
-        core.swap(&state, 1000000, true, true).await.unwrap();
+        assert!(simulated_amount_out > 0, "simulated_amount_out == 0");
+    }
+
+    #[tokio::test]
+    async fn test_jupiter_swap() {
+        let test_context = core_test_setup();
+        let TestContext {
+            payer,
+            pair,
+            cluster,
+            wallet_file_path,
+        } = claim::assert_ok!(test_context);
+
+        let config = vec![PairConfig {
+            pair_address: pair.to_string(),
+            x_amount: 0,
+            y_amount: 0,
+            mode: MarketMakingMode::ModeBoth,
+        }];
+
+        let core = claim::assert_ok!(create_core(config, cluster, wallet_file_path, payer));
+        core.refresh_state().await.unwrap();
+
+        let state = core.get_position_state(pair);
+        let amount_out = claim::assert_ok!(core.swap(&state, 1000, true, false).await);
+
+        assert!(amount_out > 0, "amount_out == 0");
     }
 }
