@@ -1,9 +1,5 @@
 [workspace]
-members = [
-    "programs/*",
-    "cli",
-    "market_making"
-]
+members = ["programs/*", "cli", "market_making"]
 
 [profile.release]
 overflow-checks = true

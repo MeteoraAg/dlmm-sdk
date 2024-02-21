@@ -6,23 +6,23 @@ edition = "2021"
 authors = ["andrew <andrew@racoons.dev>"]
 
 [dependencies]
-tokio = {version = "~1.14.1", features = ["full"] }
-hyper = { version = "0.14.17", features = ["full"] }
+tokio = { version = "1", features = ["full"] }
+jupiter-swap-api-client = { git = "https://github.com/MeteoraAg/jupiter-api-rust-example", rev = "926688c033b5ae66de1f55e91aa0038a37611536" }
+hyper = { version = "0.14.20", features = ["full"] }
+chrono = "0.4.31"
 routerify = "3"
-ureq = { version = "2.0.0", features = ["json"]}
-anchor-client={version="0.28.0", features=["async"]}
-anchor-spl="0.28.0"
-anchor-lang="0.28.0"
-env_logger="0.9.0"
-log="0.4.17"
+ureq = { version = "2.0.0", features = ["json"] }
+anchor-client = { version = "0.28.0", features = ["async"] }
+anchor-spl = "0.28.0"
+anchor-lang = "0.28.0"
+env_logger = "0.9.0"
+log = "0.4.17"
 clap = { version = "4.3.3", features = ["derive"] }
 shellexpand = "3.1.0"
 anyhow = "1.0.71"
-lb_clmm =  { path = "../programs/lb_clmm", features = ["cpi"] }
+lb_clmm = { path = "../programs/lb_clmm", features = ["cpi"] }
 serde_json = "1.0.48"
 serde = { version = "1.0.104", features = ["derive"] }
 spl-associated-token-account = "1"
-solana-transaction-status="1.16.12"
+solana-transaction-status = "1.16.0"
 bs58 = "0.5.0"
-chrono="0.4.31"
-
