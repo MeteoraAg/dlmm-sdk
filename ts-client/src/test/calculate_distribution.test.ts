@@ -6,7 +6,7 @@ import {
   fromStrategyParamsToWeightDistribution,
   toWeightDistribution,
   fromWeightDistributionToAmount,
-  getPriceOfBinByBinId
+  getPriceOfBinByBinId,
 } from "../dlmm/helpers";
 import { StrategyType } from "../dlmm/types";
 import babar from "babar";
@@ -652,9 +652,8 @@ describe("calculate_distribution", () => {
           weightRight: 1,
           weightLeft: 2,
         };
-        let weightDistribution = fromStrategyParamsToWeightDistribution(
-          stategyParameters
-        );
+        let weightDistribution =
+          fromStrategyParamsToWeightDistribution(stategyParameters);
         const bars = [];
         for (const dist of weightDistribution) {
           bars.push([dist.binId, dist.weight]);
@@ -674,9 +673,8 @@ describe("calculate_distribution", () => {
           weightRight: 0,
           weightLeft: 0,
         };
-        let weightDistribution = fromStrategyParamsToWeightDistribution(
-          stategyParameters
-        );
+        let weightDistribution =
+          fromStrategyParamsToWeightDistribution(stategyParameters);
         const bars = [];
         for (const dist of weightDistribution) {
           bars.push([dist.binId, dist.weight]);
@@ -696,9 +694,8 @@ describe("calculate_distribution", () => {
           weightRight: 0,
           weightLeft: 0,
         };
-        let weightDistribution = fromStrategyParamsToWeightDistribution(
-          stategyParameters
-        );
+        let weightDistribution =
+          fromStrategyParamsToWeightDistribution(stategyParameters);
         const bars = [];
         for (const dist of weightDistribution) {
           bars.push([dist.binId, dist.weight]);
@@ -720,9 +717,8 @@ describe("calculate_distribution", () => {
         weightRight: 0,
         weightLeft: 0,
       };
-      let weightDistribution = fromStrategyParamsToWeightDistribution(
-        stategyParameters
-      );
+      let weightDistribution =
+        fromStrategyParamsToWeightDistribution(stategyParameters);
       const bars = [];
       for (const dist of weightDistribution) {
         bars.push([dist.binId, dist.weight]);
@@ -733,15 +729,25 @@ describe("calculate_distribution", () => {
       let binStep = 10;
       let amountXInActiveId = new BN(30);
       let amountYInActiveId = new BN(30);
-      let amounts = fromWeightDistributionToAmount(amountX, amountY, weightDistribution, binStep, activeId, amountXInActiveId, amountYInActiveId);
+      let amounts = fromWeightDistributionToAmount(
+        amountX,
+        amountY,
+        weightDistribution,
+        binStep,
+        activeId,
+        amountXInActiveId,
+        amountYInActiveId
+      );
 
       const bars1 = [];
       for (const dist of amounts) {
         let price = getPriceOfBinByBinId(dist.binId, binStep);
-        let yAmount = new Decimal(dist.amountX.toNumber()).mul(price).add(new Decimal(dist.amountY.toNumber()));
+        let yAmount = new Decimal(dist.amountX.toNumber())
+          .mul(price)
+          .add(new Decimal(dist.amountY.toNumber()));
         bars1.push([dist.binId, yAmount]);
       }
       console.log(babar(bars1));
-    })
+    });
   });
 });

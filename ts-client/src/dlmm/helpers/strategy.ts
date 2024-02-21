@@ -604,7 +604,7 @@ export function toStrategyParameters(strategyParameters: StrategyParameters) {
       );
       let parameters = Buffer.concat([
         data,
-        Buffer.from(new Array<number>(58).fill(0)),
+        Buffer.from(new Array<number>(54).fill(0)),
       ]);
       return {
         minBinId,
