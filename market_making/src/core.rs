@@ -10,12 +10,17 @@ use crate::utils::simulate_transaction;
 use crate::utils::{create_program, get_epoch_sec, get_or_create_ata};
 use crate::MarketMakingMode;
 use anchor_client::anchor_lang::Space;
+use anchor_client::solana_client::nonblocking::rpc_client::RpcClient;
+use anchor_client::solana_client::rpc_config::RpcSimulateTransactionAccountsConfig;
+use anchor_client::solana_client::rpc_config::RpcSimulateTransactionConfig;
 use anchor_client::solana_client::rpc_filter::{Memcmp, RpcFilterType};
+use anchor_client::solana_sdk::account::Account;
 use anchor_client::solana_sdk::account::ReadableAccount;
 use anchor_client::solana_sdk::compute_budget::ComputeBudgetInstruction;
 use anchor_client::solana_sdk::instruction::Instruction;
 use anchor_client::solana_sdk::signature::Signer;
 use anchor_client::solana_sdk::signature::{read_keypair_file, Keypair};
+use anchor_client::solana_sdk::transaction::VersionedTransaction;
 use anchor_client::{solana_sdk::pubkey::Pubkey, Cluster, Program};
 use anchor_lang::prelude::AccountMeta;
 use anchor_lang::AccountDeserialize;
@@ -27,6 +32,10 @@ use anchor_spl::token::Mint;
 use anchor_spl::token::TokenAccount;
 use anyhow::Ok;
 use anyhow::*;
+use jupiter_swap_api_client::quote::QuoteRequest;
+use jupiter_swap_api_client::swap::SwapRequest;
+use jupiter_swap_api_client::transaction_config::TransactionConfig;
+use jupiter_swap_api_client::JupiterSwapApiClient;
 use lb_clmm::accounts;
 use lb_clmm::constants::MAX_BIN_PER_ARRAY;
 use lb_clmm::constants::MAX_BIN_PER_POSITION;
@@ -45,6 +54,7 @@ use std::sync::Arc;
 use std::sync::Mutex;
 pub struct Core {
     pub provider: Cluster,
+    pub jup_base_url: String,
     pub wallet: Option<String>,
     pub owner: Pubkey,
     pub config: Vec<PairConfig>,
@@ -299,134 +309,113 @@ impl Core {
         Ok(())
     }
 
-    // TODO implement jupiter swap swap
     async fn swap(
         &self,
         state: &SinglePosition,
         amount_in: u64,
         swap_for_y: bool,
         is_simulation: bool,
-    ) -> Result<SwapEvent> {
-        // let state = self.get_state();
-        let lb_pair_state = state.lb_pair_state;
-        let lb_pair = state.lb_pair;
-        let active_bin_array_idx = BinArray::bin_id_to_bin_array_index(lb_pair_state.active_id)?;
+    ) -> Result<u64> {
+        let payer = read_keypair_file(self.wallet.to_owned().context("Keypair file not defined")?)
+            .map_err(|e| anyhow!(e.to_string()))?;
 
-        let payer = read_keypair_file(self.wallet.clone().unwrap())
-            .map_err(|_| Error::msg("Requires a keypair file"))?;
-        let program: Program<Arc<Keypair>> = create_program(
-            self.provider.to_string(),
-            self.provider.to_string(),
-            lb_clmm::ID,
-            Arc::new(Keypair::new()),
-        )?;
-        let (bin_array_0, _bump) = derive_bin_array_pda(lb_pair, active_bin_array_idx as i64);
-
-        let (user_token_in, user_token_out, bin_array_1, bin_array_2) = if swap_for_y {
+        let (input_mint, output_mint) = if swap_for_y {
             (
-                get_associated_token_address(&payer.pubkey(), &lb_pair_state.token_x_mint),
-                get_associated_token_address(&payer.pubkey(), &lb_pair_state.token_y_mint),
-                derive_bin_array_pda(lb_pair, (active_bin_array_idx - 1) as i64).0,
-                derive_bin_array_pda(lb_pair, (active_bin_array_idx - 2) as i64).0,
+                state.lb_pair_state.token_x_mint,
+                state.lb_pair_state.token_y_mint,
             )
         } else {
             (
-                get_associated_token_address(&payer.pubkey(), &lb_pair_state.token_y_mint),
-                get_associated_token_address(&payer.pubkey(), &lb_pair_state.token_x_mint),
-                derive_bin_array_pda(lb_pair, (active_bin_array_idx + 1) as i64).0,
-                derive_bin_array_pda(lb_pair, (active_bin_array_idx + 2) as i64).0,
+                state.lb_pair_state.token_y_mint,
+                state.lb_pair_state.token_x_mint,
             )
         };
 
-        let (bin_array_bitmap_extension, _bump) = derive_bin_array_bitmap_extension(lb_pair);
-        let bin_array_bitmap_extension = if program
-            .rpc()
-            .get_account(&bin_array_bitmap_extension)
-            .is_err()
-        {
-            None
+        let jup_api_client = JupiterSwapApiClient::new(self.jup_base_url.to_owned());
+        let quote_request = QuoteRequest {
+            input_mint,
+            output_mint,
+            amount: amount_in,
+            slippage_bps: 50, // 0.5
+            ..QuoteRequest::default()
+        };
+
+        let quote_response = jup_api_client.quote(&quote_request).await?;
+
+        let rpc_client = RpcClient::new(self.provider.url().to_owned());
+        let destination_token_address = get_associated_token_address(&payer.pubkey(), &output_mint);
+        let before_destination_token_account = rpc_client
+            .get_account(&destination_token_address)
+            .await
+            .map_err(|e| anyhow!(e.to_string()))
+            .and_then(|account| Ok(TokenAccount::try_deserialize(&mut account.data.as_ref())?))?;
+
+        let encoded_versioned_transaction = jup_api_client
+            .swap(&SwapRequest {
+                user_public_key: payer.pubkey(),
+                quote_response,
+                config: TransactionConfig::default(),
+            })
+            .await?;
+
+        let mut versioned_transaction: VersionedTransaction =
+            bincode::deserialize(&encoded_versioned_transaction.swap_transaction)?;
+        versioned_transaction
+            .message
+            .set_recent_blockhash(rpc_client.get_latest_blockhash().await?);
+
+        let signed_versioned_transaction =
+            VersionedTransaction::try_new(versioned_transaction.message, &[&payer])?;
+
+        let amount_out = if is_simulation {
+            let signature = rpc_client
+                .send_and_confirm_transaction(&signed_versioned_transaction)
+                .await?;
+
+            info!("Swap signature {}", signature);
+
+            let after_destination_token_account = rpc_client
+                .get_account(&destination_token_address)
+                .await
+                .map_err(|e| anyhow!(e.to_string()))
+                .and_then(|account| {
+                    Ok(TokenAccount::try_deserialize(&mut account.data.as_ref())?)
+                })?;
+
+            after_destination_token_account
+                .amount
+                .checked_sub(before_destination_token_account.amount)
+                .context("delta overflow")?
         } else {
-            Some(bin_array_bitmap_extension)
+            let simulation_result = rpc_client
+                .simulate_transaction_with_config(
+                    &signed_versioned_transaction,
+                    RpcSimulateTransactionConfig {
+                        replace_recent_blockhash: true,
+                        accounts: Some(RpcSimulateTransactionAccountsConfig {
+                            addresses: vec![destination_token_address.to_string()],
+                            ..RpcSimulateTransactionAccountsConfig::default()
+                        }),
+                        ..RpcSimulateTransactionConfig::default()
+                    },
+                )
+                .await?;
+
+            let simulated_after_destination_token_account = simulation_result
+                .value
+                .accounts
+                .and_then(|accounts| accounts[0].to_owned())
+                .and_then(|ui_account| ui_account.decode::<Account>())
+                .and_then(|account| TokenAccount::try_deserialize(&mut account.data.as_ref()).ok())
+                .context("Simulated destination token account not found")?;
+
+            simulated_after_destination_token_account
+                .amount
+                .checked_sub(before_destination_token_account.amount)
+                .context("delta overflow")?
         };
 
-        let (event_authority, _bump) =
-            Pubkey::find_program_address(&[b"__event_authority"], &lb_clmm::ID);
-
-        let accounts = accounts::Swap {
-            lb_pair,
-            bin_array_bitmap_extension,
-            reserve_x: lb_pair_state.reserve_x,
-            reserve_y: lb_pair_state.reserve_y,
-            token_x_mint: lb_pair_state.token_x_mint,
-            token_y_mint: lb_pair_state.token_y_mint,
-            token_x_program: anchor_spl::token::ID,
-            token_y_program: anchor_spl::token::ID,
-            user: payer.pubkey(),
-            user_token_in,
-            user_token_out,
-            oracle: lb_pair_state.oracle,
-            host_fee_in: Some(lb_clmm::ID),
-            event_authority,
-            program: lb_clmm::ID,
-        };
-
-        let ix = instruction::Swap {
-            amount_in,
-            min_amount_out: state.get_min_out_amount_with_slippage_rate(amount_in, swap_for_y)?,
-        };
-
-        let remaining_accounts = vec![
-            AccountMeta {
-                is_signer: false,
-                is_writable: true,
-                pubkey: bin_array_0,
-            },
-            AccountMeta {
-                is_signer: false,
-                is_writable: true,
-                pubkey: bin_array_1,
-            },
-            AccountMeta {
-                is_signer: false,
-                is_writable: true,
-                pubkey: bin_array_2,
-            },
-        ];
-
-        let compute_budget_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
-
-        let builder = program.request();
-        let builder = builder
-            .instruction(compute_budget_ix)
-            .accounts(accounts)
-            .accounts(remaining_accounts)
-            .args(ix);
-
-        if is_simulation {
-            let response = simulate_transaction(vec![&payer], payer.pubkey(), &program, &builder)?;
-            println!("{:?}", response);
-            return Ok(SwapEvent {
-                lb_pair: Pubkey::default(),
-                from: Pubkey::default(),
-                start_bin_id: 0,
-                end_bin_id: 0,
-                amount_in: 0,
-                amount_out: 0,
-                swap_for_y,
-                fee: 0,
-                protocol_fee: 0,
-                fee_bps: 0,
-                host_fee: 0,
-            });
-        }
-
-        let signature = send_tx(vec![&payer], payer.pubkey(), &program, &builder)?;
-        info!("swap {amount_in} {swap_for_y} {signature}");
-
-        // TODO should handle if cannot get swap eevent
-        let swap_event = parse_swap_event(&program, signature)?;
-
-        Ok(swap_event)
+        Ok(amount_out)
     }
 
     pub async fn deposit(
@@ -692,8 +681,8 @@ impl Core {
             .map_err(|_| Error::msg("Math is overflow"))?;
         let (amount_x, amount_y) = if amount_y_for_buy != 0 {
             info!("swap {}", state.lb_pair);
-            let swap_event = self.swap(state, amount_y_for_buy, false, false).await?;
-            (swap_event.amount_out, position.amount_y - amount_y_for_buy)
+            let amount_out = self.swap(state, amount_y_for_buy, false, false).await?;
+            (amount_out, position.amount_y - amount_y_for_buy)
         } else {
             (pair_config.x_amount, pair_config.y_amount)
         };
@@ -746,8 +735,8 @@ impl Core {
             .map_err(|_| Error::msg("Math is overflow"))?;
         let (amount_x, amount_y) = if amount_x_for_sell != 0 {
             info!("swap {}", state.lb_pair);
-            let swap_event = self.swap(state, amount_x_for_sell, true, false).await?;
-            (position.amount_x - amount_x_for_sell, swap_event.amount_out)
+            let amount_out = self.swap(state, amount_x_for_sell, true, false).await?;
+            (position.amount_x - amount_x_for_sell, amount_out)
         } else {
             (pair_config.x_amount, pair_config.y_amount)
         };
@@ -807,6 +796,8 @@ impl Core {
 
 #[cfg(test)]
 mod core_test {
+    use crate::constant::JUP_BASE_URL;
+
     use super::*;
     use std::env;
     #[tokio::test(flavor = "multi_thread")]
@@ -830,6 +821,7 @@ mod core_test {
             owner: payer.pubkey(),
             config: config.clone(),
             state: Arc::new(Mutex::new(AllPosition::new(&config))),
+            jup_base_url: JUP_BASE_URL.to_owned(),
         };
 
         core.refresh_state().await.unwrap();
@@ -861,6 +853,7 @@ mod core_test {
             owner: payer.pubkey(),
             config: config.clone(),
             state: Arc::new(Mutex::new(AllPosition::new(&config))),
+            jup_base_url: JUP_BASE_URL.to_owned(),
         };
 
         core.refresh_state().await.unwrap();

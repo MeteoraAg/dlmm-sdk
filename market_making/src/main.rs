@@ -1,9 +1,11 @@
 pub mod bin_array_manager;
+mod constant;
 pub mod core;
 pub mod pair_config;
 pub mod router;
 pub mod state;
 pub mod utils;
+
 use crate::state::SinglePosition;
 use anchor_client::solana_sdk::pubkey::Pubkey;
 use anchor_client::solana_sdk::signature::{read_keypair_file, Keypair};
@@ -13,6 +15,7 @@ use anchor_client::solana_sdk::{
 };
 use anchor_client::Cluster;
 use clap::Parser;
+use constant::JUP_BASE_URL;
 use core::Core;
 use hyper::Server;
 use log::LevelFilter;
@@ -128,6 +131,7 @@ async fn main() {
         owner: user_wallet,
         config: config.clone(),
         state: Arc::new(Mutex::new(AllPosition::new(&config))),
+        jup_base_url: JUP_BASE_URL.to_owned(),
     };
 
     // init some state

@@ -2467,6 +2467,7 @@ dependencies = [
  "anchor-lang",
  "anchor-spl",
  "anyhow",
+ "bincode",
  "bs58 0.5.0",
  "chrono",
  "clap 4.5.1",
