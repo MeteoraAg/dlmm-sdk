@@ -1758,7 +1758,7 @@ export class DLMM {
       ? deriveBinArrayBitmapExtension(this.pubkey, this.program.programId)[0]
       : null;
 
-    const activeId = (await this.getActiveBin()).binId;
+    const activeId = this.lbPair.activeId;
 
     const strategyParameters: LiquidityParameterByStrategy["strategyParameters"] =
       toStrategyParameters(strategy) as ProgramStrategyParameter;
