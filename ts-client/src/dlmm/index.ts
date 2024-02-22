@@ -1619,6 +1619,223 @@ export class DLMM {
     };
   }
 
+  public quoteAddLiquidityDistribution(
+    amountX: BN,
+    amountY: BN,
+    strategy: StrategyParameters,
+    activeId: number,
+    amountXInActiveBin: BN,
+    amountYInActiveBin: BN
+  ) {
+    const weightDistribution = fromStrategyParamsToWeightDistribution(strategy);
+    return fromWeightDistributionToAmount(
+      amountX,
+      amountY,
+      weightDistribution,
+      this.lbPair.binStep,
+      activeId,
+      amountXInActiveBin,
+      amountYInActiveBin
+    );
+  }
+
+  /**
+   * The function `initializePositionAndAddLiquidityByStrategy` function is used to initializes a position and adds liquidity
+   * @param {TInitializePositionAndAddLiquidityParamsByStrategy}
+   *    - `positionPubKey`: The public key of the position account. (usually use `new Keypair()`)
+   *    - `totalXAmount`: The total amount of token X to be added to the liquidity pool.
+   *    - `totalYAmount`: The total amount of token Y to be added to the liquidity pool.
+   *    - `strategy`: The strategy parameters to be used for the liquidity pool (Can use `calculateStrategyParameter` to calculate).
+   *    - `user`: The public key of the user account.
+   * @returns {Promise<Transaction>} The function `initializePositionAndAddLiquidityByWeight` returns a `Promise` that
+   * resolves to either a single `Transaction` object.
+   */
+  public async initializePositionAndAddLiquidityByStrategy({
+    positionPubKey,
+    totalXAmount,
+    totalYAmount,
+    strategy,
+    user,
+  }: TInitializePositionAndAddLiquidityParamsByStrategy) {
+    const { maxBinId, minBinId } = strategy;
+
+    const setComputeUnitLimitIx = computeBudgetIx();
+    const preInstructions = [setComputeUnitLimitIx];
+    const initializePositionIx = await this.program.methods
+      .initializePosition(minBinId, maxBinId - minBinId + 1)
+      .accounts({
+        payer: user,
+        position: positionPubKey,
+        lbPair: this.pubkey,
+        owner: user,
+      })
+      .instruction();
+    preInstructions.push(initializePositionIx);
+
+    const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(minBinId));
+    const [binArrayLower] = deriveBinArray(
+      this.pubkey,
+      lowerBinArrayIndex,
+      this.program.programId
+    );
+
+    const upperBinArrayIndex = lowerBinArrayIndex.add(new BN(1));
+    const [binArrayUpper] = deriveBinArray(
+      this.pubkey,
+      upperBinArrayIndex,
+      this.program.programId
+    );
+
+    const binArraysNeeded: BN[] = Array.from(
+      { length: upperBinArrayIndex.sub(lowerBinArrayIndex).toNumber() + 4 },
+      (_, index) => index - 2 + lowerBinArrayIndex.toNumber()
+    ).map((idx) => new BN(idx));
+
+    const createBinArrayIxs = await this.createBinArraysIfNeeded(
+      this.pubkey,
+      binArraysNeeded,
+      user
+    );
+    preInstructions.push(...createBinArrayIxs);
+
+    const [
+      { ataPubKey: userTokenX, ix: createPayerTokenXIx },
+      { ataPubKey: userTokenY, ix: createPayerTokenYIx },
+    ] = await Promise.all([
+      getOrCreateATAInstruction(
+        this.program.provider.connection,
+        this.tokenX.publicKey,
+        user
+      ),
+      getOrCreateATAInstruction(
+        this.program.provider.connection,
+        this.tokenY.publicKey,
+        user
+      ),
+    ]);
+    createPayerTokenXIx && preInstructions.push(createPayerTokenXIx);
+    createPayerTokenYIx && preInstructions.push(createPayerTokenYIx);
+
+    if (this.tokenX.publicKey.equals(NATIVE_MINT)) {
+      const wrapSOLIx = wrapSOLInstruction(
+        user,
+        userTokenX,
+        BigInt(totalXAmount.toString())
+      );
+
+      preInstructions.push(...wrapSOLIx);
+    }
+
+    if (this.tokenY.publicKey.equals(NATIVE_MINT)) {
+      const wrapSOLIx = wrapSOLInstruction(
+        user,
+        userTokenY,
+        BigInt(totalYAmount.toString())
+      );
+
+      preInstructions.push(...wrapSOLIx);
+    }
+
+    const postInstructions: Array<TransactionInstruction> = [];
+    if (
+      [
+        this.tokenX.publicKey.toBase58(),
+        this.tokenY.publicKey.toBase58(),
+      ].includes(NATIVE_MINT.toBase58())
+    ) {
+      const closeWrappedSOLIx = await unwrapSOLInstruction(user);
+      closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
+    }
+
+    const minBinArrayIndex = binIdToBinArrayIndex(new BN(minBinId));
+    const maxBinArrayIndex = binIdToBinArrayIndex(new BN(maxBinId));
+
+    const useExtension =
+      isOverflowDefaultBinArrayBitmap(minBinArrayIndex) ||
+      isOverflowDefaultBinArrayBitmap(maxBinArrayIndex);
+
+    const binArrayBitmapExtension = useExtension
+      ? deriveBinArrayBitmapExtension(this.pubkey, this.program.programId)[0]
+      : null;
+
+    const activeId = (await this.getActiveBin()).binId;
+
+    const strategyParameters: LiquidityParameterByStrategy["strategyParameters"] =
+      toStrategyParameters(strategy) as ProgramStrategyParameter;
+
+    const liquidityParams: LiquidityParameterByStrategy = {
+      amountX: totalXAmount,
+      amountY: totalYAmount,
+      activeId,
+      maxActiveBinSlippage: MAX_ACTIVE_BIN_SLIPPAGE,
+      strategyParameters,
+    };
+
+    const addLiquidityAccounts = {
+      position: positionPubKey,
+      lbPair: this.pubkey,
+      userTokenX,
+      userTokenY,
+      reserveX: this.lbPair.reserveX,
+      reserveY: this.lbPair.reserveY,
+      tokenXMint: this.lbPair.tokenXMint,
+      tokenYMint: this.lbPair.tokenYMint,
+      binArrayLower,
+      binArrayUpper,
+      binArrayBitmapExtension,
+      sender: user,
+      tokenXProgram: TOKEN_PROGRAM_ID,
+      tokenYProgram: TOKEN_PROGRAM_ID,
+    };
+
+    const oneSideLiquidityParams: LiquidityParameterByStrategyOneSide = {
+      amount: totalXAmount.isZero() ? totalYAmount : totalXAmount,
+      activeId,
+      maxActiveBinSlippage: MAX_ACTIVE_BIN_SLIPPAGE,
+      strategyParameters,
+    };
+
+    const oneSideAddLiquidityAccounts = {
+      binArrayLower,
+      binArrayUpper,
+      lbPair: this.pubkey,
+      binArrayBitmapExtension: null,
+      sender: user,
+      position: positionPubKey,
+      reserve: totalXAmount.isZero()
+        ? this.lbPair.reserveY
+        : this.lbPair.reserveX,
+      tokenMint: totalXAmount.isZero()
+        ? this.lbPair.tokenYMint
+        : this.lbPair.tokenXMint,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      userToken: totalXAmount.isZero() ? userTokenY : userTokenX,
+    };
+
+    const isOneSideDeposit = totalXAmount.isZero() || totalYAmount.isZero();
+    const programMethod = isOneSideDeposit
+      ? this.program.methods.addLiquidityByStrategyOneSide(
+          oneSideLiquidityParams
+        )
+      : this.program.methods.addLiquidityByStrategy(liquidityParams);
+
+    const createPositionTx = await programMethod
+      .accounts(
+        isOneSideDeposit ? oneSideAddLiquidityAccounts : addLiquidityAccounts
+      )
+      .preInstructions(preInstructions)
+      .postInstructions(postInstructions)
+      .transaction();
+
+    const { blockhash, lastValidBlockHeight } =
+      await this.program.provider.connection.getLatestBlockhash("confirmed");
+    return new Transaction({
+      blockhash,
+      lastValidBlockHeight,
+      feePayer: user,
+    }).add(createPositionTx);
+  }
+
   /**
    * The function `initializePositionAndAddLiquidityByStrategy` function is used to initializes a position and adds liquidity
    * @param {TInitializePositionAndAddLiquidityParamsByStrategy}
