@@ -642,3 +642,160 @@ export function toStrategyParameters(strategyParameters: StrategyParameters) {
       };
   }
 }
+
+export function fromWeightDistributionToAmount(amountX: BN, amountY: BN, distributions: { binId: number; weight: number }[], binStep: number, activeId: number, amountXInActiveBin: BN, amountYInActiveBin: BN): { binId: number; amountX: BN, amountY: BN }[] {
+  // sort distribution
+  var distributions = distributions.sort((n1, n2) => {
+    return n1.binId - n2.binId
+  }).filter(item => item.weight > 0);
+
+  if (distributions.length == 0) {
+    return [];
+  }
+
+
+  // only bid side
+  if (activeId > distributions[distributions.length - 1].binId) {
+    // get sum of weight
+    let totalWeight: number = distributions
+      .reduce(function (sum, el) {
+        return sum + el.weight;
+      }, 0);
+
+    return distributions.map((bin) => {
+      const amount = amountX.mul(new BN(bin.weight)).div(new BN(totalWeight));
+      return {
+        binId: bin.binId,
+        amountX: new BN(0),
+        amountY: amount,
+      }
+    })
+  }
+
+  // only ask side
+  if (activeId < distributions[0].binId) {
+    // get sum of weight
+    let totalWeight: Decimal = distributions
+      .reduce(function (sum, el) {
+        let price = getPriceOfBinByBinId(el.binId, binStep);
+        let weighPerPrice = new Decimal(el.weight).div(price);
+        return sum.add(weighPerPrice);
+      }, new Decimal(0));
+
+    return distributions.map((bin) => {
+      const amount = new Decimal(amountX.toNumber()).mul(new Decimal(bin.weight)).div(totalWeight);
+      return {
+        binId: bin.binId,
+        amountX: new BN(Math.floor(amount.toNumber())),
+        amountY: new BN(0),
+      }
+    })
+  }
+
+
+  const activeBins = distributions.filter((element) => {
+    return element.binId === activeId;
+  });
+
+  if (activeBins.length == 1) {
+    let p0 = getPriceOfBinByBinId(activeId, binStep);
+    let wx0 = new Decimal(0);
+    let wy0 = new Decimal(0);
+    let activeBin = activeBins[0];
+    if (amountXInActiveBin.isZero() && amountYInActiveBin.isZero()) {
+      wx0 = new Decimal(activeBin.weight).div(p0.mul(new Decimal(2)));
+      wy0 = new Decimal(activeBin.weight).div(new Decimal(2));
+    } else {
+      let amountXInActiveBinDec = new Decimal(amountYInActiveBin.toNumber());
+      let amountYInActiveBinDec = new Decimal(amountYInActiveBin.toNumber());
+
+      if (!amountXInActiveBin.isZero()) {
+        wx0 = new Decimal(activeBin.weight).div(p0.add(amountXInActiveBinDec.div(amountYInActiveBinDec)));
+      }
+      if (!amountYInActiveBin.isZero()) {
+        wy0 = new Decimal(activeBin.weight).div(new Decimal(1).add(p0.mul(amountXInActiveBinDec).div(amountYInActiveBinDec)));
+      }
+    }
+
+    let totalWeightX = wx0;
+    let totalWeightY = wy0;
+    distributions.forEach((element) => {
+      if (element.binId < activeId) {
+        totalWeightY = totalWeightY.add(new Decimal(element.weight))
+      }
+      if (element.binId > activeId) {
+        let price = getPriceOfBinByBinId(element.binId, binStep);
+        let weighPerPrice = new Decimal(element.weight).div(price);
+        totalWeightX = totalWeightX.add(weighPerPrice);
+      }
+    });
+    let kx = new Decimal(amountX.toNumber()).div(totalWeightX)
+    let ky = new Decimal(amountY.toNumber()).div(totalWeightY)
+    let k = (kx.lessThan(ky) ? kx : ky);
+    return distributions.map((bin) => {
+      if (bin.binId < activeId) {
+        const amount = k.mul(new Decimal(bin.weight));
+        return {
+          binId: bin.binId,
+          amountX: new BN(0),
+          amountY: new BN(Math.floor(amount.toNumber())),
+        }
+      }
+      if (bin.binId > activeId) {
+        let price = getPriceOfBinByBinId(bin.binId, binStep);
+        let weighPerPrice = new Decimal(bin.weight).div(price);
+        const amount = k.mul(weighPerPrice);
+        return {
+          binId: bin.binId,
+          amountX: new BN(Math.floor(amount.toNumber())),
+          amountY: new BN(0),
+        }
+      }
+
+      let amounXActiveBin = k.mul(wx0);
+      let amounYActiveBin = k.mul(wy0);
+      return {
+        binId: bin.binId,
+        amountX: new BN(Math.floor(amounXActiveBin.toNumber())),
+        amountY: new BN(Math.floor(amounYActiveBin.toNumber())),
+      }
+    })
+  } else {
+    let totalWeightX = new Decimal(0);
+    let totalWeightY = new Decimal(0);
+    distributions.forEach((element) => {
+      if (element.binId < activeId) {
+        totalWeightY = totalWeightY.add(new Decimal(element.weight))
+      } else {
+        let price = getPriceOfBinByBinId(element.binId, binStep);
+        let weighPerPrice = new Decimal(element.weight).div(price);
+        totalWeightX = totalWeightX.add(weighPerPrice);
+      }
+    });
+
+    let kx = new Decimal(amountX.toNumber()).div(totalWeightX)
+    let ky = new Decimal(amountY.toNumber()).div(totalWeightY)
+    let k = (kx.lessThan(ky) ? kx : ky);
+
+    return distributions.map((bin) => {
+      if (bin.binId < activeId) {
+        const amount = k.mul(new Decimal(bin.weight));
+        return {
+          binId: bin.binId,
+          amountX: new BN(0),
+          amountY: new BN(Math.floor(amount.toNumber())),
+        }
+      } else {
+        let price = getPriceOfBinByBinId(bin.binId, binStep);
+        let weighPerPrice = new Decimal(bin.weight).div(price);
+        const amount = k.mul(weighPerPrice);
+        return {
+          binId: bin.binId,
+          amountX: new BN(Math.floor(amount.toNumber())),
+          amountY: new BN(0),
+        }
+      }
+    })
+  }
+  return [];
+}

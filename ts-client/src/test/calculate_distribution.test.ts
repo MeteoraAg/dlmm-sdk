@@ -5,9 +5,12 @@ import {
   calculateSpotDistribution,
   fromStrategyParamstoWeightDistribution,
   toWeightDistribution,
+  fromWeightDistributionToAmount,
+  getPriceOfBinByBinId
 } from "../dlmm/helpers";
 import { StrategyType } from "../dlmm/types";
 import babar from "babar";
+import Decimal from "decimal.js";
 
 interface Distribution {
   binId: number;
@@ -635,7 +638,7 @@ describe("calculate_distribution", () => {
       console.log(babar(bars));
     });
 
-    test.only("from strategy to weight distribution", () => {
+    test("from strategy to weight distribution", () => {
       let centerBinId = 30;
       // spot
       {
@@ -709,5 +712,44 @@ describe("calculate_distribution", () => {
         console.log(babar(bars));
       }
     });
+
+    test("from weight distribution to amount", () => {
+      let activeId = 34;
+      // curve
+      const stategyParameters = {
+        minBinId: 0,
+        maxBinId: 69,
+        strategyType: StrategyType.Curve,
+        aAsk: -2000,
+        aBid: -1000,
+        aCenterBin: -2000,
+        centerBinId: activeId,
+        weightAsk: 0,
+        weightBid: 0,
+        weightCenterBin: 0,
+      };
+      let weightDistribution = fromStrategyParamstoWeightDistribution(
+        stategyParameters
+      );
+      const bars = [];
+      for (const dist of weightDistribution) {
+        bars.push([dist.binId, dist.weight]);
+      }
+      console.log(babar(bars));
+      let amountX = new BN(100_000);
+      let amountY = new BN(200_000);
+      let binStep = 10;
+      let amountXInActiveId = new BN(30);
+      let amountYInActiveId = new BN(30);
+      let amounts = fromWeightDistributionToAmount(amountX, amountY, weightDistribution, binStep, activeId, amountXInActiveId, amountYInActiveId);
+
+      const bars1 = [];
+      for (const dist of amounts) {
+        let price = getPriceOfBinByBinId(dist.binId, binStep);
+        let yAmount = new Decimal(dist.amountX.toNumber()).mul(price).add(new Decimal(dist.amountY.toNumber()));
+        bars1.push([dist.binId, yAmount]);
+      }
+      console.log(babar(bars1));
+    })
   });
 });
