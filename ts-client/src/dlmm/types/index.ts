@@ -32,9 +32,7 @@ export interface TokenReserve {
 export type ClmmProgram = Program<LbClmm>;
 
 export type LbPair = IdlAccounts<LbClmm>["lbPair"];
-export type LbPairAccount = ProgramAccount<
-  IdlAccounts<LbClmm>["lbPair"]
->;
+export type LbPairAccount = ProgramAccount<IdlAccounts<LbClmm>["lbPair"]>;
 
 export type Bin = IdlTypes<LbClmm>["Bin"];
 export type BinArray = IdlAccounts<LbClmm>["binArray"];
@@ -59,6 +57,14 @@ export type LiquidityParameterByWeight =
   IdlTypes<LbClmm>["LiquidityParameterByWeight"];
 export type LiquidityOneSideParameter =
   IdlTypes<LbClmm>["LiquidityOneSideParameter"];
+
+export type LiquidityParameterByStrategy =
+  IdlTypes<LbClmm>["LiquidityParameterByStrategy"];
+export type LiquidityParameterByStrategyOneSide =
+  IdlTypes<LbClmm>["LiquidityParameterByStrategyOneSide"];
+
+export type ProgramStrategyParameter = IdlTypes<LbClmm>["StrategyParameters"];
+export type ProgramStrategyType = IdlTypes<LbClmm>["StrategyType"];
 
 export interface LbPosition {
   publicKey: PublicKey;
@@ -141,6 +147,15 @@ export interface TInitializePositionAndAddLiquidityParams {
   totalXAmount: BN;
   totalYAmount: BN;
   xYAmountDistribution: BinAndAmount[];
+  user: PublicKey;
+}
+
+export interface TInitializePositionAndAddLiquidityParamsByStrategy {
+  lbPairPubKey: PublicKey;
+  positionPubKey: PublicKey;
+  totalXAmount: BN;
+  totalYAmount: BN;
+  strategy: StrategyParameters;
   user: PublicKey;
 }
 
