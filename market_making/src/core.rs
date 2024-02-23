@@ -523,9 +523,8 @@ impl Core {
             get_associated_token_address(&payer.pubkey(), &lb_pair_state.token_y_mint);
 
         let spot_parameters = SpotParameter {
-            weight_ask: 1,
-            weight_bid: 1,
-            weight_center_bin: 1,
+            weight_right: 1,
+            weight_left: 1,
             center_bin_id: state.lb_pair_state.active_id,
         };
 

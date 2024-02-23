@@ -3,7 +3,7 @@ import {
   calculateBidAskDistribution,
   calculateNormalDistribution,
   calculateSpotDistribution,
-  fromStrategyParamstoWeightDistribution,
+  fromStrategyParamsToWeightDistribution,
   toWeightDistribution,
   fromWeightDistributionToAmount,
   getPriceOfBinByBinId
@@ -646,15 +646,13 @@ describe("calculate_distribution", () => {
           minBinId: 0,
           maxBinId: 69,
           strategyType: StrategyType.Spot,
-          aAsk: 0,
-          aBid: 0,
-          aCenterBin: 0,
+          aRight: 0,
+          aLeft: 0,
           centerBinId,
-          weightAsk: 1,
-          weightBid: 2,
-          weightCenterBin: 2,
+          weightRight: 1,
+          weightLeft: 2,
         };
-        let weightDistribution = fromStrategyParamstoWeightDistribution(
+        let weightDistribution = fromStrategyParamsToWeightDistribution(
           stategyParameters
         );
         const bars = [];
@@ -670,15 +668,13 @@ describe("calculate_distribution", () => {
           minBinId: 0,
           maxBinId: 69,
           strategyType: StrategyType.Curve,
-          aAsk: -2000,
-          aBid: -1000,
-          aCenterBin: -2000,
+          aRight: 2000,
+          aLeft: 1000,
           centerBinId: 34,
-          weightAsk: 0,
-          weightBid: 0,
-          weightCenterBin: 0,
+          weightRight: 0,
+          weightLeft: 0,
         };
-        let weightDistribution = fromStrategyParamstoWeightDistribution(
+        let weightDistribution = fromStrategyParamsToWeightDistribution(
           stategyParameters
         );
         const bars = [];
@@ -694,15 +690,13 @@ describe("calculate_distribution", () => {
           minBinId: 0,
           maxBinId: 69,
           strategyType: StrategyType.BidAsk,
-          aAsk: 500,
-          aBid: 300,
-          aCenterBin: 300,
+          aRight: 500,
+          aLeft: 300,
           centerBinId,
-          weightAsk: 0,
-          weightBid: 0,
-          weightCenterBin: 0,
+          weightRight: 0,
+          weightLeft: 0,
         };
-        let weightDistribution = fromStrategyParamstoWeightDistribution(
+        let weightDistribution = fromStrategyParamsToWeightDistribution(
           stategyParameters
         );
         const bars = [];
@@ -720,15 +714,13 @@ describe("calculate_distribution", () => {
         minBinId: 0,
         maxBinId: 69,
         strategyType: StrategyType.Curve,
-        aAsk: -2000,
-        aBid: -1000,
-        aCenterBin: -2000,
+        aRight: 2000,
+        aLeft: 1000,
         centerBinId: activeId,
-        weightAsk: 0,
-        weightBid: 0,
-        weightCenterBin: 0,
+        weightRight: 0,
+        weightLeft: 0,
       };
-      let weightDistribution = fromStrategyParamstoWeightDistribution(
+      let weightDistribution = fromStrategyParamsToWeightDistribution(
         stategyParameters
       );
       const bars = [];

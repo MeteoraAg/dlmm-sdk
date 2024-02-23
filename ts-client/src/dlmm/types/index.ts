@@ -116,28 +116,24 @@ export interface StrategyParameters {
   maxBinId: number;
   minBinId: number;
   strategyType: StrategyType;
-  aAsk: number; // for curve or bid/ask
-  aBid: number; // for curve or bid/ask
-  aCenterBin: number; // for curve or bid/ask
+  aRight: number; // for curve or bid/ask
+  aLeft: number; // for curve or bid/ask
   centerBinId: number; // for curve or bid/ask
-  weightAsk: number; // for spot
-  weightBid: number; // for spot
-  weightCenterBin: number; // for spot
+  weightRight: number; // for spot
+  weightLeft: number; // for spot
 }
 
 export type ParabolicParameter = IdlTypes<LbClmm>["ParabolicParameter"];
 export const parabolicParameter = struct<ParabolicParameter>([
-  s16("aAsk"),
-  s16("aBid"),
-  s16(`aActiveBin`),
+  s16("aRight"),
+  s16("aLeft"),
   s32(`centerBinId`),
 ]);
 
 export type SpotParameter = IdlTypes<LbClmm>["SpotParameter"];
 export const spotParameter = struct<SpotParameter>([
-  u16("weightAsk"),
-  u16("weightBid"),
-  u16("weightCenterBin"),
+  u16("weightRight"),
+  u16("weightLeft"),
   s32(`centerBinId`),
 ]);
 

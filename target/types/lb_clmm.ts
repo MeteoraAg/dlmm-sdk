@@ -2924,23 +2924,16 @@ export type LbClmm = {
         "kind": "struct",
         "fields": [
           {
-            "name": "aAsk",
+            "name": "aRight",
             "docs": [
-              "amplification in ask side"
+              "amplification in right side, from center_bin_id to max_bin_id"
             ],
             "type": "i16"
           },
           {
-            "name": "aBid",
+            "name": "aLeft",
             "docs": [
-              "amplification in bid side"
-            ],
-            "type": "i16"
-          },
-          {
-            "name": "aCenterBin",
-            "docs": [
-              "amplification in center bin"
+              "amplification in left side, from min_bin_id to center_bin_id"
             ],
             "type": "i16"
           },
@@ -2960,23 +2953,16 @@ export type LbClmm = {
         "kind": "struct",
         "fields": [
           {
-            "name": "weightAsk",
+            "name": "weightRight",
             "docs": [
-              "weight in ask side"
+              "weight in right side, from center_bin_id to max_bin_id"
             ],
             "type": "u16"
           },
           {
-            "name": "weightBid",
+            "name": "weightLeft",
             "docs": [
-              "weight in bid side"
-            ],
-            "type": "u16"
-          },
-          {
-            "name": "weightCenterBin",
-            "docs": [
-              "weight in active bin"
+              "weight in left side, from min_bin_id to center_bin_id"
             ],
             "type": "u16"
           },
@@ -7385,23 +7371,16 @@ export const IDL: LbClmm = {
         "kind": "struct",
         "fields": [
           {
-            "name": "aAsk",
+            "name": "aRight",
             "docs": [
-              "amplification in ask side"
+              "amplification in right side, from center_bin_id to max_bin_id"
             ],
             "type": "i16"
           },
           {
-            "name": "aBid",
+            "name": "aLeft",
             "docs": [
-              "amplification in bid side"
-            ],
-            "type": "i16"
-          },
-          {
-            "name": "aCenterBin",
-            "docs": [
-              "amplification in center bin"
+              "amplification in left side, from min_bin_id to center_bin_id"
             ],
             "type": "i16"
           },
@@ -7421,23 +7400,16 @@ export const IDL: LbClmm = {
         "kind": "struct",
         "fields": [
           {
-            "name": "weightAsk",
+            "name": "weightRight",
             "docs": [
-              "weight in ask side"
+              "weight in right side, from center_bin_id to max_bin_id"
             ],
             "type": "u16"
           },
           {
-            "name": "weightBid",
+            "name": "weightLeft",
             "docs": [
-              "weight in bid side"
-            ],
-            "type": "u16"
-          },
-          {
-            "name": "weightCenterBin",
-            "docs": [
-              "weight in active bin"
+              "weight in left side, from min_bin_id to center_bin_id"
             ],
             "type": "u16"
           },

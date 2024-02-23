@@ -142,15 +142,15 @@ export function calculateSpotDistribution(
     const distributions =
       binIds[0] < activeBin
         ? binIds.map((binId) => ({
-            binId,
-            xAmountBpsOfTotal: new BN(0),
-            yAmountBpsOfTotal: dist,
-          }))
+          binId,
+          xAmountBpsOfTotal: new BN(0),
+          yAmountBpsOfTotal: dist,
+        }))
         : binIds.map((binId) => ({
-            binId,
-            xAmountBpsOfTotal: dist,
-            yAmountBpsOfTotal: new BN(0),
-          }));
+          binId,
+          xAmountBpsOfTotal: dist,
+          yAmountBpsOfTotal: new BN(0),
+        }));
 
     // Add the loss to the left most bin
     if (binIds[0] < activeBin) {
@@ -470,17 +470,18 @@ export function fromStrategyParamsToWeightDistribution(
     maxBinId,
     minBinId,
     strategyType,
-    aAsk,
-    aBid,
-    aCenterBin,
+    aRight,
+    aLeft,
     centerBinId,
-    weightAsk,
-    weightBid,
-    weightCenterBin,
+    weightRight,
+    weightLeft,
   } = strategyParameters;
   // validate firstly
   if (maxBinId < minBinId) {
     throw new Error("maxBinId cannot be smaller than minBinId");
+  }
+  if (centerBinId < minBinId || centerBinId > maxBinId) {
+    throw new Error("centerBinId must be between minBinId and maxBinId");
   }
   let distributionWeights: Array<{ binId: number; weight: number }> = [];
   switch (strategyType) {
@@ -489,70 +490,106 @@ export function fromStrategyParamsToWeightDistribution(
         if (i < centerBinId) {
           distributionWeights.push({
             binId: i,
-            weight: weightBid,
+            weight: weightLeft,
           });
         }
         if (i > centerBinId) {
           distributionWeights.push({
             binId: i,
-            weight: weightAsk,
+            weight: weightRight,
           });
         }
         if (i == centerBinId) {
           distributionWeights.push({
             binId: i,
-            weight: weightCenterBin,
+            weight: weightLeft > weightRight ? weightLeft : weightRight,
           });
         }
       }
       break;
     }
     case StrategyType.Curve: {
-      if (aAsk > 0 || aAsk < -32768) {
-        throw new Error("aAsk is out of range");
+      if (aRight < 0 || aRight > 32768) {
+        throw new Error("aRight is out of range");
       }
-      if (aBid > 0 || aBid < -32768) {
+      if (aLeft < 0 || aLeft > 32768) {
         throw new Error("aBid is out of range");
       }
-      const binWidth = (maxBinId - minBinId) / 2;
-      const b = binWidth * binWidth;
+      const bLeft = (centerBinId - minBinId) * (centerBinId - minBinId);
+      const bRight = (maxBinId - centerBinId) * (maxBinId - centerBinId);
       for (let i = minBinId; i <= maxBinId; i++) {
-        let binDelta = i - centerBinId;
-        let a = aCenterBin;
         if (i < centerBinId) {
-          a = aBid;
+          const b = (i - centerBinId) * (i - centerBinId);
+          const weight = aLeft * (bLeft - b) / 15000;
+          distributionWeights.push({
+            binId: i,
+            weight: Math.max(
+              weight,
+              0
+            ),
+          });
         } else if (i > centerBinId) {
-          a = aAsk;
+          const b = (i - centerBinId) * (i - centerBinId);
+          const weight = aRight * (bRight - b) / 15000;
+          distributionWeights.push({
+            binId: i,
+            weight: Math.max(
+              weight,
+              0
+            ),
+          });
+        } else {
+          const a = bLeft > bRight ? aLeft : aRight;
+          const b = bLeft > bRight ? bLeft : bRight;
+          const weight = a * b / 15000;
+          distributionWeights.push({
+            binId: i,
+            weight: Math.max(
+              weight,
+              0
+            ),
+          });
         }
-        distributionWeights.push({
-          binId: i,
-          weight: Math.max(
-            Math.floor((a * binDelta * binDelta - a * b) / 15000),
-            0
-          ),
-        });
       }
       break;
     }
     case StrategyType.BidAsk: {
-      if (aAsk < 0 || aAsk > 32768) {
-        throw new Error("aAsk is out of range");
+      if (aRight < 0 || aRight > 32768) {
+        throw new Error("aRight is out of range");
       }
-      if (aBid < 0 || aBid > 32768) {
+      if (aLeft < 0 || aLeft > 32768) {
         throw new Error("aBid is out of range");
       }
+      const bLeft = (centerBinId - minBinId) * (centerBinId - minBinId);
+      const bRight = (maxBinId - centerBinId) * (maxBinId - centerBinId);
+
       for (let i = minBinId; i <= maxBinId; i++) {
-        let binDelta = i - centerBinId;
-        let a = centerBinId;
         if (i < centerBinId) {
-          a = aBid;
+          const b = (i - minBinId) * (i - minBinId);
+          const weight = aLeft * (bLeft - b) / 15000;
+          distributionWeights.push({
+            binId: i,
+            weight: Math.max(
+              weight,
+              0
+            ),
+          });
         } else if (i > centerBinId) {
-          a = aAsk;
+          const b = (i - maxBinId) * (i - maxBinId);
+          const weight = aRight * (bRight - b) / 15000;
+          distributionWeights.push({
+            binId: i,
+            weight: Math.max(
+              weight,
+              0
+            ),
+          });
+        } else {
+          distributionWeights.push({
+            binId: i,
+            weight: 0,
+          });
         }
-        distributionWeights.push({
-          binId: i,
-          weight: Math.max(Math.floor((a * binDelta * binDelta) / 15000), 0),
-        });
       }
       break;
     }
@@ -566,29 +603,26 @@ export function toStrategyParameters(strategyParameters: StrategyParameters) {
     maxBinId,
     minBinId,
     strategyType,
-    aAsk,
-    aBid,
-    aCenterBin,
+    aRight,
+    aLeft,
     centerBinId,
-    weightAsk,
-    weightBid,
-    weightCenterBin,
+    weightRight,
+    weightLeft,
   } = strategyParameters;
   switch (strategyType) {
     case StrategyType.Spot: {
       const data = Buffer.alloc(spotParameter.span);
       spotParameter.encode(
         {
-          weightAsk,
-          weightBid,
+          weightRight,
+          weightLeft,
           centerBinId,
-          weightCenterBin,
         },
         data
       );
       let parameters = Buffer.concat([
         data,
-        Buffer.from(new Array<number>(54).fill(0)),
+        Buffer.from(new Array<number>(58).fill(0)),
       ]);
       return {
         minBinId,
@@ -601,16 +635,15 @@ export function toStrategyParameters(strategyParameters: StrategyParameters) {
       const data = Buffer.alloc(parabolicParameter.span);
       parabolicParameter.encode(
         {
-          aAsk,
-          aBid,
-          aCenterBin,
+          aRight,
+          aLeft,
           centerBinId,
         },
         data
       );
       let parameters = Buffer.concat([
         data,
-        Buffer.from(new Array<number>(54).fill(0)),
+        Buffer.from(new Array<number>(58).fill(0)),
       ]);
       return {
         minBinId,
@@ -623,16 +656,15 @@ export function toStrategyParameters(strategyParameters: StrategyParameters) {
       const data = Buffer.alloc(parabolicParameter.span);
       parabolicParameter.encode(
         {
-          aAsk,
-          aBid,
-          aCenterBin,
+          aRight,
+          aLeft,
           centerBinId,
         },
         data
       );
       let parameters = Buffer.concat([
         data,
-        Buffer.from(new Array<number>(54).fill(0)),
+        Buffer.from(new Array<number>(58).fill(0)),
       ]);
       return {
         minBinId,
@@ -837,21 +869,20 @@ export function calculateStrategyParameter({
   const total = totalXAmountDecimal
     .mul(activeBinPriceDecimal)
     .add(totalYAmountDecimal);
-  const { aAsk, aBid, aCenterBin } = (() => {
+  const { aRight, aLeft } = (() => {
     if (strategy === StrategyType.Spot) {
       return {
-        aAsk: 0,
-        aBid: 0,
-        aCenterBin: 0,
+        aRight: 0,
+        aLeft: 0,
       };
     }
 
     const isYSingleSide = totalXAmount.isZero();
     const isXSingleSide = totalYAmount.isZero();
 
-    const aAsk = (() => {
+    const aRight = (() => {
       if (isYSingleSide) return 0;
-      if (isXSingleSide) return strategy === StrategyType.BidAsk ? 500 : -2000;
+      if (isXSingleSide) return 2000;
 
       return (
         Math.floor(
@@ -860,37 +891,30 @@ export function calculateStrategyParameter({
             .div(total)
             .mul(new Decimal(5000))
             .toNumber()
-        ) * (strategy === StrategyType.BidAsk ? 1 : -1)
+        )
       );
     })();
-    const aBid = (() => {
-      if (isYSingleSide) return strategy === StrategyType.BidAsk ? 500 : -2000;
+    const aLeft = (() => {
+      if (isYSingleSide) return 2000;
       if (isXSingleSide) return 0;
 
       return (
         Math.floor(
           totalYAmountDecimal.div(total).mul(new Decimal(5000)).toNumber()
-        ) * (strategy === StrategyType.BidAsk ? 1 : -1)
+        )
       );
     })();
-    const aCenterBin = (() => {
-      if (totalXAmount.isZero()) return aBid;
-      if (totalYAmount.isZero()) return aAsk;
 
-      return Math.floor((aBid + aAsk) / 2);
-    })();
     return {
-      aAsk,
-      aBid,
-      aCenterBin,
+      aRight,
+      aLeft,
     };
   })();
-  const { weightCenterBin, weightAsk, weightBid } = (() => {
+  const { weightRight, weightLeft } = (() => {
     if (strategy !== StrategyType.Spot) {
       return {
-        weightCenterBin: 0,
-        weightAsk: 0,
-        weightBid: 0,
+        weightRight: 0,
+        weightLeft: 0,
       };
     }
     const binYCount = activeBinId - minBinId;
@@ -902,20 +926,14 @@ export function calculateStrategyParameter({
       new Decimal(binXCount + 0.5)
     );
 
-    const weightAsk = askAmountPerBin
+    const weightRight = askAmountPerBin
       .mul(activeBinPriceDecimal)
       .div(total)
       .mul(new Decimal(65535));
-    const weightBid = bidAmountPerBin.div(total).mul(new Decimal(65535));
-    const weightCenterBin = new Decimal(65535).sub(
-      weightAsk
-        .mul(new Decimal(binXCount))
-        .add(weightBid.mul(new Decimal(binYCount)))
-    );
+    const weightLeft = bidAmountPerBin.div(total).mul(new Decimal(65535));
     return {
-      weightCenterBin: Math.floor(weightCenterBin.toNumber()),
-      weightAsk: Math.floor(weightAsk.toNumber()),
-      weightBid: Math.floor(weightBid.toNumber()),
+      weightRight: Math.floor(weightRight.toNumber()),
+      weightLeft: Math.floor(weightLeft.toNumber()),
     };
   })();
 
@@ -938,13 +956,11 @@ export function calculateStrategyParameter({
   return {
     strategyType: strategy,
     centerBinId,
-    aAsk,
-    aBid,
-    aCenterBin,
+    aRight,
+    aLeft,
     maxBinId,
     minBinId,
-    weightCenterBin,
-    weightAsk,
-    weightBid,
+    weightRight,
+    weightLeft,
   };
 }
