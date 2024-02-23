@@ -560,13 +560,10 @@ export function fromStrategyParamsToWeightDistribution(
       if (aLeft < 0 || aLeft > 32768) {
         throw new Error("aBid is out of range");
       }
-      const bLeft = (centerBinId - minBinId) * (centerBinId - minBinId);
-      const bRight = (maxBinId - centerBinId) * (maxBinId - centerBinId);
-
       for (let i = minBinId; i <= maxBinId; i++) {
         if (i < centerBinId) {
-          const b = (i - minBinId) * (i - minBinId);
-          const weight = aLeft * (bLeft - b) / 15000;
+          const b = (i - centerBinId) * (i - centerBinId);
+          const weight = aLeft * b / 15000;
           distributionWeights.push({
             binId: i,
             weight: Math.max(
@@ -575,8 +572,8 @@ export function fromStrategyParamsToWeightDistribution(
             ),
           });
         } else if (i > centerBinId) {
-          const b = (i - maxBinId) * (i - maxBinId);
-          const weight = aRight * (bRight - b) / 15000;
+          const b = (i - centerBinId) * (i - centerBinId);
+          const weight = aRight * b / 15000;
           distributionWeights.push({
             binId: i,
             weight: Math.max(

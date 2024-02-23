@@ -64,6 +64,19 @@ pub struct SpotParameter {
     pub center_bin_id: i32,
 }
 
+fn calculate_curve_weight(amp: i16, b_max: i32, b_delta: i32) -> Result<u16> {
+    let b = b_max.safe_sub(b_delta)?;
+    let weight = (amp as i32).safe_mul(b)?.safe_div(PRECISION)?;
+    Ok(u16::try_from(weight).map_err(|_| LBError::MathOverflow)?)
+}
+
+fn calculate_bid_ask_weight(amp: i16, bin_id: i32, center_bin_id: i32) -> Result<u16> {
+    let bin_delta = bin_id.safe_sub(center_bin_id)?;
+    let b = bin_delta.safe_mul(bin_delta)?;
+    let weight = (amp as i32).safe_mul(b)?.safe_div(PRECISION)?;
+    Ok(u16::try_from(weight).map_err(|_| LBError::MathOverflow)?)
+}
+
 impl ParabolicParameter {
     fn validate(&self, min_bin_id: i32, max_bin_id: i32) -> Result<()> {
         require!(self.a_right >= 0 && self.a_left >= 0, LBError::InvalidInput);
@@ -72,6 +85,16 @@ impl ParabolicParameter {
             LBError::InvalidInput
         );
         Ok(())
+    }
+
+    fn get_b(&self, min_bin_id: i32, max_bin_id: i32) -> Result<(i32, i32)> {
+        let b_left = min_bin_id.safe_sub(self.center_bin_id)?;
+        let b_left: i32 = b_left.safe_mul(b_left)?;
+
+        let b_right = max_bin_id.safe_sub(self.center_bin_id)?;
+        let b_right = b_right.safe_mul(b_right)?;
+
+        Ok((b_left, b_right))
     }
 
     fn get_curve_weight_at_bin_id(
@@ -83,15 +106,13 @@ impl ParabolicParameter {
         if bin_id < self.center_bin_id {
             // bin_id is between min_bin_id and center_bin_id
             let bin_delta = bin_id.safe_sub(self.center_bin_id)?;
-            let b = b_left.safe_sub(bin_delta.safe_mul(bin_delta)?)?;
-            let weight = (self.a_left as i32).safe_mul(b)?.safe_div(PRECISION)?;
-            return Ok(u16::try_from(weight.max(0)).map_err(|_| LBError::MathOverflow)?);
+            let b_delta = bin_delta.safe_mul(bin_delta)?;
+            calculate_curve_weight(self.a_left, b_left, b_delta)
         } else if bin_id > self.center_bin_id {
             // bin_id is between center_bin_id and max_bin_id
             let bin_delta = bin_id.safe_sub(self.center_bin_id)?;
-            let b = b_right.safe_sub(bin_delta.safe_mul(bin_delta)?)?;
-            let weight = (self.a_right as i32).safe_mul(b)?.safe_div(PRECISION)?;
-            return Ok(u16::try_from(weight.max(0)).map_err(|_| LBError::MathOverflow)?);
+            let b_delta = bin_delta.safe_mul(bin_delta)?;
+            calculate_curve_weight(self.a_right, b_right, b_delta)
         } else {
             // bin_id == center_bin_id, favour side in larger b
             let (a, b) = if b_left > b_right {
@@ -99,33 +120,17 @@ impl ParabolicParameter {
             } else {
                 (self.a_right, b_right)
             };
-            let weight = (a as i32).safe_mul(b)?.safe_div(PRECISION)?;
-            return Ok(u16::try_from(weight.max(0)).map_err(|_| LBError::MathOverflow)?);
+            calculate_curve_weight(a, b, 0)
         }
     }
 
-    fn get_bid_ask_weight_at_bin_id(
-        &self,
-        bin_id: i32,
-        b_left: i32,  // (center_bin_id-min_bin_id)^2
-        b_right: i32, // (center_bin_id-max_bin_id)^2
-        min_bin_id: i32,
-        max_bin_id: i32,
-    ) -> Result<u16> {
+    fn get_bid_ask_weight_at_bin_id(&self, bin_id: i32) -> Result<u16> {
         if bin_id < self.center_bin_id {
-            // bin_id is between min_bin_id and center_bin_id
-            let bin_delta = bin_id.safe_sub(min_bin_id)?;
-            let b = b_left.safe_sub(bin_delta.safe_mul(bin_delta)?)?;
-            let weight = (self.a_left as i32).safe_mul(b)?.safe_div(PRECISION)?;
-            return Ok(u16::try_from(weight.max(0)).map_err(|_| LBError::MathOverflow)?);
+            calculate_bid_ask_weight(self.a_left, bin_id, self.center_bin_id)
         } else if bin_id > self.center_bin_id {
-            // bin_id is between center_bin_id and max_bin_id
-            let bin_delta = bin_id.safe_sub(max_bin_id)?;
-            let b = b_right.safe_sub(bin_delta.safe_mul(bin_delta)?)?;
-            let weight = (self.a_right as i32).safe_mul(b)?.safe_div(PRECISION)?;
-            return Ok(u16::try_from(weight.max(0)).map_err(|_| LBError::MathOverflow)?);
+            calculate_bid_ask_weight(self.a_right, bin_id, self.center_bin_id)
         } else {
-            return Ok(0);
+            Ok(0)
         }
     }
 }
@@ -190,11 +195,8 @@ impl StrategyParameters {
                     let curve_parameters = self.parse_parabolic_parameter()?;
                     curve_parameters.validate(self.min_bin_id, self.max_bin_id)?;
 
-                    let b_left = self.min_bin_id.safe_sub(curve_parameters.center_bin_id)?;
-                    let b_left = b_left.safe_mul(b_left)?;
-
-                    let b_right = self.max_bin_id.safe_sub(curve_parameters.center_bin_id)?;
-                    let b_right = b_right.safe_mul(b_right)?;
+                    let (b_left, b_right) =
+                        curve_parameters.get_b(self.min_bin_id, self.max_bin_id)?;
 
                     for i in self.min_bin_id..=self.max_bin_id {
                         let weight =
@@ -211,20 +213,8 @@ impl StrategyParameters {
                     let curve_parameters = self.parse_parabolic_parameter()?;
                     curve_parameters.validate(self.min_bin_id, self.max_bin_id)?;
 
-                    let b_left = self.min_bin_id.safe_sub(curve_parameters.center_bin_id)?;
-                    let b_left = b_left.safe_mul(b_left)?;
-
-                    let b_right = self.max_bin_id.safe_sub(curve_parameters.center_bin_id)?;
-                    let b_right = b_right.safe_mul(b_right)?;
-
                     for i in self.min_bin_id..=self.max_bin_id {
-                        let weight = curve_parameters.get_bid_ask_weight_at_bin_id(
-                            i,
-                            b_left,
-                            b_right,
-                            self.min_bin_id,
-                            self.max_bin_id,
-                        )?;
+                        let weight = curve_parameters.get_bid_ask_weight_at_bin_id(i)?;
                         // filter zero weight
                         if weight == 0 {
                             continue;
@@ -257,6 +247,7 @@ pub fn handle<'a, 'b, 'c, 'info>(
         &liquidity_parameter.to_liquidity_parameter_by_weight()?,
     )
 }
+
 pub fn parabonic_to_slice(parameter: &ParabolicParameter) -> [u8; 64] {
     let mut buffer: Vec<u8> = vec![];
     parameter.serialize(&mut buffer).unwrap();
