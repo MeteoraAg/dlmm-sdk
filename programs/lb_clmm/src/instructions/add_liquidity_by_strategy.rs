@@ -170,12 +170,9 @@ impl StrategyParameters {
 
                     for i in self.min_bin_id..=self.max_bin_id {
                         if i < spot_parameters.center_bin_id {
-                            bin_liquidity_dist.push(BinLiquidityDistributionByWeight {
-                                bin_id: i,
-                                weight: spot_parameters.weight_right,
-                            })
-                        }
-                        if i > spot_parameters.center_bin_id {
+                            if spot_parameters.weight_left == 0 {
+                                continue;
+                            }
                             bin_liquidity_dist.push(BinLiquidityDistributionByWeight {
                                 bin_id: i,
                                 weight: spot_parameters.weight_left,
@@ -187,6 +184,15 @@ impl StrategyParameters {
                                 weight: spot_parameters
                                     .weight_right
                                     .max(spot_parameters.weight_left),
+                            })
+                        }
+                        if i > spot_parameters.center_bin_id {
+                            if spot_parameters.weight_right == 0 {
+                                continue;
+                            }
+                            bin_liquidity_dist.push(BinLiquidityDistributionByWeight {
+                                bin_id: i,
+                                weight: spot_parameters.weight_right,
                             })
                         }
                     }
