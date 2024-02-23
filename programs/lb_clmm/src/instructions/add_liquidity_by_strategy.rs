@@ -220,7 +220,13 @@ impl StrategyParameters {
                     curve_parameters.validate(self.min_bin_id, self.max_bin_id)?;
 
                     for i in self.min_bin_id..=self.max_bin_id {
-                        let weight = curve_parameters.get_bid_ask_weight_at_bin_id(i)?;
+                        let weight = curve_parameters.get_bid_ask_weight_at_bin_id(
+                            i,
+                            b_left,
+                            b_right,
+                            self.min_bin_id,
+                            self.max_bin_id,
+                        )?;
                         // filter zero weight
                         if weight == 0 {
                             continue;
@@ -253,7 +259,6 @@ pub fn handle<'a, 'b, 'c, 'info>(
         &liquidity_parameter.to_liquidity_parameter_by_weight()?,
     )
 }
-
 pub fn parabonic_to_slice(parameter: &ParabolicParameter) -> [u8; 64] {
     let mut buffer: Vec<u8> = vec![];
     parameter.serialize(&mut buffer).unwrap();

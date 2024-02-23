@@ -551,6 +551,9 @@ export function fromStrategyParamsToWeightDistribution(
       if (aLeft < 0 || aLeft > 32768) {
         throw new Error("aBid is out of range");
       }
+      const bLeft = (centerBinId - minBinId) * (centerBinId - minBinId);
+      const bRight = (maxBinId - centerBinId) * (maxBinId - centerBinId);
+
       for (let i = minBinId; i <= maxBinId; i++) {
         if (i < centerBinId) {
           const b = (i - centerBinId) * (i - centerBinId);
@@ -604,7 +607,7 @@ export function toStrategyParameters(strategyParameters: StrategyParameters) {
       );
       let parameters = Buffer.concat([
         data,
-        Buffer.from(new Array<number>(54).fill(0)),
+        Buffer.from(new Array<number>(58).fill(0)),
       ]);
       return {
         minBinId,
