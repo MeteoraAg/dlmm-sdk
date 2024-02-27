@@ -1619,26 +1619,6 @@ export class DLMM {
     };
   }
 
-  public quoteAddLiquidityDistribution(
-    amountX: BN,
-    amountY: BN,
-    strategy: StrategyParameters,
-    activeId: number,
-    amountXInActiveBin: BN,
-    amountYInActiveBin: BN
-  ) {
-    const weightDistribution = fromStrategyParamsToWeightDistribution(strategy);
-    return fromWeightDistributionToAmount(
-      amountX,
-      amountY,
-      weightDistribution,
-      this.lbPair.binStep,
-      activeId,
-      amountXInActiveBin,
-      amountYInActiveBin
-    );
-  }
-
   /**
    * The function `initializePositionAndAddLiquidityByStrategy` function is used to initializes a position and adds liquidity
    * @param {TInitializePositionAndAddLiquidityParamsByStrategy}

@@ -676,7 +676,7 @@ export function fromWeightDistributionToAmount(
   }
 
   // only bid side
-  if (activeId >= distributions[distributions.length - 1].binId) {
+  if (activeId > distributions[distributions.length - 1].binId) {
     // get sum of weight
     const totalWeight = distributions.reduce(function (sum, el) {
       return sum.add(el.weight);
@@ -697,7 +697,7 @@ export function fromWeightDistributionToAmount(
   }
 
   // only ask side
-  if (activeId <= distributions[0].binId) {
+  if (activeId < distributions[0].binId) {
     // get sum of weight
     const totalWeight: Decimal = distributions.reduce(function (sum, el) {
       const price = getPriceOfBinByBinId(el.binId, binStep);
