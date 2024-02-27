@@ -142,15 +142,15 @@ export function calculateSpotDistribution(
     const distributions =
       binIds[0] < activeBin
         ? binIds.map((binId) => ({
-          binId,
-          xAmountBpsOfTotal: new BN(0),
-          yAmountBpsOfTotal: dist,
-        }))
+            binId,
+            xAmountBpsOfTotal: new BN(0),
+            yAmountBpsOfTotal: dist,
+          }))
         : binIds.map((binId) => ({
-          binId,
-          xAmountBpsOfTotal: dist,
-          yAmountBpsOfTotal: new BN(0),
-        }));
+            binId,
+            xAmountBpsOfTotal: dist,
+            yAmountBpsOfTotal: new BN(0),
+          }));
 
     // Add the loss to the left most bin
     if (binIds[0] < activeBin) {
@@ -483,7 +483,7 @@ export function fromStrategyParamsToWeightDistribution(
   if (centerBinId < minBinId || centerBinId > maxBinId) {
     throw new Error("centerBinId must be between minBinId and maxBinId");
   }
-  let distributionWeights: Array<{ binId: number; weight: number }> = [];
+  const distributionWeights: Array<{ binId: number; weight: number }> = [];
   switch (strategyType) {
     case StrategyType.Spot: {
       for (let i = minBinId; i <= maxBinId; i++) {
@@ -520,34 +520,25 @@ export function fromStrategyParamsToWeightDistribution(
       for (let i = minBinId; i <= maxBinId; i++) {
         if (i < centerBinId) {
           const b = (i - centerBinId) * (i - centerBinId);
-          const weight = aLeft * (bLeft - b) / 15000;
+          const weight = (aLeft * (bLeft - b)) / 15000;
           distributionWeights.push({
             binId: i,
-            weight: Math.max(
-              weight,
-              0
-            ),
+            weight: Math.max(weight, 0),
           });
         } else if (i > centerBinId) {
           const b = (i - centerBinId) * (i - centerBinId);
-          const weight = aRight * (bRight - b) / 15000;
+          const weight = (aRight * (bRight - b)) / 15000;
           distributionWeights.push({
             binId: i,
-            weight: Math.max(
-              weight,
-              0
-            ),
+            weight: Math.max(weight, 0),
           });
         } else {
           const a = bLeft > bRight ? aLeft : aRight;
           const b = bLeft > bRight ? bLeft : bRight;
-          const weight = a * b / 15000;
+          const weight = (a * b) / 15000;
           distributionWeights.push({
             binId: i,
-            weight: Math.max(
-              weight,
-              0
-            ),
+            weight: Math.max(weight, 0),
           });
         }
       }
@@ -563,23 +554,17 @@ export function fromStrategyParamsToWeightDistribution(
       for (let i = minBinId; i <= maxBinId; i++) {
         if (i < centerBinId) {
           const b = (i - centerBinId) * (i - centerBinId);
-          const weight = aLeft * b / 15000;
+          const weight = (aLeft * b) / 15000;
           distributionWeights.push({
             binId: i,
-            weight: Math.max(
-              weight,
-              0
-            ),
+            weight: Math.max(weight, 0),
           });
         } else if (i > centerBinId) {
           const b = (i - centerBinId) * (i - centerBinId);
-          const weight = aRight * b / 15000;
+          const weight = (aRight * b) / 15000;
           distributionWeights.push({
             binId: i,
-            weight: Math.max(
-              weight,
-              0
-            ),
+            weight: Math.max(weight, 0),
           });
         } else {
           distributionWeights.push({
@@ -691,16 +676,18 @@ export function fromWeightDistributionToAmount(
   }
 
   // only bid side
-  if (activeId >= distributions[distributions.length - 1].binId) {
+  if (activeId > distributions[distributions.length - 1].binId) {
     // get sum of weight
-    const totalWeight: number = distributions.reduce(function (sum, el) {
-      return sum + el.weight;
-    }, 0);
+    const totalWeight = distributions.reduce(function (sum, el) {
+      return sum.add(el.weight);
+    }, new Decimal(0));
 
     return distributions.map((bin) => {
-      const amount = new Decimal(amountY.toString())
-        .mul(new Decimal(bin.weight).div(new Decimal(totalWeight)))
-        .floor();
+      const amount = totalWeight.greaterThan(0)
+        ? new Decimal(amountY.toString())
+            .mul(new Decimal(bin.weight).div(totalWeight))
+            .floor()
+        : new Decimal(0);
       return {
         binId: bin.binId,
         amountX: new BN(0),
@@ -710,18 +697,20 @@ export function fromWeightDistributionToAmount(
   }
 
   // only ask side
-  if (activeId <= distributions[0].binId) {
+  if (activeId < distributions[0].binId) {
     // get sum of weight
     const totalWeight: Decimal = distributions.reduce(function (sum, el) {
-      let price = getPriceOfBinByBinId(el.binId, binStep);
-      let weighPerPrice = new Decimal(el.weight).div(price);
-      return sum.add(weighPerPrice);
+      const price = getPriceOfBinByBinId(el.binId, binStep);
+      const weightPerPrice = new Decimal(el.weight).div(price);
+      return sum.add(weightPerPrice);
     }, new Decimal(0));
 
     return distributions.map((bin) => {
-      const amount = new Decimal(amountX.toString())
-        .mul(new Decimal(bin.weight).div(totalWeight))
-        .floor();
+      const amount = totalWeight.greaterThan(0)
+        ? new Decimal(amountX.toString())
+            .mul(new Decimal(bin.weight).div(totalWeight))
+            .floor()
+        : new Decimal(0);
       return {
         binId: bin.binId,
         amountX: new BN(amount.toString()),
@@ -734,11 +723,11 @@ export function fromWeightDistributionToAmount(
     return element.binId === activeId;
   });
 
-  if (activeBins.length == 1) {
-    let p0 = getPriceOfBinByBinId(activeId, binStep);
+  if (activeBins.length === 1) {
+    const p0 = getPriceOfBinByBinId(activeId, binStep);
     let wx0 = new Decimal(0);
     let wy0 = new Decimal(0);
-    let activeBin = activeBins[0];
+    const activeBin = activeBins[0];
     if (amountXInActiveBin.isZero() && amountYInActiveBin.isZero()) {
       wx0 = new Decimal(activeBin.weight).div(p0.mul(new Decimal(2)));
       wy0 = new Decimal(activeBin.weight).div(new Decimal(2));
@@ -772,12 +761,11 @@ export function fromWeightDistributionToAmount(
         totalWeightX = totalWeightX.add(weighPerPrice);
       }
     });
-    let kx = new Decimal(amountX.toNumber()).div(totalWeightX);
-    let ky = new Decimal(amountY.toNumber()).div(totalWeightY);
-    let k = kx.lessThan(ky) ? kx : ky;
+    const kx = new Decimal(amountX.toNumber()).div(totalWeightX);
+    const ky = new Decimal(amountY.toNumber()).div(totalWeightY);
     return distributions.map((bin) => {
       if (bin.binId < activeId) {
-        const amount = k.mul(new Decimal(bin.weight));
+        const amount = ky.mul(new Decimal(bin.weight));
         return {
           binId: bin.binId,
           amountX: new BN(0),
@@ -785,9 +773,9 @@ export function fromWeightDistributionToAmount(
         };
       }
       if (bin.binId > activeId) {
-        let price = getPriceOfBinByBinId(bin.binId, binStep);
-        let weighPerPrice = new Decimal(bin.weight).div(price);
-        const amount = k.mul(weighPerPrice);
+        const price = getPriceOfBinByBinId(bin.binId, binStep);
+        const weighPerPrice = new Decimal(bin.weight).div(price);
+        const amount = kx.mul(weighPerPrice);
         return {
           binId: bin.binId,
           amountX: new BN(Math.floor(amount.toNumber())),
@@ -795,12 +783,12 @@ export function fromWeightDistributionToAmount(
         };
       }
 
-      let amounXActiveBin = k.mul(wx0);
-      let amounYActiveBin = k.mul(wy0);
+      const amountXActiveBin = kx.mul(wx0);
+      const amountYActiveBin = ky.mul(wy0);
       return {
         binId: bin.binId,
-        amountX: new BN(Math.floor(amounXActiveBin.toNumber())),
-        amountY: new BN(Math.floor(amounYActiveBin.toNumber())),
+        amountX: new BN(Math.floor(amountXActiveBin.toNumber())),
+        amountY: new BN(Math.floor(amountYActiveBin.toNumber())),
       };
     });
   } else {
@@ -881,24 +869,20 @@ export function calculateStrategyParameter({
       if (isYSingleSide) return 0;
       if (isXSingleSide) return 2000;
 
-      return (
-        Math.floor(
-          totalXAmountDecimal
-            .mul(activeBinPriceDecimal)
-            .div(total)
-            .mul(new Decimal(5000))
-            .toNumber()
-        )
+      return Math.floor(
+        totalXAmountDecimal
+          .mul(activeBinPriceDecimal)
+          .div(total)
+          .mul(new Decimal(5000))
+          .toNumber()
       );
     })();
     const aLeft = (() => {
       if (isYSingleSide) return 2000;
       if (isXSingleSide) return 0;
 
-      return (
-        Math.floor(
-          totalYAmountDecimal.div(total).mul(new Decimal(5000)).toNumber()
-        )
+      return Math.floor(
+        totalYAmountDecimal.div(total).mul(new Decimal(5000)).toNumber()
       );
     })();
 
@@ -923,11 +907,17 @@ export function calculateStrategyParameter({
       new Decimal(binXCount + 0.5)
     );
 
-    const weightRight = askAmountPerBin
-      .mul(activeBinPriceDecimal)
-      .div(total)
-      .mul(new Decimal(65535));
-    const weightLeft = bidAmountPerBin.div(total).mul(new Decimal(65535));
+    const weightRight =
+      binXCount === 0
+        ? new Decimal(1)
+        : askAmountPerBin
+            .mul(activeBinPriceDecimal)
+            .div(total)
+            .mul(new Decimal(65535));
+    const weightLeft =
+      binYCount === 0
+        ? new Decimal(1)
+        : bidAmountPerBin.div(total).mul(new Decimal(65535));
     return {
       weightRight: Math.floor(weightRight.toNumber()),
       weightLeft: Math.floor(weightLeft.toNumber()),
@@ -935,7 +925,7 @@ export function calculateStrategyParameter({
   })();
 
   const centerBinId = (() => {
-    if (activeBinId >= maxBinId && activeBinId <= minBinId) {
+    if (activeBinId > maxBinId && activeBinId < minBinId) {
       return Math.floor(maxBinId + minBinId / 2);
     }
 

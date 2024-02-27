@@ -1619,26 +1619,6 @@ export class DLMM {
     };
   }
 
-  public quoteAddLiquidityDistribution(
-    amountX: BN,
-    amountY: BN,
-    strategy: StrategyParameters,
-    activeId: number,
-    amountXInActiveBin: BN,
-    amountYInActiveBin: BN
-  ) {
-    const weightDistribution = fromStrategyParamsToWeightDistribution(strategy);
-    return fromWeightDistributionToAmount(
-      amountX,
-      amountY,
-      weightDistribution,
-      this.lbPair.binStep,
-      activeId,
-      amountXInActiveBin,
-      amountYInActiveBin
-    );
-  }
-
   /**
    * The function `initializePositionAndAddLiquidityByStrategy` function is used to initializes a position and adds liquidity
    * @param {TInitializePositionAndAddLiquidityParamsByStrategy}
@@ -2120,17 +2100,6 @@ export class DLMM {
 
     const setComputeUnitLimitIx = computeBudgetIx();
     preInstructions.push(setComputeUnitLimitIx);
-
-    const initializePositionIx = await this.program.methods
-      .initializePosition(minBinId, maxBinId - minBinId + 1)
-      .accounts({
-        payer: user,
-        position: positionPubKey,
-        lbPair: this.pubkey,
-        owner: user,
-      })
-      .instruction();
-    preInstructions.push(initializePositionIx);
 
     const minBinArrayIndex = binIdToBinArrayIndex(new BN(minBinId));
     const maxBinArrayIndex = binIdToBinArrayIndex(new BN(maxBinId));
