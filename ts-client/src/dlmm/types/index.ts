@@ -32,9 +32,7 @@ export interface TokenReserve {
 export type ClmmProgram = Program<LbClmm>;
 
 export type LbPair = IdlAccounts<LbClmm>["lbPair"];
-export type LbPairAccount = ProgramAccount<
-  IdlAccounts<LbClmm>["lbPair"]
->;
+export type LbPairAccount = ProgramAccount<IdlAccounts<LbClmm>["lbPair"]>;
 
 export type Bin = IdlTypes<LbClmm>["Bin"];
 export type BinArray = IdlAccounts<LbClmm>["binArray"];
@@ -59,6 +57,14 @@ export type LiquidityParameterByWeight =
   IdlTypes<LbClmm>["LiquidityParameterByWeight"];
 export type LiquidityOneSideParameter =
   IdlTypes<LbClmm>["LiquidityOneSideParameter"];
+
+export type LiquidityParameterByStrategy =
+  IdlTypes<LbClmm>["LiquidityParameterByStrategy"];
+export type LiquidityParameterByStrategyOneSide =
+  IdlTypes<LbClmm>["LiquidityParameterByStrategyOneSide"];
+
+export type ProgramStrategyParameter = IdlTypes<LbClmm>["StrategyParameters"];
+export type ProgramStrategyType = IdlTypes<LbClmm>["StrategyType"];
 
 export interface LbPosition {
   publicKey: PublicKey;
@@ -110,28 +116,25 @@ export interface StrategyParameters {
   maxBinId: number;
   minBinId: number;
   strategyType: StrategyType;
-  aAsk: number; // for curve or bid/ask
-  aBid: number; // for curve or bid/ask
-  aActiveBin: number; // for curve or bid/ask
+  aRight: number; // for curve or bid/ask
+  aLeft: number; // for curve or bid/ask
   centerBinId: number; // for curve or bid/ask
-  weightAsk: number; // for spot
-  weightBid: number; // for spot
-  weightActiveBin: number; // for spot
+  weightRight: number; // for spot
+  weightLeft: number; // for spot
 }
 
 export type ParabolicParameter = IdlTypes<LbClmm>["ParabolicParameter"];
 export const parabolicParameter = struct<ParabolicParameter>([
-  s16("aAsk"),
-  s16("aBid"),
-  s16(`aActiveBin`),
+  s16("aRight"),
+  s16("aLeft"),
   s32(`centerBinId`),
 ]);
 
 export type SpotParameter = IdlTypes<LbClmm>["SpotParameter"];
 export const spotParameter = struct<SpotParameter>([
-  u16("weightAsk"),
-  u16("weightBid"),
-  u16("weightActiveBin"),
+  u16("weightRight"),
+  u16("weightLeft"),
+  s32(`centerBinId`),
 ]);
 
 export interface TInitializePositionAndAddLiquidityParams {
@@ -140,6 +143,15 @@ export interface TInitializePositionAndAddLiquidityParams {
   totalXAmount: BN;
   totalYAmount: BN;
   xYAmountDistribution: BinAndAmount[];
+  user: PublicKey;
+}
+
+export interface TInitializePositionAndAddLiquidityParamsByStrategy {
+  lbPairPubKey: PublicKey;
+  positionPubKey: PublicKey;
+  totalXAmount: BN;
+  totalYAmount: BN;
+  strategy: StrategyParameters;
   user: PublicKey;
 }
 

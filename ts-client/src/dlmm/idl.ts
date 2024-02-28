@@ -2415,7 +2415,7 @@ export type LbClmm = {
           {
             "name": "maxSwappedAmount",
             "docs": [
-              "Max X swapped amount user can swap from y to x between activation_slot and last_sloi"
+              "Max X swapped amount user can swap from y to x between activation_slot and last_slot"
             ],
             "type": "u64"
           },
@@ -2924,23 +2924,16 @@ export type LbClmm = {
         "kind": "struct",
         "fields": [
           {
-            "name": "aAsk",
+            "name": "aRight",
             "docs": [
-              "amplification in ask side"
+              "amplification in right side, from center_bin_id to max_bin_id"
             ],
             "type": "i16"
           },
           {
-            "name": "aBid",
+            "name": "aLeft",
             "docs": [
-              "amplification in bid side"
-            ],
-            "type": "i16"
-          },
-          {
-            "name": "aActiveBin",
-            "docs": [
-              "amplification in active bin"
+              "amplification in left side, from min_bin_id to center_bin_id"
             ],
             "type": "i16"
           },
@@ -2960,25 +2953,25 @@ export type LbClmm = {
         "kind": "struct",
         "fields": [
           {
-            "name": "weightAsk",
+            "name": "weightRight",
             "docs": [
-              "weight in ask side"
+              "weight in right side, from center_bin_id to max_bin_id"
             ],
             "type": "u16"
           },
           {
-            "name": "weightBid",
+            "name": "weightLeft",
             "docs": [
-              "weight in bid side"
+              "weight in left side, from min_bin_id to center_bin_id"
             ],
             "type": "u16"
           },
           {
-            "name": "weightActiveBin",
+            "name": "centerBinId",
             "docs": [
-              "weight in active bin"
+              "center bin id"
             ],
-            "type": "u16"
+            "type": "i32"
           }
         ]
       }
@@ -6869,7 +6862,7 @@ export const IDL: LbClmm = {
           {
             "name": "maxSwappedAmount",
             "docs": [
-              "Max X swapped amount user can swap from y to x between activation_slot and last_sloi"
+              "Max X swapped amount user can swap from y to x between activation_slot and last_slot"
             ],
             "type": "u64"
           },
@@ -7378,23 +7371,16 @@ export const IDL: LbClmm = {
         "kind": "struct",
         "fields": [
           {
-            "name": "aAsk",
+            "name": "aRight",
             "docs": [
-              "amplification in ask side"
+              "amplification in right side, from center_bin_id to max_bin_id"
             ],
             "type": "i16"
           },
           {
-            "name": "aBid",
+            "name": "aLeft",
             "docs": [
-              "amplification in bid side"
-            ],
-            "type": "i16"
-          },
-          {
-            "name": "aActiveBin",
-            "docs": [
-              "amplification in active bin"
+              "amplification in left side, from min_bin_id to center_bin_id"
             ],
             "type": "i16"
           },
@@ -7414,25 +7400,25 @@ export const IDL: LbClmm = {
         "kind": "struct",
         "fields": [
           {
-            "name": "weightAsk",
+            "name": "weightRight",
             "docs": [
-              "weight in ask side"
+              "weight in right side, from center_bin_id to max_bin_id"
             ],
             "type": "u16"
           },
           {
-            "name": "weightBid",
+            "name": "weightLeft",
             "docs": [
-              "weight in bid side"
+              "weight in left side, from min_bin_id to center_bin_id"
             ],
             "type": "u16"
           },
           {
-            "name": "weightActiveBin",
+            "name": "centerBinId",
             "docs": [
-              "weight in active bin"
+              "center bin id"
             ],
-            "type": "u16"
+            "type": "i32"
           }
         ]
       }

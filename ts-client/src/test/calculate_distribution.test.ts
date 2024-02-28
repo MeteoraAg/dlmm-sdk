@@ -3,11 +3,14 @@ import {
   calculateBidAskDistribution,
   calculateNormalDistribution,
   calculateSpotDistribution,
-  fromStrategyParamstoWeightDistribution,
+  fromStrategyParamsToWeightDistribution,
   toWeightDistribution,
+  fromWeightDistributionToAmount,
+  getPriceOfBinByBinId
 } from "../dlmm/helpers";
 import { StrategyType } from "../dlmm/types";
 import babar from "babar";
+import Decimal from "decimal.js";
 
 interface Distribution {
   binId: number;
@@ -636,23 +639,20 @@ describe("calculate_distribution", () => {
     });
 
     test("from strategy to weight distribution", () => {
-      let activeBinId = 30;
+      let centerBinId = 30;
       // spot
       {
         const stategyParameters = {
           minBinId: 0,
           maxBinId: 69,
           strategyType: StrategyType.Spot,
-          aAsk: 0,
-          aBid: 0,
-          aActiveBin: 0,
-          centerBinId: activeBinId,
-          weightAsk: 1,
-          weightBid: 2,
-          weightActiveBin: 2,
+          aRight: 0,
+          aLeft: 0,
+          centerBinId,
+          weightRight: 1,
+          weightLeft: 2,
         };
-        let weightDistribution = fromStrategyParamstoWeightDistribution(
-          activeBinId,
+        let weightDistribution = fromStrategyParamsToWeightDistribution(
           stategyParameters
         );
         const bars = [];
@@ -668,16 +668,13 @@ describe("calculate_distribution", () => {
           minBinId: 0,
           maxBinId: 69,
           strategyType: StrategyType.Curve,
-          aAsk: -2000,
-          aBid: -1000,
-          aActiveBin: -1000,
-          centerBinId: activeBinId,
-          weightAsk: 0,
-          weightBid: 0,
-          weightActiveBin: 0,
+          aRight: 2000,
+          aLeft: 1000,
+          centerBinId: 34,
+          weightRight: 0,
+          weightLeft: 0,
         };
-        let weightDistribution = fromStrategyParamstoWeightDistribution(
-          activeBinId,
+        let weightDistribution = fromStrategyParamsToWeightDistribution(
           stategyParameters
         );
         const bars = [];
@@ -693,16 +690,13 @@ describe("calculate_distribution", () => {
           minBinId: 0,
           maxBinId: 69,
           strategyType: StrategyType.BidAsk,
-          aAsk: 500,
-          aBid: 300,
-          aActiveBin: 300,
-          centerBinId: activeBinId,
-          weightAsk: 0,
-          weightBid: 0,
-          weightActiveBin: 0,
+          aRight: 500,
+          aLeft: 300,
+          centerBinId,
+          weightRight: 0,
+          weightLeft: 0,
         };
-        let weightDistribution = fromStrategyParamstoWeightDistribution(
-          activeBinId,
+        let weightDistribution = fromStrategyParamsToWeightDistribution(
           stategyParameters
         );
         const bars = [];
@@ -712,5 +706,42 @@ describe("calculate_distribution", () => {
         console.log(babar(bars));
       }
     });
+
+    test("from weight distribution to amount", () => {
+      let activeId = 34;
+      // curve
+      const stategyParameters = {
+        minBinId: 0,
+        maxBinId: 69,
+        strategyType: StrategyType.Curve,
+        aRight: 2000,
+        aLeft: 1000,
+        centerBinId: activeId,
+        weightRight: 0,
+        weightLeft: 0,
+      };
+      let weightDistribution = fromStrategyParamsToWeightDistribution(
+        stategyParameters
+      );
+      const bars = [];
+      for (const dist of weightDistribution) {
+        bars.push([dist.binId, dist.weight]);
+      }
+      console.log(babar(bars));
+      let amountX = new BN(100_000);
+      let amountY = new BN(200_000);
+      let binStep = 10;
+      let amountXInActiveId = new BN(30);
+      let amountYInActiveId = new BN(30);
+      let amounts = fromWeightDistributionToAmount(amountX, amountY, weightDistribution, binStep, activeId, amountXInActiveId, amountYInActiveId);
+
+      const bars1 = [];
+      for (const dist of amounts) {
+        let price = getPriceOfBinByBinId(dist.binId, binStep);
+        let yAmount = new Decimal(dist.amountX.toNumber()).mul(price).add(new Decimal(dist.amountY.toNumber()));
+        bars1.push([dist.binId, yAmount]);
+      }
+      console.log(babar(bars1));
+    })
   });
 });

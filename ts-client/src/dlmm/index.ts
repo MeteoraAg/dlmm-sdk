@@ -52,6 +52,11 @@ import {
   SwapQuote,
   SwapFee,
   LMRewards,
+  TInitializePositionAndAddLiquidityParamsByStrategy,
+  LiquidityParameterByStrategy,
+  ProgramStrategyParameter,
+  LiquidityParameterByStrategyOneSide,
+  StrategyParameters,
 } from "./types";
 import { AnchorProvider, BN, Program } from "@coral-xyz/anchor";
 import {
@@ -81,6 +86,9 @@ import {
   computeBudgetIx,
   findNextBinArrayIndexWithLiquidity,
   swapQuoteAtBinWithCap,
+  toStrategyParameters,
+  fromStrategyParamsToWeightDistribution,
+  fromWeightDistributionToAmount,
 } from "./helpers";
 import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import Decimal from "decimal.js";
@@ -1307,12 +1315,16 @@ export class DLMM {
    * The function retrieves the active bin ID and its corresponding price.
    * @returns an object with two properties: "binId" which is a number, and "price" which is a string.
    */
-  public async getActiveBin(): Promise<{ binId: number; price: string }> {
+  public async getActiveBin(): Promise<BinLiquidity> {
     const { activeId } = await this.program.account.lbPair.fetch(this.pubkey);
-    return {
-      binId: activeId,
-      price: this.getPriceOfBinByBinId(activeId),
-    };
+    const [activeBinState] = await this.getBins(
+      this.pubkey,
+      activeId,
+      activeId,
+      this.tokenX.decimal,
+      this.tokenY.decimal
+    );
+    return activeBinState;
   }
 
   /**
@@ -1364,10 +1376,7 @@ export class DLMM {
    *   - "userPositions" which is an array of Position objects.
    */
   public async getPositionsByUserAndLbPair(userPubKey?: PublicKey): Promise<{
-    activeBin: {
-      binId: any;
-      price: string;
-    };
+    activeBin: BinLiquidity;
     userPositions: Array<LbPosition>;
   }> {
     if (!userPubKey) {
@@ -1497,10 +1506,6 @@ export class DLMM {
 
     if (!lbPairAccInfo)
       throw new Error(`LB Pair account ${this.pubkey.toBase58()} not found`);
-    const { activeId } = this.program.coder.accounts.decode(
-      "lbPair",
-      lbPairAccInfo.data
-    );
 
     const onChainTimestamp = new BN(
       clockAccInfo.data.readBigInt64LE(32).toString()
@@ -1585,13 +1590,230 @@ export class DLMM {
       })
     );
 
+    const { activeId } = this.program.coder.accounts.decode(
+      "lbPair",
+      lbPairAccInfo.data
+    );
+    const activeBinArrayIndex = binIdToBinArrayIndex(new BN(activeId));
+    const [activeBinArrayPubKey] = deriveBinArray(
+      this.pubkey,
+      activeBinArrayIndex,
+      this.program.programId
+    );
+    const activeBinArray =
+      positionBinArraysMapV2.get(activeBinArrayPubKey.toBase58()) ??
+      (await this.program.account.binArray.fetch(activeBinArrayPubKey));
+    const [activeBinState] = await this.getBins(
+      this.pubkey,
+      activeId,
+      activeId,
+      this.tokenX.decimal,
+      this.tokenY.decimal,
+      activeBinArray,
+      activeBinArray
+    );
+
     return {
-      activeBin: {
-        binId: activeId,
-        price: this.getPriceOfBinByBinId(activeId),
-      },
+      activeBin: activeBinState,
       userPositions: [...userPositions, ...userPositionsV2],
     };
+  }
+
+  /**
+   * The function `initializePositionAndAddLiquidityByStrategy` function is used to initializes a position and adds liquidity
+   * @param {TInitializePositionAndAddLiquidityParamsByStrategy}
+   *    - `positionPubKey`: The public key of the position account. (usually use `new Keypair()`)
+   *    - `totalXAmount`: The total amount of token X to be added to the liquidity pool.
+   *    - `totalYAmount`: The total amount of token Y to be added to the liquidity pool.
+   *    - `strategy`: The strategy parameters to be used for the liquidity pool (Can use `calculateStrategyParameter` to calculate).
+   *    - `user`: The public key of the user account.
+   * @returns {Promise<Transaction>} The function `initializePositionAndAddLiquidityByWeight` returns a `Promise` that
+   * resolves to either a single `Transaction` object.
+   */
+  public async initializePositionAndAddLiquidityByStrategy({
+    positionPubKey,
+    totalXAmount,
+    totalYAmount,
+    strategy,
+    user,
+  }: TInitializePositionAndAddLiquidityParamsByStrategy) {
+    const { maxBinId, minBinId } = strategy;
+
+    const setComputeUnitLimitIx = computeBudgetIx();
+    const preInstructions = [setComputeUnitLimitIx];
+    const initializePositionIx = await this.program.methods
+      .initializePosition(minBinId, maxBinId - minBinId + 1)
+      .accounts({
+        payer: user,
+        position: positionPubKey,
+        lbPair: this.pubkey,
+        owner: user,
+      })
+      .instruction();
+    preInstructions.push(initializePositionIx);
+
+    const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(minBinId));
+    const [binArrayLower] = deriveBinArray(
+      this.pubkey,
+      lowerBinArrayIndex,
+      this.program.programId
+    );
+
+    const upperBinArrayIndex = lowerBinArrayIndex.add(new BN(1));
+    const [binArrayUpper] = deriveBinArray(
+      this.pubkey,
+      upperBinArrayIndex,
+      this.program.programId
+    );
+
+    const binArraysNeeded: BN[] = Array.from(
+      { length: upperBinArrayIndex.sub(lowerBinArrayIndex).toNumber() + 4 },
+      (_, index) => index - 2 + lowerBinArrayIndex.toNumber()
+    ).map((idx) => new BN(idx));
+
+    const createBinArrayIxs = await this.createBinArraysIfNeeded(
+      this.pubkey,
+      binArraysNeeded,
+      user
+    );
+    preInstructions.push(...createBinArrayIxs);
+
+    const [
+      { ataPubKey: userTokenX, ix: createPayerTokenXIx },
+      { ataPubKey: userTokenY, ix: createPayerTokenYIx },
+    ] = await Promise.all([
+      getOrCreateATAInstruction(
+        this.program.provider.connection,
+        this.tokenX.publicKey,
+        user
+      ),
+      getOrCreateATAInstruction(
+        this.program.provider.connection,
+        this.tokenY.publicKey,
+        user
+      ),
+    ]);
+    createPayerTokenXIx && preInstructions.push(createPayerTokenXIx);
+    createPayerTokenYIx && preInstructions.push(createPayerTokenYIx);
+
+    if (this.tokenX.publicKey.equals(NATIVE_MINT)) {
+      const wrapSOLIx = wrapSOLInstruction(
+        user,
+        userTokenX,
+        BigInt(totalXAmount.toString())
+      );
+
+      preInstructions.push(...wrapSOLIx);
+    }
+
+    if (this.tokenY.publicKey.equals(NATIVE_MINT)) {
+      const wrapSOLIx = wrapSOLInstruction(
+        user,
+        userTokenY,
+        BigInt(totalYAmount.toString())
+      );
+
+      preInstructions.push(...wrapSOLIx);
+    }
+
+    const postInstructions: Array<TransactionInstruction> = [];
+    if (
+      [
+        this.tokenX.publicKey.toBase58(),
+        this.tokenY.publicKey.toBase58(),
+      ].includes(NATIVE_MINT.toBase58())
+    ) {
+      const closeWrappedSOLIx = await unwrapSOLInstruction(user);
+      closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
+    }
+
+    const minBinArrayIndex = binIdToBinArrayIndex(new BN(minBinId));
+    const maxBinArrayIndex = binIdToBinArrayIndex(new BN(maxBinId));
+
+    const useExtension =
+      isOverflowDefaultBinArrayBitmap(minBinArrayIndex) ||
+      isOverflowDefaultBinArrayBitmap(maxBinArrayIndex);
+
+    const binArrayBitmapExtension = useExtension
+      ? deriveBinArrayBitmapExtension(this.pubkey, this.program.programId)[0]
+      : null;
+
+    const activeId = this.lbPair.activeId;
+
+    const strategyParameters: LiquidityParameterByStrategy["strategyParameters"] =
+      toStrategyParameters(strategy) as ProgramStrategyParameter;
+
+    const liquidityParams: LiquidityParameterByStrategy = {
+      amountX: totalXAmount,
+      amountY: totalYAmount,
+      activeId,
+      maxActiveBinSlippage: MAX_ACTIVE_BIN_SLIPPAGE,
+      strategyParameters,
+    };
+
+    const addLiquidityAccounts = {
+      position: positionPubKey,
+      lbPair: this.pubkey,
+      userTokenX,
+      userTokenY,
+      reserveX: this.lbPair.reserveX,
+      reserveY: this.lbPair.reserveY,
+      tokenXMint: this.lbPair.tokenXMint,
+      tokenYMint: this.lbPair.tokenYMint,
+      binArrayLower,
+      binArrayUpper,
+      binArrayBitmapExtension,
+      sender: user,
+      tokenXProgram: TOKEN_PROGRAM_ID,
+      tokenYProgram: TOKEN_PROGRAM_ID,
+    };
+
+    const oneSideLiquidityParams: LiquidityParameterByStrategyOneSide = {
+      amount: totalXAmount.isZero() ? totalYAmount : totalXAmount,
+      activeId,
+      maxActiveBinSlippage: MAX_ACTIVE_BIN_SLIPPAGE,
+      strategyParameters,
+    };
+
+    const oneSideAddLiquidityAccounts = {
+      binArrayLower,
+      binArrayUpper,
+      lbPair: this.pubkey,
+      binArrayBitmapExtension: null,
+      sender: user,
+      position: positionPubKey,
+      reserve: totalXAmount.isZero()
+        ? this.lbPair.reserveY
+        : this.lbPair.reserveX,
+      tokenMint: totalXAmount.isZero()
+        ? this.lbPair.tokenYMint
+        : this.lbPair.tokenXMint,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      userToken: totalXAmount.isZero() ? userTokenY : userTokenX,
+    };
+
+    const isOneSideDeposit = totalXAmount.isZero() || totalYAmount.isZero();
+    const programMethod = isOneSideDeposit
+      ? this.program.methods.addLiquidityByStrategyOneSide(
+          oneSideLiquidityParams
+        )
+      : this.program.methods.addLiquidityByStrategy(liquidityParams);
+
+    const createPositionTx = await programMethod
+      .accounts(
+        isOneSideDeposit ? oneSideAddLiquidityAccounts : addLiquidityAccounts
+      )
+      .preInstructions(preInstructions)
+      .postInstructions(postInstructions)
+      .transaction();
+
+    const { blockhash, lastValidBlockHeight } =
+      await this.program.provider.connection.getLatestBlockhash("confirmed");
+    return new Transaction({
+      blockhash,
+      lastValidBlockHeight,
+      feePayer: user,
+    }).add(createPositionTx);
   }
 
   /**
@@ -1726,7 +1948,7 @@ export class DLMM {
       ? deriveBinArrayBitmapExtension(this.pubkey, this.program.programId)[0]
       : null;
 
-    const activeId = (await this.getActiveBin()).binId;
+    const activeId = this.lbPair.activeId;
 
     const binLiquidityDist: LiquidityParameterByWeight["binLiquidityDist"] =
       toWeightDistribution(
@@ -1855,6 +2077,195 @@ export class DLMM {
   }
 
   /**
+   * The `addLiquidityByStrategy` function is used to add liquidity to existing position
+   * @param {TInitializePositionAndAddLiquidityParamsByStrategy}
+   *    - `positionPubKey`: The public key of the position account. (usually use `new Keypair()`)
+   *    - `totalXAmount`: The total amount of token X to be added to the liquidity pool.
+   *    - `totalYAmount`: The total amount of token Y to be added to the liquidity pool.
+   *    - `strategy`: The strategy parameters to be used for the liquidity pool (Can use `calculateStrategyParameter` to calculate).
+   *    - `user`: The public key of the user account.
+   * @returns {Promise<Transaction>} The function `addLiquidityByWeight` returns a `Promise` that resolves to either a single
+   * `Transaction` object
+   */
+  public async addLiquidityByStrategy({
+    positionPubKey,
+    totalXAmount,
+    totalYAmount,
+    strategy,
+    user,
+  }: TInitializePositionAndAddLiquidityParamsByStrategy): Promise<Transaction> {
+    const { maxBinId, minBinId } = strategy;
+
+    const preInstructions: TransactionInstruction[] = [];
+
+    const setComputeUnitLimitIx = computeBudgetIx();
+    preInstructions.push(setComputeUnitLimitIx);
+
+    const minBinArrayIndex = binIdToBinArrayIndex(new BN(minBinId));
+    const maxBinArrayIndex = binIdToBinArrayIndex(new BN(maxBinId));
+
+    const useExtension =
+      isOverflowDefaultBinArrayBitmap(minBinArrayIndex) ||
+      isOverflowDefaultBinArrayBitmap(maxBinArrayIndex);
+
+    const binArrayBitmapExtension = useExtension
+      ? deriveBinArrayBitmapExtension(this.pubkey, this.program.programId)[0]
+      : null;
+
+    const activeId = this.lbPair.activeId;
+
+    const strategyParameters: LiquidityParameterByStrategy["strategyParameters"] =
+      toStrategyParameters(strategy) as ProgramStrategyParameter;
+
+    const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(minBinId));
+    const [binArrayLower] = deriveBinArray(
+      this.pubkey,
+      lowerBinArrayIndex,
+      this.program.programId
+    );
+
+    const upperBinArrayIndex = lowerBinArrayIndex.add(new BN(1));
+    const [binArrayUpper] = deriveBinArray(
+      this.pubkey,
+      upperBinArrayIndex,
+      this.program.programId
+    );
+
+    const binArraysNeeded: BN[] = Array.from(
+      { length: upperBinArrayIndex.sub(lowerBinArrayIndex).toNumber() + 4 },
+      (_, index) => index - 2 + lowerBinArrayIndex.toNumber()
+    ).map((idx) => new BN(idx));
+
+    const createBinArrayIxs = await this.createBinArraysIfNeeded(
+      this.pubkey,
+      binArraysNeeded,
+      user
+    );
+    preInstructions.push(...createBinArrayIxs);
+
+    const [
+      { ataPubKey: userTokenX, ix: createPayerTokenXIx },
+      { ataPubKey: userTokenY, ix: createPayerTokenYIx },
+    ] = await Promise.all([
+      getOrCreateATAInstruction(
+        this.program.provider.connection,
+        this.tokenX.publicKey,
+        user
+      ),
+      getOrCreateATAInstruction(
+        this.program.provider.connection,
+        this.tokenY.publicKey,
+        user
+      ),
+    ]);
+    createPayerTokenXIx && preInstructions.push(createPayerTokenXIx);
+    createPayerTokenYIx && preInstructions.push(createPayerTokenYIx);
+
+    if (this.tokenX.publicKey.equals(NATIVE_MINT)) {
+      const wrapSOLIx = wrapSOLInstruction(
+        user,
+        userTokenX,
+        BigInt(totalXAmount.toString())
+      );
+
+      preInstructions.push(...wrapSOLIx);
+    }
+
+    if (this.tokenY.publicKey.equals(NATIVE_MINT)) {
+      const wrapSOLIx = wrapSOLInstruction(
+        user,
+        userTokenY,
+        BigInt(totalYAmount.toString())
+      );
+
+      preInstructions.push(...wrapSOLIx);
+    }
+
+    const postInstructions: Array<TransactionInstruction> = [];
+    if (
+      [
+        this.tokenX.publicKey.toBase58(),
+        this.tokenY.publicKey.toBase58(),
+      ].includes(NATIVE_MINT.toBase58())
+    ) {
+      const closeWrappedSOLIx = await unwrapSOLInstruction(user);
+      closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
+    }
+
+    const liquidityParams: LiquidityParameterByStrategy = {
+      amountX: totalXAmount,
+      amountY: totalYAmount,
+      activeId: this.lbPair.activeId,
+      maxActiveBinSlippage: MAX_ACTIVE_BIN_SLIPPAGE,
+      strategyParameters,
+    };
+
+    const addLiquidityAccounts = {
+      position: positionPubKey,
+      lbPair: this.pubkey,
+      userTokenX,
+      userTokenY,
+      reserveX: this.lbPair.reserveX,
+      reserveY: this.lbPair.reserveY,
+      tokenXMint: this.lbPair.tokenXMint,
+      tokenYMint: this.lbPair.tokenYMint,
+      binArrayLower,
+      binArrayUpper,
+      binArrayBitmapExtension,
+      sender: user,
+      tokenXProgram: TOKEN_PROGRAM_ID,
+      tokenYProgram: TOKEN_PROGRAM_ID,
+    };
+
+    const oneSideLiquidityParams: LiquidityParameterByStrategyOneSide = {
+      amount: totalXAmount.isZero() ? totalYAmount : totalXAmount,
+      activeId,
+      maxActiveBinSlippage: MAX_ACTIVE_BIN_SLIPPAGE,
+      strategyParameters,
+    };
+
+    const oneSideAddLiquidityAccounts = {
+      binArrayLower,
+      binArrayUpper,
+      lbPair: this.pubkey,
+      binArrayBitmapExtension: null,
+      sender: user,
+      position: positionPubKey,
+      reserve: totalXAmount.isZero()
+        ? this.lbPair.reserveY
+        : this.lbPair.reserveX,
+      tokenMint: totalXAmount.isZero()
+        ? this.lbPair.tokenYMint
+        : this.lbPair.tokenXMint,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      userToken: totalXAmount.isZero() ? userTokenY : userTokenX,
+    };
+
+    const isOneSideDeposit = totalXAmount.isZero() || totalYAmount.isZero();
+    const programMethod = isOneSideDeposit
+      ? this.program.methods.addLiquidityByStrategyOneSide(
+          oneSideLiquidityParams
+        )
+      : this.program.methods.addLiquidityByStrategy(liquidityParams);
+
+    const createPositionTx = await programMethod
+      .accounts(
+        isOneSideDeposit ? oneSideAddLiquidityAccounts : addLiquidityAccounts
+      )
+      .preInstructions(preInstructions)
+      .postInstructions(postInstructions)
+      .transaction();
+
+    const { blockhash, lastValidBlockHeight } =
+      await this.program.provider.connection.getLatestBlockhash("confirmed");
+    return new Transaction({
+      blockhash,
+      lastValidBlockHeight,
+      feePayer: user,
+    }).add(createPositionTx);
+  }
+
+  /**
    * The `addLiquidityByWeight` function is used to add liquidity to existing position
    * @param {TInitializePositionAndAddLiquidityParams}
    *    - `positionPubKey`: The public key of the position account. (usually use `new Keypair()`)
@@ -1866,7 +2277,6 @@ export class DLMM {
    * `Transaction` object (if less than 26bin involved) or an array of `Transaction` objects.
    */
   public async addLiquidityByWeight({
-    lbPairPubKey,
     positionPubKey,
     totalXAmount,
     totalYAmount,
@@ -1904,7 +2314,7 @@ export class DLMM {
       ? deriveBinArrayBitmapExtension(this.pubkey, this.program.programId)[0]
       : null;
 
-    const activeId = (await this.getActiveBin()).binId;
+    const activeId = this.lbPair.activeId;
 
     const binLiquidityDist: LiquidityParameterByWeight["binLiquidityDist"] =
       toWeightDistribution(
@@ -1926,14 +2336,14 @@ export class DLMM {
       new BN(positionAccount.lowerBinId)
     );
     const [binArrayLower] = deriveBinArray(
-      lbPairPubKey,
+      this.pubkey,
       lowerBinArrayIndex,
       this.program.programId
     );
 
     const upperBinArrayIndex = lowerBinArrayIndex.add(new BN(1));
     const [binArrayUpper] = deriveBinArray(
-      lbPairPubKey,
+      this.pubkey,
       upperBinArrayIndex,
       this.program.programId
     );
@@ -1945,7 +2355,7 @@ export class DLMM {
 
     const preInstructions: TransactionInstruction[] = [];
     const createBinArrayIxs = await this.createBinArraysIfNeeded(
-      lbPairPubKey,
+      this.pubkey,
       binArraysNeeded,
       user
     );

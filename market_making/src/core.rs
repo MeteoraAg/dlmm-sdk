@@ -11,7 +11,6 @@ use crate::utils::{create_program, get_epoch_sec, get_or_create_ata};
 use crate::MarketMakingMode;
 use anchor_client::anchor_lang::Space;
 use anchor_client::solana_client::rpc_filter::{Memcmp, RpcFilterType};
-use anchor_client::solana_sdk::account::ReadableAccount;
 use anchor_client::solana_sdk::compute_budget::ComputeBudgetInstruction;
 use anchor_client::solana_sdk::instruction::Instruction;
 use anchor_client::solana_sdk::signature::Signer;
@@ -30,11 +29,13 @@ use anyhow::*;
 use lb_clmm::accounts;
 use lb_clmm::constants::MAX_BIN_PER_ARRAY;
 use lb_clmm::constants::MAX_BIN_PER_POSITION;
-use lb_clmm::events::{self, Swap as SwapEvent};
+use lb_clmm::events::Swap as SwapEvent;
 use lb_clmm::instruction;
 use lb_clmm::instructions::add_liquidity_by_strategy::LiquidityParameterByStrategy;
-use lb_clmm::instructions::add_liquidity_by_strategy::StrategyParameters;
 use lb_clmm::instructions::add_liquidity_by_strategy::StrategyType;
+use lb_clmm::instructions::add_liquidity_by_strategy::{
+    spot_to_slice, SpotParameter, StrategyParameters,
+};
 use lb_clmm::math::safe_math::SafeMath;
 use lb_clmm::state::{bin::BinArray, lb_pair::LbPair, position::PositionV2};
 use lb_clmm::utils::pda;
@@ -520,6 +521,13 @@ impl Core {
             get_associated_token_address(&payer.pubkey(), &lb_pair_state.token_x_mint);
         let user_token_y =
             get_associated_token_address(&payer.pubkey(), &lb_pair_state.token_y_mint);
+
+        let spot_parameters = SpotParameter {
+            weight_right: 1,
+            weight_left: 1,
+            center_bin_id: state.lb_pair_state.active_id,
+        };
+
         instructions.push(Instruction {
             program_id: lb_clmm::ID,
             accounts: accounts::ModifyLiquidity {
@@ -551,7 +559,7 @@ impl Core {
                         min_bin_id: lower_bin_id,
                         max_bin_id: upper_bin_id,
                         strategy_type: StrategyType::Spot,
-                        parameteres: [0u8; 64],
+                        parameteres: spot_to_slice(&spot_parameters),
                     },
                 },
             }

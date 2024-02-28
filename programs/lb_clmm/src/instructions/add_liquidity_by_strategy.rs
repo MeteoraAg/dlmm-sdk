@@ -20,16 +20,13 @@ pub struct LiquidityParameterByStrategy {
 }
 
 impl LiquidityParameterByStrategy {
-    pub fn to_liquidity_parameter_by_weight(
-        &self,
-        active_id: i32,
-    ) -> Result<LiquidityParameterByWeight> {
+    pub fn to_liquidity_parameter_by_weight(&self) -> Result<LiquidityParameterByWeight> {
         Ok(LiquidityParameterByWeight {
             amount_x: self.amount_x,
             amount_y: self.amount_y,
             active_id: self.active_id,
             max_active_bin_slippage: self.max_active_bin_slippage,
-            bin_liquidity_dist: self.strategy_parameters.to_weight_distribution(active_id)?, // TODO: should we use  lb_pair.active_id?
+            bin_liquidity_dist: self.strategy_parameters.to_weight_distribution()?, // TODO: should we use  lb_pair.active_id?
         })
     }
 }
@@ -49,91 +46,92 @@ pub struct StrategyParameters {
 //// https://www.desmos.com/calculator/mru5p9e75u
 #[derive(AnchorSerialize, AnchorDeserialize, Eq, PartialEq, Clone, Debug, Default)]
 pub struct ParabolicParameter {
-    /// amplification in ask side
-    pub a_ask: i16,
-    /// amplification in bid side
-    pub a_bid: i16,
-    /// amplification in active bin
-    pub a_active_bin: i16,
+    /// amplification in right side, from center_bin_id to max_bin_id
+    pub a_right: i16,
+    /// amplification in left side, from min_bin_id to center_bin_id
+    pub a_left: i16,
     /// center bin id
     pub center_bin_id: i32,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Eq, PartialEq, Clone, Debug, Default)]
 pub struct SpotParameter {
-    /// weight in ask side
-    pub weight_ask: u16,
-    /// weight in bid side
-    pub weight_bid: u16,
-    /// weight in active bin
-    pub weight_active_bin: u16,
+    /// weight in right side, from center_bin_id to max_bin_id
+    pub weight_right: u16,
+    /// weight in left side, from min_bin_id to center_bin_id
+    pub weight_left: u16,
+    /// center bin id
+    pub center_bin_id: i32,
+}
+
+fn calculate_curve_weight(amp: i16, b_max: i32, b_delta: i32) -> Result<u16> {
+    let b = b_max.safe_sub(b_delta)?;
+    let weight = (amp as i32).safe_mul(b)?.safe_div(PRECISION)?;
+    Ok(u16::try_from(weight).map_err(|_| LBError::MathOverflow)?)
+}
+
+fn calculate_bid_ask_weight(amp: i16, bin_id: i32, center_bin_id: i32) -> Result<u16> {
+    let bin_delta = bin_id.safe_sub(center_bin_id)?;
+    let b = bin_delta.safe_mul(bin_delta)?;
+    let weight = (amp as i32).safe_mul(b)?.safe_div(PRECISION)?;
+    Ok(u16::try_from(weight).map_err(|_| LBError::MathOverflow)?)
 }
 
 impl ParabolicParameter {
-    fn validate_curve(&self) -> Result<()> {
+    fn validate(&self, min_bin_id: i32, max_bin_id: i32) -> Result<()> {
+        require!(self.a_right >= 0 && self.a_left >= 0, LBError::InvalidInput);
         require!(
-            self.a_ask <= 0 && self.a_bid <= 0 && self.a_active_bin <= 0,
+            self.center_bin_id >= min_bin_id && self.center_bin_id <= max_bin_id,
             LBError::InvalidInput
         );
         Ok(())
     }
 
-    fn validate_bid_ask(&self) -> Result<()> {
-        require!(
-            self.a_ask >= 0 && self.a_bid >= 0 && self.a_active_bin >= 0,
-            LBError::InvalidInput
-        );
-        Ok(())
+    fn get_b(&self, min_bin_id: i32, max_bin_id: i32) -> Result<(i32, i32)> {
+        let b_left = min_bin_id.safe_sub(self.center_bin_id)?;
+        let b_left: i32 = b_left.safe_mul(b_left)?;
+
+        let b_right = max_bin_id.safe_sub(self.center_bin_id)?;
+        let b_right = b_right.safe_mul(b_right)?;
+
+        Ok((b_left, b_right))
     }
 
     fn get_curve_weight_at_bin_id(
         &self,
-        center_bin_id: i32,
         bin_id: i32,
-        b: i32,
-        active_id: i32,
+        b_left: i32,  // (center_bin_id-min_bin_id)^2
+        b_right: i32, // (center_bin_id-max_bin_id)^2
     ) -> Result<u16> {
-        let a: i32 = if bin_id < active_id {
-            self.a_bid.into()
-        } else if bin_id > active_id {
-            self.a_ask.into()
+        if bin_id < self.center_bin_id {
+            // bin_id is between min_bin_id and center_bin_id
+            let bin_delta = bin_id.safe_sub(self.center_bin_id)?;
+            let b_delta = bin_delta.safe_mul(bin_delta)?;
+            calculate_curve_weight(self.a_left, b_left, b_delta)
+        } else if bin_id > self.center_bin_id {
+            // bin_id is between center_bin_id and max_bin_id
+            let bin_delta = bin_id.safe_sub(self.center_bin_id)?;
+            let b_delta = bin_delta.safe_mul(bin_delta)?;
+            calculate_curve_weight(self.a_right, b_right, b_delta)
         } else {
-            self.a_active_bin.into()
-        };
-
-        let bin_delta = bin_id.safe_sub(center_bin_id)?;
-
-        let weight = (a
-            .safe_mul(bin_delta)?
-            .safe_mul(bin_delta)?
-            .safe_sub(a.safe_mul(b)?)?)
-        .safe_div(PRECISION)?;
-
-        Ok(u16::try_from(weight.max(0)).map_err(|_| LBError::MathOverflow)?)
+            // bin_id == center_bin_id, favour side in larger b
+            let (a, b) = if b_left > b_right {
+                (self.a_left, b_left)
+            } else {
+                (self.a_right, b_right)
+            };
+            calculate_curve_weight(a, b, 0)
+        }
     }
 
-    fn get_bid_ask_weight_at_bin_id(
-        &self,
-        center_bin_id: i32,
-        bin_id: i32,
-        active_id: i32,
-    ) -> Result<u16> {
-        let a: i32 = if bin_id < active_id {
-            self.a_bid.into()
-        } else if bin_id > active_id {
-            self.a_ask.into()
+    fn get_bid_ask_weight_at_bin_id(&self, bin_id: i32) -> Result<u16> {
+        if bin_id < self.center_bin_id {
+            calculate_bid_ask_weight(self.a_left, bin_id, self.center_bin_id)
+        } else if bin_id > self.center_bin_id {
+            calculate_bid_ask_weight(self.a_right, bin_id, self.center_bin_id)
         } else {
-            self.a_active_bin.into()
-        };
-
-        let bin_delta = bin_id.safe_sub(center_bin_id)?;
-
-        let weight = a
-            .safe_mul(bin_delta)?
-            .safe_mul(bin_delta)?
-            .safe_div(PRECISION)?;
-
-        Ok(u16::try_from(weight.max(0)).map_err(|_| LBError::MathOverflow)?)
+            Ok(0)
+        }
     }
 }
 
@@ -154,10 +152,7 @@ impl StrategyParameters {
     fn parse_parabolic_parameter(&self) -> Result<ParabolicParameter> {
         Ok(ParabolicParameter::deserialize(&mut &self.parameteres[..])?)
     }
-    pub fn to_weight_distribution(
-        &self,
-        active_id: i32,
-    ) -> Result<Vec<BinLiquidityDistributionByWeight>> {
+    pub fn to_weight_distribution(&self) -> Result<Vec<BinLiquidityDistributionByWeight>> {
         if self.max_bin_id < self.min_bin_id {
             return Err(LBError::InvalidInput.into());
         }
@@ -174,37 +169,44 @@ impl StrategyParameters {
                     let spot_parameters = self.parse_spot_parameter()?;
 
                     for i in self.min_bin_id..=self.max_bin_id {
-                        if i < active_id {
+                        if i < spot_parameters.center_bin_id {
+                            if spot_parameters.weight_left == 0 {
+                                continue;
+                            }
                             bin_liquidity_dist.push(BinLiquidityDistributionByWeight {
                                 bin_id: i,
-                                weight: spot_parameters.weight_bid,
+                                weight: spot_parameters.weight_left,
                             })
                         }
-                        if i > active_id {
+                        if i == spot_parameters.center_bin_id {
                             bin_liquidity_dist.push(BinLiquidityDistributionByWeight {
                                 bin_id: i,
-                                weight: spot_parameters.weight_ask,
+                                weight: spot_parameters
+                                    .weight_right
+                                    .max(spot_parameters.weight_left),
                             })
                         }
-                        if i == active_id {
+                        if i > spot_parameters.center_bin_id {
+                            if spot_parameters.weight_right == 0 {
+                                continue;
+                            }
                             bin_liquidity_dist.push(BinLiquidityDistributionByWeight {
                                 bin_id: i,
-                                weight: spot_parameters.weight_active_bin,
+                                weight: spot_parameters.weight_right,
                             })
                         }
                     }
                 }
                 StrategyType::Curve => {
                     let curve_parameters = self.parse_parabolic_parameter()?;
-                    curve_parameters.validate_curve()?;
-                    let mid_bin_id = curve_parameters.center_bin_id;
-                    let bin_width = self.max_bin_id.safe_sub(self.min_bin_id)?;
-                    let b = bin_width.safe_mul(bin_width)?;
+                    curve_parameters.validate(self.min_bin_id, self.max_bin_id)?;
+
+                    let (b_left, b_right) =
+                        curve_parameters.get_b(self.min_bin_id, self.max_bin_id)?;
 
                     for i in self.min_bin_id..=self.max_bin_id {
-                        let weight = curve_parameters
-                            .get_curve_weight_at_bin_id(mid_bin_id, i, b, active_id)?;
-
+                        let weight =
+                            curve_parameters.get_curve_weight_at_bin_id(i, b_left, b_right)?;
                         // filter zero weight
                         if weight == 0 {
                             continue;
@@ -215,11 +217,10 @@ impl StrategyParameters {
                 }
                 StrategyType::BidAsk => {
                     let curve_parameters = self.parse_parabolic_parameter()?;
-                    curve_parameters.validate_bid_ask()?;
-                    let mid_bin_id = curve_parameters.center_bin_id;
+                    curve_parameters.validate(self.min_bin_id, self.max_bin_id)?;
+
                     for i in self.min_bin_id..=self.max_bin_id {
-                        let weight = curve_parameters
-                            .get_bid_ask_weight_at_bin_id(mid_bin_id, i, active_id)?;
+                        let weight = curve_parameters.get_bid_ask_weight_at_bin_id(i)?;
                         // filter zero weight
                         if weight == 0 {
                             continue;
@@ -247,9 +248,24 @@ pub fn handle<'a, 'b, 'c, 'info>(
     ctx: Context<'a, 'b, 'c, 'info, ModifyLiquidity<'info>>,
     liquidity_parameter: &LiquidityParameterByStrategy,
 ) -> Result<()> {
-    let active_id = ctx.accounts.lb_pair.load()?.active_id;
     add_liquidity_by_weight::handle(
         &ctx,
-        &liquidity_parameter.to_liquidity_parameter_by_weight(active_id)?,
+        &liquidity_parameter.to_liquidity_parameter_by_weight()?,
     )
+}
+
+pub fn parabonic_to_slice(parameter: &ParabolicParameter) -> [u8; 64] {
+    let mut buffer: Vec<u8> = vec![];
+    parameter.serialize(&mut buffer).unwrap();
+    let mut parameteres_slice = [0; 64];
+    parameteres_slice[..8].clone_from_slice(&buffer.as_slice());
+    parameteres_slice
+}
+
+pub fn spot_to_slice(parameter: &SpotParameter) -> [u8; 64] {
+    let mut buffer: Vec<u8> = vec![];
+    parameter.serialize(&mut buffer).unwrap();
+    let mut parameteres_slice = [0; 64];
+    parameteres_slice[..8].clone_from_slice(&buffer.as_slice());
+    parameteres_slice
 }
