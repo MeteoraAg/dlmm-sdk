@@ -4114,7 +4114,33 @@ export class DLMM {
       );
       const binArray =
         lowerBinArrays ??
-        (await this.program.account.binArray.fetch(binArrayPubKey));
+        (await this.program.account.binArray.fetch(binArrayPubKey).catch(() => {
+          const [lowerBinId, upperBinId] =
+            getBinArrayLowerUpperBinId(lowerBinArrayIndex);
+
+          const binArrayBins: Bin[] = [];
+          for (let i = lowerBinId.toNumber(); i <= upperBinId.toNumber(); i++) {
+            const binId = new BN(i);
+            const pricePerLamport = this.getPriceOfBinByBinId(binId.toNumber());
+            binArrayBins.push({
+              amountX: new BN(0),
+              amountY: new BN(0),
+              liquiditySupply: new BN(0),
+              rewardPerTokenStored: [new BN(0), new BN(0)],
+              amountXIn: new BN(0),
+              amountYIn: new BN(0),
+              feeAmountXPerTokenStored: new BN(0),
+              feeAmountYPerTokenStored: new BN(0),
+              price: new BN(0),
+            });
+          }
+
+          return {
+            bins: binArrayBins,
+            index: lowerBinArrayIndex,
+            version: 1,
+          };
+        }));
 
       const [lowerBinIdForBinArray] = getBinArrayLowerUpperBinId(
         binArray.index
