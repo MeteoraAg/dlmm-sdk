@@ -499,7 +499,7 @@ export function fromStrategyParamsToWeightDistribution(
             weight: weightRight,
           });
         }
-        if (i == centerBinId) {
+        if (i === centerBinId) {
           distributionWeights.push({
             binId: i,
             weight: weightLeft > weightRight ? weightLeft : weightRight,
@@ -732,15 +732,19 @@ export function fromWeightDistributionToAmount(
       wx0 = new Decimal(activeBin.weight).div(p0.mul(new Decimal(2)));
       wy0 = new Decimal(activeBin.weight).div(new Decimal(2));
     } else {
-      let amountXInActiveBinDec = new Decimal(amountYInActiveBin.toNumber());
-      let amountYInActiveBinDec = new Decimal(amountYInActiveBin.toNumber());
+      const amountXInActiveBinDec = new Decimal(amountXInActiveBin.toString());
+      const amountYInActiveBinDec = new Decimal(amountYInActiveBin.toString());
 
-      if (!amountXInActiveBin.isZero()) {
+      if (!amountXInActiveBinDec.isZero()) {
         wx0 = new Decimal(activeBin.weight).div(
-          p0.add(amountXInActiveBinDec.div(amountYInActiveBinDec))
+          p0.add(
+            amountYInActiveBinDec.isZero()
+              ? 0
+              : amountXInActiveBinDec.div(amountYInActiveBinDec)
+          )
         );
       }
-      if (!amountYInActiveBin.isZero()) {
+      if (!amountYInActiveBinDec.isZero()) {
         wy0 = new Decimal(activeBin.weight).div(
           new Decimal(1).add(
             p0.mul(amountXInActiveBinDec).div(amountYInActiveBinDec)
@@ -756,8 +760,8 @@ export function fromWeightDistributionToAmount(
         totalWeightY = totalWeightY.add(new Decimal(element.weight));
       }
       if (element.binId > activeId) {
-        let price = getPriceOfBinByBinId(element.binId, binStep);
-        let weighPerPrice = new Decimal(element.weight).div(price);
+        const price = getPriceOfBinByBinId(element.binId, binStep);
+        const weighPerPrice = new Decimal(element.weight).div(price);
         totalWeightX = totalWeightX.add(weighPerPrice);
       }
     });
@@ -828,7 +832,6 @@ export function fromWeightDistributionToAmount(
       }
     });
   }
-  return [];
 }
 
 export function calculateStrategyParameter({
