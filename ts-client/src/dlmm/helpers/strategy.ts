@@ -670,7 +670,7 @@ export function fromWeightDistributionToAmountOneSide(
       return el.binId > activeId ? sum : sum.add(el.weight); // skip all ask side
     }, new Decimal(0));
 
-    if (totalWeight.cmp(new Decimal(0)) == 0) {
+    if (totalWeight.cmp(new Decimal(0)) != 1) {
       throw Error("Invalid parameteres");
     }
     return distributions.map((bin) => {
@@ -700,7 +700,7 @@ export function fromWeightDistributionToAmountOneSide(
       }
     }, new Decimal(0));
 
-    if (totalWeight.cmp(new Decimal(0)) == 0) {
+    if (totalWeight.cmp(new Decimal(0)) != 1) {
       throw Error("Invalid parameteres");
     }
 
