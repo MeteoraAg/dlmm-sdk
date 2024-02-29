@@ -657,6 +657,67 @@ export function toStrategyParameters(strategyParameters: StrategyParameters) {
   }
 }
 
+export function fromWeightDistributionToAmountOneSide(
+  amount: BN,
+  distributions: { binId: number; weight: number }[],
+  binStep: number,
+  activeId: number,
+  depositForY: boolean,
+): { binId: number; amount: BN }[] {
+  if (depositForY) {
+    // get sum of weight
+    const totalWeight = distributions.reduce(function (sum, el) {
+      return el.binId > activeId ? sum : sum.add(el.weight); // skip all ask side
+    }, new Decimal(0));
+
+    if (totalWeight.cmp(new Decimal(0)) == 0) {
+      throw Error("Invalid parameteres");
+    }
+    return distributions.map((bin) => {
+      if (bin.binId > activeId) {
+        return {
+          binId: bin.binId,
+          amount: new BN(0),
+        };
+      } else {
+        return {
+          binId: bin.binId,
+          amount: new BN(new Decimal(amount.toString())
+            .mul(new Decimal(bin.weight).div(totalWeight))
+            .floor().toString()),
+        };
+      }
+    });
+  } else {
+    // get sum of weight
+    const totalWeight: Decimal = distributions.reduce(function (sum, el) {
+      if (el.binId < activeId) {
+        return sum;
+      } else {
+        const price = getPriceOfBinByBinId(el.binId, binStep);
+        const weightPerPrice = new Decimal(el.weight).div(price);
+        return sum.add(weightPerPrice);
+      }
+    }, new Decimal(0));
+
+    return distributions.map((bin) => {
+      if (bin.binId < activeId) {
+        return {
+          binId: bin.binId,
+          amount: new BN(0),
+        };
+      } else {
+        return {
+          binId: bin.binId,
+          amount: new BN(new Decimal(amount.toString())
+            .mul(new Decimal(bin.weight).div(totalWeight))
+            .floor().toString()),
+        };
+      }
+    })
+  }
+}
+
 export function fromWeightDistributionToAmount(
   amountX: BN,
   amountY: BN,
