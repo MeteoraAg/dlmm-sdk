@@ -700,6 +700,10 @@ export function fromWeightDistributionToAmountOneSide(
       }
     }, new Decimal(0));
 
+    if (totalWeight.cmp(new Decimal(0)) == 0) {
+      throw Error("Invalid parameteres");
+    }
+
     return distributions.map((bin) => {
       if (bin.binId < activeId) {
         return {
