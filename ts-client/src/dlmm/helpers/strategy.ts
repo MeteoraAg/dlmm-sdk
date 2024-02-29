@@ -142,15 +142,15 @@ export function calculateSpotDistribution(
     const distributions =
       binIds[0] < activeBin
         ? binIds.map((binId) => ({
-            binId,
-            xAmountBpsOfTotal: new BN(0),
-            yAmountBpsOfTotal: dist,
-          }))
+          binId,
+          xAmountBpsOfTotal: new BN(0),
+          yAmountBpsOfTotal: dist,
+        }))
         : binIds.map((binId) => ({
-            binId,
-            xAmountBpsOfTotal: dist,
-            yAmountBpsOfTotal: new BN(0),
-          }));
+          binId,
+          xAmountBpsOfTotal: dist,
+          yAmountBpsOfTotal: new BN(0),
+        }));
 
     // Add the loss to the left most bin
     if (binIds[0] < activeBin) {
@@ -685,8 +685,8 @@ export function fromWeightDistributionToAmount(
     return distributions.map((bin) => {
       const amount = totalWeight.greaterThan(0)
         ? new Decimal(amountY.toString())
-            .mul(new Decimal(bin.weight).div(totalWeight))
-            .floor()
+          .mul(new Decimal(bin.weight).div(totalWeight))
+          .floor()
         : new Decimal(0);
       return {
         binId: bin.binId,
@@ -708,8 +708,8 @@ export function fromWeightDistributionToAmount(
     return distributions.map((bin) => {
       const amount = totalWeight.greaterThan(0)
         ? new Decimal(amountX.toString())
-            .mul(new Decimal(bin.weight).div(totalWeight))
-            .floor()
+          .mul(new Decimal(bin.weight).div(totalWeight))
+          .floor()
         : new Decimal(0);
       return {
         binId: bin.binId,
@@ -732,7 +732,7 @@ export function fromWeightDistributionToAmount(
       wx0 = new Decimal(activeBin.weight).div(p0.mul(new Decimal(2)));
       wy0 = new Decimal(activeBin.weight).div(new Decimal(2));
     } else {
-      let amountXInActiveBinDec = new Decimal(amountYInActiveBin.toNumber());
+      let amountXInActiveBinDec = new Decimal(amountXInActiveBin.toNumber());
       let amountYInActiveBinDec = new Decimal(amountYInActiveBin.toNumber());
 
       if (!amountXInActiveBin.isZero()) {
@@ -763,9 +763,10 @@ export function fromWeightDistributionToAmount(
     });
     const kx = new Decimal(amountX.toNumber()).div(totalWeightX);
     const ky = new Decimal(amountY.toNumber()).div(totalWeightY);
+    let k = (kx.lessThan(ky) ? kx : ky);
     return distributions.map((bin) => {
       if (bin.binId < activeId) {
-        const amount = ky.mul(new Decimal(bin.weight));
+        const amount = k.mul(new Decimal(bin.weight));
         return {
           binId: bin.binId,
           amountX: new BN(0),
@@ -775,7 +776,7 @@ export function fromWeightDistributionToAmount(
       if (bin.binId > activeId) {
         const price = getPriceOfBinByBinId(bin.binId, binStep);
         const weighPerPrice = new Decimal(bin.weight).div(price);
-        const amount = kx.mul(weighPerPrice);
+        const amount = k.mul(weighPerPrice);
         return {
           binId: bin.binId,
           amountX: new BN(Math.floor(amount.toNumber())),
@@ -783,8 +784,8 @@ export function fromWeightDistributionToAmount(
         };
       }
 
-      const amountXActiveBin = kx.mul(wx0);
-      const amountYActiveBin = ky.mul(wy0);
+      const amountXActiveBin = k.mul(wx0);
+      const amountYActiveBin = k.mul(wy0);
       return {
         binId: bin.binId,
         amountX: new BN(Math.floor(amountXActiveBin.toNumber())),
@@ -911,9 +912,9 @@ export function calculateStrategyParameter({
       binXCount === 0
         ? new Decimal(1)
         : askAmountPerBin
-            .mul(activeBinPriceDecimal)
-            .div(total)
-            .mul(new Decimal(65535));
+          .mul(activeBinPriceDecimal)
+          .div(total)
+          .mul(new Decimal(65535));
     const weightLeft =
       binYCount === 0
         ? new Decimal(1)
