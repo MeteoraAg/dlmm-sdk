@@ -711,11 +711,11 @@ export function fromWeightDistributionToAmountOneSide(
           amount: new BN(0),
         };
       } else {
+        const price = getPriceOfBinByBinId(bin.binId, binStep);
+        const weightPerPrice = new Decimal(bin.weight).div(price);
         return {
           binId: bin.binId,
-          amount: new BN(new Decimal(amount.toString())
-            .mul(new Decimal(bin.weight).div(totalWeight))
-            .floor().toString()),
+          amount: new BN(new Decimal(amount.toString()).mul(weightPerPrice).div(totalWeight).floor().toString()),
         };
       }
     })
@@ -771,9 +771,13 @@ export function fromWeightDistributionToAmount(
     }, new Decimal(0));
 
     return distributions.map((bin) => {
+
+      const price = getPriceOfBinByBinId(bin.binId, binStep);
+      const weightPerPrice = new Decimal(bin.weight).div(price);
+
       const amount = totalWeight.greaterThan(0)
         ? new Decimal(amountX.toString())
-          .mul(new Decimal(bin.weight).div(totalWeight))
+          .mul(weightPerPrice.div(totalWeight))
           .floor()
         : new Decimal(0);
       return {
