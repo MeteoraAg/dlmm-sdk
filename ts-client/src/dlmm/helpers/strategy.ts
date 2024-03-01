@@ -801,12 +801,12 @@ export function fromWeightDistributionToAmount(
       wx0 = new Decimal(activeBin.weight).div(p0.mul(new Decimal(2)));
       wy0 = new Decimal(activeBin.weight).div(new Decimal(2));
     } else {
-      let amountXInActiveBinDec = new Decimal(amountXInActiveBin.toNumber());
-      let amountYInActiveBinDec = new Decimal(amountYInActiveBin.toNumber());
+      let amountXInActiveBinDec = new Decimal(amountXInActiveBin.toString());
+      let amountYInActiveBinDec = new Decimal(amountYInActiveBin.toString());
 
       if (!amountXInActiveBin.isZero()) {
         wx0 = new Decimal(activeBin.weight).div(
-          p0.add(amountXInActiveBinDec.div(amountYInActiveBinDec))
+          p0.add(amountYInActiveBinDec.div(amountXInActiveBinDec))
         );
       }
       if (!amountYInActiveBin.isZero()) {
