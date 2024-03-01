@@ -144,6 +144,7 @@ export interface TInitializePositionAndAddLiquidityParams {
   totalYAmount: BN;
   xYAmountDistribution: BinAndAmount[];
   user: PublicKey;
+  slippage?: number;
 }
 
 export interface TInitializePositionAndAddLiquidityParamsByStrategy {
@@ -153,6 +154,7 @@ export interface TInitializePositionAndAddLiquidityParamsByStrategy {
   totalYAmount: BN;
   strategy: StrategyParameters;
   user: PublicKey;
+  slippage?: number;
 }
 
 export interface BinLiquidity {
