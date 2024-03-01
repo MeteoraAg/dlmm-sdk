@@ -8,6 +8,7 @@ import {
   SYSVAR_RENT_PUBKEY,
   SystemProgram,
   SYSVAR_CLOCK_PUBKEY,
+  ConfirmOptions,
 } from "@solana/web3.js";
 import { IDL } from "./idl";
 import {
@@ -102,6 +103,7 @@ import { Rounding, mulShr } from "./helpers/math";
 
 type Opt = {
   cluster: Cluster | "localhost";
+  confirmOpts?: ConfirmOptions;
 };
 
 export class DLMM {
@@ -164,7 +166,7 @@ export class DLMM {
     const provider = new AnchorProvider(
       connection,
       {} as any,
-      AnchorProvider.defaultOptions()
+      opt?.confirmOpts ?? AnchorProvider.defaultOptions()
     );
     const program = new Program(IDL, LBCLMM_PROGRAM_IDS[cluster], provider);
 
@@ -261,7 +263,7 @@ export class DLMM {
     const provider = new AnchorProvider(
       connection,
       {} as any,
-      AnchorProvider.defaultOptions()
+      opt?.confirmOpts ?? AnchorProvider.defaultOptions()
     );
     const program = new Program(IDL, LBCLMM_PROGRAM_IDS[cluster], provider);
 
@@ -1627,6 +1629,7 @@ export class DLMM {
    *    - `totalYAmount`: The total amount of token Y to be added to the liquidity pool.
    *    - `strategy`: The strategy parameters to be used for the liquidity pool (Can use `calculateStrategyParameter` to calculate).
    *    - `user`: The public key of the user account.
+   *    - `slippage`: The slippage percentage to be used for the liquidity pool.
    * @returns {Promise<Transaction>} The function `initializePositionAndAddLiquidityByWeight` returns a `Promise` that
    * resolves to either a single `Transaction` object.
    */
@@ -1636,8 +1639,13 @@ export class DLMM {
     totalYAmount,
     strategy,
     user,
+    slippage,
   }: TInitializePositionAndAddLiquidityParamsByStrategy) {
     const { maxBinId, minBinId } = strategy;
+
+    const maxActiveBinSlippage = slippage
+      ? Math.ceil(slippage / (this.lbPair.binStep / 100))
+      : MAX_ACTIVE_BIN_SLIPPAGE;
 
     const setComputeUnitLimitIx = computeBudgetIx();
     const preInstructions = [setComputeUnitLimitIx];
@@ -1747,7 +1755,7 @@ export class DLMM {
       amountX: totalXAmount,
       amountY: totalYAmount,
       activeId,
-      maxActiveBinSlippage: MAX_ACTIVE_BIN_SLIPPAGE,
+      maxActiveBinSlippage,
       strategyParameters,
     };
 
@@ -1771,7 +1779,7 @@ export class DLMM {
     const oneSideLiquidityParams: LiquidityParameterByStrategyOneSide = {
       amount: totalXAmount.isZero() ? totalYAmount : totalXAmount,
       activeId,
-      maxActiveBinSlippage: MAX_ACTIVE_BIN_SLIPPAGE,
+      maxActiveBinSlippage,
       strategyParameters,
     };
 
@@ -1824,6 +1832,7 @@ export class DLMM {
    *    - `totalYAmount`: The total amount of token Y to be added to the liquidity pool.
    *    - `xYAmountDistribution`: An array of objects of type `XYAmountDistribution` that represents (can use `calculateSpotDistribution`, `calculateBidAskDistribution` & `calculateNormalDistribution`)
    *    - `user`: The public key of the user account.
+   *    - `slippage`: The slippage percentage to be used for the liquidity pool.
    * @returns {Promise<Transaction|Transaction[]>} The function `initializePositionAndAddLiquidityByWeight` returns a `Promise` that
    * resolves to either a single `Transaction` object (if less than 26bin involved) or an array of `Transaction` objects.
    */
@@ -1833,11 +1842,16 @@ export class DLMM {
     totalYAmount,
     xYAmountDistribution,
     user,
+    slippage,
   }: TInitializePositionAndAddLiquidityParams): Promise<
     Transaction | Transaction[]
   > {
     const { lowerBinId, upperBinId, binIds } =
       this.processXYAmountDistribution(xYAmountDistribution);
+
+    const maxActiveBinSlippage = slippage
+      ? Math.ceil(slippage / (this.lbPair.binStep / 100))
+      : MAX_ACTIVE_BIN_SLIPPAGE;
 
     if (upperBinId >= lowerBinId + MAX_BIN_PER_POSITION.toNumber()) {
       throw new Error(
@@ -1971,7 +1985,7 @@ export class DLMM {
       amountY: totalYAmount,
       binLiquidityDist,
       activeId,
-      maxActiveBinSlippage: MAX_ACTIVE_BIN_SLIPPAGE,
+      maxActiveBinSlippage,
     };
 
     const addLiquidityAccounts = {
@@ -1994,7 +2008,7 @@ export class DLMM {
     const oneSideLiquidityParams: LiquidityOneSideParameter = {
       amount: totalXAmount.isZero() ? totalYAmount : totalXAmount,
       activeId,
-      maxActiveBinSlippage: MAX_ACTIVE_BIN_SLIPPAGE,
+      maxActiveBinSlippage,
       binLiquidityDist,
     };
 
@@ -2084,6 +2098,7 @@ export class DLMM {
    *    - `totalYAmount`: The total amount of token Y to be added to the liquidity pool.
    *    - `strategy`: The strategy parameters to be used for the liquidity pool (Can use `calculateStrategyParameter` to calculate).
    *    - `user`: The public key of the user account.
+   *    - `slippage`: The slippage percentage to be used for the liquidity pool.
    * @returns {Promise<Transaction>} The function `addLiquidityByWeight` returns a `Promise` that resolves to either a single
    * `Transaction` object
    */
@@ -2093,8 +2108,13 @@ export class DLMM {
     totalYAmount,
     strategy,
     user,
+    slippage,
   }: TInitializePositionAndAddLiquidityParamsByStrategy): Promise<Transaction> {
     const { maxBinId, minBinId } = strategy;
+
+    const maxActiveBinSlippage = slippage
+      ? Math.ceil(slippage / (this.lbPair.binStep / 100))
+      : MAX_ACTIVE_BIN_SLIPPAGE;
 
     const preInstructions: TransactionInstruction[] = [];
 
@@ -2196,7 +2216,7 @@ export class DLMM {
       amountX: totalXAmount,
       amountY: totalYAmount,
       activeId: this.lbPair.activeId,
-      maxActiveBinSlippage: MAX_ACTIVE_BIN_SLIPPAGE,
+      maxActiveBinSlippage,
       strategyParameters,
     };
 
@@ -2220,7 +2240,7 @@ export class DLMM {
     const oneSideLiquidityParams: LiquidityParameterByStrategyOneSide = {
       amount: totalXAmount.isZero() ? totalYAmount : totalXAmount,
       activeId,
-      maxActiveBinSlippage: MAX_ACTIVE_BIN_SLIPPAGE,
+      maxActiveBinSlippage,
       strategyParameters,
     };
 
@@ -2273,6 +2293,7 @@ export class DLMM {
    *    - `totalYAmount`: The total amount of token Y to be added to the liquidity pool.
    *    - `xYAmountDistribution`: An array of objects of type `XYAmountDistribution` that represents (can use `calculateSpotDistribution`, `calculateBidAskDistribution` & `calculateNormalDistribution`)
    *    - `user`: The public key of the user account.
+   *    - `slippage`: The slippage percentage to be used for the liquidity pool.
    * @returns {Promise<Transaction|Transaction[]>} The function `addLiquidityByWeight` returns a `Promise` that resolves to either a single
    * `Transaction` object (if less than 26bin involved) or an array of `Transaction` objects.
    */
@@ -2282,9 +2303,14 @@ export class DLMM {
     totalYAmount,
     xYAmountDistribution,
     user,
+    slippage,
   }: TInitializePositionAndAddLiquidityParams): Promise<
     Transaction | Transaction[]
   > {
+    const maxActiveBinSlippage = slippage
+      ? Math.ceil(slippage / (this.lbPair.binStep / 100))
+      : MAX_ACTIVE_BIN_SLIPPAGE;
+
     const positionAccount = await this.program.account.positionV2.fetch(
       positionPubKey
     );
@@ -2417,7 +2443,7 @@ export class DLMM {
       amountY: totalYAmount,
       binLiquidityDist,
       activeId,
-      maxActiveBinSlippage: MAX_ACTIVE_BIN_SLIPPAGE,
+      maxActiveBinSlippage,
     };
 
     const addLiquidityAccounts = {
@@ -2440,7 +2466,7 @@ export class DLMM {
     const oneSideLiquidityParams: LiquidityOneSideParameter = {
       amount: totalXAmount.isZero() ? totalYAmount : totalXAmount,
       activeId,
-      maxActiveBinSlippage: MAX_ACTIVE_BIN_SLIPPAGE,
+      maxActiveBinSlippage,
       binLiquidityDist,
     };
 
@@ -3917,7 +3943,33 @@ export class DLMM {
       );
       const binArray =
         lowerBinArrays ??
-        (await this.program.account.binArray.fetch(binArrayPubKey));
+        (await this.program.account.binArray.fetch(binArrayPubKey).catch(() => {
+          const [lowerBinId, upperBinId] =
+            getBinArrayLowerUpperBinId(lowerBinArrayIndex);
+
+          const binArrayBins: Bin[] = [];
+          for (let i = lowerBinId.toNumber(); i <= upperBinId.toNumber(); i++) {
+            const binId = new BN(i);
+            const pricePerLamport = this.getPriceOfBinByBinId(binId.toNumber());
+            binArrayBins.push({
+              amountX: new BN(0),
+              amountY: new BN(0),
+              liquiditySupply: new BN(0),
+              rewardPerTokenStored: [new BN(0), new BN(0)],
+              amountXIn: new BN(0),
+              amountYIn: new BN(0),
+              feeAmountXPerTokenStored: new BN(0),
+              feeAmountYPerTokenStored: new BN(0),
+              price: new BN(0),
+            });
+          }
+
+          return {
+            bins: binArrayBins,
+            index: lowerBinArrayIndex,
+            version: 1,
+          };
+        }));
 
       const [lowerBinIdForBinArray] = getBinArrayLowerUpperBinId(
         binArray.index

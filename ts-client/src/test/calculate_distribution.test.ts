@@ -6,7 +6,8 @@ import {
   fromStrategyParamsToWeightDistribution,
   toWeightDistribution,
   fromWeightDistributionToAmount,
-  getPriceOfBinByBinId
+  getPriceOfBinByBinId,
+  fromWeightDistributionToAmountOneSide
 } from "../dlmm/helpers";
 import { StrategyType } from "../dlmm/types";
 import babar from "babar";
@@ -706,6 +707,71 @@ describe("calculate_distribution", () => {
         console.log(babar(bars));
       }
     });
+
+    test("from weight distribution to amount one side for X", () => {
+      let activeId = 34;
+      // curve
+      const stategyParameters = {
+        minBinId: 0,
+        maxBinId: 69,
+        strategyType: StrategyType.Curve,
+        aRight: 10,
+        aLeft: 0,
+        centerBinId: activeId,
+        weightRight: 0,
+        weightLeft: 0,
+      };
+      let weightDistribution = fromStrategyParamsToWeightDistribution(
+        stategyParameters
+      );
+      const bars = [];
+      for (const dist of weightDistribution) {
+        bars.push([dist.binId, dist.weight]);
+      }
+      console.log(babar(bars));
+      let amountX = new BN(100_000);
+      let binStep = 10;
+      let amounts = fromWeightDistributionToAmountOneSide(amountX, weightDistribution, binStep, activeId, false);
+      const bars1 = [];
+      for (const dist of amounts) {
+        let price = getPriceOfBinByBinId(dist.binId, binStep);
+        let yAmount = new Decimal(dist.amount.toNumber()).mul(price);
+        bars1.push([dist.binId, yAmount]);
+      }
+      console.log(babar(bars1));
+    })
+
+    test("from weight distribution to amount one side for Y", () => {
+      let activeId = 34;
+      // curve
+      const stategyParameters = {
+        minBinId: 0,
+        maxBinId: 69,
+        strategyType: StrategyType.Curve,
+        aRight: 0,
+        aLeft: 10,
+        centerBinId: activeId,
+        weightRight: 0,
+        weightLeft: 0,
+      };
+      let weightDistribution = fromStrategyParamsToWeightDistribution(
+        stategyParameters
+      );
+      const bars = [];
+      for (const dist of weightDistribution) {
+        bars.push([dist.binId, dist.weight]);
+      }
+      console.log(babar(bars));
+      let amountY = new BN(100_000);
+      let binStep = 10;
+      let amounts = fromWeightDistributionToAmountOneSide(amountY, weightDistribution, binStep, activeId, true);
+      const bars1 = [];
+      for (const dist of amounts) {
+        let yAmount = new Decimal(dist.amount.toNumber());
+        bars1.push([dist.binId, yAmount]);
+      }
+      console.log(babar(bars1));
+    })
 
     test("from weight distribution to amount", () => {
       let activeId = 34;
