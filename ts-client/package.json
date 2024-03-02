@@ -13,7 +13,8 @@
     "build": "tsup",
     "start": "npm run build -- --watch",
     "test": "jest src/test/sdk.test.ts",
-    "unit-test": "jest src/test/calculate_distribution.test.ts",
+    "weight-test": "jest src/test/calculate_distribution.test.ts",
+    "strategy-test": "jest src/test/calculate_strategy_parameters.test.ts",
     "example": "dotenv -e .env npx ts-node src/example.ts"
   },
   "devDependencies": {

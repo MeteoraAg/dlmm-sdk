@@ -906,118 +906,400 @@ export function calculateStrategyParameter({
   maxBinId,
   strategy,
   activeBinId,
-  activeBinPrice,
   totalXAmount,
   totalYAmount,
+  amountXInActiveBin,
+  amountYInActiveBin,
+  binStep,
 }: {
   minBinId: number;
   maxBinId: number;
   strategy: StrategyType;
   activeBinId: number;
-  activeBinPrice: string;
   totalXAmount: BN;
   totalYAmount: BN;
+  amountXInActiveBin: BN,
+  amountYInActiveBin: BN
+  binStep: number,
 }): StrategyParameters {
-  const totalXAmountDecimal = new Decimal(totalXAmount.toString());
-  const totalYAmountDecimal = new Decimal(totalYAmount.toString());
-  const activeBinPriceDecimal = new Decimal(activeBinPrice);
-  const total = totalXAmountDecimal
-    .mul(activeBinPriceDecimal)
-    .add(totalYAmountDecimal);
-  const { aRight, aLeft } = (() => {
-    if (strategy === StrategyType.Spot) {
-      return {
-        aRight: 0,
-        aLeft: 0,
-      };
-    }
-
-    const isYSingleSide = totalXAmount.isZero();
-    const isXSingleSide = totalYAmount.isZero();
-
-    const aRight = (() => {
-      if (isYSingleSide) return 0;
-      if (isXSingleSide) return 2000;
-
-      return Math.floor(
-        totalXAmountDecimal
-          .mul(activeBinPriceDecimal)
-          .div(total)
-          .mul(new Decimal(5000))
-          .toNumber()
-      );
-    })();
-    const aLeft = (() => {
-      if (isYSingleSide) return 2000;
-      if (isXSingleSide) return 0;
-
-      return Math.floor(
-        totalYAmountDecimal.div(total).mul(new Decimal(5000)).toNumber()
-      );
-    })();
-
-    return {
-      aRight,
-      aLeft,
-    };
-  })();
-  const { weightRight, weightLeft } = (() => {
-    if (strategy !== StrategyType.Spot) {
-      return {
-        weightRight: 0,
-        weightLeft: 0,
-      };
-    }
-    const binYCount = activeBinId - minBinId;
-    const binXCount = maxBinId - activeBinId;
-    const bidAmountPerBin = totalYAmountDecimal.div(
-      new Decimal(binYCount + 0.5)
-    );
-    const askAmountPerBin = totalXAmountDecimal.div(
-      new Decimal(binXCount + 0.5)
-    );
-
-    const weightRight =
-      binXCount === 0
-        ? new Decimal(1)
-        : askAmountPerBin
-          .mul(activeBinPriceDecimal)
-          .div(total)
-          .mul(new Decimal(65535));
-    const weightLeft =
-      binYCount === 0
-        ? new Decimal(1)
-        : bidAmountPerBin.div(total).mul(new Decimal(65535));
-    return {
-      weightRight: Math.floor(weightRight.toNumber()),
-      weightLeft: Math.floor(weightLeft.toNumber()),
-    };
-  })();
-
+  // validate parameters
+  if (totalXAmount.isZero() && totalYAmount.isZero()) {
+    throw Error("Invalid parameters")
+  }
+  const isOnlyBidSide = totalXAmount.isZero();
+  const isOnlyAskSide = totalYAmount.isZero();
+  if (activeBinId > maxBinId && !isOnlyBidSide) {
+    throw Error("Invalid parameters")
+  }
+  if (activeBinId < minBinId && !isOnlyAskSide) {
+    throw Error("Invalid parameters")
+  }
   const centerBinId = (() => {
-    if (activeBinId > maxBinId && activeBinId < minBinId) {
-      return Math.floor(maxBinId + minBinId / 2);
-    }
-
     if (activeBinId > maxBinId) {
       return maxBinId;
     }
-
     if (activeBinId < minBinId) {
       return minBinId;
     }
-
     return activeBinId;
   })();
+  if (strategy === StrategyType.Spot) {
+    if (isOnlyBidSide) {
+      return {
+        maxBinId,
+        minBinId,
+        strategyType: strategy,
+        aRight: 0,
+        aLeft: 0,
+        centerBinId,
+        weightLeft: 1,
+        weightRight: 0,
+      };
+    }
+    if (isOnlyAskSide) {
+      return {
+        maxBinId,
+        minBinId,
+        strategyType: strategy,
+        aRight: 0,
+        aLeft: 0,
+        centerBinId,
+        weightLeft: 0,
+        weightRight: 1,
+      };
+    }
 
+    // otherwise, assuming weightLeft == weightRight
+
+    const { weightLeft, weightRight, aLeft, aRight } = estimationParametersLoop({
+      minBinId,
+      maxBinId,
+      strategy,
+      activeBinId,
+      totalXAmount,
+      totalYAmount,
+      amountXInActiveBin,
+      amountYInActiveBin,
+      binStep,
+      centerBinId,
+      weightLeft: 1,
+      weightRight: 1,
+      aLeft: 0,
+      aRight: 0,
+    });
+    return {
+      maxBinId,
+      minBinId,
+      strategyType: strategy,
+      aRight,
+      aLeft,
+      centerBinId,
+      weightLeft,
+      weightRight,
+    };
+  } else {
+    if (isOnlyBidSide) {
+      return {
+        maxBinId,
+        minBinId,
+        strategyType: strategy,
+        aRight: 0,
+        aLeft: 2000,
+        centerBinId,
+        weightLeft: 0,
+        weightRight: 0,
+      };
+    }
+    if (isOnlyAskSide) {
+      return {
+        maxBinId,
+        minBinId,
+        strategyType: strategy,
+        aRight: 2000,
+        aLeft: 0,
+        centerBinId,
+        weightLeft: 0,
+        weightRight: 0,
+      };
+    }
+
+    // otherwise, assuming aRight == aLeft
+    const { weightLeft, weightRight, aLeft, aRight } = estimationParametersLoop({
+      minBinId,
+      maxBinId,
+      strategy,
+      activeBinId,
+      totalXAmount,
+      totalYAmount,
+      amountXInActiveBin,
+      amountYInActiveBin,
+      binStep,
+      centerBinId,
+      weightLeft: 0,
+      weightRight: 0,
+      aLeft: 100,
+      aRight: 100,
+    });
+
+    return {
+      maxBinId,
+      minBinId,
+      strategyType: strategy,
+      aRight,
+      aLeft,
+      centerBinId,
+      weightLeft,
+      weightRight,
+    };
+  }
+}
+
+// x > y and (x-y) * 100 / x  < precision
+export function assertEqualNumber(x: BN, y: BN, precision: BN): boolean {
+  if (x.cmp(y) == -1) {
+    return false;
+  }
+  const diff = (x.sub(y)).mul(new BN(100)).div(x);
+
+  return diff.cmp(precision) < 1
+}
+
+function estimationParametersLoop({
+  minBinId,
+  maxBinId,
+  strategy,
+  activeBinId,
+  totalXAmount,
+  totalYAmount,
+  amountXInActiveBin,
+  amountYInActiveBin,
+  binStep,
+  centerBinId,
+  weightLeft,
+  weightRight,
+  aLeft,
+  aRight,
+}: {
+  minBinId: number;
+  maxBinId: number;
+  strategy: StrategyType;
+  activeBinId: number;
+  totalXAmount: BN;
+  totalYAmount: BN;
+  amountXInActiveBin: BN,
+  amountYInActiveBin: BN
+  binStep: number,
+  centerBinId: number,
+  weightLeft: number,
+  weightRight: number,
+  aLeft: number,
+  aRight: number,
+}, maxLoop = 5): {
+  weightLeft: number,
+  weightRight: number,
+  aLeft: number,
+  aRight: number,
+} {
+  let index = 0;
+  while (index < maxLoop) {
+    let strategyParameters = {
+      maxBinId,
+      minBinId,
+      strategyType: strategy,
+      aRight,
+      aLeft,
+      centerBinId,
+      weightLeft,
+      weightRight,
+    };
+    let weightDistributions = fromStrategyParamsToWeightDistribution(strategyParameters);
+    // convert back to amount
+    let amounts = fromWeightDistributionToAmount(totalXAmount, totalYAmount, weightDistributions, binStep, activeBinId, amountXInActiveBin, amountYInActiveBin);
+    const estimateX = amounts.reduce(function (sum, el) {
+      return sum.add(el.amountX);
+    }, new BN(0));
+    const estimateY = amounts.reduce(function (sum, el) {
+      return sum.add(el.amountY);
+    }, new BN(0));
+
+    const weight = calibrateNumber(totalXAmount, totalYAmount, estimateX, estimateY, weightLeft, weightRight);
+    weightLeft = weight.left;
+    weightRight = weight.right;
+
+    const a = calibrateNumber(totalXAmount, totalYAmount, estimateX, estimateY, aLeft, aRight);
+    aLeft = a.left;
+    aRight = a.right;
+    index += 1;
+
+    if (assertEqualNumber(totalXAmount, estimateX, new BN(5)) && assertEqualNumber(totalYAmount, estimateY, new BN(5))) {
+      // console.log(`loop ${index}`);
+      break;
+    }
+  }
   return {
-    strategyType: strategy,
-    centerBinId,
-    aRight,
-    aLeft,
-    maxBinId,
-    minBinId,
-    weightRight,
     weightLeft,
+    weightRight,
+    aLeft,
+    aRight,
   };
 }
+
+function calibrateNumber(amountX: BN, amountY: BN, estimateX: BN, estimateY: BN, leftValue: number, rightValue: number): {
+  left: number,
+  right: number,
+} {
+  if (leftValue == 0 || rightValue == 0) {
+    return {
+      left: leftValue,
+      right: rightValue
+    };
+  }
+  const amountXDec = new Decimal(amountX.toString());
+  const amountYDec = new Decimal(amountY.toString());
+  const estimateXDec = new Decimal(estimateX.toString());
+  const estimateYDec = new Decimal(estimateY.toString());
+  let left = leftValue;
+  let right = rightValue;
+
+  if (estimateXDec.div(amountXDec) < estimateYDec.div(amountYDec)) {
+    right = new Decimal(rightValue).mul(estimateYDec.div(amountYDec)).div(estimateXDec.div(amountXDec)).floor().toNumber();
+  } else {
+    left = new Decimal(leftValue).mul(estimateXDec.div(amountXDec)).div(estimateYDec.div(amountYDec)).floor().toNumber();
+  }
+  // cap weight at 1-65535
+  if (left >= 32768 || right >= 32768) {
+    left = Math.floor(left * 32768 / (left + right))
+    right = Math.floor(right * 32768 / (left + right))
+  }
+  if (left <= 0) {
+    left = 1
+  }
+  if (right <= 0) {
+    right = 1
+  }
+  return {
+    left,
+    right,
+  }
+}
+
+// export function calculateStrategyParameter({
+//   minBinId,
+//   maxBinId,
+//   strategy,
+//   activeBinId,
+//   activeBinPrice,
+//   totalXAmount,
+//   totalYAmount,
+// }: {
+//   minBinId: number;
+//   maxBinId: number;
+//   strategy: StrategyType;
+//   activeBinId: number;
+//   activeBinPrice: string;
+//   totalXAmount: BN;
+//   totalYAmount: BN;
+// }): StrategyParameters {
+//   const totalXAmountDecimal = new Decimal(totalXAmount.toString());
+//   const totalYAmountDecimal = new Decimal(totalYAmount.toString());
+//   const activeBinPriceDecimal = new Decimal(activeBinPrice);
+//   const total = totalXAmountDecimal
+//     .mul(activeBinPriceDecimal)
+//     .add(totalYAmountDecimal);
+//   const { aRight, aLeft } = (() => {
+//     if (strategy === StrategyType.Spot) {
+//       return {
+//         aRight: 0,
+//         aLeft: 0,
+//       };
+//     }
+
+//     const isYSingleSide = totalXAmount.isZero();
+//     const isXSingleSide = totalYAmount.isZero();
+
+//     const aRight = (() => {
+//       if (isYSingleSide) return 0;
+//       if (isXSingleSide) return 2000;
+
+//       return Math.floor(
+//         totalXAmountDecimal
+//           .mul(activeBinPriceDecimal)
+//           .div(total)
+//           .mul(new Decimal(5000))
+//           .toNumber()
+//       );
+//     })();
+//     const aLeft = (() => {
+//       if (isYSingleSide) return 2000;
+//       if (isXSingleSide) return 0;
+
+//       return Math.floor(
+//         totalYAmountDecimal.div(total).mul(new Decimal(5000)).toNumber()
+//       );
+//     })();
+
+//     return {
+//       aRight,
+//       aLeft,
+//     };
+//   })();
+//   const { weightRight, weightLeft } = (() => {
+//     if (strategy !== StrategyType.Spot) {
+//       return {
+//         weightRight: 0,
+//         weightLeft: 0,
+//       };
+//     }
+//     const binYCount = activeBinId - minBinId;
+//     const binXCount = maxBinId - activeBinId;
+//     const bidAmountPerBin = totalYAmountDecimal.div(
+//       new Decimal(binYCount + 0.5)
+//     );
+//     const askAmountPerBin = totalXAmountDecimal.div(
+//       new Decimal(binXCount + 0.5)
+//     );
+
+//     const weightRight =
+//       binXCount === 0
+//         ? new Decimal(1)
+//         : askAmountPerBin
+//           .mul(activeBinPriceDecimal)
+//           .div(total)
+//           .mul(new Decimal(65535));
+//     const weightLeft =
+//       binYCount === 0
+//         ? new Decimal(1)
+//         : bidAmountPerBin.div(total).mul(new Decimal(65535));
+//     return {
+//       weightRight: Math.floor(weightRight.toNumber()),
+//       weightLeft: Math.floor(weightLeft.toNumber()),
+//     };
+//   })();
+
+//   const centerBinId = (() => {
+//     if (activeBinId > maxBinId && activeBinId < minBinId) {
+//       return Math.floor(maxBinId + minBinId / 2);
+//     }
+
+//     if (activeBinId > maxBinId) {
+//       return maxBinId;
+//     }
+
+//     if (activeBinId < minBinId) {
+//       return minBinId;
+//     }
+
+//     return activeBinId;
+//   })();
+
+//   return {
+//     strategyType: strategy,
+//     centerBinId,
+//     aRight,
+//     aLeft,
+//     maxBinId,
+//     minBinId,
+//     weightRight,
+//     weightLeft,
+//   };
+// }
