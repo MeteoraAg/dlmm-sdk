@@ -50,5 +50,5 @@ jobs:
         shell: bash
       - run: anchor localnet -- --features localnet & sleep 2
         shell: bash
-      - run: cd ts-client && npm install && npm run test
+      - run: cd ts-client && npm install && npm run test && npm run weight-test && npm run strategy-test
         shell: bash
