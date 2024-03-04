@@ -43,6 +43,7 @@ describe("calculate strategy parameters", () => {
           amountXInActiveBin,
           amountYInActiveBin,
           binStep,
+          balancedDeposit: false,
         };
         let strategyParameters = calculateStrategyParameter(parameters);
 
@@ -80,6 +81,7 @@ describe("calculate strategy parameters", () => {
           amountXInActiveBin,
           amountYInActiveBin,
           binStep,
+          balancedDeposit: false,
         };
         let strategyParameters = calculateStrategyParameter(parameters);
 
@@ -117,6 +119,7 @@ describe("calculate strategy parameters", () => {
           amountXInActiveBin,
           amountYInActiveBin,
           binStep,
+          balancedDeposit: false,
         };
         let strategyParameters = calculateStrategyParameter(parameters);
 
@@ -155,6 +158,7 @@ describe("calculate strategy parameters", () => {
           amountXInActiveBin,
           amountYInActiveBin,
           binStep,
+          balancedDeposit: false,
         };
         let strategyParameters = calculateStrategyParameter(parameters);
 
@@ -192,6 +196,7 @@ describe("calculate strategy parameters", () => {
           amountXInActiveBin,
           amountYInActiveBin,
           binStep,
+          balancedDeposit: false,
         };
         let strategyParameters = calculateStrategyParameter(parameters);
 
@@ -229,6 +234,7 @@ describe("calculate strategy parameters", () => {
           amountXInActiveBin,
           amountYInActiveBin,
           binStep,
+          balancedDeposit: false,
         };
         let strategyParameters = calculateStrategyParameter(parameters);
 
@@ -269,6 +275,7 @@ describe("calculate strategy parameters", () => {
         amountXInActiveBin,
         amountYInActiveBin,
         binStep,
+        balancedDeposit: false,
       };
       let strategyParameters = calculateStrategyParameter(parameters);
 
@@ -313,6 +320,7 @@ describe("calculate strategy parameters", () => {
         amountXInActiveBin,
         amountYInActiveBin,
         binStep,
+        balancedDeposit: false,
       };
       let strategyParameters = calculateStrategyParameter(parameters);
 
@@ -356,6 +364,7 @@ describe("calculate strategy parameters", () => {
         amountXInActiveBin,
         amountYInActiveBin,
         binStep,
+        balancedDeposit: false,
       };
       let strategyParameters = calculateStrategyParameter(parameters);
 
@@ -377,6 +386,107 @@ describe("calculate strategy parameters", () => {
       }, new BN(0));
       expect(assertEqualNumber(totalXAmount, amountX, new BN(5))).toEqual(true);// 1%
       expect(assertEqualNumber(totalYAmount, amountY, new BN(5))).toEqual(true);// 1%
+    });
+  })
+
+  describe("Balanced deposit", () => {
+    test("Spot", () => {
+      let minBinId = 0;
+      let maxBinId = 69;
+      let strategy = StrategyType.Spot;
+      let activeBinId = 20;
+      let totalXAmount = new BN(100_000);
+      let totalYAmount = new BN(1_000_000);
+      let amountXInActiveBin = new BN(1);
+      let amountYInActiveBin = new BN(1);
+      let binStep = 10;
+      let parameters = {
+        minBinId,
+        maxBinId,
+        strategy,
+        activeBinId,
+        totalXAmount,
+        totalYAmount,
+        amountXInActiveBin,
+        amountYInActiveBin,
+        binStep,
+        balancedDeposit: true,
+      };
+      let strategyParameters = calculateStrategyParameter(parameters);
+
+      // verify
+      let distributions = fromStrategyParamsToWeightDistribution(strategyParameters);
+      const bars = [];
+      for (const dist of distributions) {
+        bars.push([dist.binId, dist.weight]);
+      }
+      console.log(babar(bars));
+    });
+
+    test("Curve", () => {
+      let minBinId = 0;
+      let maxBinId = 69;
+      let strategy = StrategyType.Curve;
+      let activeBinId = Math.floor((minBinId + maxBinId) / 2);
+      let totalXAmount = new BN(100_000);
+      let totalYAmount = new BN(1_000_000);
+      let amountXInActiveBin = new BN(1);
+      let amountYInActiveBin = new BN(1);
+      let binStep = 10;
+      let parameters = {
+        minBinId,
+        maxBinId,
+        strategy,
+        activeBinId,
+        totalXAmount,
+        totalYAmount,
+        amountXInActiveBin,
+        amountYInActiveBin,
+        binStep,
+        balancedDeposit: true,
+      };
+      let strategyParameters = calculateStrategyParameter(parameters);
+
+      // verify
+      let distributions = fromStrategyParamsToWeightDistribution(strategyParameters);
+      const bars = [];
+      for (const dist of distributions) {
+        bars.push([dist.binId, dist.weight]);
+      }
+      console.log(babar(bars));
+    });
+
+    test("BidAsk", () => {
+      let minBinId = 0;
+      let maxBinId = 69;
+      let strategy = StrategyType.BidAsk;
+      let activeBinId = Math.floor((minBinId + maxBinId) / 2);
+      let totalXAmount = new BN(100_000);
+      let totalYAmount = new BN(1_000_000);
+      let amountXInActiveBin = new BN(1);
+      let amountYInActiveBin = new BN(1);
+      let binStep = 10;
+      let parameters = {
+        minBinId,
+        maxBinId,
+        strategy,
+        activeBinId,
+        totalXAmount,
+        totalYAmount,
+        amountXInActiveBin,
+        amountYInActiveBin,
+        binStep,
+        balancedDeposit: true,
+      };
+      let strategyParameters = calculateStrategyParameter(parameters);
+
+      // verify
+      let distributions = fromStrategyParamsToWeightDistribution(strategyParameters);
+      const bars = [];
+      for (const dist of distributions) {
+        bars.push([dist.binId, dist.weight]);
+      }
+      console.log(babar(bars));
     });
   })
 });

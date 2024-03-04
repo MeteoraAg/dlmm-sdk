@@ -142,15 +142,15 @@ export function calculateSpotDistribution(
     const distributions =
       binIds[0] < activeBin
         ? binIds.map((binId) => ({
-            binId,
-            xAmountBpsOfTotal: new BN(0),
-            yAmountBpsOfTotal: dist,
-          }))
+          binId,
+          xAmountBpsOfTotal: new BN(0),
+          yAmountBpsOfTotal: dist,
+        }))
         : binIds.map((binId) => ({
-            binId,
-            xAmountBpsOfTotal: dist,
-            yAmountBpsOfTotal: new BN(0),
-          }));
+          binId,
+          xAmountBpsOfTotal: dist,
+          yAmountBpsOfTotal: new BN(0),
+        }));
 
     // Add the loss to the left most bin
     if (binIds[0] < activeBin) {
@@ -759,8 +759,8 @@ export function fromWeightDistributionToAmount(
     return distributions.map((bin) => {
       const amount = totalWeight.greaterThan(0)
         ? new Decimal(amountY.toString())
-            .mul(new Decimal(bin.weight).div(totalWeight))
-            .floor()
+          .mul(new Decimal(bin.weight).div(totalWeight))
+          .floor()
         : new Decimal(0);
       return {
         binId: bin.binId,
@@ -785,8 +785,8 @@ export function fromWeightDistributionToAmount(
 
       const amount = totalWeight.greaterThan(0)
         ? new Decimal(amountX.toString())
-            .mul(weightPerPrice.div(totalWeight))
-            .floor()
+          .mul(weightPerPrice.div(totalWeight))
+          .floor()
         : new Decimal(0);
       return {
         binId: bin.binId,
@@ -919,6 +919,7 @@ export function calculateStrategyParameter({
   amountXInActiveBin,
   amountYInActiveBin,
   binStep,
+  balancedDeposit,
 }: {
   minBinId: number;
   maxBinId: number;
@@ -929,6 +930,7 @@ export function calculateStrategyParameter({
   amountXInActiveBin: BN;
   amountYInActiveBin: BN;
   binStep: number;
+  balancedDeposit: boolean;
 }): StrategyParameters {
   // validate parameters
   if (totalXAmount.isZero() && totalYAmount.isZero()) {
@@ -979,24 +981,35 @@ export function calculateStrategyParameter({
 
     // otherwise, assuming weightLeft == weightRight
 
-    const { weightLeft, weightRight, aLeft, aRight } = estimationParametersLoop(
-      {
-        minBinId,
+    if (balancedDeposit) {
+      return {
         maxBinId,
-        strategy,
-        activeBinId,
-        totalXAmount,
-        totalYAmount,
-        amountXInActiveBin,
-        amountYInActiveBin,
-        binStep,
+        minBinId,
+        strategyType: strategy,
+        aRight: 0,
+        aLeft: 0,
         centerBinId,
         weightLeft: 1,
         weightRight: 1,
-        aLeft: 0,
-        aRight: 0,
-      }
-    );
+      };
+    }
+
+    const { weightLeft, weightRight, aLeft, aRight } = estimationParametersLoop({
+      minBinId,
+      maxBinId,
+      strategy,
+      activeBinId,
+      totalXAmount,
+      totalYAmount,
+      amountXInActiveBin,
+      amountYInActiveBin,
+      binStep,
+      centerBinId,
+      weightLeft: 1,
+      weightRight: 1,
+      aLeft: 0,
+      aRight: 0,
+    });
     return {
       maxBinId,
       minBinId,
@@ -1027,6 +1040,19 @@ export function calculateStrategyParameter({
         strategyType: strategy,
         aRight: 2000,
         aLeft: 0,
+        centerBinId,
+        weightLeft: 0,
+        weightRight: 0,
+      };
+    }
+
+    if (balancedDeposit) {
+      return {
+        maxBinId,
+        minBinId,
+        strategyType: strategy,
+        aRight: 2000,
+        aLeft: 2000,
         centerBinId,
         weightLeft: 0,
         weightRight: 0,
