@@ -988,7 +988,7 @@ export function calculateStrategyParameter({
         strategyType: strategy,
         aRight: 0,
         aLeft: 0,
-        centerBinId,
+        centerBinId: Math.floor((maxBinId + minBinId) / 2),
         weightLeft: 1,
         weightRight: 1,
       };
@@ -1053,7 +1053,7 @@ export function calculateStrategyParameter({
         strategyType: strategy,
         aRight: 2000,
         aLeft: 2000,
-        centerBinId,
+        centerBinId: Math.floor((maxBinId + minBinId) / 2),
         weightLeft: 0,
         weightRight: 0,
       };
