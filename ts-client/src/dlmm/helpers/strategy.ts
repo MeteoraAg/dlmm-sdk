@@ -11,7 +11,7 @@ import Decimal from "decimal.js";
 
 export function getPriceOfBinByBinId(binId: number, binStep: number): Decimal {
   const binStepNum = new Decimal(binStep).div(new Decimal(BASIS_POINT_MAX));
-  return new Decimal(1).add(new Decimal(binStepNum)).pow(new Decimal(binId));
+  return new Decimal(1).add(binStepNum).pow(new Decimal(binId));
 }
 
 /// Build a gaussian distribution from the bins, with active bin as the mean.
@@ -142,15 +142,15 @@ export function calculateSpotDistribution(
     const distributions =
       binIds[0] < activeBin
         ? binIds.map((binId) => ({
-          binId,
-          xAmountBpsOfTotal: new BN(0),
-          yAmountBpsOfTotal: dist,
-        }))
+            binId,
+            xAmountBpsOfTotal: new BN(0),
+            yAmountBpsOfTotal: dist,
+          }))
         : binIds.map((binId) => ({
-          binId,
-          xAmountBpsOfTotal: dist,
-          yAmountBpsOfTotal: new BN(0),
-        }));
+            binId,
+            xAmountBpsOfTotal: dist,
+            yAmountBpsOfTotal: new BN(0),
+          }));
 
     // Add the loss to the left most bin
     if (binIds[0] < activeBin) {
@@ -662,7 +662,7 @@ export function fromWeightDistributionToAmountOneSide(
   distributions: { binId: number; weight: number }[],
   binStep: number,
   activeId: number,
-  depositForY: boolean,
+  depositForY: boolean
 ): { binId: number; amount: BN }[] {
   if (depositForY) {
     // get sum of weight
@@ -682,9 +682,12 @@ export function fromWeightDistributionToAmountOneSide(
       } else {
         return {
           binId: bin.binId,
-          amount: new BN(new Decimal(amount.toString())
-            .mul(new Decimal(bin.weight).div(totalWeight))
-            .floor().toString()),
+          amount: new BN(
+            new Decimal(amount.toString())
+              .mul(new Decimal(bin.weight).div(totalWeight))
+              .floor()
+              .toString()
+          ),
         };
       }
     });
@@ -715,10 +718,16 @@ export function fromWeightDistributionToAmountOneSide(
         const weightPerPrice = new Decimal(bin.weight).div(price);
         return {
           binId: bin.binId,
-          amount: new BN(new Decimal(amount.toString()).mul(weightPerPrice).div(totalWeight).floor().toString()),
+          amount: new BN(
+            new Decimal(amount.toString())
+              .mul(weightPerPrice)
+              .div(totalWeight)
+              .floor()
+              .toString()
+          ),
         };
       }
-    })
+    });
   }
 }
 
@@ -750,8 +759,8 @@ export function fromWeightDistributionToAmount(
     return distributions.map((bin) => {
       const amount = totalWeight.greaterThan(0)
         ? new Decimal(amountY.toString())
-          .mul(new Decimal(bin.weight).div(totalWeight))
-          .floor()
+            .mul(new Decimal(bin.weight).div(totalWeight))
+            .floor()
         : new Decimal(0);
       return {
         binId: bin.binId,
@@ -771,14 +780,13 @@ export function fromWeightDistributionToAmount(
     }, new Decimal(0));
 
     return distributions.map((bin) => {
-
       const price = getPriceOfBinByBinId(bin.binId, binStep);
       const weightPerPrice = new Decimal(bin.weight).div(price);
 
       const amount = totalWeight.greaterThan(0)
         ? new Decimal(amountX.toString())
-          .mul(weightPerPrice.div(totalWeight))
-          .floor()
+            .mul(weightPerPrice.div(totalWeight))
+            .floor()
         : new Decimal(0);
       return {
         binId: bin.binId,
@@ -832,7 +840,7 @@ export function fromWeightDistributionToAmount(
     });
     const kx = new Decimal(amountX.toNumber()).div(totalWeightX);
     const ky = new Decimal(amountY.toNumber()).div(totalWeightY);
-    let k = (kx.lessThan(ky) ? kx : ky);
+    let k = kx.lessThan(ky) ? kx : ky;
     return distributions.map((bin) => {
       if (bin.binId < activeId) {
         const amount = k.mul(new Decimal(bin.weight));
@@ -918,21 +926,21 @@ export function calculateStrategyParameter({
   activeBinId: number;
   totalXAmount: BN;
   totalYAmount: BN;
-  amountXInActiveBin: BN,
-  amountYInActiveBin: BN
-  binStep: number,
+  amountXInActiveBin: BN;
+  amountYInActiveBin: BN;
+  binStep: number;
 }): StrategyParameters {
   // validate parameters
   if (totalXAmount.isZero() && totalYAmount.isZero()) {
-    throw Error("Invalid parameters")
+    throw Error("Invalid parameters");
   }
   const isOnlyBidSide = totalXAmount.isZero();
   const isOnlyAskSide = totalYAmount.isZero();
   if (activeBinId > maxBinId && !isOnlyBidSide) {
-    throw Error("Invalid parameters")
+    throw Error("Invalid parameters");
   }
   if (activeBinId < minBinId && !isOnlyAskSide) {
-    throw Error("Invalid parameters")
+    throw Error("Invalid parameters");
   }
   const centerBinId = (() => {
     if (activeBinId > maxBinId) {
@@ -971,22 +979,24 @@ export function calculateStrategyParameter({
 
     // otherwise, assuming weightLeft == weightRight
 
-    const { weightLeft, weightRight, aLeft, aRight } = estimationParametersLoop({
-      minBinId,
-      maxBinId,
-      strategy,
-      activeBinId,
-      totalXAmount,
-      totalYAmount,
-      amountXInActiveBin,
-      amountYInActiveBin,
-      binStep,
-      centerBinId,
-      weightLeft: 1,
-      weightRight: 1,
-      aLeft: 0,
-      aRight: 0,
-    });
+    const { weightLeft, weightRight, aLeft, aRight } = estimationParametersLoop(
+      {
+        minBinId,
+        maxBinId,
+        strategy,
+        activeBinId,
+        totalXAmount,
+        totalYAmount,
+        amountXInActiveBin,
+        amountYInActiveBin,
+        binStep,
+        centerBinId,
+        weightLeft: 1,
+        weightRight: 1,
+        aLeft: 0,
+        aRight: 0,
+      }
+    );
     return {
       maxBinId,
       minBinId,
@@ -1024,22 +1034,24 @@ export function calculateStrategyParameter({
     }
 
     // otherwise, assuming aRight == aLeft
-    const { weightLeft, weightRight, aLeft, aRight } = estimationParametersLoop({
-      minBinId,
-      maxBinId,
-      strategy,
-      activeBinId,
-      totalXAmount,
-      totalYAmount,
-      amountXInActiveBin,
-      amountYInActiveBin,
-      binStep,
-      centerBinId,
-      weightLeft: 0,
-      weightRight: 0,
-      aLeft: 100,
-      aRight: 100,
-    });
+    const { weightLeft, weightRight, aLeft, aRight } = estimationParametersLoop(
+      {
+        minBinId,
+        maxBinId,
+        strategy,
+        activeBinId,
+        totalXAmount,
+        totalYAmount,
+        amountXInActiveBin,
+        amountYInActiveBin,
+        binStep,
+        centerBinId,
+        weightLeft: 0,
+        weightRight: 0,
+        aLeft: 100,
+        aRight: 100,
+      }
+    );
 
     return {
       maxBinId,
@@ -1059,46 +1071,49 @@ export function assertEqualNumber(x: BN, y: BN, precision: BN): boolean {
   if (x.cmp(y) == -1) {
     return false;
   }
-  const diff = (x.sub(y)).mul(new BN(100)).div(x);
+  const diff = x.sub(y).mul(new BN(100)).div(x);
 
-  return diff.cmp(precision) < 1
+  return diff.cmp(precision) < 1;
 }
 
-function estimationParametersLoop({
-  minBinId,
-  maxBinId,
-  strategy,
-  activeBinId,
-  totalXAmount,
-  totalYAmount,
-  amountXInActiveBin,
-  amountYInActiveBin,
-  binStep,
-  centerBinId,
-  weightLeft,
-  weightRight,
-  aLeft,
-  aRight,
-}: {
-  minBinId: number;
-  maxBinId: number;
-  strategy: StrategyType;
-  activeBinId: number;
-  totalXAmount: BN;
-  totalYAmount: BN;
-  amountXInActiveBin: BN,
-  amountYInActiveBin: BN
-  binStep: number,
-  centerBinId: number,
-  weightLeft: number,
-  weightRight: number,
-  aLeft: number,
-  aRight: number,
-}, maxLoop = 5): {
-  weightLeft: number,
-  weightRight: number,
-  aLeft: number,
-  aRight: number,
+function estimationParametersLoop(
+  {
+    minBinId,
+    maxBinId,
+    strategy,
+    activeBinId,
+    totalXAmount,
+    totalYAmount,
+    amountXInActiveBin,
+    amountYInActiveBin,
+    binStep,
+    centerBinId,
+    weightLeft,
+    weightRight,
+    aLeft,
+    aRight,
+  }: {
+    minBinId: number;
+    maxBinId: number;
+    strategy: StrategyType;
+    activeBinId: number;
+    totalXAmount: BN;
+    totalYAmount: BN;
+    amountXInActiveBin: BN;
+    amountYInActiveBin: BN;
+    binStep: number;
+    centerBinId: number;
+    weightLeft: number;
+    weightRight: number;
+    aLeft: number;
+    aRight: number;
+  },
+  maxLoop = 5
+): {
+  weightLeft: number;
+  weightRight: number;
+  aLeft: number;
+  aRight: number;
 } {
   let index = 0;
   while (index < maxLoop) {
@@ -1112,9 +1127,18 @@ function estimationParametersLoop({
       weightLeft,
       weightRight,
     };
-    let weightDistributions = fromStrategyParamsToWeightDistribution(strategyParameters);
+    let weightDistributions =
+      fromStrategyParamsToWeightDistribution(strategyParameters);
     // convert back to amount
-    let amounts = fromWeightDistributionToAmount(totalXAmount, totalYAmount, weightDistributions, binStep, activeBinId, amountXInActiveBin, amountYInActiveBin);
+    let amounts = fromWeightDistributionToAmount(
+      totalXAmount,
+      totalYAmount,
+      weightDistributions,
+      binStep,
+      activeBinId,
+      amountXInActiveBin,
+      amountYInActiveBin
+    );
     const estimateX = amounts.reduce(function (sum, el) {
       return sum.add(el.amountX);
     }, new BN(0));
@@ -1122,16 +1146,33 @@ function estimationParametersLoop({
       return sum.add(el.amountY);
     }, new BN(0));
 
-    const weight = calibrateNumber(totalXAmount, totalYAmount, estimateX, estimateY, weightLeft, weightRight);
+    const weight = calibrateNumber(
+      totalXAmount,
+      totalYAmount,
+      estimateX,
+      estimateY,
+      weightLeft,
+      weightRight
+    );
     weightLeft = weight.left;
     weightRight = weight.right;
 
-    const a = calibrateNumber(totalXAmount, totalYAmount, estimateX, estimateY, aLeft, aRight);
+    const a = calibrateNumber(
+      totalXAmount,
+      totalYAmount,
+      estimateX,
+      estimateY,
+      aLeft,
+      aRight
+    );
     aLeft = a.left;
     aRight = a.right;
     index += 1;
 
-    if (assertEqualNumber(totalXAmount, estimateX, new BN(5)) && assertEqualNumber(totalYAmount, estimateY, new BN(5))) {
+    if (
+      assertEqualNumber(totalXAmount, estimateX, new BN(5)) &&
+      assertEqualNumber(totalYAmount, estimateY, new BN(5))
+    ) {
       // console.log(`loop ${index}`);
       break;
     }
@@ -1144,14 +1185,21 @@ function estimationParametersLoop({
   };
 }
 
-function calibrateNumber(amountX: BN, amountY: BN, estimateX: BN, estimateY: BN, leftValue: number, rightValue: number): {
-  left: number,
-  right: number,
+function calibrateNumber(
+  amountX: BN,
+  amountY: BN,
+  estimateX: BN,
+  estimateY: BN,
+  leftValue: number,
+  rightValue: number
+): {
+  left: number;
+  right: number;
 } {
   if (leftValue == 0 || rightValue == 0) {
     return {
       left: leftValue,
-      right: rightValue
+      right: rightValue,
     };
   }
   const amountXDec = new Decimal(amountX.toString());
@@ -1162,23 +1210,31 @@ function calibrateNumber(amountX: BN, amountY: BN, estimateX: BN, estimateY: BN,
   let right = rightValue;
 
   if (estimateXDec.div(amountXDec) < estimateYDec.div(amountYDec)) {
-    right = new Decimal(rightValue).mul(estimateYDec.div(amountYDec)).div(estimateXDec.div(amountXDec)).floor().toNumber();
+    right = new Decimal(rightValue)
+      .mul(estimateYDec.div(amountYDec))
+      .div(estimateXDec.div(amountXDec))
+      .floor()
+      .toNumber();
   } else {
-    left = new Decimal(leftValue).mul(estimateXDec.div(amountXDec)).div(estimateYDec.div(amountYDec)).floor().toNumber();
+    left = new Decimal(leftValue)
+      .mul(estimateXDec.div(amountXDec))
+      .div(estimateYDec.div(amountYDec))
+      .floor()
+      .toNumber();
   }
   // cap weight at 1-65535
   if (left >= 32768 || right >= 32768) {
-    left = Math.floor(left * 32768 / (left + right))
-    right = Math.floor(right * 32768 / (left + right))
+    left = Math.floor((left * 32768) / (left + right));
+    right = Math.floor((right * 32768) / (left + right));
   }
   if (left <= 0) {
-    left = 1
+    left = 1;
   }
   if (right <= 0) {
-    right = 1
+    right = 1;
   }
   return {
     left,
     right,
-  }
+  };
 }
