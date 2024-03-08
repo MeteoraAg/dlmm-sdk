@@ -318,7 +318,7 @@ export function autoFillYByStrategy(
     minBinId: number,
     maxBinId: number,
     strategyType: StrategyType,
-): Decimal {
+): BN {
     switch (strategyType) {
         case StrategyType.SpotOneSide:
         case StrategyType.CurveOneSide:
@@ -355,7 +355,7 @@ export function autoFillXByStrategy(
     minBinId: number,
     maxBinId: number,
     strategyType: StrategyType,
-): Decimal {
+): BN {
     switch (strategyType) {
         case StrategyType.SpotOneSide:
         case StrategyType.CurveOneSide:
