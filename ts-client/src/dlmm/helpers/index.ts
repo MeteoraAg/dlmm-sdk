@@ -23,8 +23,10 @@ import { Rounding, mulShr, shlDiv } from "./math";
 
 export * from "./derive";
 export * from "./binArray";
-export * from "./strategy";
+export * from "./weight";
 export * from "./fee";
+export * from "./weightToAmounts";
+export * from "./strategy";
 
 export function chunks<T>(array: T[], size: number): T[][] {
   return Array.apply(0, new Array(Math.ceil(array.length / size))).map(

@@ -88,8 +88,6 @@ import {
   findNextBinArrayIndexWithLiquidity,
   swapQuoteAtBinWithCap,
   toStrategyParameters,
-  fromStrategyParamsToWeightDistribution,
-  fromWeightDistributionToAmount,
 } from "./helpers";
 import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import Decimal from "decimal.js";
@@ -115,7 +113,7 @@ export class DLMM {
     public tokenX: TokenReserve,
     public tokenY: TokenReserve,
     private opt?: Opt
-  ) {}
+  ) { }
 
   /** Static public method */
 
@@ -351,7 +349,7 @@ export class DLMM {
           reserveAndTokenMintAccountsInfo[reservePublicKeys.length + index * 2];
         const tokenYMintAccountInfo =
           reserveAndTokenMintAccountsInfo[
-            reservePublicKeys.length + index * 2 + 1
+          reservePublicKeys.length + index * 2 + 1
           ];
 
         if (!reserveXAccountInfo || !reserveYAccountInfo)
@@ -546,13 +544,13 @@ export class DLMM {
       let i = binArrayPubkeyArray.length + lbPairArray.length;
       i <
       binArrayPubkeyArray.length +
-        lbPairArray.length +
-        binArrayPubkeyArrayV2.length;
+      lbPairArray.length +
+      binArrayPubkeyArrayV2.length;
       i++
     ) {
       const binArrayPubkey =
         binArrayPubkeyArrayV2[
-          i - (binArrayPubkeyArray.length + lbPairArray.length)
+        i - (binArrayPubkeyArray.length + lbPairArray.length)
         ];
       const binArrayAccInfoBufferV2 = binArraysAccInfo[i];
       if (!binArrayAccInfoBufferV2)
@@ -577,10 +575,10 @@ export class DLMM {
     ) {
       const lbPairPubkey =
         lbPairArrayV2[
-          i -
-            (binArrayPubkeyArray.length +
-              lbPairArray.length +
-              binArrayPubkeyArrayV2.length)
+        i -
+        (binArrayPubkeyArray.length +
+          lbPairArray.length +
+          binArrayPubkeyArrayV2.length)
         ];
       const lbPairAccInfoBufferV2 = binArraysAccInfo[i];
       if (!lbPairAccInfoBufferV2)
@@ -1803,8 +1801,8 @@ export class DLMM {
     const isOneSideDeposit = totalXAmount.isZero() || totalYAmount.isZero();
     const programMethod = isOneSideDeposit
       ? this.program.methods.addLiquidityByStrategyOneSide(
-          oneSideLiquidityParams
-        )
+        oneSideLiquidityParams
+      )
       : this.program.methods.addLiquidityByStrategy(liquidityParams);
 
     const createPositionTx = await programMethod
@@ -2264,8 +2262,8 @@ export class DLMM {
     const isOneSideDeposit = totalXAmount.isZero() || totalYAmount.isZero();
     const programMethod = isOneSideDeposit
       ? this.program.methods.addLiquidityByStrategyOneSide(
-          oneSideLiquidityParams
-        )
+        oneSideLiquidityParams
+      )
       : this.program.methods.addLiquidityByStrategy(liquidityParams);
 
     const createPositionTx = await programMethod
@@ -4104,7 +4102,7 @@ export class DLMM {
       if (elapsed < sParameter.decayPeriod) {
         const decayedVolatilityReference = Math.floor(
           (vParameter.volatilityAccumulator * sParameter.reductionFactor) /
-            BASIS_POINT_MAX
+          BASIS_POINT_MAX
         );
         vParameter.volatilityReference = decayedVolatilityReference;
       } else {

@@ -146,4 +146,7 @@ pub enum LBError {
 
     #[msg("Must withdraw ineligible reward")]
     MustWithdrawnIneligibleReward,
+
+    #[msg("Invalid strategy parameters")]
+    InvalidStrategyParameters,
 }
