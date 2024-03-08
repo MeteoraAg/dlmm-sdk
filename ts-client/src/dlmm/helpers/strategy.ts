@@ -1,6 +1,7 @@
 import { BN } from "@coral-xyz/anchor";
 import { StrategyType, StrategyParameters } from "../types";
 import { autoFillXByWeight, autoFillYByWeight, toAmountAskSide, toAmountBidSide, toAmountBothSide } from "./weightToAmounts";
+import Decimal from "decimal.js";
 const DEFAULT_MAX_WEIGHT = 2000;
 const DEFAULT_MIN_WEIGHT = 200;
 
@@ -317,7 +318,7 @@ export function autoFillYByStrategy(
     minBinId: number,
     maxBinId: number,
     strategyType: StrategyType,
-): BN {
+): Decimal {
     switch (strategyType) {
         case StrategyType.SpotOneSide:
         case StrategyType.CurveOneSide:
@@ -354,7 +355,7 @@ export function autoFillXByStrategy(
     minBinId: number,
     maxBinId: number,
     strategyType: StrategyType,
-): BN {
+): Decimal {
     switch (strategyType) {
         case StrategyType.SpotOneSide:
         case StrategyType.CurveOneSide:
