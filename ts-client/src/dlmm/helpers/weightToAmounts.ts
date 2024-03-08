@@ -250,7 +250,7 @@ export function autoFillYByWeight(
                 totalWeightX = totalWeightX.add(weighPerPrice);
             }
         });
-        const kx = new Decimal(amountX.toString()).div(totalWeightX);
+        const kx = totalWeightX.isZero() ? new Decimal(1) : new Decimal(amountX.toString()).div(totalWeightX);
         const amountY = kx.mul(totalWeightY);
         return new BN(amountY.floor().toString())
     } else {
@@ -265,7 +265,7 @@ export function autoFillYByWeight(
                 totalWeightX = totalWeightX.add(weighPerPrice);
             }
         });
-        const kx = new Decimal(amountX.toString()).div(totalWeightX);
+        const kx = totalWeightX.isZero() ? new Decimal(1) : new Decimal(amountX.toString()).div(totalWeightX);
         const amountY = kx.mul(totalWeightY);
         return new BN(amountY.floor().toString())
     }
@@ -321,7 +321,7 @@ export function autoFillXByWeight(
                 totalWeightX = totalWeightX.add(weighPerPrice);
             }
         });
-        const ky = new Decimal(amountY.toString()).div(totalWeightY);
+        const ky = totalWeightY.isZero() ? new Decimal(1) : new Decimal(amountY.toString()).div(totalWeightY);
         const amountX = ky.mul(totalWeightX);
         return new BN(amountX.floor().toString())
     } else {
@@ -336,7 +336,7 @@ export function autoFillXByWeight(
                 totalWeightX = totalWeightX.add(weighPerPrice);
             }
         });
-        const ky = new Decimal(amountY.toNumber()).div(totalWeightY);
+        const ky = totalWeightY.isZero() ? new Decimal(1) : new Decimal(amountY.toNumber()).div(totalWeightY);
         const amountX = ky.mul(totalWeightX);
         return new BN(amountX.floor().toString())
     }
