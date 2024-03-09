@@ -160,6 +160,7 @@ export function toAmountsOneSideByStrategy(
             }
         case StrategyType.SpotOneSide: {
             weights = toWeightSpotBalanced(minBinId, maxBinId);
+            break;
         }
         case StrategyType.CurveOneSide: {
             if (depositForY) {
@@ -167,6 +168,7 @@ export function toAmountsOneSideByStrategy(
             } else {
                 weights = toWeightDecendingOrder(minBinId, maxBinId);
             }
+            break;
         }
         case StrategyType.BidAskOneSide: {
             if (depositForY) {
@@ -174,6 +176,7 @@ export function toAmountsOneSideByStrategy(
             } else {
                 weights = toWeightAscendingOrder(minBinId, maxBinId);
             }
+            break;
         }
     }
     if (depositForY) {
@@ -307,7 +310,6 @@ export function toAmountsBothSideByStrategy(
     }
 }
 
-
 // only apply for 
 export function autoFillYByStrategy(
     activeId: number,
@@ -381,9 +383,6 @@ export function autoFillXByStrategy(
         }
     }
 }
-
-
-
 
 // this this function to convert correct type for program
 export function toStrategyParameters(strategyParameters: StrategyParameters) {
