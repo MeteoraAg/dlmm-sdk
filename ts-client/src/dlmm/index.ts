@@ -22,6 +22,9 @@ import {
   MAX_BIN_LENGTH_ALLOWED_IN_ONE_TX,
   SCALE_OFFSET,
   MAX_ACTIVE_BIN_SLIPPAGE,
+  BIN_ARRAY_FEE,
+  POSITION_FEE,
+  MAX_BIN_PER_TX,
 } from "./constants";
 import {
   BinLiquidity,
@@ -58,6 +61,7 @@ import {
   ProgramStrategyParameter,
   LiquidityParameterByStrategyOneSide,
   StrategyParameters,
+  TQuoteCreatePositionParams,
 } from "./types";
 import { AnchorProvider, BN, Program } from "@coral-xyz/anchor";
 import {
@@ -101,7 +105,6 @@ import { Rounding, mulShr } from "./helpers/math";
 
 type Opt = {
   cluster: Cluster | "localhost";
-  confirmOpts?: ConfirmOptions;
 };
 
 export class DLMM {
@@ -164,7 +167,7 @@ export class DLMM {
     const provider = new AnchorProvider(
       connection,
       {} as any,
-      opt?.confirmOpts ?? AnchorProvider.defaultOptions()
+      AnchorProvider.defaultOptions()
     );
     const program = new Program(IDL, LBCLMM_PROGRAM_IDS[cluster], provider);
 
@@ -261,7 +264,7 @@ export class DLMM {
     const provider = new AnchorProvider(
       connection,
       {} as any,
-      opt?.confirmOpts ?? AnchorProvider.defaultOptions()
+      AnchorProvider.defaultOptions()
     );
     const program = new Program(IDL, LBCLMM_PROGRAM_IDS[cluster], provider);
 
@@ -1619,6 +1622,31 @@ export class DLMM {
     };
   }
 
+  public async quoteCreatePosition({ strategy }: TQuoteCreatePositionParams) {
+    const { minBinId, maxBinId } = strategy;
+
+    const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(minBinId));
+    const upperBinArrayIndex = lowerBinArrayIndex.add(new BN(1));
+
+    const binArraysNeeded: BN[] = Array.from(
+      { length: upperBinArrayIndex.sub(lowerBinArrayIndex).toNumber() + 4 },
+      (_, index) => index - 2 + lowerBinArrayIndex.toNumber()
+    ).map((idx) => new BN(idx));
+
+    const binArraysCount = (await this.binArraysToBeCreate(binArraysNeeded))
+      .length;
+    const positionCount = Math.ceil((maxBinId - minBinId) / MAX_BIN_PER_TX);
+
+    const binArrayCost = binArraysCount * BIN_ARRAY_FEE;
+    const positionCost = positionCount * POSITION_FEE;
+    return {
+      binArraysCount,
+      binArrayCost,
+      positionCount,
+      positionCost,
+    };
+  }
+
   /**
    * The function `initializePositionAndAddLiquidityByStrategy` function is used to initializes a position and adds liquidity
    * @param {TInitializePositionAndAddLiquidityParamsByStrategy}
@@ -1678,7 +1706,6 @@ export class DLMM {
     ).map((idx) => new BN(idx));
 
     const createBinArrayIxs = await this.createBinArraysIfNeeded(
-      this.pubkey,
       binArraysNeeded,
       user
     );
@@ -1889,7 +1916,6 @@ export class DLMM {
     ).map((idx) => new BN(idx));
 
     const createBinArrayIxs = await this.createBinArraysIfNeeded(
-      this.pubkey,
       binArraysNeeded,
       user
     );
@@ -2155,7 +2181,6 @@ export class DLMM {
     ).map((idx) => new BN(idx));
 
     const createBinArrayIxs = await this.createBinArraysIfNeeded(
-      this.pubkey,
       binArraysNeeded,
       user
     );
@@ -2379,7 +2404,6 @@ export class DLMM {
 
     const preInstructions: TransactionInstruction[] = [];
     const createBinArrayIxs = await this.createBinArraysIfNeeded(
-      this.pubkey,
       binArraysNeeded,
       user
     );
@@ -4044,27 +4068,48 @@ export class DLMM {
     return bins;
   }
 
+  private async binArraysToBeCreate(binArrayIndexes: BN[]) {
+    const binArrays: PublicKey[] = [];
+    for (const idx of binArrayIndexes) {
+      const [binArray] = deriveBinArray(
+        this.pubkey,
+        idx,
+        this.program.programId
+      );
+      const binArrayAccount =
+        await this.program.provider.connection.getAccountInfo(binArray);
+
+      if (binArrayAccount === null) {
+        binArrays.push(binArray);
+      }
+    }
+    return binArrays;
+  }
+
   private async createBinArraysIfNeeded(
-    lbPair: PublicKey,
     binArrayIndexes: BN[],
     funder: PublicKey
   ): Promise<TransactionInstruction[]> {
     const ixs: TransactionInstruction[] = [];
 
     for (const idx of binArrayIndexes) {
-      const [binArray] = deriveBinArray(lbPair, idx, this.program.programId);
+      const [binArray] = deriveBinArray(
+        this.pubkey,
+        idx,
+        this.program.programId
+      );
 
       const binArrayAccount =
         await this.program.provider.connection.getAccountInfo(binArray);
 
-      if (binArrayAccount == null) {
+      if (binArrayAccount === null) {
         ixs.push(
           await this.program.methods
             .initializeBinArray(idx)
             .accounts({
               binArray,
               funder,
-              lbPair,
+              lbPair: this.pubkey,
             })
             .instruction()
         );

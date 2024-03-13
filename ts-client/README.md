@@ -155,7 +155,7 @@ try {
     const removeLiquidityTxHash = await sendAndConfirmTransaction(
       connection,
       tx,
-      [user, newPosition]
+      [user]
     );
   }
 } catch (error) {}

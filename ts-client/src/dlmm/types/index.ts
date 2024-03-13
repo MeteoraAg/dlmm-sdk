@@ -137,8 +137,11 @@ export interface StrategyParameters {
 }
 
 
+export interface TQuoteCreatePositionParams {
+  strategy: StrategyParameters;
+}
+
 export interface TInitializePositionAndAddLiquidityParams {
-  lbPairPubKey: PublicKey;
   positionPubKey: PublicKey;
   totalXAmount: BN;
   totalYAmount: BN;
@@ -148,7 +151,6 @@ export interface TInitializePositionAndAddLiquidityParams {
 }
 
 export interface TInitializePositionAndAddLiquidityParamsByStrategy {
-  lbPairPubKey: PublicKey;
   positionPubKey: PublicKey;
   totalXAmount: BN;
   totalYAmount: BN;
