@@ -2919,59 +2919,41 @@ export type LbClmm = {
       }
     },
     {
-      "name": "ParabolicParameter",
+      "name": "LiquidityOneSideParameter",
       "type": {
         "kind": "struct",
         "fields": [
           {
-            "name": "aRight",
+            "name": "amount",
             "docs": [
-              "amplification in right side, from center_bin_id to max_bin_id"
+              "Amount of X token or Y token to deposit"
             ],
-            "type": "i16"
+            "type": "u64"
           },
           {
-            "name": "aLeft",
+            "name": "activeId",
             "docs": [
-              "amplification in left side, from min_bin_id to center_bin_id"
-            ],
-            "type": "i16"
-          },
-          {
-            "name": "centerBinId",
-            "docs": [
-              "center bin id"
+              "Active bin that integrator observe off-chain"
             ],
             "type": "i32"
-          }
-        ]
-      }
-    },
-    {
-      "name": "SpotParameter",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "weightRight",
-            "docs": [
-              "weight in right side, from center_bin_id to max_bin_id"
-            ],
-            "type": "u16"
           },
           {
-            "name": "weightLeft",
+            "name": "maxActiveBinSlippage",
             "docs": [
-              "weight in left side, from min_bin_id to center_bin_id"
-            ],
-            "type": "u16"
-          },
-          {
-            "name": "centerBinId",
-            "docs": [
-              "center bin id"
+              "max active bin slippage allowed"
             ],
             "type": "i32"
+          },
+          {
+            "name": "binLiquidityDist",
+            "docs": [
+              "Liquidity distribution to each bins"
+            ],
+            "type": {
+              "vec": {
+                "defined": "BinLiquidityDistributionByWeight"
+              }
+            }
           }
         ]
       }
@@ -3014,46 +2996,6 @@ export type LbClmm = {
             "name": "amountY",
             "docs": [
               "Amount of Y token to deposit"
-            ],
-            "type": "u64"
-          },
-          {
-            "name": "activeId",
-            "docs": [
-              "Active bin that integrator observe off-chain"
-            ],
-            "type": "i32"
-          },
-          {
-            "name": "maxActiveBinSlippage",
-            "docs": [
-              "max active bin slippage allowed"
-            ],
-            "type": "i32"
-          },
-          {
-            "name": "binLiquidityDist",
-            "docs": [
-              "Liquidity distribution to each bins"
-            ],
-            "type": {
-              "vec": {
-                "defined": "BinLiquidityDistributionByWeight"
-              }
-            }
-          }
-        ]
-      }
-    },
-    {
-      "name": "LiquidityOneSideParameter",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "amount",
-            "docs": [
-              "Amount of X token or Y token to deposit"
             ],
             "type": "u64"
           },
@@ -3657,13 +3599,31 @@ export type LbClmm = {
         "kind": "enum",
         "variants": [
           {
-            "name": "Spot"
+            "name": "SpotOneSide"
           },
           {
-            "name": "Curve"
+            "name": "CurveOneSide"
           },
           {
-            "name": "BidAsk"
+            "name": "BidAskOneSide"
+          },
+          {
+            "name": "SpotBalanced"
+          },
+          {
+            "name": "CurveBalanced"
+          },
+          {
+            "name": "BidAskBalanced"
+          },
+          {
+            "name": "SpotImBalanced"
+          },
+          {
+            "name": "CurveImBalanced"
+          },
+          {
+            "name": "BidAskImBalanced"
           }
         ]
       }
@@ -4441,6 +4401,11 @@ export type LbClmm = {
       "code": 6047,
       "name": "MustWithdrawnIneligibleReward",
       "msg": "Must withdraw ineligible reward"
+    },
+    {
+      "code": 6048,
+      "name": "InvalidStrategyParameters",
+      "msg": "Invalid strategy parameters"
     }
   ]
 };
@@ -7366,59 +7331,41 @@ export const IDL: LbClmm = {
       }
     },
     {
-      "name": "ParabolicParameter",
+      "name": "LiquidityOneSideParameter",
       "type": {
         "kind": "struct",
         "fields": [
           {
-            "name": "aRight",
+            "name": "amount",
             "docs": [
-              "amplification in right side, from center_bin_id to max_bin_id"
+              "Amount of X token or Y token to deposit"
             ],
-            "type": "i16"
+            "type": "u64"
           },
           {
-            "name": "aLeft",
+            "name": "activeId",
             "docs": [
-              "amplification in left side, from min_bin_id to center_bin_id"
-            ],
-            "type": "i16"
-          },
-          {
-            "name": "centerBinId",
-            "docs": [
-              "center bin id"
+              "Active bin that integrator observe off-chain"
             ],
             "type": "i32"
-          }
-        ]
-      }
-    },
-    {
-      "name": "SpotParameter",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "weightRight",
-            "docs": [
-              "weight in right side, from center_bin_id to max_bin_id"
-            ],
-            "type": "u16"
           },
           {
-            "name": "weightLeft",
+            "name": "maxActiveBinSlippage",
             "docs": [
-              "weight in left side, from min_bin_id to center_bin_id"
-            ],
-            "type": "u16"
-          },
-          {
-            "name": "centerBinId",
-            "docs": [
-              "center bin id"
+              "max active bin slippage allowed"
             ],
             "type": "i32"
+          },
+          {
+            "name": "binLiquidityDist",
+            "docs": [
+              "Liquidity distribution to each bins"
+            ],
+            "type": {
+              "vec": {
+                "defined": "BinLiquidityDistributionByWeight"
+              }
+            }
           }
         ]
       }
@@ -7461,46 +7408,6 @@ export const IDL: LbClmm = {
             "name": "amountY",
             "docs": [
               "Amount of Y token to deposit"
-            ],
-            "type": "u64"
-          },
-          {
-            "name": "activeId",
-            "docs": [
-              "Active bin that integrator observe off-chain"
-            ],
-            "type": "i32"
-          },
-          {
-            "name": "maxActiveBinSlippage",
-            "docs": [
-              "max active bin slippage allowed"
-            ],
-            "type": "i32"
-          },
-          {
-            "name": "binLiquidityDist",
-            "docs": [
-              "Liquidity distribution to each bins"
-            ],
-            "type": {
-              "vec": {
-                "defined": "BinLiquidityDistributionByWeight"
-              }
-            }
-          }
-        ]
-      }
-    },
-    {
-      "name": "LiquidityOneSideParameter",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "amount",
-            "docs": [
-              "Amount of X token or Y token to deposit"
             ],
             "type": "u64"
           },
@@ -8104,13 +8011,31 @@ export const IDL: LbClmm = {
         "kind": "enum",
         "variants": [
           {
-            "name": "Spot"
+            "name": "SpotOneSide"
           },
           {
-            "name": "Curve"
+            "name": "CurveOneSide"
           },
           {
-            "name": "BidAsk"
+            "name": "BidAskOneSide"
+          },
+          {
+            "name": "SpotBalanced"
+          },
+          {
+            "name": "CurveBalanced"
+          },
+          {
+            "name": "BidAskBalanced"
+          },
+          {
+            "name": "SpotImBalanced"
+          },
+          {
+            "name": "CurveImBalanced"
+          },
+          {
+            "name": "BidAskImBalanced"
           }
         ]
       }
@@ -8888,6 +8813,11 @@ export const IDL: LbClmm = {
       "code": 6047,
       "name": "MustWithdrawnIneligibleReward",
       "msg": "Must withdraw ineligible reward"
+    },
+    {
+      "code": 6048,
+      "name": "InvalidStrategyParameters",
+      "msg": "Invalid strategy parameters"
     }
   ]
 };

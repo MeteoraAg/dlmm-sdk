@@ -2,7 +2,7 @@ pub mod add_liquidity;
 pub mod add_liquidity_by_strategy;
 pub mod add_liquidity_by_strategy_one_side;
 pub mod add_liquidity_by_weight;
-pub mod add_liquidity_one_side;
+pub mod add_liquidity_by_weight_one_side;
 pub mod claim_fee;
 pub mod claim_reward;
 pub mod close_position;

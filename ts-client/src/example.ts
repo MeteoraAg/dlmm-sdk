@@ -76,7 +76,6 @@ async function createPosition(dlmmPool: DLMM) {
   const createPositionTx =
     await dlmmPool.initializePositionAndAddLiquidityByWeight({
       positionPubKey: newPosition.publicKey,
-      lbPairPubKey: dlmmPool.pubkey,
       user: user.publicKey,
       totalXAmount,
       totalYAmount,
@@ -113,7 +112,6 @@ async function addLiquidityToExistingPosition(dlmmPool: DLMM) {
   // Add Liquidity to existing position
   const addLiquidityTx = await dlmmPool.addLiquidityByWeight({
     positionPubKey: userPositions[0].publicKey,
-    lbPairPubKey: dlmmPool.pubkey,
     user: user.publicKey,
     totalXAmount,
     totalYAmount,
@@ -194,12 +192,12 @@ async function swap(dlmmPool: DLMM) {
   }
   const swapQuote = throttledStats
     ? await dlmmPool.swapQuoteWithCap(
-      swapAmount,
-      swapYtoX,
-      new BN(10),
-      maxSwappedAmount,
-      binArrays
-    )
+        swapAmount,
+        swapYtoX,
+        new BN(10),
+        maxSwappedAmount,
+        binArrays
+      )
     : await dlmmPool.swapQuote(swapAmount, swapYtoX, new BN(10), binArrays);
 
   console.log("🚀 ~ swapQuote:", swapQuote);

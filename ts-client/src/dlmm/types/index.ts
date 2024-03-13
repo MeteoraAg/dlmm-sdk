@@ -8,7 +8,6 @@ import {
 import { LbClmm } from "../idl";
 import { PublicKey, TransactionInstruction } from "@solana/web3.js";
 import Decimal from "decimal.js";
-import { struct, s16, u16, s32 } from "@solana/buffer-layout";
 
 export interface FeeInfo {
   baseFeeRatePercentage: Decimal;
@@ -106,39 +105,43 @@ export enum PositionVersion {
   V2,
 }
 
+
+export const Strategy = {
+  SpotOneSide: { spotOneSide: {} },
+  CurveOneSide: { curveOneSide: {} },
+  BidAskOneSide: { bidAskOneSide: {} },
+  SpotBalanced: { spotBalanced: {} },
+  CurveBalanced: { curveBalanced: {} },
+  BidAskBalanced: { bidAskBalanced: {} },
+  SpotImBalanced: { spotImBalanced: {} },
+  CurveImBalanced: { curveImBalanced: {} },
+  BidAskImBalanced: { bidAskImBalanced: {} },
+};
+
 export enum StrategyType {
-  Spot,
-  Curve,
-  BidAsk,
+  SpotOneSide,
+  CurveOneSide,
+  BidAskOneSide,
+  SpotImBalanced,
+  CurveImBalanced,
+  BidAskImBalanced,
+  SpotBalanced,
+  CurveBalanced,
+  BidAskBalanced,
 }
 
 export interface StrategyParameters {
   maxBinId: number;
   minBinId: number;
   strategyType: StrategyType;
-  aRight: number; // for curve or bid/ask
-  aLeft: number; // for curve or bid/ask
-  centerBinId: number; // for curve or bid/ask
-  weightRight: number; // for spot
-  weightLeft: number; // for spot
 }
 
-export type ParabolicParameter = IdlTypes<LbClmm>["ParabolicParameter"];
-export const parabolicParameter = struct<ParabolicParameter>([
-  s16("aRight"),
-  s16("aLeft"),
-  s32(`centerBinId`),
-]);
 
-export type SpotParameter = IdlTypes<LbClmm>["SpotParameter"];
-export const spotParameter = struct<SpotParameter>([
-  u16("weightRight"),
-  u16("weightLeft"),
-  s32(`centerBinId`),
-]);
+export interface TQuoteCreatePositionParams {
+  strategy: StrategyParameters;
+}
 
 export interface TInitializePositionAndAddLiquidityParams {
-  lbPairPubKey: PublicKey;
   positionPubKey: PublicKey;
   totalXAmount: BN;
   totalYAmount: BN;
@@ -148,7 +151,6 @@ export interface TInitializePositionAndAddLiquidityParams {
 }
 
 export interface TInitializePositionAndAddLiquidityParamsByStrategy {
-  lbPairPubKey: PublicKey;
   positionPubKey: PublicKey;
   totalXAmount: BN;
   totalYAmount: BN;

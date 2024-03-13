@@ -13,7 +13,7 @@ use instructions::add_liquidity::*;
 use instructions::add_liquidity_by_strategy::*;
 use instructions::add_liquidity_by_strategy_one_side::*;
 use instructions::add_liquidity_by_weight::*;
-use instructions::add_liquidity_one_side::*;
+use instructions::add_liquidity_by_weight_one_side::*;
 use instructions::claim_fee::*;
 use instructions::claim_reward::*;
 use instructions::close_position::*;
@@ -147,7 +147,7 @@ pub mod lb_clmm {
         ctx: Context<'a, 'b, 'c, 'info, ModifyLiquidityOneSide<'info>>,
         liquidity_parameter: LiquidityOneSideParameter,
     ) -> Result<()> {
-        instructions::add_liquidity_one_side::handle(&ctx, &liquidity_parameter)
+        instructions::add_liquidity_by_weight_one_side::handle(&ctx, &liquidity_parameter)
     }
 
     pub fn remove_liquidity<'a, 'b, 'c, 'info>(

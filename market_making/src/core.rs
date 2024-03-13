@@ -32,10 +32,8 @@ use lb_clmm::constants::MAX_BIN_PER_POSITION;
 use lb_clmm::events::Swap as SwapEvent;
 use lb_clmm::instruction;
 use lb_clmm::instructions::add_liquidity_by_strategy::LiquidityParameterByStrategy;
+use lb_clmm::instructions::add_liquidity_by_strategy::StrategyParameters;
 use lb_clmm::instructions::add_liquidity_by_strategy::StrategyType;
-use lb_clmm::instructions::add_liquidity_by_strategy::{
-    spot_to_slice, SpotParameter, StrategyParameters,
-};
 use lb_clmm::math::safe_math::SafeMath;
 use lb_clmm::state::{bin::BinArray, lb_pair::LbPair, position::PositionV2};
 use lb_clmm::utils::pda;
@@ -522,12 +520,6 @@ impl Core {
         let user_token_y =
             get_associated_token_address(&payer.pubkey(), &lb_pair_state.token_y_mint);
 
-        let spot_parameters = SpotParameter {
-            weight_right: 1,
-            weight_left: 1,
-            center_bin_id: state.lb_pair_state.active_id,
-        };
-
         instructions.push(Instruction {
             program_id: lb_clmm::ID,
             accounts: accounts::ModifyLiquidity {
@@ -558,8 +550,8 @@ impl Core {
                     strategy_parameters: StrategyParameters {
                         min_bin_id: lower_bin_id,
                         max_bin_id: upper_bin_id,
-                        strategy_type: StrategyType::Spot,
-                        parameteres: spot_to_slice(&spot_parameters),
+                        strategy_type: StrategyType::SpotBalanced,
+                        parameteres: [0u8; 64],
                     },
                 },
             }
