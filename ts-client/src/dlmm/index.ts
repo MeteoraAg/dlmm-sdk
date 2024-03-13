@@ -116,7 +116,7 @@ export class DLMM {
     public tokenX: TokenReserve,
     public tokenY: TokenReserve,
     private opt?: Opt
-  ) { }
+  ) {}
 
   /** Static public method */
 
@@ -352,7 +352,7 @@ export class DLMM {
           reserveAndTokenMintAccountsInfo[reservePublicKeys.length + index * 2];
         const tokenYMintAccountInfo =
           reserveAndTokenMintAccountsInfo[
-          reservePublicKeys.length + index * 2 + 1
+            reservePublicKeys.length + index * 2 + 1
           ];
 
         if (!reserveXAccountInfo || !reserveYAccountInfo)
@@ -547,13 +547,13 @@ export class DLMM {
       let i = binArrayPubkeyArray.length + lbPairArray.length;
       i <
       binArrayPubkeyArray.length +
-      lbPairArray.length +
-      binArrayPubkeyArrayV2.length;
+        lbPairArray.length +
+        binArrayPubkeyArrayV2.length;
       i++
     ) {
       const binArrayPubkey =
         binArrayPubkeyArrayV2[
-        i - (binArrayPubkeyArray.length + lbPairArray.length)
+          i - (binArrayPubkeyArray.length + lbPairArray.length)
         ];
       const binArrayAccInfoBufferV2 = binArraysAccInfo[i];
       if (!binArrayAccInfoBufferV2)
@@ -578,10 +578,10 @@ export class DLMM {
     ) {
       const lbPairPubkey =
         lbPairArrayV2[
-        i -
-        (binArrayPubkeyArray.length +
-          lbPairArray.length +
-          binArrayPubkeyArrayV2.length)
+          i -
+            (binArrayPubkeyArray.length +
+              lbPairArray.length +
+              binArrayPubkeyArrayV2.length)
         ];
       const lbPairAccInfoBufferV2 = binArraysAccInfo[i];
       if (!lbPairAccInfoBufferV2)
@@ -1729,7 +1729,7 @@ export class DLMM {
     createPayerTokenXIx && preInstructions.push(createPayerTokenXIx);
     createPayerTokenYIx && preInstructions.push(createPayerTokenYIx);
 
-    if (this.tokenX.publicKey.equals(NATIVE_MINT)) {
+    if (this.tokenX.publicKey.equals(NATIVE_MINT) && !totalXAmount.isZero()) {
       const wrapSOLIx = wrapSOLInstruction(
         user,
         userTokenX,
@@ -1739,7 +1739,7 @@ export class DLMM {
       preInstructions.push(...wrapSOLIx);
     }
 
-    if (this.tokenY.publicKey.equals(NATIVE_MINT)) {
+    if (this.tokenY.publicKey.equals(NATIVE_MINT) && !totalYAmount.isZero()) {
       const wrapSOLIx = wrapSOLInstruction(
         user,
         userTokenY,
@@ -1828,8 +1828,8 @@ export class DLMM {
     const isOneSideDeposit = totalXAmount.isZero() || totalYAmount.isZero();
     const programMethod = isOneSideDeposit
       ? this.program.methods.addLiquidityByStrategyOneSide(
-        oneSideLiquidityParams
-      )
+          oneSideLiquidityParams
+        )
       : this.program.methods.addLiquidityByStrategy(liquidityParams);
 
     const createPositionTx = await programMethod
@@ -1939,7 +1939,7 @@ export class DLMM {
     createPayerTokenXIx && preInstructions.push(createPayerTokenXIx);
     createPayerTokenYIx && preInstructions.push(createPayerTokenYIx);
 
-    if (this.tokenX.publicKey.equals(NATIVE_MINT)) {
+    if (this.tokenX.publicKey.equals(NATIVE_MINT) && !totalXAmount.isZero()) {
       const wrapSOLIx = wrapSOLInstruction(
         user,
         userTokenX,
@@ -1949,7 +1949,7 @@ export class DLMM {
       preInstructions.push(...wrapSOLIx);
     }
 
-    if (this.tokenY.publicKey.equals(NATIVE_MINT)) {
+    if (this.tokenY.publicKey.equals(NATIVE_MINT) && !totalYAmount.isZero()) {
       const wrapSOLIx = wrapSOLInstruction(
         user,
         userTokenY,
@@ -2204,7 +2204,7 @@ export class DLMM {
     createPayerTokenXIx && preInstructions.push(createPayerTokenXIx);
     createPayerTokenYIx && preInstructions.push(createPayerTokenYIx);
 
-    if (this.tokenX.publicKey.equals(NATIVE_MINT)) {
+    if (this.tokenX.publicKey.equals(NATIVE_MINT) && !totalXAmount.isZero()) {
       const wrapSOLIx = wrapSOLInstruction(
         user,
         userTokenX,
@@ -2214,7 +2214,7 @@ export class DLMM {
       preInstructions.push(...wrapSOLIx);
     }
 
-    if (this.tokenY.publicKey.equals(NATIVE_MINT)) {
+    if (this.tokenY.publicKey.equals(NATIVE_MINT) && !totalYAmount.isZero()) {
       const wrapSOLIx = wrapSOLInstruction(
         user,
         userTokenY,
@@ -2287,8 +2287,8 @@ export class DLMM {
     const isOneSideDeposit = totalXAmount.isZero() || totalYAmount.isZero();
     const programMethod = isOneSideDeposit
       ? this.program.methods.addLiquidityByStrategyOneSide(
-        oneSideLiquidityParams
-      )
+          oneSideLiquidityParams
+        )
       : this.program.methods.addLiquidityByStrategy(liquidityParams);
 
     const createPositionTx = await programMethod
@@ -2427,7 +2427,7 @@ export class DLMM {
     createPayerTokenXIx && preInstructions.push(createPayerTokenXIx);
     createPayerTokenYIx && preInstructions.push(createPayerTokenYIx);
 
-    if (this.tokenX.publicKey.equals(NATIVE_MINT)) {
+    if (this.tokenX.publicKey.equals(NATIVE_MINT) && !totalXAmount.isZero()) {
       const wrapSOLIx = wrapSOLInstruction(
         user,
         userTokenX,
@@ -2437,7 +2437,7 @@ export class DLMM {
       preInstructions.push(...wrapSOLIx);
     }
 
-    if (this.tokenY.publicKey.equals(NATIVE_MINT)) {
+    if (this.tokenY.publicKey.equals(NATIVE_MINT) && !totalYAmount.isZero()) {
       const wrapSOLIx = wrapSOLInstruction(
         user,
         userTokenY,
@@ -4147,7 +4147,7 @@ export class DLMM {
       if (elapsed < sParameter.decayPeriod) {
         const decayedVolatilityReference = Math.floor(
           (vParameter.volatilityAccumulator * sParameter.reductionFactor) /
-          BASIS_POINT_MAX
+            BASIS_POINT_MAX
         );
         vParameter.volatilityReference = decayedVolatilityReference;
       } else {
