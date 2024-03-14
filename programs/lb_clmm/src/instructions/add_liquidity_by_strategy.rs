@@ -33,9 +33,6 @@ impl LiquidityParameterByStrategy {
         let max_bin_id = self.strategy_parameters.max_bin_id;
 
         match self.strategy_parameters.strategy_type {
-            StrategyType::SpotOneSide => Err(LBError::InvalidStrategyParameters.into()),
-            StrategyType::CurveOneSide => Err(LBError::InvalidStrategyParameters.into()),
-            StrategyType::BidAskOneSide => Err(LBError::InvalidStrategyParameters.into()),
             StrategyType::SpotImBalanced => {
                 let mut amounts_in_bin = vec![];
                 if min_bin_id <= active_id {
@@ -68,7 +65,7 @@ impl LiquidityParameterByStrategy {
                     }
                 }
                 if active_id < max_bin_id {
-                    let weights = to_weight_decending_order(active_id + 1, max_bin_id);
+                    let weights = to_weight_descending_order(active_id + 1, max_bin_id);
                     let amounts_into_ask_side =
                         to_amount_ask_side(active_id, self.amount_x, bin_step, &weights)?;
 
@@ -81,7 +78,7 @@ impl LiquidityParameterByStrategy {
             StrategyType::BidAskImBalanced => {
                 let mut amounts_in_bin = vec![];
                 if min_bin_id <= active_id {
-                    let weights = to_weight_decending_order(min_bin_id, active_id);
+                    let weights = to_weight_descending_order(min_bin_id, active_id);
                     let amounts_into_bid_side =
                         to_amount_bid_side(active_id, self.amount_y, &weights)?;
                     for &(bin_id, amount) in amounts_into_bid_side.iter() {
@@ -135,6 +132,7 @@ impl LiquidityParameterByStrategy {
                     &weights,
                 )
             }
+            _ => Err(LBError::InvalidStrategyParameters.into()),
         }
     }
 }
@@ -188,7 +186,7 @@ pub fn to_weight_spot_balanced(min_bin_id: i32, max_bin_id: i32) -> Vec<(i32, u1
     weights
 }
 
-pub fn to_weight_decending_order(min_bin_id: i32, max_bin_id: i32) -> Vec<(i32, u16)> {
+pub fn to_weight_descending_order(min_bin_id: i32, max_bin_id: i32) -> Vec<(i32, u16)> {
     let mut weights = vec![];
     for i in min_bin_id..=max_bin_id {
         weights.push((i, (max_bin_id - i + 1) as u16));

@@ -10,7 +10,7 @@ use ruint::aliases::U256;
 pub fn to_amount_bid_side(
     active_id: i32,
     amount: u64,
-    weights: &Vec<(i32, u16)>,
+    weights: &[(i32, u16)],
 ) -> Result<Vec<(i32, u64)>> {
     // get sum of weight
     let mut total_weight = 0u64;
@@ -44,7 +44,7 @@ pub fn to_amount_ask_side(
     active_id: i32,
     amount: u64,
     bin_step: u16,
-    weights: &Vec<(i32, u16)>,
+    weights: &[(i32, u16)],
 ) -> Result<Vec<(i32, u64)>> {
     // get sum of weight
     let mut total_weight = U256::ZERO;
@@ -80,7 +80,7 @@ pub fn to_amount_ask_side(
     Ok(amounts)
 }
 
-fn get_active_bin_index(active_id: i32, weights: &Vec<(i32, u16)>) -> Option<usize> {
+fn get_active_bin_index(active_id: i32, weights: &[(i32, u16)]) -> Option<usize> {
     for (i, &(bin_id, _weight)) in weights.iter().enumerate() {
         if bin_id == active_id {
             return Some(i);
@@ -100,7 +100,7 @@ pub fn to_amount_both_side(
     amount_y: u64, // amount_y in active bin
     total_amount_x: u64,
     total_amount_y: u64,
-    weights: &Vec<(i32, u16)>,
+    weights: &[(i32, u16)],
 ) -> Result<Vec<(i32, u64, u64)>> {
     match get_active_bin_index(active_id, weights) {
         Some(index) => {
