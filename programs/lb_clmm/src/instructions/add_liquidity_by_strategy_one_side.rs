@@ -3,7 +3,7 @@ use crate::errors::LBError;
 use crate::math::weight_to_amounts::to_amount_ask_side;
 use crate::math::weight_to_amounts::to_amount_bid_side;
 use crate::to_weight_ascending_order;
-use crate::to_weight_decending_order;
+use crate::to_weight_descending_order;
 use crate::to_weight_spot_balanced;
 use crate::ModifyLiquidityOneSide;
 use crate::StrategyType;
@@ -40,22 +40,17 @@ impl LiquidityParameterByStrategyOneSide {
                 if deposit_for_y {
                     Some(to_weight_ascending_order(min_bin_id, max_bin_id))
                 } else {
-                    Some(to_weight_decending_order(min_bin_id, max_bin_id))
+                    Some(to_weight_descending_order(min_bin_id, max_bin_id))
                 }
             }
             StrategyType::BidAskOneSide => {
                 if deposit_for_y {
-                    Some(to_weight_decending_order(min_bin_id, max_bin_id))
+                    Some(to_weight_descending_order(min_bin_id, max_bin_id))
                 } else {
                     Some(to_weight_ascending_order(min_bin_id, max_bin_id))
                 }
             }
-            StrategyType::SpotImBalanced => None,
-            StrategyType::CurveImBalanced => None,
-            StrategyType::BidAskImBalanced => None,
-            StrategyType::SpotBalanced => None,
-            StrategyType::CurveBalanced => None,
-            StrategyType::BidAskBalanced => None,
+            _ => None,
         }
         .ok_or(LBError::InvalidStrategyParameters)?;
 
