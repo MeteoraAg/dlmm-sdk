@@ -209,28 +209,29 @@ async function addLiquidityToExistingPosition(dlmmPool: DLMM) {
   }
 }
 
-async function removePositionLiquidity1(dlmmPool: DLMM) {
-  const userPosition = userPositions.find(({ publicKey }) =>
-    publicKey.equals(newBalancePosition.publicKey)
-  );
+async function removePositionLiquidity(dlmmPool: DLMM) {
   // Remove Liquidity
-  const binIdsToRemove = userPosition.positionData.positionBinData.map(
-    (bin) => bin.binId
-  );
-  const removeLiquidityTx = await dlmmPool.removeLiquidity({
-    position: userPosition.publicKey,
-    user: user.publicKey,
-    binIds: binIdsToRemove,
-    liquiditiesBpsToRemove: new Array(binIdsToRemove.length).fill(
-      new BN(100 * 100)
-    ), // 100% (range from 0 to 100)
-    shouldClaimAndClose: true, // should claim swap fee and close position together
-  });
+  const removeLiquidityTxs = (
+    await Promise.all(
+      userPositions.map(({ publicKey, positionData }) => {
+        const binIdsToRemove = positionData.positionBinData.map(
+          (bin) => bin.binId
+        );
+        return dlmmPool.removeLiquidity({
+          position: publicKey,
+          user: user.publicKey,
+          binIds: binIdsToRemove,
+          liquiditiesBpsToRemove: new Array(binIdsToRemove.length).fill(
+            new BN(100 * 100)
+          ),
+          shouldClaimAndClose: true, // should claim swap fee and close position together
+        });
+      })
+    )
+  ).flat();
 
   try {
-    for (let tx of Array.isArray(removeLiquidityTx)
-      ? removeLiquidityTx
-      : [removeLiquidityTx]) {
+    for (let tx of removeLiquidityTxs) {
       const removeBalanceLiquidityTxHash = await sendAndConfirmTransaction(
         connection,
         tx,
@@ -240,82 +241,6 @@ async function removePositionLiquidity1(dlmmPool: DLMM) {
       console.log(
         "🚀 ~ removeBalanceLiquidityTxHash:",
         removeBalanceLiquidityTxHash
-      );
-    }
-  } catch (error) {
-    console.log("🚀 ~ error:", JSON.parse(JSON.stringify(error)));
-  }
-}
-
-async function removePositionLiquidity2(dlmmPool: DLMM) {
-  const userPosition = userPositions.find(({ publicKey }) =>
-    publicKey.equals(newImbalancePosition.publicKey)
-  );
-  // Remove Liquidity
-  const binIdsToRemove = userPosition.positionData.positionBinData.map(
-    (bin) => bin.binId
-  );
-  const removeLiquidityTx = await dlmmPool.removeLiquidity({
-    position: userPosition.publicKey,
-    user: user.publicKey,
-    binIds: binIdsToRemove,
-    liquiditiesBpsToRemove: new Array(binIdsToRemove.length).fill(
-      new BN(100 * 100)
-    ), // 100% (range from 0 to 100)
-    shouldClaimAndClose: true, // should claim swap fee and close position together
-  });
-
-  try {
-    for (let tx of Array.isArray(removeLiquidityTx)
-      ? removeLiquidityTx
-      : [removeLiquidityTx]) {
-      const removeImbalanceLiquidityTxHash = await sendAndConfirmTransaction(
-        connection,
-        tx,
-        [user],
-        { skipPreflight: false, preflightCommitment: "confirmed" }
-      );
-      console.log(
-        "🚀 ~ removeImbalanceLiquidityTxHash:",
-        removeImbalanceLiquidityTxHash
-      );
-    }
-  } catch (error) {
-    console.log("🚀 ~ error:", JSON.parse(JSON.stringify(error)));
-  }
-}
-
-async function removePositionLiquidity3(dlmmPool: DLMM) {
-  const userPosition = userPositions.find(({ publicKey }) =>
-    publicKey.equals(newOneSidePosition.publicKey)
-  );
-  // Remove Liquidity
-  const binIdsToRemove = userPosition.positionData.positionBinData.map(
-    (bin) => bin.binId
-  );
-  const removeLiquidityTx = await dlmmPool.removeLiquidity({
-    position: userPosition.publicKey,
-    user: user.publicKey,
-    binIds: binIdsToRemove,
-    liquiditiesBpsToRemove: new Array(binIdsToRemove.length).fill(
-      new BN(100 * 100)
-    ), // 100% (range from 0 to 100)
-    shouldClaimAndClose: true, // should claim swap fee and close position together
-  });
-
-  try {
-    for (let tx of Array.isArray(removeLiquidityTx)
-      ? removeLiquidityTx
-      : [removeLiquidityTx]) {
-      const removeOneSideLiquidityTxHash = await sendAndConfirmTransaction(
-        connection,
-        tx,
-        [user],
-        { skipPreflight: false, preflightCommitment: "confirmed" }
-      );
-      console.log(
-        "🚀 ~ removeOneSideLiquidityTxHash:",
-        removeOneSideLiquidityTxHash
       );
     }
   } catch (error) {
@@ -391,9 +316,7 @@ async function main() {
   await createOneSidePosition(dlmmPool);
   await getPositionsState(dlmmPool);
   await addLiquidityToExistingPosition(dlmmPool);
-  await removePositionLiquidity1(dlmmPool);
-  await removePositionLiquidity2(dlmmPool);
-  await removePositionLiquidity3(dlmmPool);
+  await removePositionLiquidity(dlmmPool);
   await swap(dlmmPool);
 }
 
