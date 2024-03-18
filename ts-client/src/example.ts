@@ -8,8 +8,8 @@ import {
 } from "@solana/web3.js";
 import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import { DLMM } from "./dlmm";
-import { calculateSpotDistribution } from "./dlmm/helpers";
 import BN from "bn.js";
+import { BinLiquidity, LbPosition, StrategyType } from "./dlmm/types";
 
 const user = Keypair.fromSecretKey(
   new Uint8Array(bs58.decode(process.env.USER_PRIVATE_KEY))
@@ -35,13 +35,12 @@ export interface ParsedClockState {
   space: number;
 }
 
-let activeBin;
-let userPositions;
-let totalXAmount;
-let totalYAmount;
-let spotXYAmountDistribution;
+let activeBin: BinLiquidity;
+let userPositions: LbPosition[] = [];
 
-const newPosition = new Keypair();
+const newBalancePosition = new Keypair();
+const newImbalancePosition = new Keypair();
+const newOneSidePosition = new Keypair();
 
 async function getActiveBin(dlmmPool: DLMM) {
   // Get pool state
@@ -49,50 +48,116 @@ async function getActiveBin(dlmmPool: DLMM) {
   console.log("🚀 ~ activeBin:", activeBin);
 }
 
-async function createPosition(dlmmPool: DLMM) {
+// To create a balance deposit position
+async function createBalancePosition(dlmmPool: DLMM) {
   const TOTAL_RANGE_INTERVAL = 10; // 10 bins on each side of the active bin
-  const bins = [activeBin.binId]; // Make sure bins is less than 70, as currently only support up to 70 bins for 1 position
-  for (
-    let i = activeBin.binId;
-    i < activeBin.binId + TOTAL_RANGE_INTERVAL / 2;
-    i++
-  ) {
-    const rightNextBinId = i + 1;
-    const leftPrevBinId = activeBin.binId - (rightNextBinId - activeBin.binId);
-    bins.push(rightNextBinId);
-    bins.unshift(leftPrevBinId);
-  }
+  const minBinId = activeBin.binId - TOTAL_RANGE_INTERVAL;
+  const maxBinId = activeBin.binId + TOTAL_RANGE_INTERVAL;
 
   const activeBinPricePerToken = dlmmPool.fromPricePerLamport(
     Number(activeBin.price)
   );
-  totalXAmount = new BN(100);
-  totalYAmount = totalXAmount.mul(new BN(Number(activeBinPricePerToken)));
-
-  // Get spot distribution
-  spotXYAmountDistribution = calculateSpotDistribution(activeBin.binId, bins);
+  const totalXAmount = new BN(100);
+  const totalYAmount = totalXAmount.mul(new BN(Number(activeBinPricePerToken)));
 
   // Create Position
   const createPositionTx =
-    await dlmmPool.initializePositionAndAddLiquidityByWeight({
-      positionPubKey: newPosition.publicKey,
+    await dlmmPool.initializePositionAndAddLiquidityByStrategy({
+      positionPubKey: newBalancePosition.publicKey,
       user: user.publicKey,
       totalXAmount,
       totalYAmount,
-      xYAmountDistribution: spotXYAmountDistribution,
+      strategy: {
+        maxBinId,
+        minBinId,
+        strategyType: StrategyType.SpotBalanced,
+      },
     });
 
   try {
-    for (let tx of Array.isArray(createPositionTx)
-      ? createPositionTx
-      : [createPositionTx]) {
-      const createPositionTxHash = await sendAndConfirmTransaction(
-        connection,
-        tx,
-        [user, newPosition]
-      );
-      console.log("🚀 ~ createPositionTxHash:", createPositionTxHash);
-    }
+    const createBalancePositionTxHash = await sendAndConfirmTransaction(
+      connection,
+      createPositionTx,
+      [user, newBalancePosition]
+    );
+    console.log(
+      "🚀 ~ createBalancePositionTxHash:",
+      createBalancePositionTxHash
+    );
+  } catch (error) {
+    console.log("🚀 ~ error:", JSON.parse(JSON.stringify(error)));
+  }
+}
+
+async function createImbalancePosition(dlmmPool: DLMM) {
+  const TOTAL_RANGE_INTERVAL = 10; // 10 bins on each side of the active bin
+  const minBinId = activeBin.binId - TOTAL_RANGE_INTERVAL;
+  const maxBinId = activeBin.binId + TOTAL_RANGE_INTERVAL;
+
+  const totalXAmount = new BN(100);
+  const totalYAmount = new BN(50);
+
+  // Create Position
+  const createPositionTx =
+    await dlmmPool.initializePositionAndAddLiquidityByStrategy({
+      positionPubKey: newImbalancePosition.publicKey,
+      user: user.publicKey,
+      totalXAmount,
+      totalYAmount,
+      strategy: {
+        maxBinId,
+        minBinId,
+        strategyType: StrategyType.SpotImBalanced,
+      },
+    });
+
+  try {
+    const createImbalancePositionTxHash = await sendAndConfirmTransaction(
+      connection,
+      createPositionTx,
+      [user, newImbalancePosition]
+    );
+    console.log(
+      "🚀 ~ createImbalancePositionTxHash:",
+      createImbalancePositionTxHash
+    );
+  } catch (error) {
+    console.log("🚀 ~ error:", JSON.parse(JSON.stringify(error)));
+  }
+}
+
+async function createOneSidePosition(dlmmPool: DLMM) {
+  const TOTAL_RANGE_INTERVAL = 10; // 10 bins on each side of the active bin
+  const minBinId = activeBin.binId;
+  const maxBinId = activeBin.binId + TOTAL_RANGE_INTERVAL * 2;
+
+  const totalXAmount = new BN(100);
+  const totalYAmount = new BN(0);
+
+  // Create Position
+  const createPositionTx =
+    await dlmmPool.initializePositionAndAddLiquidityByStrategy({
+      positionPubKey: newOneSidePosition.publicKey,
+      user: user.publicKey,
+      totalXAmount,
+      totalYAmount,
+      strategy: {
+        maxBinId,
+        minBinId,
+        strategyType: StrategyType.SpotOneSide,
+      },
+    });
+
+  try {
+    const createOneSidePositionTxHash = await sendAndConfirmTransaction(
+      connection,
+      createPositionTx,
+      [user, newOneSidePosition]
+    );
+    console.log(
+      "🚀 ~ createOneSidePositionTxHash:",
+      createOneSidePositionTxHash
+    );
   } catch (error) {
     console.log("🚀 ~ error:", JSON.parse(JSON.stringify(error)));
   }
@@ -109,57 +174,74 @@ async function getPositionsState(dlmmPool: DLMM) {
 }
 
 async function addLiquidityToExistingPosition(dlmmPool: DLMM) {
+  const TOTAL_RANGE_INTERVAL = 10; // 10 bins on each side of the active bin
+  const minBinId = activeBin.binId - TOTAL_RANGE_INTERVAL;
+  const maxBinId = activeBin.binId + TOTAL_RANGE_INTERVAL;
+
+  const activeBinPricePerToken = dlmmPool.fromPricePerLamport(
+    Number(activeBin.price)
+  );
+  const totalXAmount = new BN(100);
+  const totalYAmount = totalXAmount.mul(new BN(Number(activeBinPricePerToken)));
+
   // Add Liquidity to existing position
-  const addLiquidityTx = await dlmmPool.addLiquidityByWeight({
-    positionPubKey: userPositions[0].publicKey,
+  const addLiquidityTx = await dlmmPool.addLiquidityByStrategy({
+    positionPubKey: newBalancePosition.publicKey,
     user: user.publicKey,
     totalXAmount,
     totalYAmount,
-    xYAmountDistribution: spotXYAmountDistribution,
+    strategy: {
+      maxBinId,
+      minBinId,
+      strategyType: StrategyType.SpotBalanced,
+    },
   });
 
   try {
-    for (let tx of Array.isArray(addLiquidityTx)
-      ? addLiquidityTx
-      : [addLiquidityTx]) {
-      const addLiquidityTxHash = await sendAndConfirmTransaction(
-        connection,
-        tx,
-        [user, newPosition]
-      );
-      console.log("🚀 ~ addLiquidityTxHash:", addLiquidityTxHash);
-    }
+    const addLiquidityTxHash = await sendAndConfirmTransaction(
+      connection,
+      addLiquidityTx,
+      [user]
+    );
+    console.log("🚀 ~ addLiquidityTxHash:", addLiquidityTxHash);
   } catch (error) {
     console.log("🚀 ~ error:", JSON.parse(JSON.stringify(error)));
   }
 }
 
-async function removeLiquidity(dlmmPool: DLMM) {
+async function removePositionLiquidity(dlmmPool: DLMM) {
   // Remove Liquidity
-  const binIdsToRemove = userPositions[0].positionData.positionBinData.map(
-    (bin) => bin.binId
-  );
-  const removeLiquidityTx = await dlmmPool.removeLiquidity({
-    position: userPositions[0].publicKey,
-    user: user.publicKey,
-    binIds: binIdsToRemove,
-    liquiditiesBpsToRemove: new Array(binIdsToRemove.length).fill(
-      new BN(100 * 100)
-    ), // 100% (range from 0 to 100)
-    shouldClaimAndClose: true, // should claim swap fee and close position together
-  });
+  const removeLiquidityTxs = (
+    await Promise.all(
+      userPositions.map(({ publicKey, positionData }) => {
+        const binIdsToRemove = positionData.positionBinData.map(
+          (bin) => bin.binId
+        );
+        return dlmmPool.removeLiquidity({
+          position: publicKey,
+          user: user.publicKey,
+          binIds: binIdsToRemove,
+          liquiditiesBpsToRemove: new Array(binIdsToRemove.length).fill(
+            new BN(100 * 100)
+          ),
+          shouldClaimAndClose: true, // should claim swap fee and close position together
+        });
+      })
+    )
+  ).flat();
 
   try {
-    for (let tx of Array.isArray(removeLiquidityTx)
-      ? removeLiquidityTx
-      : [removeLiquidityTx]) {
-      const removeLiquidityTxHash = await sendAndConfirmTransaction(
+    for (let tx of removeLiquidityTxs) {
+      const removeBalanceLiquidityTxHash = await sendAndConfirmTransaction(
         connection,
         tx,
-        [user, newPosition],
-        { skipPreflight: false, preflightCommitment: "singleGossip" }
+        [user],
+        { skipPreflight: false, preflightCommitment: "confirmed" }
       );
-      console.log("🚀 ~ removeLiquidityTxHash:", removeLiquidityTxHash);
+      console.log(
+        "🚀 ~ removeBalanceLiquidityTxHash:",
+        removeBalanceLiquidityTxHash
+      );
     }
   } catch (error) {
     console.log("🚀 ~ error:", JSON.parse(JSON.stringify(error)));
@@ -229,10 +311,12 @@ async function main() {
   });
 
   await getActiveBin(dlmmPool);
-  await createPosition(dlmmPool);
+  await createBalancePosition(dlmmPool);
+  await createImbalancePosition(dlmmPool);
+  await createOneSidePosition(dlmmPool);
   await getPositionsState(dlmmPool);
   await addLiquidityToExistingPosition(dlmmPool);
-  await removeLiquidity(dlmmPool);
+  await removePositionLiquidity(dlmmPool);
   await swap(dlmmPool);
 }
 
