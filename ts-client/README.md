@@ -52,17 +52,8 @@ const activeBinPricePerToken = dlmmPool.fromPricePerLamport(
 
 ```ts
 const TOTAL_RANGE_INTERVAL = 10; // 10 bins on each side of the active bin
-const bins = [activeBin.binId]; // Make sure bins is less than 70, as currently only support up to 70 bins for 1 position
-for (
-  let i = activeBin.binId;
-  i < activeBin.binId + TOTAL_RANGE_INTERVAL / 2;
-  i++
-) {
-  const rightNextBinId = i + 1;
-  const leftPrevBinId = activeBin.binId - (rightNextBinId - activeBin.binId);
-  bins.push(rightNextBinId);
-  bins.unshift(leftPrevBinId);
-}
+const minBinId = activeBin.bin_id - TOTAL_RANGE_INTERVAL;
+const maxBinId = activeBin.bin_id + TOTAL_RANGE_INTERVAL;
 
 const activeBinPricePerToken = dlmmPool.fromPricePerLamport(
   Number(activeBin.price)
@@ -78,8 +69,8 @@ const createPositionTx =
     totalXAmount,
     totalYAmount,
     strategy: {
-      maxBinId: bins[bins.length - 1],
-      minBinId: bins[0],
+      maxBinId,
+      minBinId,
       strategyType: StrategyType.SpotBalanced,
     },
   });
@@ -106,17 +97,8 @@ const binData = userPositions[0].positionData.positionBinData;
 
 ```ts
 const TOTAL_RANGE_INTERVAL = 10; // 10 bins on each side of the active bin
-const bins = [activeBin.binId]; // Make sure bins is less than 70, as currently only support up to 70 bins for 1 position
-for (
-  let i = activeBin.binId;
-  i < activeBin.binId + TOTAL_RANGE_INTERVAL / 2;
-  i++
-) {
-  const rightNextBinId = i + 1;
-  const leftPrevBinId = activeBin.binId - (rightNextBinId - activeBin.binId);
-  bins.push(rightNextBinId);
-  bins.unshift(leftPrevBinId);
-}
+const minBinId = activeBin.bin_id - TOTAL_RANGE_INTERVAL;
+const maxBinId = activeBin.bin_id + TOTAL_RANGE_INTERVAL;
 
 const activeBinPricePerToken = dlmmPool.fromPricePerLamport(
   Number(activeBin.price)
@@ -131,8 +113,8 @@ const addLiquidityTx = await dlmmPool.addLiquidityByStrategy({
   totalXAmount,
   totalYAmount,
   strategy: {
-    maxBinId: bins[bins.length - 1],
-    minBinId: bins[0],
+    maxBinId,
+    minBinId,
     strategyType: StrategyType.SpotBalanced,
   },
 });

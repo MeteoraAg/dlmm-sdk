@@ -9,7 +9,7 @@ import {
 import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import { DLMM } from "./dlmm";
 import BN from "bn.js";
-import { LbPosition, StrategyType } from "./dlmm/types";
+import { BinLiquidity, LbPosition, StrategyType } from "./dlmm/types";
 
 const user = Keypair.fromSecretKey(
   new Uint8Array(bs58.decode(process.env.USER_PRIVATE_KEY))
@@ -35,7 +35,7 @@ export interface ParsedClockState {
   space: number;
 }
 
-let activeBin;
+let activeBin: BinLiquidity;
 let userPositions: LbPosition[] = [];
 
 const newBalancePosition = new Keypair();
@@ -51,17 +51,8 @@ async function getActiveBin(dlmmPool: DLMM) {
 // To create a balance deposit position
 async function createBalancePosition(dlmmPool: DLMM) {
   const TOTAL_RANGE_INTERVAL = 10; // 10 bins on each side of the active bin
-  const bins = [activeBin.binId]; // Make sure bins is less than 70, as currently only support up to 70 bins for 1 position
-  for (
-    let i = activeBin.binId;
-    i < activeBin.binId + TOTAL_RANGE_INTERVAL / 2;
-    i++
-  ) {
-    const rightNextBinId = i + 1;
-    const leftPrevBinId = activeBin.binId - (rightNextBinId - activeBin.binId);
-    bins.push(rightNextBinId);
-    bins.unshift(leftPrevBinId);
-  }
+  const minBinId = activeBin.binId - TOTAL_RANGE_INTERVAL;
+  const maxBinId = activeBin.binId + TOTAL_RANGE_INTERVAL;
 
   const activeBinPricePerToken = dlmmPool.fromPricePerLamport(
     Number(activeBin.price)
@@ -77,8 +68,8 @@ async function createBalancePosition(dlmmPool: DLMM) {
       totalXAmount,
       totalYAmount,
       strategy: {
-        maxBinId: bins[bins.length - 1],
-        minBinId: bins[0],
+        maxBinId,
+        minBinId,
         strategyType: StrategyType.SpotBalanced,
       },
     });
@@ -100,17 +91,8 @@ async function createBalancePosition(dlmmPool: DLMM) {
 
 async function createImbalancePosition(dlmmPool: DLMM) {
   const TOTAL_RANGE_INTERVAL = 10; // 10 bins on each side of the active bin
-  const bins = [activeBin.binId]; // Make sure bins is less than 70, as currently only support up to 70 bins for 1 position
-  for (
-    let i = activeBin.binId;
-    i < activeBin.binId + TOTAL_RANGE_INTERVAL / 2;
-    i++
-  ) {
-    const rightNextBinId = i + 1;
-    const leftPrevBinId = activeBin.binId - (rightNextBinId - activeBin.binId);
-    bins.push(rightNextBinId);
-    bins.unshift(leftPrevBinId);
-  }
+  const minBinId = activeBin.binId - TOTAL_RANGE_INTERVAL;
+  const maxBinId = activeBin.binId + TOTAL_RANGE_INTERVAL;
 
   const totalXAmount = new BN(100);
   const totalYAmount = new BN(50);
@@ -123,8 +105,8 @@ async function createImbalancePosition(dlmmPool: DLMM) {
       totalXAmount,
       totalYAmount,
       strategy: {
-        maxBinId: bins[bins.length - 1],
-        minBinId: bins[0],
+        maxBinId,
+        minBinId,
         strategyType: StrategyType.SpotImBalanced,
       },
     });
@@ -146,15 +128,8 @@ async function createImbalancePosition(dlmmPool: DLMM) {
 
 async function createOneSidePosition(dlmmPool: DLMM) {
   const TOTAL_RANGE_INTERVAL = 10; // 10 bins on each side of the active bin
-  const bins = [activeBin.binId]; // Make sure bins is less than 70, as currently only support up to 70 bins for 1 position
-  for (
-    let i = activeBin.binId;
-    i < activeBin.binId + TOTAL_RANGE_INTERVAL * 2;
-    i++
-  ) {
-    const rightNextBinId = i + 1;
-    bins.push(rightNextBinId);
-  }
+  const minBinId = activeBin.binId;
+  const maxBinId = activeBin.binId + TOTAL_RANGE_INTERVAL * 2;
 
   const totalXAmount = new BN(100);
   const totalYAmount = new BN(0);
@@ -167,8 +142,8 @@ async function createOneSidePosition(dlmmPool: DLMM) {
       totalXAmount,
       totalYAmount,
       strategy: {
-        maxBinId: bins[bins.length - 1],
-        minBinId: bins[0],
+        maxBinId,
+        minBinId,
         strategyType: StrategyType.SpotOneSide,
       },
     });
@@ -200,17 +175,8 @@ async function getPositionsState(dlmmPool: DLMM) {
 
 async function addLiquidityToExistingPosition(dlmmPool: DLMM) {
   const TOTAL_RANGE_INTERVAL = 10; // 10 bins on each side of the active bin
-  const bins = [activeBin.binId]; // Make sure bins is less than 70, as currently only support up to 70 bins for 1 position
-  for (
-    let i = activeBin.binId;
-    i < activeBin.binId + TOTAL_RANGE_INTERVAL / 2;
-    i++
-  ) {
-    const rightNextBinId = i + 1;
-    const leftPrevBinId = activeBin.binId - (rightNextBinId - activeBin.binId);
-    bins.push(rightNextBinId);
-    bins.unshift(leftPrevBinId);
-  }
+  const minBinId = activeBin.binId - TOTAL_RANGE_INTERVAL;
+  const maxBinId = activeBin.binId + TOTAL_RANGE_INTERVAL;
 
   const activeBinPricePerToken = dlmmPool.fromPricePerLamport(
     Number(activeBin.price)
@@ -225,8 +191,8 @@ async function addLiquidityToExistingPosition(dlmmPool: DLMM) {
     totalXAmount,
     totalYAmount,
     strategy: {
-      maxBinId: bins[bins.length - 1],
-      minBinId: bins[0],
+      maxBinId,
+      minBinId,
       strategyType: StrategyType.SpotBalanced,
     },
   });
@@ -319,7 +285,7 @@ async function removeImbalancePositionLiquidity(dlmmPool: DLMM) {
   }
 }
 
-async function removeOneSidePositionLiquidity(dlmmPool: DLMM) {
+async function removePositionLiquidity(dlmmPool: DLMM) {
   const userPosition = userPositions.find(({ publicKey }) =>
     publicKey.equals(newOneSidePosition.publicKey)
   );
@@ -427,7 +393,7 @@ async function main() {
   await addLiquidityToExistingPosition(dlmmPool);
   await removeBalancePositionLiquidity(dlmmPool);
   await removeImbalancePositionLiquidity(dlmmPool);
-  await removeOneSidePositionLiquidity(dlmmPool);
+  await removePositionLiquidity(dlmmPool);
   await swap(dlmmPool);
 }
 
