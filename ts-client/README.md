@@ -70,32 +70,26 @@ const activeBinPricePerToken = dlmmPool.fromPricePerLamport(
 const totalXAmount = new BN(100);
 const totalYAmount = totalXAmount.mul(new BN(Number(activeBinPricePerToken)));
 
-// Get spot distribution (You can calculate with other strategy `calculateSpotDistribution`, `calculateNormalDistribution`)
-const spotXYAmountDistribution = calculateSpotDistribution(
-  activeBin.binId,
-  bins
-);
-const newPosition = new Keypair();
+// Create Position (Spot Balance deposit, Please refer ``example.ts` for more example)
 const createPositionTx =
-  await dlmmPool.initializePositionAndAddLiquidityByWeight({
-    positionPubKey: newPosition.publicKey,
-    lbPairPubKey: dlmmPool.pubkey,
+  await dlmmPool.initializePositionAndAddLiquidityByStrategy({
+    positionPubKey: newBalancePosition.publicKey,
     user: user.publicKey,
     totalXAmount,
     totalYAmount,
-    xYAmountDistribution: spotXYAmountDistribution,
+    strategy: {
+      maxBinId: bins[bins.length - 1],
+      minBinId: bins[0],
+      strategyType: StrategyType.SpotBalanced,
+    },
   });
 
 try {
-  for (let tx of Array.isArray(createPositionTx)
-    ? createPositionTx
-    : [createPositionTx]) {
-    const createPositionTxHash = await sendAndConfirmTransaction(
-      connection,
-      tx,
-      [user, newPosition]
-    );
-  }
+  const createBalancePositionTxHash = await sendAndConfirmTransaction(
+    connection,
+    createPositionTx,
+    [user, newBalancePosition]
+  );
 } catch (error) {}
 ```
 
@@ -111,35 +105,59 @@ const binData = userPositions[0].positionData.positionBinData;
 - Add liquidity to existing position
 
 ```ts
-const addLiquidityTx = await dlmmPool.addLiquidityByWeight({
-  positionPubKey: userPositions[0].publicKey,
-  lbPairPubKey: dlmmPool.pubkey,
+const TOTAL_RANGE_INTERVAL = 10; // 10 bins on each side of the active bin
+const bins = [activeBin.binId]; // Make sure bins is less than 70, as currently only support up to 70 bins for 1 position
+for (
+  let i = activeBin.binId;
+  i < activeBin.binId + TOTAL_RANGE_INTERVAL / 2;
+  i++
+) {
+  const rightNextBinId = i + 1;
+  const leftPrevBinId = activeBin.binId - (rightNextBinId - activeBin.binId);
+  bins.push(rightNextBinId);
+  bins.unshift(leftPrevBinId);
+}
+
+const activeBinPricePerToken = dlmmPool.fromPricePerLamport(
+  Number(activeBin.price)
+);
+const totalXAmount = new BN(100);
+const totalYAmount = totalXAmount.mul(new BN(Number(activeBinPricePerToken)));
+
+// Add Liquidity to existing position
+const addLiquidityTx = await dlmmPool.addLiquidityByStrategy({
+  positionPubKey: newBalancePosition.publicKey,
   user: user.publicKey,
   totalXAmount,
   totalYAmount,
-  xYAmountDistribution: spotXYAmountDistribution,
+  strategy: {
+    maxBinId: bins[bins.length - 1],
+    minBinId: bins[0],
+    strategyType: StrategyType.SpotBalanced,
+  },
 });
 
 try {
-  for (let tx of Array.isArray(addLiquidityTx)
-    ? addLiquidityTx
-    : [addLiquidityTx]) {
-    const addLiquidityTxHash = await sendAndConfirmTransaction(connection, tx, [
-      user,
-      newPosition,
-    ]);
-  }
+  const addLiquidityTxHash = await sendAndConfirmTransaction(
+    connection,
+    addLiquidityTx,
+    [user]
+  );
 } catch (error) {}
 ```
 
 - Remove Liquidity
 
 ```ts
-const binIdsToRemove = userPositions[0].positionData.positionBinData.map(
+const userPosition = userPositions.find(({ publicKey }) =>
+  publicKey.equals(newBalancePosition.publicKey)
+);
+// Remove Liquidity
+const binIdsToRemove = userPosition.positionData.positionBinData.map(
   (bin) => bin.binId
 );
 const removeLiquidityTx = await dlmmPool.removeLiquidity({
-  position: userPositions[0].publicKey,
+  position: userPosition.publicKey,
   user: user.publicKey,
   binIds: binIdsToRemove,
   liquiditiesBpsToRemove: new Array(binIdsToRemove.length).fill(
@@ -152,10 +170,11 @@ try {
   for (let tx of Array.isArray(removeLiquidityTx)
     ? removeLiquidityTx
     : [removeLiquidityTx]) {
-    const removeLiquidityTxHash = await sendAndConfirmTransaction(
+    const removeBalanceLiquidityTxHash = await sendAndConfirmTransaction(
       connection,
       tx,
-      [user]
+      [user],
+      { skipPreflight: false, preflightCommitment: "singleGossip" }
     );
   }
 } catch (error) {}
