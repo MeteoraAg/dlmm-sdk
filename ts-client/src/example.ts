@@ -209,7 +209,7 @@ async function addLiquidityToExistingPosition(dlmmPool: DLMM) {
   }
 }
 
-async function removeBalancePositionLiquidity(dlmmPool: DLMM) {
+async function removePositionLiquidity1(dlmmPool: DLMM) {
   const userPosition = userPositions.find(({ publicKey }) =>
     publicKey.equals(newBalancePosition.publicKey)
   );
@@ -235,7 +235,7 @@ async function removeBalancePositionLiquidity(dlmmPool: DLMM) {
         connection,
         tx,
         [user],
-        { skipPreflight: false, preflightCommitment: "singleGossip" }
+        { skipPreflight: false, preflightCommitment: "confirmed" }
       );
       console.log(
         "🚀 ~ removeBalanceLiquidityTxHash:",
@@ -247,7 +247,7 @@ async function removeBalancePositionLiquidity(dlmmPool: DLMM) {
   }
 }
 
-async function removeImbalancePositionLiquidity(dlmmPool: DLMM) {
+async function removePositionLiquidity2(dlmmPool: DLMM) {
   const userPosition = userPositions.find(({ publicKey }) =>
     publicKey.equals(newImbalancePosition.publicKey)
   );
@@ -273,7 +273,7 @@ async function removeImbalancePositionLiquidity(dlmmPool: DLMM) {
         connection,
         tx,
         [user],
-        { skipPreflight: false, preflightCommitment: "singleGossip" }
+        { skipPreflight: false, preflightCommitment: "confirmed" }
       );
       console.log(
         "🚀 ~ removeImbalanceLiquidityTxHash:",
@@ -285,7 +285,7 @@ async function removeImbalancePositionLiquidity(dlmmPool: DLMM) {
   }
 }
 
-async function removePositionLiquidity(dlmmPool: DLMM) {
+async function removePositionLiquidity3(dlmmPool: DLMM) {
   const userPosition = userPositions.find(({ publicKey }) =>
     publicKey.equals(newOneSidePosition.publicKey)
   );
@@ -311,7 +311,7 @@ async function removePositionLiquidity(dlmmPool: DLMM) {
         connection,
         tx,
         [user],
-        { skipPreflight: false, preflightCommitment: "singleGossip" }
+        { skipPreflight: false, preflightCommitment: "confirmed" }
       );
       console.log(
         "🚀 ~ removeOneSideLiquidityTxHash:",
@@ -391,9 +391,9 @@ async function main() {
   await createOneSidePosition(dlmmPool);
   await getPositionsState(dlmmPool);
   await addLiquidityToExistingPosition(dlmmPool);
-  await removeBalancePositionLiquidity(dlmmPool);
-  await removeImbalancePositionLiquidity(dlmmPool);
-  await removePositionLiquidity(dlmmPool);
+  await removePositionLiquidity1(dlmmPool);
+  await removePositionLiquidity2(dlmmPool);
+  await removePositionLiquidity3(dlmmPool);
   await swap(dlmmPool);
 }
 
