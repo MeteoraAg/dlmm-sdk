@@ -5,6 +5,12 @@ members = [
     "market_making"
 ]
 
+[workspace.dependencies]
+anchor-lang = "0.28.0"
+anyhow = "1.0.71"
+spl-associated-token-account = "1"
+tokio = "~1.14.1"
+
 [profile.release]
 overflow-checks = true
 lto = "fat"
