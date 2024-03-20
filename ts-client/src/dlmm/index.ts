@@ -395,6 +395,22 @@ export class DLMM {
     return lbClmmImpl;
   }
 
+  static async getAllPresetParameters(connection: Connection, opt?: Opt) {
+    const provider = new AnchorProvider(
+      connection,
+      {} as any,
+      AnchorProvider.defaultOptions()
+    );
+    const program = new Program(
+      IDL,
+      LBCLMM_PROGRAM_IDS[opt?.cluster ?? "mainnet-beta"],
+      provider
+    );
+
+    const presetParameter = await program.account.presetParameter.all();
+    return presetParameter;
+  }
+
   /**
    * The function `getAllLbPairPositionsByUser` retrieves all liquidity pool pair positions for a given
    * user.

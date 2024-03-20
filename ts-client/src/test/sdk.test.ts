@@ -179,7 +179,6 @@ describe("SDK test", () => {
       await program.account.presetParameter.fetchNullable(presetParamPda);
 
     if (!presetParamState) {
-      console.log("test");
       await program.methods
         .initializePresetParameter({
           binStep: DEFAULT_BIN_STEP.toNumber(),
@@ -225,6 +224,13 @@ describe("SDK test", () => {
     } catch (error) {
       console.log(JSON.parse(JSON.stringify(error)));
     }
+  });
+
+  it("fetch all preset parameter", async () => {
+    const presetParams = await DLMM.getAllPresetParameters(connection, {
+      cluster: "localhost",
+    });
+    expect(presetParams.length).toBeGreaterThan(0);
   });
 
   it("create LB pair with bitmap extension", async () => {
