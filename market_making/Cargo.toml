@@ -11,7 +11,7 @@ hyper = { version = "0.14.17", features = ["full"] }
 routerify = "3"
 ureq = { version = "2.0.0", features = ["json"]}
 anchor-client = { workspace = true, features=["async"] }
-anchor-spl="0.28.0"
+anchor-spl.workspace = true
 anchor-lang.workspace = true
 env_logger="0.9.0"
 log="0.4.17"
