@@ -48,8 +48,7 @@ export async function checkPoolExists(
 ): Promise<PublicKey | false> {
   try {
     const [lbPairKey] = deriveLbPair(tokenX, tokenY, binStep, programId);
-    const dlmm = await DLMM.create(connection, lbPairKey);
-    await dlmm.program.account.lbPair.fetch(lbPairKey);
+    await DLMM.create(connection, lbPairKey);
     return lbPairKey;
   } catch {
     return false;
