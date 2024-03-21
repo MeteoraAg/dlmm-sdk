@@ -1,5 +1,6 @@
 import { BN } from '@coral-xyz/anchor';
-import { PublicKey } from '@solana/web3.js';
+import { Connection, PublicKey } from '@solana/web3.js';
+import { DLMM } from "..";
 
 /** private */
 function sortTokenMints(tokenX: PublicKey, tokenY: PublicKey) {
@@ -21,12 +22,17 @@ export function derivePresetParameter(binStep: BN, programId: PublicKey) {
 export function deriveLbPair(tokenX: PublicKey, tokenY: PublicKey, binStep: BN, programId: PublicKey) {
     const [minKey, maxKey] = sortTokenMints(tokenX, tokenY);
     return PublicKey.findProgramAddressSync(
-        [minKey.toBuffer(), maxKey.toBuffer(), new Uint8Array(binStep.toBuffer('le', 2))],
+        [minKey.toBuffer(), maxKey.toBuffer(), new Uint8Array(binStep.toArrayLike(Buffer, 'le', 2))],
         programId,
     );
 }
 
-
+export async function checkPoolExists(connection: Connection, tokenX: PublicKey, tokenY: PublicKey, binStep: BN, programId: PublicKey) {
+    const [lbPairKey] = deriveLbPair(tokenX, tokenY, binStep, programId);
+    const dlmm = await DLMM.create(connection,lbPairKey);
+    const { activeId } = await dlmm.program.account.lbPair.fetch(lbPairKey);
+    return !!activeId
+}
 
 export function deriveOracle(lbPair: PublicKey, programId: PublicKey) {
     return PublicKey.findProgramAddressSync([Buffer.from('oracle'), lbPair.toBytes()], programId);
