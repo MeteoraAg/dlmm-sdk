@@ -945,7 +945,7 @@ export class DLMM {
   }
 
   public static getBinIdFromPrice(
-    price: number,
+    price: string | number | Decimal,
     binStep: number,
     min: boolean
   ): number {
