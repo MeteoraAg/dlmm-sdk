@@ -934,6 +934,28 @@ export class DLMM {
     );
   }
 
+  public static getPricePerLamport(
+    tokenXDecimal: number,
+    tokenYDecimal: number,
+    price: number
+  ): string {
+    return new Decimal(price)
+      .mul(new Decimal(10 ** (tokenYDecimal - tokenXDecimal)))
+      .toString();
+  }
+
+  public static getBinIdFromPrice(
+    price: number,
+    binStep: number,
+    min: boolean
+  ): number {
+    const binStepNum = new Decimal(binStep).div(new Decimal(BASIS_POINT_MAX));
+    const binId = new Decimal(price)
+      .log()
+      .dividedBy(new Decimal(1).add(binStepNum).log());
+    return (min ? binId.floor() : binId.ceil()).toNumber();
+  }
+
   /** Public methods */
 
   public static async createLbPair(
@@ -1322,9 +1344,11 @@ export class DLMM {
    * @returns {string} price per Lamport of bin
    */
   public toPricePerLamport(price: number): string {
-    return new Decimal(price)
-      .mul(new Decimal(10 ** (this.tokenY.decimal - this.tokenX.decimal)))
-      .toString();
+    return DLMM.getPricePerLamport(
+      this.tokenX.decimal,
+      this.tokenY.decimal,
+      price
+    );
   }
 
   /**
@@ -1381,13 +1405,7 @@ export class DLMM {
    * value should be used.
    */
   public getBinIdFromPrice(price: number, min: boolean): number {
-    const binStepNum = new Decimal(this.lbPair.binStep).div(
-      new Decimal(BASIS_POINT_MAX)
-    );
-    const binId = new Decimal(price)
-      .log()
-      .dividedBy(new Decimal(1).add(binStepNum).log());
-    return (min ? binId.floor() : binId.ceil()).toNumber();
+    return DLMM.getBinIdFromPrice(price, this.lbPair.binStep, min);
   }
 
   /**
