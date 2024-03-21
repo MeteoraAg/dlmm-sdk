@@ -1139,6 +1139,24 @@ export class DLMM {
     return binArrays;
   }
 
+  public static calculateFeeInfo(
+    baseFactor: number | string,
+    binStep: number | string
+  ): Omit<FeeInfo, "protocolFeePercentage"> {
+    const baseFeeRate = new BN(baseFactor).mul(new BN(binStep)).mul(new BN(10));
+    const baseFeeRatePercentage = new Decimal(baseFeeRate.toString())
+      .mul(new Decimal(100))
+      .div(new Decimal(FEE_PRECISION.toString()));
+    const maxFeeRatePercentage = new Decimal(MAX_FEE_RATE.toString())
+      .mul(new Decimal(100))
+      .div(new Decimal(FEE_PRECISION.toString()));
+
+    return {
+      baseFeeRatePercentage,
+      maxFeeRatePercentage,
+    };
+  }
+
   /**
    * The function `getFeeInfo` calculates and returns the base fee rate percentage, maximum fee rate
    * percentage, and protocol fee percentage.
@@ -1147,17 +1165,8 @@ export class DLMM {
   public getFeeInfo(): FeeInfo {
     const { baseFactor, protocolShare } = this.lbPair.parameters;
 
-    const baseFeeRate = new BN(baseFactor)
-      .mul(new BN(this.lbPair.binStep))
-      .mul(new BN(10));
-
-    const baseFeeRatePercentage = new Decimal(baseFeeRate.toString())
-      .mul(new Decimal(100))
-      .div(new Decimal(FEE_PRECISION.toString()));
-
-    const maxFeeRatePercentage = new Decimal(MAX_FEE_RATE.toString())
-      .mul(new Decimal(100))
-      .div(new Decimal(FEE_PRECISION.toString()));
+    const { baseFeeRatePercentage, maxFeeRatePercentage } =
+      DLMM.calculateFeeInfo(baseFactor, this.lbPair.binStep);
 
     const protocolFeePercentage = new Decimal(protocolShare.toString())
       .mul(new Decimal(100))
