@@ -212,8 +212,8 @@ describe("SDK test", () => {
         keypair.publicKey,
         BTC,
         USDC,
+        presetParamPda,
         DEFAULT_ACTIVE_ID,
-        DEFAULT_BIN_STEP,
         { cluster: "localhost" }
       );
       const txHash = await sendAndConfirmTransaction(connection, rawTx, [
@@ -239,8 +239,8 @@ describe("SDK test", () => {
       keypair.publicKey,
       NATIVE_MINT,
       USDC,
+      presetParamPda,
       ACTIVE_ID_OUT_OF_RANGE,
-      DEFAULT_BIN_STEP,
       { cluster: "localhost" }
     );
     const txHash = await sendAndConfirmTransaction(connection, rawTx, [

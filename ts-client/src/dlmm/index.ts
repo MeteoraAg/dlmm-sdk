@@ -963,8 +963,8 @@ export class DLMM {
     funder: PublicKey,
     tokenX: PublicKey,
     tokenY: PublicKey,
+    presetParameter: PublicKey,
     activeId: BN,
-    binStep: BN,
     opt?: Opt
   ): Promise<Transaction> {
     const provider = new AnchorProvider(
@@ -974,12 +974,16 @@ export class DLMM {
     );
     const program = new Program(IDL, LBCLMM_PROGRAM_IDS[opt.cluster], provider);
 
+    const presetParameterState = await program.account.presetParameter.fetch(
+      presetParameter
+    );
+    const binStep = new BN(presetParameterState.binStep);
+
     const [lbPair] = deriveLbPair(tokenX, tokenY, binStep, program.programId);
 
     const [reserveX] = deriveReserve(tokenX, lbPair, program.programId);
     const [reserveY] = deriveReserve(tokenY, lbPair, program.programId);
     const [oracle] = deriveOracle(lbPair, program.programId);
-    const [presetParameter] = derivePresetParameter(binStep, program.programId);
 
     const activeBinArrayIndex = binIdToBinArrayIndex(activeId);
     const binArrayBitmapExtension = isOverflowDefaultBinArrayBitmap(
