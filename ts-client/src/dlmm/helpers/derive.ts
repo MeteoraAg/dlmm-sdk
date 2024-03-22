@@ -16,7 +16,7 @@ export function derivePresetParameter(binStep: BN, programId: PublicKey) {
   return PublicKey.findProgramAddressSync(
     [
       Buffer.from("preset_parameter"),
-      new Uint8Array(binStep.toBuffer("le", 2)),
+      new Uint8Array(binStep.toArrayLike(Buffer, "le", 2)),
     ],
     programId
   );
