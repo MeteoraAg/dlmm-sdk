@@ -1382,9 +1382,10 @@ export class DLMM {
     activeBin: BinLiquidity;
     userPositions: Array<LbPosition>;
   }> {
+    const activeBin = await this.getActiveBin();
     if (!userPubKey) {
       return {
-        activeBin: await this.getActiveBin(),
+        activeBin,
         userPositions: [],
       };
     }
@@ -1593,31 +1594,8 @@ export class DLMM {
       })
     );
 
-    const { activeId } = this.program.coder.accounts.decode(
-      "lbPair",
-      lbPairAccInfo.data
-    );
-    const activeBinArrayIndex = binIdToBinArrayIndex(new BN(activeId));
-    const [activeBinArrayPubKey] = deriveBinArray(
-      this.pubkey,
-      activeBinArrayIndex,
-      this.program.programId
-    );
-    const activeBinArray =
-      positionBinArraysMapV2.get(activeBinArrayPubKey.toBase58()) ??
-      (await this.program.account.binArray.fetch(activeBinArrayPubKey));
-    const [activeBinState] = await this.getBins(
-      this.pubkey,
-      activeId,
-      activeId,
-      this.tokenX.decimal,
-      this.tokenY.decimal,
-      activeBinArray,
-      activeBinArray
-    );
-
     return {
-      activeBin: activeBinState,
+      activeBin,
       userPositions: [...userPositions, ...userPositionsV2],
     };
   }
