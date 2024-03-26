@@ -130,8 +130,8 @@ export function toAmountBothSide(
                 totalWeightX = totalWeightX.add(weighPerPrice);
             }
         });
-        const kx = new Decimal(amountX.toNumber()).div(totalWeightX);
-        const ky = new Decimal(amountY.toNumber()).div(totalWeightY);
+        const kx = new Decimal(amountX.toString()).div(totalWeightX);
+        const ky = new Decimal(amountY.toString()).div(totalWeightY);
         let k = (kx.lessThan(ky) ? kx : ky);
         return distributions.map((bin) => {
             if (bin.binId < activeId) {
@@ -139,7 +139,7 @@ export function toAmountBothSide(
                 return {
                     binId: bin.binId,
                     amountX: new BN(0),
-                    amountY: new BN(Math.floor(amount.toNumber())),
+                    amountY: new BN(amount.floor().toString()),
                 };
             }
             if (bin.binId > activeId) {
@@ -148,7 +148,7 @@ export function toAmountBothSide(
                 const amount = k.mul(weighPerPrice);
                 return {
                     binId: bin.binId,
-                    amountX: new BN(Math.floor(amount.toNumber())),
+                    amountX: new BN(amount.floor().toString()),
                     amountY: new BN(0),
                 };
             }
@@ -157,8 +157,8 @@ export function toAmountBothSide(
             const amountYActiveBin = k.mul(wy0);
             return {
                 binId: bin.binId,
-                amountX: new BN(Math.floor(amountXActiveBin.toNumber())),
-                amountY: new BN(Math.floor(amountYActiveBin.toNumber())),
+                amountX: new BN(amountXActiveBin.floor().toString()),
+                amountY: new BN(amountYActiveBin.floor().toString()),
             };
         });
     } else {
@@ -174,8 +174,8 @@ export function toAmountBothSide(
             }
         });
 
-        let kx = new Decimal(amountX.toNumber()).div(totalWeightX);
-        let ky = new Decimal(amountY.toNumber()).div(totalWeightY);
+        let kx = new Decimal(amountX.toString()).div(totalWeightX);
+        let ky = new Decimal(amountY.toString()).div(totalWeightY);
         let k = kx.lessThan(ky) ? kx : ky;
 
         return distributions.map((bin) => {
@@ -184,7 +184,7 @@ export function toAmountBothSide(
                 return {
                     binId: bin.binId,
                     amountX: new BN(0),
-                    amountY: new BN(Math.floor(amount.toNumber())),
+                    amountY: new BN(amount.floor().toString()),
                 };
             } else {
                 let price = getPriceOfBinByBinId(bin.binId, binStep);
@@ -192,7 +192,7 @@ export function toAmountBothSide(
                 const amount = k.mul(weighPerPrice);
                 return {
                     binId: bin.binId,
-                    amountX: new BN(Math.floor(amount.toNumber())),
+                    amountX: new BN(amount.floor().toString()),
                     amountY: new BN(0),
                 };
             }
@@ -336,7 +336,7 @@ export function autoFillXByWeight(
                 totalWeightX = totalWeightX.add(weighPerPrice);
             }
         });
-        const ky = totalWeightY.isZero() ? new Decimal(1) : new Decimal(amountY.toNumber()).div(totalWeightY);
+        const ky = totalWeightY.isZero() ? new Decimal(1) : new Decimal(amountY.toString()).div(totalWeightY);
         const amountX = ky.mul(totalWeightX);
         return new BN(amountX.floor().toString())
     }
