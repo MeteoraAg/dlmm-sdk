@@ -3,7 +3,7 @@ seeds = false
 skip-lint = false
 
 [programs.localnet]
-lb_clmm =  { address = "GrAkKfEpTKQuVHG2Y97Y2FF4i7y7Q5AHLK94JBy7Y5yv", idl = "target/idl/id.json" }
+lb_clmm = { address = "GrAkKfEpTKQuVHG2Y97Y2FF4i7y7Q5AHLK94JBy7Y5yv", idl = "target/idl/id.json" }
 
 [registry]
 url = "https://api.apr.dev"
@@ -28,3 +28,6 @@ deploy-local = "solana program deploy target/deploy/lb_clmm.so --keypair keys/lo
 
 [[test.validator.account_dir]]
 directory = "./artifacts/alpha-access"
+
+[test]
+startup_wait = 50000

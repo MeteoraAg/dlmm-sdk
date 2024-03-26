@@ -96,8 +96,8 @@ pub enum LBError {
     #[msg("Position is not empty")]
     NonEmptyPosition,
 
-    #[msg("Unauthorized alpha access")]
-    UnauthorizedAlphaAccess,
+    #[msg("Unauthorized access")]
+    UnauthorizedAccess,
 
     #[msg("Invalid fee parameter")]
     InvalidFeeParameter,
@@ -149,4 +149,10 @@ pub enum LBError {
 
     #[msg("Invalid strategy parameters")]
     InvalidStrategyParameters,
+
+    #[msg("Liquidity locked")]
+    LiquidityLocked,
+
+    #[msg("Invalid lock release slot")]
+    InvalidLockReleaseSlot,
 }
