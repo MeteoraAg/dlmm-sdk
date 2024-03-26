@@ -63,10 +63,10 @@ impl FromStr for MarketMakingMode {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_ascii_lowercase().as_str() {
-            "ModeRight" => Ok(MarketMakingMode::ModeRight),
-            "ModeLeft" => Ok(MarketMakingMode::ModeLeft),
-            "ModeBoth" => Ok(MarketMakingMode::ModeBoth),
-            "ModeView" => Ok(MarketMakingMode::ModeView),
+            "moderight" => Ok(MarketMakingMode::ModeRight),
+            "modeleft" => Ok(MarketMakingMode::ModeLeft),
+            "modeboth" => Ok(MarketMakingMode::ModeBoth),
+            "modeview" => Ok(MarketMakingMode::ModeView),
             _ => Err(anyhow::Error::msg("cannot get mode")),
         }
     }

@@ -1,4 +1,3 @@
-use crate::assert_eq_admin;
 use crate::errors::LBError;
 use crate::state::lb_pair::LbPair;
 use anchor_lang::prelude::*;
@@ -10,7 +9,7 @@ pub struct SetMaxSwappedAmount<'info> {
 
     #[account(
         mut,
-        constraint = assert_eq_admin(admin.key()) @ LBError::InvalidAdmin,
+        constraint = lb_pair.load()?.creator.eq(&admin.key()) @ LBError::UnauthorizedAccess,
     )]
     pub admin: Signer<'info>,
 }

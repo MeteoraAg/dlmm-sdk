@@ -1,7 +1,6 @@
 use crate::math::get_id_from_price;
 use crate::math::price_per_token_to_per_lamport;
 use anchor_client::{solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, Program};
-use anchor_spl::token::TokenAccount;
 use anchor_spl::token_interface::Mint;
 use anyhow::*;
 use lb_clmm::constants::{MAX_BIN_PER_ARRAY, MAX_BIN_PER_POSITION};
@@ -18,11 +17,8 @@ use std::ops::Deref;
 use std::result::Result::Ok;
 #[derive(Debug)]
 pub struct CheckMyBalanceParameters {
-    pub bin_step: u16,
-    pub permission: bool,
+    pub lb_pair: Pubkey,
     pub base_position_key: Pubkey,
-    pub token_mint_x: Pubkey,
-    pub token_mint_y: Pubkey,
     pub min_price: f64,
     pub max_price: f64,
 }
@@ -32,18 +28,15 @@ pub async fn check_my_balance<C: Deref<Target = impl Signer> + Clone>(
     program: &Program<C>,
 ) -> Result<()> {
     let CheckMyBalanceParameters {
-        bin_step,
-        permission,
+        lb_pair,
         base_position_key,
-        token_mint_x,
-        token_mint_y,
         min_price,
         max_price,
     } = params;
-    let (lb_pair, _bump) = derive_lb_pair_pda(token_mint_x, token_mint_y, bin_step, permission);
+    let lb_pair_state = program.account::<LbPair>(lb_pair).await?;
 
-    let token_mint_base: Mint = program.account(token_mint_x).await?;
-    let token_mint_quote: Mint = program.account(token_mint_y).await?;
+    let token_mint_base: Mint = program.account(lb_pair_state.token_x_mint).await?;
+    let token_mint_quote: Mint = program.account(lb_pair_state.token_y_mint).await?;
 
     let lb_pair_state: LbPair = program.account(lb_pair).await?;
 
@@ -104,8 +97,6 @@ pub async fn check_my_balance<C: Deref<Target = impl Signer> + Clone>(
                     let (amount_x, amount_y) = bin.calculate_out_amount(share)?;
                     total_amount_x = total_amount_x.safe_add(amount_x).unwrap();
                     total_amount_y = total_amount_y.safe_add(amount_y).unwrap();
-
-                    // println!("bin: {bin_id} amount_x: {amount_x} amount_y: {amount_y}");
                 }
 
                 let (fee_x_pending, fee_y_pending) =
@@ -125,9 +116,6 @@ pub async fn check_my_balance<C: Deref<Target = impl Signer> + Clone>(
         total_fee_x_pending as f64 / (10u64.pow(token_mint_base.decimals as u32) as f64);
     let total_fee_y_pending =
         total_fee_y_pending as f64 / (10u64.pow(token_mint_quote.decimals as u32) as f64);
-
-    let reserve_x: TokenAccount = program.account(lb_pair_state.reserve_x).await.unwrap();
-    println!("{}", reserve_x.amount);
 
     println!(
         "amount_x {total_amount_x} amount_y {total_amount_y} fee_x_pending {total_fee_x_pending} fee_y_pending {total_fee_y_pending}"

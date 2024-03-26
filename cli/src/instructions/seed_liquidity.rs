@@ -20,18 +20,15 @@ use lb_clmm::instructions::add_liquidity::{BinLiquidityDistribution, LiquidityPa
 use lb_clmm::math::u128x128_math::Rounding;
 use lb_clmm::state::bin::BinArray;
 use lb_clmm::state::lb_pair::LbPair;
-use lb_clmm::state::position::{Position, PositionV2};
+use lb_clmm::state::position::PositionV2;
 use lb_clmm::utils::pda::*;
 use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
 use rust_decimal::{Decimal, MathematicalOps};
 
 #[derive(Debug)]
 pub struct SeedLiquidityParameters {
-    pub permission: bool,
+    pub lb_pair: Pubkey,
     pub position_base_kp: Keypair,
-    pub token_mint_x: Pubkey,
-    pub token_mint_y: Pubkey,
-    pub bin_step: u16,
     pub amount: u64,
     pub min_price: f64,
     pub max_price: f64,
@@ -43,23 +40,17 @@ pub async fn seed_liquidity<C: Deref<Target = impl Signer> + Clone>(
     transaction_config: RpcSendTransactionConfig,
 ) -> Result<()> {
     let SeedLiquidityParameters {
-        permission,
+        lb_pair,
         position_base_kp,
-        token_mint_x,
-        token_mint_y,
-        bin_step,
         amount,
         min_price,
         max_price,
     } = params;
-
-    let (lb_pair, _bump) = derive_lb_pair_pda(token_mint_x, token_mint_y, bin_step, permission);
-
     let lb_pair_state: LbPair = program.account(lb_pair).await?;
     let bin_step = lb_pair_state.bin_step;
 
-    let token_mint_base: Mint = program.account(token_mint_x).await?;
-    let token_mint_quote: Mint = program.account(token_mint_y).await?;
+    let token_mint_base: Mint = program.account(lb_pair_state.token_x_mint).await?;
+    let token_mint_quote: Mint = program.account(lb_pair_state.token_y_mint).await?;
 
     // convert to wei amount
     let amount = amount
@@ -103,14 +94,16 @@ pub async fn seed_liquidity<C: Deref<Target = impl Signer> + Clone>(
         transaction_config,
         lb_pair_state.token_x_mint,
         program.payer(),
-    ).await?;
+    )
+    .await?;
 
     let user_token_y = get_or_create_ata(
         &program,
         transaction_config,
         lb_pair_state.token_y_mint,
         program.payer(),
-    ).await?;
+    )
+    .await?;
 
     let width = MAX_BIN_PER_POSITION as i32;
 
@@ -139,7 +132,8 @@ pub async fn seed_liquidity<C: Deref<Target = impl Signer> + Clone>(
                 let signature = request_builder
                     .accounts(accounts)
                     .args(ix)
-                    .send_with_spinner_and_config(transaction_config).await?;
+                    .send_with_spinner_and_config(transaction_config)
+                    .await?;
                 println!("Init bin array {idx} {signature}");
             }
         }
@@ -177,7 +171,9 @@ pub async fn seed_liquidity<C: Deref<Target = impl Signer> + Clone>(
                 .data(),
             };
             let builder = program.request().instruction(ix).signer(&position_base_kp);
-            let signature = builder.send_with_spinner_and_config(transaction_config).await;
+            let signature = builder
+                .send_with_spinner_and_config(transaction_config)
+                .await;
             println!("Create position lower bin id {lower_bin_id} upper bin id {upper_bin_id}. signature {:#?}", signature);
             signature?;
         }
@@ -257,7 +253,9 @@ pub async fn seed_liquidity<C: Deref<Target = impl Signer> + Clone>(
         let builder = instructions
             .into_iter()
             .fold(builder, |bld, ix| bld.instruction(ix));
-        let signature = builder.send_with_spinner_and_config(transaction_config).await;
+        let signature = builder
+            .send_with_spinner_and_config(transaction_config)
+            .await;
         println!(
             "seed liquidity min_bin_id {lower_bin_id} max_bin_id {upper_bin_id} {:#?}",
             signature
@@ -321,7 +319,9 @@ pub async fn seed_liquidity<C: Deref<Target = impl Signer> + Clone>(
             .instruction(ComputeBudgetInstruction::set_compute_unit_limit(1_400_000))
             .instruction(ix);
 
-        let signature = builder.send_with_spinner_and_config(transaction_config).await;
+        let signature = builder
+            .send_with_spinner_and_config(transaction_config)
+            .await;
         println!(
             "seed liquidity for precision loss bin id {max_active_id} amount {leftover} {:#?}",
             signature

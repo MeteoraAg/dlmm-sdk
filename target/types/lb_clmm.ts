@@ -250,11 +250,6 @@ export type LbClmm = {
           "isSigner": false
         },
         {
-          "name": "presetParameter",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
           "name": "admin",
           "isMut": true,
           "isSigner": true
@@ -287,12 +282,10 @@ export type LbClmm = {
       ],
       "args": [
         {
-          "name": "activeId",
-          "type": "i32"
-        },
-        {
-          "name": "binStep",
-          "type": "u16"
+          "name": "ixData",
+          "type": {
+            "defined": "InitPermissionPairIx"
+          }
         }
       ]
     },
@@ -1907,7 +1900,7 @@ export type LbClmm = {
           "isSigner": false
         },
         {
-          "name": "admin",
+          "name": "creator",
           "isMut": false,
           "isSigner": true
         }
@@ -2119,6 +2112,42 @@ export type LbClmm = {
         },
         {
           "name": "maxSwappedAmount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "setLockReleaseSlot",
+      "accounts": [
+        {
+          "name": "position",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "lbPair",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "sender",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "newLockReleaseSlot",
           "type": "u64"
         }
       ]
@@ -2401,7 +2430,7 @@ export type LbClmm = {
           {
             "name": "activationSlot",
             "docs": [
-              "Slot to enable the pair. Only available for permission pair."
+              "Slot to enable the pair. Only applicable for permission pair."
             ],
             "type": "u64"
           },
@@ -2420,6 +2449,20 @@ export type LbClmm = {
             "type": "u64"
           },
           {
+            "name": "lockDurationsInSlot",
+            "docs": [
+              "Liquidity lock duration for positions which created before activate. Only applicable for permission pair."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "creator",
+            "docs": [
+              "Pool creator"
+            ],
+            "type": "publicKey"
+          },
+          {
             "name": "reserved",
             "docs": [
               "Reserved space for future use"
@@ -2427,7 +2470,7 @@ export type LbClmm = {
             "type": {
               "array": [
                 "u8",
-                64
+                24
               ]
             }
           }
@@ -2698,6 +2741,20 @@ export type LbClmm = {
             "type": "publicKey"
           },
           {
+            "name": "lockReleaseSlot",
+            "docs": [
+              "Slot which the locked liquidity can be withdraw"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "subjectedToBootstrapLiquidityLocking",
+            "docs": [
+              "Is the position subjected to liquidity locking for the launch pool."
+            ],
+            "type": "u8"
+          },
+          {
             "name": "reserved",
             "docs": [
               "Reserved space for future use"
@@ -2705,7 +2762,7 @@ export type LbClmm = {
             "type": {
               "array": [
                 "u8",
-                128
+                119
               ]
             }
           }
@@ -2919,59 +2976,41 @@ export type LbClmm = {
       }
     },
     {
-      "name": "ParabolicParameter",
+      "name": "LiquidityOneSideParameter",
       "type": {
         "kind": "struct",
         "fields": [
           {
-            "name": "aRight",
+            "name": "amount",
             "docs": [
-              "amplification in right side, from center_bin_id to max_bin_id"
+              "Amount of X token or Y token to deposit"
             ],
-            "type": "i16"
+            "type": "u64"
           },
           {
-            "name": "aLeft",
+            "name": "activeId",
             "docs": [
-              "amplification in left side, from min_bin_id to center_bin_id"
-            ],
-            "type": "i16"
-          },
-          {
-            "name": "centerBinId",
-            "docs": [
-              "center bin id"
+              "Active bin that integrator observe off-chain"
             ],
             "type": "i32"
-          }
-        ]
-      }
-    },
-    {
-      "name": "SpotParameter",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "weightRight",
-            "docs": [
-              "weight in right side, from center_bin_id to max_bin_id"
-            ],
-            "type": "u16"
           },
           {
-            "name": "weightLeft",
+            "name": "maxActiveBinSlippage",
             "docs": [
-              "weight in left side, from min_bin_id to center_bin_id"
-            ],
-            "type": "u16"
-          },
-          {
-            "name": "centerBinId",
-            "docs": [
-              "center bin id"
+              "max active bin slippage allowed"
             ],
             "type": "i32"
+          },
+          {
+            "name": "binLiquidityDist",
+            "docs": [
+              "Liquidity distribution to each bins"
+            ],
+            "type": {
+              "vec": {
+                "defined": "BinLiquidityDistributionByWeight"
+              }
+            }
           }
         ]
       }
@@ -3014,46 +3053,6 @@ export type LbClmm = {
             "name": "amountY",
             "docs": [
               "Amount of Y token to deposit"
-            ],
-            "type": "u64"
-          },
-          {
-            "name": "activeId",
-            "docs": [
-              "Active bin that integrator observe off-chain"
-            ],
-            "type": "i32"
-          },
-          {
-            "name": "maxActiveBinSlippage",
-            "docs": [
-              "max active bin slippage allowed"
-            ],
-            "type": "i32"
-          },
-          {
-            "name": "binLiquidityDist",
-            "docs": [
-              "Liquidity distribution to each bins"
-            ],
-            "type": {
-              "vec": {
-                "defined": "BinLiquidityDistributionByWeight"
-              }
-            }
-          }
-        ]
-      }
-    },
-    {
-      "name": "LiquidityOneSideParameter",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "amount",
-            "docs": [
-              "Amount of X token or Y token to deposit"
             ],
             "type": "u64"
           },
@@ -3143,6 +3142,38 @@ export type LbClmm = {
                 "defined": "BinLiquidityDistribution"
               }
             }
+          }
+        ]
+      }
+    },
+    {
+      "name": "InitPermissionPairIx",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "activeId",
+            "type": "i32"
+          },
+          {
+            "name": "binStep",
+            "type": "u16"
+          },
+          {
+            "name": "baseFactor",
+            "type": "u16"
+          },
+          {
+            "name": "minBinId",
+            "type": "i32"
+          },
+          {
+            "name": "maxBinId",
+            "type": "i32"
+          },
+          {
+            "name": "lockDurationInSlot",
+            "type": "u64"
           }
         ]
       }
@@ -3657,13 +3688,31 @@ export type LbClmm = {
         "kind": "enum",
         "variants": [
           {
-            "name": "Spot"
+            "name": "SpotOneSide"
           },
           {
-            "name": "Curve"
+            "name": "CurveOneSide"
           },
           {
-            "name": "BidAsk"
+            "name": "BidAskOneSide"
+          },
+          {
+            "name": "SpotBalanced"
+          },
+          {
+            "name": "CurveBalanced"
+          },
+          {
+            "name": "BidAskBalanced"
+          },
+          {
+            "name": "SpotImBalanced"
+          },
+          {
+            "name": "CurveImBalanced"
+          },
+          {
+            "name": "BidAskImBalanced"
           }
         ]
       }
@@ -4199,6 +4248,36 @@ export type LbClmm = {
           "index": false
         }
       ]
+    },
+    {
+      "name": "UpdatePositionLockReleaseSlot",
+      "fields": [
+        {
+          "name": "position",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "currentSlot",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "newLockReleaseSlot",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "oldLockReleaseSlot",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "sender",
+          "type": "publicKey",
+          "index": false
+        }
+      ]
     }
   ],
   "errors": [
@@ -4359,8 +4438,8 @@ export type LbClmm = {
     },
     {
       "code": 6031,
-      "name": "UnauthorizedAlphaAccess",
-      "msg": "Unauthorized alpha access"
+      "name": "UnauthorizedAccess",
+      "msg": "Unauthorized access"
     },
     {
       "code": 6032,
@@ -4441,6 +4520,21 @@ export type LbClmm = {
       "code": 6047,
       "name": "MustWithdrawnIneligibleReward",
       "msg": "Must withdraw ineligible reward"
+    },
+    {
+      "code": 6048,
+      "name": "InvalidStrategyParameters",
+      "msg": "Invalid strategy parameters"
+    },
+    {
+      "code": 6049,
+      "name": "LiquidityLocked",
+      "msg": "Liquidity locked"
+    },
+    {
+      "code": 6050,
+      "name": "InvalidLockReleaseSlot",
+      "msg": "Invalid lock release slot"
     }
   ]
 };
@@ -4697,11 +4791,6 @@ export const IDL: LbClmm = {
           "isSigner": false
         },
         {
-          "name": "presetParameter",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
           "name": "admin",
           "isMut": true,
           "isSigner": true
@@ -4734,12 +4823,10 @@ export const IDL: LbClmm = {
       ],
       "args": [
         {
-          "name": "activeId",
-          "type": "i32"
-        },
-        {
-          "name": "binStep",
-          "type": "u16"
+          "name": "ixData",
+          "type": {
+            "defined": "InitPermissionPairIx"
+          }
         }
       ]
     },
@@ -6354,7 +6441,7 @@ export const IDL: LbClmm = {
           "isSigner": false
         },
         {
-          "name": "admin",
+          "name": "creator",
           "isMut": false,
           "isSigner": true
         }
@@ -6566,6 +6653,42 @@ export const IDL: LbClmm = {
         },
         {
           "name": "maxSwappedAmount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "setLockReleaseSlot",
+      "accounts": [
+        {
+          "name": "position",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "lbPair",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "sender",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "newLockReleaseSlot",
           "type": "u64"
         }
       ]
@@ -6848,7 +6971,7 @@ export const IDL: LbClmm = {
           {
             "name": "activationSlot",
             "docs": [
-              "Slot to enable the pair. Only available for permission pair."
+              "Slot to enable the pair. Only applicable for permission pair."
             ],
             "type": "u64"
           },
@@ -6867,6 +6990,20 @@ export const IDL: LbClmm = {
             "type": "u64"
           },
           {
+            "name": "lockDurationsInSlot",
+            "docs": [
+              "Liquidity lock duration for positions which created before activate. Only applicable for permission pair."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "creator",
+            "docs": [
+              "Pool creator"
+            ],
+            "type": "publicKey"
+          },
+          {
             "name": "reserved",
             "docs": [
               "Reserved space for future use"
@@ -6874,7 +7011,7 @@ export const IDL: LbClmm = {
             "type": {
               "array": [
                 "u8",
-                64
+                24
               ]
             }
           }
@@ -7145,6 +7282,20 @@ export const IDL: LbClmm = {
             "type": "publicKey"
           },
           {
+            "name": "lockReleaseSlot",
+            "docs": [
+              "Slot which the locked liquidity can be withdraw"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "subjectedToBootstrapLiquidityLocking",
+            "docs": [
+              "Is the position subjected to liquidity locking for the launch pool."
+            ],
+            "type": "u8"
+          },
+          {
             "name": "reserved",
             "docs": [
               "Reserved space for future use"
@@ -7152,7 +7303,7 @@ export const IDL: LbClmm = {
             "type": {
               "array": [
                 "u8",
-                128
+                119
               ]
             }
           }
@@ -7366,59 +7517,41 @@ export const IDL: LbClmm = {
       }
     },
     {
-      "name": "ParabolicParameter",
+      "name": "LiquidityOneSideParameter",
       "type": {
         "kind": "struct",
         "fields": [
           {
-            "name": "aRight",
+            "name": "amount",
             "docs": [
-              "amplification in right side, from center_bin_id to max_bin_id"
+              "Amount of X token or Y token to deposit"
             ],
-            "type": "i16"
+            "type": "u64"
           },
           {
-            "name": "aLeft",
+            "name": "activeId",
             "docs": [
-              "amplification in left side, from min_bin_id to center_bin_id"
-            ],
-            "type": "i16"
-          },
-          {
-            "name": "centerBinId",
-            "docs": [
-              "center bin id"
+              "Active bin that integrator observe off-chain"
             ],
             "type": "i32"
-          }
-        ]
-      }
-    },
-    {
-      "name": "SpotParameter",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "weightRight",
-            "docs": [
-              "weight in right side, from center_bin_id to max_bin_id"
-            ],
-            "type": "u16"
           },
           {
-            "name": "weightLeft",
+            "name": "maxActiveBinSlippage",
             "docs": [
-              "weight in left side, from min_bin_id to center_bin_id"
-            ],
-            "type": "u16"
-          },
-          {
-            "name": "centerBinId",
-            "docs": [
-              "center bin id"
+              "max active bin slippage allowed"
             ],
             "type": "i32"
+          },
+          {
+            "name": "binLiquidityDist",
+            "docs": [
+              "Liquidity distribution to each bins"
+            ],
+            "type": {
+              "vec": {
+                "defined": "BinLiquidityDistributionByWeight"
+              }
+            }
           }
         ]
       }
@@ -7461,46 +7594,6 @@ export const IDL: LbClmm = {
             "name": "amountY",
             "docs": [
               "Amount of Y token to deposit"
-            ],
-            "type": "u64"
-          },
-          {
-            "name": "activeId",
-            "docs": [
-              "Active bin that integrator observe off-chain"
-            ],
-            "type": "i32"
-          },
-          {
-            "name": "maxActiveBinSlippage",
-            "docs": [
-              "max active bin slippage allowed"
-            ],
-            "type": "i32"
-          },
-          {
-            "name": "binLiquidityDist",
-            "docs": [
-              "Liquidity distribution to each bins"
-            ],
-            "type": {
-              "vec": {
-                "defined": "BinLiquidityDistributionByWeight"
-              }
-            }
-          }
-        ]
-      }
-    },
-    {
-      "name": "LiquidityOneSideParameter",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "amount",
-            "docs": [
-              "Amount of X token or Y token to deposit"
             ],
             "type": "u64"
           },
@@ -7590,6 +7683,38 @@ export const IDL: LbClmm = {
                 "defined": "BinLiquidityDistribution"
               }
             }
+          }
+        ]
+      }
+    },
+    {
+      "name": "InitPermissionPairIx",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "activeId",
+            "type": "i32"
+          },
+          {
+            "name": "binStep",
+            "type": "u16"
+          },
+          {
+            "name": "baseFactor",
+            "type": "u16"
+          },
+          {
+            "name": "minBinId",
+            "type": "i32"
+          },
+          {
+            "name": "maxBinId",
+            "type": "i32"
+          },
+          {
+            "name": "lockDurationInSlot",
+            "type": "u64"
           }
         ]
       }
@@ -8104,13 +8229,31 @@ export const IDL: LbClmm = {
         "kind": "enum",
         "variants": [
           {
-            "name": "Spot"
+            "name": "SpotOneSide"
           },
           {
-            "name": "Curve"
+            "name": "CurveOneSide"
           },
           {
-            "name": "BidAsk"
+            "name": "BidAskOneSide"
+          },
+          {
+            "name": "SpotBalanced"
+          },
+          {
+            "name": "CurveBalanced"
+          },
+          {
+            "name": "BidAskBalanced"
+          },
+          {
+            "name": "SpotImBalanced"
+          },
+          {
+            "name": "CurveImBalanced"
+          },
+          {
+            "name": "BidAskImBalanced"
           }
         ]
       }
@@ -8646,6 +8789,36 @@ export const IDL: LbClmm = {
           "index": false
         }
       ]
+    },
+    {
+      "name": "UpdatePositionLockReleaseSlot",
+      "fields": [
+        {
+          "name": "position",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "currentSlot",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "newLockReleaseSlot",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "oldLockReleaseSlot",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "sender",
+          "type": "publicKey",
+          "index": false
+        }
+      ]
     }
   ],
   "errors": [
@@ -8806,8 +8979,8 @@ export const IDL: LbClmm = {
     },
     {
       "code": 6031,
-      "name": "UnauthorizedAlphaAccess",
-      "msg": "Unauthorized alpha access"
+      "name": "UnauthorizedAccess",
+      "msg": "Unauthorized access"
     },
     {
       "code": 6032,
@@ -8888,6 +9061,21 @@ export const IDL: LbClmm = {
       "code": 6047,
       "name": "MustWithdrawnIneligibleReward",
       "msg": "Must withdraw ineligible reward"
+    },
+    {
+      "code": 6048,
+      "name": "InvalidStrategyParameters",
+      "msg": "Invalid strategy parameters"
+    },
+    {
+      "code": 6049,
+      "name": "LiquidityLocked",
+      "msg": "Liquidity locked"
+    },
+    {
+      "code": 6050,
+      "name": "InvalidLockReleaseSlot",
+      "msg": "Invalid lock release slot"
     }
   ]
 };

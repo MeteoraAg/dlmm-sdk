@@ -15,9 +15,14 @@ import {
 } from "@solana/web3.js";
 import fs from "fs";
 import { DLMM } from "../dlmm/index";
-import { deriveLbPair, derivePresetParameter } from "../dlmm/helpers";
+import {
+  deriveLbPair,
+  derivePermissionLbPair,
+  derivePresetParameter,
+} from "../dlmm/helpers";
 import { BASIS_POINT_MAX, LBCLMM_PROGRAM_IDS } from "../dlmm/constants";
 import { IDL } from "../dlmm/idl";
+import { PairType } from "../dlmm/types";
 
 const keypairBuffer = fs.readFileSync(
   "../keys/localnet/admin-bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1.json",
@@ -203,6 +208,96 @@ describe("SDK test", () => {
           commitment: "confirmed",
         });
     }
+  });
+
+  describe("Permissioned lb pair", () => {
+    const baseKeypair = Keypair.generate();
+    let pairKey: PublicKey;
+    let pair: DLMM;
+
+    it("create permissioned LB pair", async () => {
+      const feeBps = new BN(50);
+      const lockDurationInSlot = new BN(0);
+
+      try {
+        const rawTx = await DLMM.createPermissionLbPair(
+          connection,
+          DEFAULT_BIN_STEP,
+          BTC,
+          USDC,
+          DEFAULT_ACTIVE_ID,
+          baseKeypair.publicKey,
+          keypair.publicKey,
+          feeBps,
+          lockDurationInSlot,
+          { cluster: "localhost" }
+        );
+        const txHash = await sendAndConfirmTransaction(connection, rawTx, [
+          keypair,
+          baseKeypair,
+        ]);
+        expect(txHash).not.toBeNull();
+        console.log("Create permissioned LB pair", txHash);
+
+        [pairKey] = derivePermissionLbPair(
+          baseKeypair.publicKey,
+          BTC,
+          USDC,
+          DEFAULT_BIN_STEP,
+          programId
+        );
+
+        pair = await DLMM.create(connection, pairKey, {
+          cluster: "localhost",
+        });
+
+        const pairState = pair.lbPair;
+        expect(pairState.pairType).toBe(PairType.Permissioned);
+      } catch (error) {
+        console.log(JSON.parse(JSON.stringify(error)));
+      }
+    });
+
+    it("update whitelisted wallet", async () => {
+      try {
+        const walletToWhitelist = PublicKey.unique();
+        const rawTx = await pair.updateWhitelistedWallet(walletToWhitelist);
+        const txHash = await sendAndConfirmTransaction(connection, rawTx, [
+          keypair,
+        ]);
+        console.log("Update whitelisted wallet", txHash);
+        expect(txHash).not.toBeNull();
+
+        await pair.refetchStates();
+
+        const pairState = pair.lbPair;
+        expect(pairState.whitelistedWallet[0].toBase58()).toBe(
+          walletToWhitelist.toBase58()
+        );
+      } catch (error) {
+        console.log(JSON.parse(JSON.stringify(error)));
+      }
+    });
+
+    it("update activation slot", async () => {
+      try {
+        const currentSlot = await connection.getSlot();
+        const activationSlot = new BN(currentSlot + 5000);
+        const rawTx = await pair.setActivationSlot(new BN(currentSlot + 5000));
+        const txHash = await sendAndConfirmTransaction(connection, rawTx, [
+          keypair,
+        ]);
+        console.log("Update activation slot", txHash);
+        expect(txHash).not.toBeNull();
+
+        await pair.refetchStates();
+
+        const pairState = pair.lbPair;
+        expect(pairState.activationSlot.eq(activationSlot)).toBeTruthy();
+      } catch (error) {
+        console.log(JSON.parse(JSON.stringify(error)));
+      }
+    });
   });
 
   it("create LB pair", async () => {
