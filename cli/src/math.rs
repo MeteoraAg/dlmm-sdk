@@ -1,10 +1,80 @@
+use anyhow::{anyhow, Result};
 use lb_clmm::constants::BASIS_POINT_MAX;
+use lb_clmm::math::price_math::get_price_from_id;
 use lb_clmm::math::u128x128_math::Rounding;
 use rust_decimal::MathematicalOps;
 use rust_decimal::{
     prelude::{FromPrimitive, ToPrimitive},
     Decimal,
 };
+
+pub fn find_swappable_min_max_bin_id(bin_step: u16) -> Result<(i32, i32)> {
+    let base = 1.0f64 + (bin_step as f64 / BASIS_POINT_MAX as f64);
+    let max_price_supported = 2.0f64.powi(64); // We use u64xu64 math
+    let n = (max_price_supported.log10() / base.log10()) as i32;
+
+    let mut min_bin_id = -n;
+    let mut max_bin_id = n;
+
+    let min_q64_price = 1;
+    let max_q64_price = u128::MAX;
+
+    loop {
+        match get_price_from_id(min_bin_id, bin_step) {
+            Ok(price) => {
+                if price > min_q64_price {
+                    break;
+                } else {
+                    min_bin_id += 1;
+                }
+            }
+            Err(_) => {
+                min_bin_id += 1;
+            }
+        }
+    }
+
+    loop {
+        match get_price_from_id(max_bin_id, bin_step) {
+            Ok(price) => {
+                if price < max_q64_price {
+                    break;
+                } else {
+                    max_bin_id -= 1;
+                }
+            }
+            Err(_) => {
+                max_bin_id -= 1;
+            }
+        }
+    }
+
+    Ok((min_bin_id, max_bin_id))
+}
+
+pub fn compute_base_factor_from_fee_bps(bin_step: u16, fee_bps: u16) -> Result<u16> {
+    let computed_base_factor = fee_bps as f64 * 10_000.0f64 / bin_step as f64;
+
+    // Sanity check
+    let casted_base_factor = computed_base_factor as u16 as f64;
+    if casted_base_factor != computed_base_factor {
+        if casted_base_factor == u16::MAX as f64 {
+            return Err(anyhow!("overflow"));
+        }
+
+        if casted_base_factor == 0.0f64 {
+            return Err(anyhow!("underflow"));
+        }
+
+        if computed_base_factor.fract() != 0.0 {
+            return Err(anyhow!("have decimals"));
+        }
+
+        return Err(anyhow!("unknown error"));
+    }
+
+    Ok(computed_base_factor as u16)
+}
 
 /// Calculate the bin id based on price. If the bin id is in between 2 bins, it will round up.
 pub fn get_id_from_price(bin_step: u16, price: &Decimal, rounding: Rounding) -> Option<i32> {

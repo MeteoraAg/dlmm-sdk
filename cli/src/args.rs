@@ -71,9 +71,6 @@ pub enum Command {
         token_mint_y: Pubkey,
         /// The initial price of the liquidity pair. Eg: 24123.12312412 USDC per 1 BTC.
         initial_price: f64,
-        /// Permission
-        #[clap(short, long)]
-        permission: bool,
     },
     /// Initialize bin array for the given liquidity pair. Use InitializeBinArrayWithPriceRange or InitializeBinArrayWithBinRange for a more user friendly version.
     InitializeBinArray {
@@ -293,54 +290,36 @@ pub struct Cli {
 
 #[derive(Debug, Parser)]
 pub enum AdminCommand {
-    /// Enable or disable a permission pool
+    /// Create a new permission liquidity pair. It allow liquidity fragmentation with exact bin step.
+    InitializePermissionPair {
+        /// Bin step of the liquidity pair. It decide the bps when between bins.
+        bin_step: u16,
+        /// Token X mint of the liquidity pair. Eg: BTC. This should be the base token.
+        token_mint_x: Pubkey,
+        /// Token Y mint of the liquidity pair. Eg: USDC. This should be the quote token.
+        token_mint_y: Pubkey,
+        /// The initial price of the liquidity pair. Eg: 24123.12312412 USDC per 1 BTC.
+        initial_price: f64,
+        /// Base keypair path
+        base_keypair_path: String,
+        /// Base fee bps
+        base_fee_bps: u16,
+        /// Lock duration for bootstrap liquidity position
+        lock_duration_in_slot: u64,
+    },
+
+    /// Toggle pool status
     TogglePoolStatus {
         /// Address of the pair
         lb_pair: Pubkey,
     },
 
-    /// Enable or disable a permission pool
-    TogglePoolStatus2 {
-        /// bin step
-        bin_step: u16,
-        /// Token X mint of the liquidity pair. Eg: BTC. This should be the base token.
-        token_mint_x: Pubkey,
-        /// Token Y mint of the liquidity pair. Eg: USDC. This should be the quote token.
-        token_mint_y: Pubkey,
-        /// permission:
-        #[clap(short, long)]
-        permission: bool,
-    },
-
-    UpdateWhitelistedWallet2 {
-        /// bin step
-        bin_step: u16,
-        /// Token X mint of the liquidity pair. Eg: BTC. This should be the base token.
-        token_mint_x: Pubkey,
-        /// Token Y mint of the liquidity pair. Eg: USDC. This should be the quote token.
-        token_mint_y: Pubkey,
-        /// permission:
-        #[clap(short, long)]
-        permission: bool,
-        /// Index of the wallet to be updated
-        idx: u8,
-        /// Wallet address to be whitelisted
-        wallet_address: Pubkey,
-    },
-
     /// Seed liquidity
     SeedLiquidity {
-        /// base key for pool
-        bin_step: u16,
-        /// permission:
-        #[clap(short, long)]
-        permission: bool,
-        // base position path
+        /// Address of the pair
+        lb_pair: Pubkey,
+        /// Base position path
         base_position_path: String,
-        /// Token X mint of the liquidity pair. Eg: BTC. This should be the base token.
-        token_mint_x: Pubkey,
-        /// Token Y mint of the liquidity pair. Eg: USDC. This should be the quote token.
-        token_mint_y: Pubkey,
         /// amount of x
         amount: u64,
         /// min price
@@ -348,39 +327,40 @@ pub enum AdminCommand {
         /// max price
         max_price: f64,
     },
+
     /// Remove liquidity by price range
     RemoveLiquidityByPriceRange {
-        /// base key for pool
-        bin_step: u16,
-        /// permission:
-        #[clap(short, long)]
-        permission: bool,
+        /// Address of the pair
+        lb_pair: Pubkey,
         // base position path
         base_position_key: Pubkey,
-        /// Token X mint of the liquidity pair. Eg: BTC. This should be the base token.
-        token_mint_x: Pubkey,
-        /// Token Y mint of the liquidity pair. Eg: USDC. This should be the quote token.
-        token_mint_y: Pubkey,
         /// min price
         min_price: f64,
         /// max price
         max_price: f64,
     },
+
     CheckMyBalance {
-        /// base key for pool
-        bin_step: u16,
-        /// permission:
-        #[clap(short, long)]
-        permission: bool,
+        /// Address of the pair
+        lb_pair: Pubkey,
         // base position path
         base_position_key: Pubkey,
-        /// Token X mint of the liquidity pair. Eg: BTC. This should be the base token.
-        token_mint_x: Pubkey,
-        /// Token Y mint of the liquidity pair. Eg: USDC. This should be the quote token.
-        token_mint_y: Pubkey,
         /// min price
         min_price: f64,
         /// max price
         max_price: f64,
+    },
+
+    SetActivationSlot {
+        /// Address of the pair
+        lb_pair: Pubkey,
+        /// Activation slot
+        activation_slot: u64,
+    },
+
+    SetSwapCapAmount {
+        lb_pair: Pubkey,
+        swap_cap_amount: u64,
+        swap_cap_deactivate_slot: u64,
     },
 }
