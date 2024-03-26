@@ -42,6 +42,8 @@ export type Position = IdlAccounts<LbClmm>["position"];
 export type vParameters = IdlAccounts<LbClmm>["lbPair"]["vParameters"];
 export type sParameters = IdlAccounts<LbClmm>["lbPair"]["parameters"];
 
+export type InitPermissionPairIx = IdlTypes<LbClmm>["InitPermissionPairIx"];
+
 export type BinLiquidityDistribution =
   IdlTypes<LbClmm>["BinLiquidityDistribution"];
 export type BinLiquidityReduction = IdlTypes<LbClmm>["BinLiquidityReduction"];
@@ -105,6 +107,10 @@ export enum PositionVersion {
   V2,
 }
 
+export enum PairType {
+  Permissionless,
+  Permissioned,
+}
 
 export const Strategy = {
   SpotOneSide: { spotOneSide: {} },
@@ -135,7 +141,6 @@ export interface StrategyParameters {
   minBinId: number;
   strategyType: StrategyType;
 }
-
 
 export interface TQuoteCreatePositionParams {
   strategy: StrategyParameters;
