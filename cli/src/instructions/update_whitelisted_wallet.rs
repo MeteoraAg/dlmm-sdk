@@ -15,7 +15,7 @@ pub async fn update_whitelisted_wallet<C: Deref<Target = impl Signer> + Clone>(
     transaction_config: RpcSendTransactionConfig,
 ) -> Result<()> {
     let accounts = accounts::UpdateWhitelistWallet {
-        admin: program.payer(),
+        creator: program.payer(),
         lb_pair,
     };
 
@@ -25,7 +25,8 @@ pub async fn update_whitelisted_wallet<C: Deref<Target = impl Signer> + Clone>(
     let signature = request_builder
         .accounts(accounts)
         .args(ix)
-        .send_with_spinner_and_config(transaction_config).await;
+        .send_with_spinner_and_config(transaction_config)
+        .await;
 
     println!("Update whitelisted wallet. Signature: {:#?}", signature);
 

@@ -42,6 +42,9 @@ use crate::{
         initialize_bin_array_with_price_range::{
             initialize_bin_array_with_price_range, InitBinArrayWithPriceRangeParameters,
         },
+        initialize_permission_lb_pair::{
+            initialize_permission_lb_pair, InitPermissionLbPairParameters,
+        },
         initialize_position::{initialize_position, InitPositionParameters},
         initialize_preset_parameter::initialize_preset_parameter,
         initialize_reward::*,
@@ -51,6 +54,8 @@ use crate::{
             remove_liquidity_by_price_range, RemoveLiquidityByPriceRangeParameters,
         },
         seed_liquidity::{seed_liquidity, SeedLiquidityParameters},
+        set_activation_slot::*,
+        set_swap_cap_amount::*,
         show_pair::show_pair,
         simulate_swap_demand::{simulate_swap_demand, SimulateSwapDemandParameters},
         swap::{swap, SwapParameters},
@@ -62,7 +67,6 @@ use crate::{
         withdraw_protocol_fee::{withdraw_protocol_fee, WithdrawProtocolFeeParams},
     },
 };
-use lb_clmm::utils::pda::derive_lb_pair_pda;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -96,14 +100,12 @@ async fn main() -> Result<()> {
             bin_step,
             token_mint_x,
             token_mint_y,
-            permission,
         } => {
             let params = InitLbPairParameters {
                 token_mint_x,
                 token_mint_y,
                 bin_step,
                 initial_price,
-                permission,
             };
             initialize_lb_pair(params, &amm_program, transaction_config).await?;
         }
@@ -229,7 +231,8 @@ async fn main() -> Result<()> {
             show_pair(lb_pair, &amm_program).await?;
         }
         Command::ShowPosition { position } => {
-            let position: lb_clmm::state::position::Position = amm_program.account(position).await?;
+            let position: lb_clmm::state::position::Position =
+                amm_program.account(position).await?;
             println!("{:#?}", position);
         }
         Command::InitializeReward {
@@ -351,13 +354,16 @@ async fn main() -> Result<()> {
             lb_pair,
             wallet_address,
             idx,
-        } => update_whitelisted_wallet(
-            lb_pair,
-            idx,
-            wallet_address,
-            &amm_program,
-            transaction_config,
-        ).await?,
+        } => {
+            update_whitelisted_wallet(
+                lb_pair,
+                idx,
+                wallet_address,
+                &amm_program,
+                transaction_config,
+            )
+            .await?
+        }
         Command::ListAllBinStep => {
             list_all_binstep(&amm_program).await?;
         }
@@ -376,43 +382,34 @@ async fn main() -> Result<()> {
             simulate_swap_demand(params, &amm_program, transaction_config).await?;
         }
         Command::Admin(admin_command) => match admin_command {
+            AdminCommand::InitializePermissionPair {
+                bin_step,
+                token_mint_x,
+                token_mint_y,
+                initial_price,
+                base_keypair_path,
+                base_fee_bps,
+                lock_duration_in_slot,
+            } => {
+                let base_keypair =
+                    read_keypair_file(base_keypair_path).expect("base keypair file not found");
+                let params = InitPermissionLbPairParameters {
+                    base_keypair,
+                    bin_step,
+                    initial_price,
+                    token_mint_x,
+                    token_mint_y,
+                    base_fee_bps,
+                    lock_duration_in_slot,
+                };
+                initialize_permission_lb_pair(params, &amm_program, transaction_config).await?;
+            }
             AdminCommand::TogglePoolStatus { lb_pair } => {
                 toggle_pool_status(lb_pair, &amm_program, transaction_config).await?;
             }
-            AdminCommand::TogglePoolStatus2 {
-                bin_step,
-                permission,
-                token_mint_x,
-                token_mint_y,
-            } => {
-                let (lb_pair, _bump) =
-                    derive_lb_pair_pda(token_mint_x, token_mint_y, bin_step, permission);
-                toggle_pool_status(lb_pair, &amm_program, transaction_config).await?;
-            }
-            AdminCommand::UpdateWhitelistedWallet2 {
-                bin_step,
-                token_mint_x,
-                token_mint_y,
-                permission,
-                wallet_address,
-                idx,
-            } => {
-                let (lb_pair, _bump) =
-                    derive_lb_pair_pda(token_mint_x, token_mint_y, bin_step, permission);
-                update_whitelisted_wallet(
-                    lb_pair,
-                    idx,
-                    wallet_address,
-                    &amm_program,
-                    transaction_config,
-                ).await?;
-            }
             AdminCommand::SeedLiquidity {
-                bin_step,
-                permission,
+                lb_pair,
                 base_position_path,
-                token_mint_x,
-                token_mint_y,
                 amount,
                 min_price,
                 max_price,
@@ -420,11 +417,8 @@ async fn main() -> Result<()> {
                 let position_base_kp = read_keypair_file(base_position_path)
                     .expect("position base keypair file not found");
                 let params = SeedLiquidityParameters {
-                    bin_step,
-                    permission,
+                    lb_pair,
                     position_base_kp,
-                    token_mint_x,
-                    token_mint_y,
                     amount,
                     min_price,
                     max_price,
@@ -432,44 +426,54 @@ async fn main() -> Result<()> {
                 seed_liquidity(params, &amm_program, transaction_config).await?;
             }
             AdminCommand::RemoveLiquidityByPriceRange {
-                bin_step,
-                permission,
+                lb_pair,
                 base_position_key,
-                token_mint_x,
-                token_mint_y,
                 min_price,
                 max_price,
             } => {
                 let params = RemoveLiquidityByPriceRangeParameters {
-                    bin_step,
-                    permission,
+                    lb_pair,
                     base_position_key,
-                    token_mint_x,
-                    token_mint_y,
                     min_price,
                     max_price,
                 };
                 remove_liquidity_by_price_range(params, &amm_program, transaction_config).await?;
             }
             AdminCommand::CheckMyBalance {
-                bin_step,
-                permission,
+                lb_pair,
                 base_position_key,
-                token_mint_x,
-                token_mint_y,
                 min_price,
                 max_price,
             } => {
                 let params = CheckMyBalanceParameters {
-                    bin_step,
-                    permission,
+                    lb_pair,
                     base_position_key,
-                    token_mint_x,
-                    token_mint_y,
                     min_price,
                     max_price,
                 };
                 check_my_balance(params, &amm_program).await?;
+            }
+            AdminCommand::SetActivationSlot {
+                activation_slot,
+                lb_pair,
+            } => {
+                let params = SetActivationSlotParam {
+                    activation_slot,
+                    lb_pair,
+                };
+                set_activation_slot(params, &amm_program, transaction_config).await?;
+            }
+            AdminCommand::SetSwapCapAmount {
+                lb_pair,
+                swap_cap_amount,
+                swap_cap_deactivate_slot,
+            } => {
+                let params = SetSwapCapParam {
+                    lb_pair,
+                    swap_cap_amount,
+                    swap_cap_deactivate_slot,
+                };
+                set_swap_cap(params, &amm_program, transaction_config).await?;
             }
         },
     };

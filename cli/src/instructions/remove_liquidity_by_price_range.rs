@@ -21,11 +21,8 @@ use std::result::Result::Ok;
 
 #[derive(Debug)]
 pub struct RemoveLiquidityByPriceRangeParameters {
-    pub bin_step: u16,
-    pub permission: bool,
+    pub lb_pair: Pubkey,
     pub base_position_key: Pubkey,
-    pub token_mint_x: Pubkey,
-    pub token_mint_y: Pubkey,
     pub min_price: f64,
     pub max_price: f64,
 }
@@ -36,22 +33,17 @@ pub async fn remove_liquidity_by_price_range<C: Deref<Target = impl Signer> + Cl
     transaction_config: RpcSendTransactionConfig,
 ) -> Result<()> {
     let RemoveLiquidityByPriceRangeParameters {
-        bin_step,
-        permission,
+        lb_pair,
         base_position_key,
-        token_mint_x,
-        token_mint_y,
         min_price,
         max_price,
     } = params;
 
-    let (lb_pair, _bump) = derive_lb_pair_pda(token_mint_x, token_mint_y, bin_step, permission);
-
     let lb_pair_state: LbPair = program.account(lb_pair).await?;
     let bin_step = lb_pair_state.bin_step;
 
-    let token_mint_base: Mint = program.account(token_mint_x).await?;
-    let token_mint_quote: Mint = program.account(token_mint_y).await?;
+    let token_mint_base: Mint = program.account(lb_pair_state.token_x_mint).await?;
+    let token_mint_quote: Mint = program.account(lb_pair_state.token_y_mint).await?;
 
     let min_price_per_lamport = price_per_token_to_per_lamport(
         min_price,
@@ -100,14 +92,16 @@ pub async fn remove_liquidity_by_price_range<C: Deref<Target = impl Signer> + Cl
                     transaction_config,
                     lb_pair_state.token_x_mint,
                     program.payer(),
-                ).await?;
+                )
+                .await?;
 
                 let user_token_y = get_or_create_ata(
                     &program,
                     transaction_config,
                     lb_pair_state.token_y_mint,
                     program.payer(),
-                ).await?;
+                )
+                .await?;
                 let (event_authority, _bump) = derive_event_authority_pda();
 
                 let instructions = vec![
@@ -177,7 +171,9 @@ pub async fn remove_liquidity_by_price_range<C: Deref<Target = impl Signer> + Cl
                 let builder = instructions
                     .into_iter()
                     .fold(builder, |bld, ix| bld.instruction(ix));
-                let signature = builder.send_with_spinner_and_config(transaction_config).await?;
+                let signature = builder
+                    .send_with_spinner_and_config(transaction_config)
+                    .await?;
                 println!("close popsition min_bin_id {i} {signature}");
             }
             Err(_err) => continue,
