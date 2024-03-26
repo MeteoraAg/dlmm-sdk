@@ -24,7 +24,7 @@ function internalBitmapRange() {
 function buildBitmapFromU64Arrays(u64Arrays: BN[], type: BitmapType) {
   const buffer = Buffer.concat(
     u64Arrays.map((b) => {
-      return b.toBuffer("le", 8);
+      return b.toArrayLike(Buffer, "le", 8);
     })
   );
 

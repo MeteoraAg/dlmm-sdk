@@ -179,7 +179,6 @@ describe("SDK test", () => {
       await program.account.presetParameter.fetchNullable(presetParamPda);
 
     if (!presetParamState) {
-      console.log("test");
       await program.methods
         .initializePresetParameter({
           binStep: DEFAULT_BIN_STEP.toNumber(),
@@ -213,8 +212,8 @@ describe("SDK test", () => {
         keypair.publicKey,
         BTC,
         USDC,
+        presetParamPda,
         DEFAULT_ACTIVE_ID,
-        DEFAULT_BIN_STEP,
         { cluster: "localhost" }
       );
       const txHash = await sendAndConfirmTransaction(connection, rawTx, [
@@ -227,14 +226,21 @@ describe("SDK test", () => {
     }
   });
 
+  it("fetch all preset parameter", async () => {
+    const presetParams = await DLMM.getAllPresetParameters(connection, {
+      cluster: "localhost",
+    });
+    expect(presetParams.length).toBeGreaterThan(0);
+  });
+
   it("create LB pair with bitmap extension", async () => {
     const rawTx = await DLMM.createLbPair(
       connection,
       keypair.publicKey,
       NATIVE_MINT,
       USDC,
+      presetParamPda,
       ACTIVE_ID_OUT_OF_RANGE,
-      DEFAULT_BIN_STEP,
       { cluster: "localhost" }
     );
     const txHash = await sendAndConfirmTransaction(connection, rawTx, [

@@ -395,6 +395,22 @@ export class DLMM {
     return lbClmmImpl;
   }
 
+  static async getAllPresetParameters(connection: Connection, opt?: Opt) {
+    const provider = new AnchorProvider(
+      connection,
+      {} as any,
+      AnchorProvider.defaultOptions()
+    );
+    const program = new Program(
+      IDL,
+      LBCLMM_PROGRAM_IDS[opt?.cluster ?? "mainnet-beta"],
+      provider
+    );
+
+    const presetParameter = await program.account.presetParameter.all();
+    return presetParameter;
+  }
+
   /**
    * The function `getAllLbPairPositionsByUser` retrieves all liquidity pool pair positions for a given
    * user.
@@ -918,6 +934,28 @@ export class DLMM {
     );
   }
 
+  public static getPricePerLamport(
+    tokenXDecimal: number,
+    tokenYDecimal: number,
+    price: number
+  ): string {
+    return new Decimal(price)
+      .mul(new Decimal(10 ** (tokenYDecimal - tokenXDecimal)))
+      .toString();
+  }
+
+  public static getBinIdFromPrice(
+    price: string | number | Decimal,
+    binStep: number,
+    min: boolean
+  ): number {
+    const binStepNum = new Decimal(binStep).div(new Decimal(BASIS_POINT_MAX));
+    const binId = new Decimal(price)
+      .log()
+      .dividedBy(new Decimal(1).add(binStepNum).log());
+    return (min ? binId.floor() : binId.ceil()).toNumber();
+  }
+
   /** Public methods */
 
   public static async createLbPair(
@@ -925,8 +963,8 @@ export class DLMM {
     funder: PublicKey,
     tokenX: PublicKey,
     tokenY: PublicKey,
+    presetParameter: PublicKey,
     activeId: BN,
-    binStep: BN,
     opt?: Opt
   ): Promise<Transaction> {
     const provider = new AnchorProvider(
@@ -936,12 +974,16 @@ export class DLMM {
     );
     const program = new Program(IDL, LBCLMM_PROGRAM_IDS[opt.cluster], provider);
 
+    const presetParameterState = await program.account.presetParameter.fetch(
+      presetParameter
+    );
+    const binStep = new BN(presetParameterState.binStep);
+
     const [lbPair] = deriveLbPair(tokenX, tokenY, binStep, program.programId);
 
     const [reserveX] = deriveReserve(tokenX, lbPair, program.programId);
     const [reserveY] = deriveReserve(tokenY, lbPair, program.programId);
     const [oracle] = deriveOracle(lbPair, program.programId);
-    const [presetParameter] = derivePresetParameter(binStep, program.programId);
 
     const activeBinArrayIndex = binIdToBinArrayIndex(activeId);
     const binArrayBitmapExtension = isOverflowDefaultBinArrayBitmap(
@@ -1123,6 +1165,24 @@ export class DLMM {
     return binArrays;
   }
 
+  public static calculateFeeInfo(
+    baseFactor: number | string,
+    binStep: number | string
+  ): Omit<FeeInfo, "protocolFeePercentage"> {
+    const baseFeeRate = new BN(baseFactor).mul(new BN(binStep)).mul(new BN(10));
+    const baseFeeRatePercentage = new Decimal(baseFeeRate.toString())
+      .mul(new Decimal(100))
+      .div(new Decimal(FEE_PRECISION.toString()));
+    const maxFeeRatePercentage = new Decimal(MAX_FEE_RATE.toString())
+      .mul(new Decimal(100))
+      .div(new Decimal(FEE_PRECISION.toString()));
+
+    return {
+      baseFeeRatePercentage,
+      maxFeeRatePercentage,
+    };
+  }
+
   /**
    * The function `getFeeInfo` calculates and returns the base fee rate percentage, maximum fee rate
    * percentage, and protocol fee percentage.
@@ -1131,17 +1191,8 @@ export class DLMM {
   public getFeeInfo(): FeeInfo {
     const { baseFactor, protocolShare } = this.lbPair.parameters;
 
-    const baseFeeRate = new BN(baseFactor)
-      .mul(new BN(this.lbPair.binStep))
-      .mul(new BN(10));
-
-    const baseFeeRatePercentage = new Decimal(baseFeeRate.toString())
-      .mul(new Decimal(100))
-      .div(new Decimal(FEE_PRECISION.toString()));
-
-    const maxFeeRatePercentage = new Decimal(MAX_FEE_RATE.toString())
-      .mul(new Decimal(100))
-      .div(new Decimal(FEE_PRECISION.toString()));
+    const { baseFeeRatePercentage, maxFeeRatePercentage } =
+      DLMM.calculateFeeInfo(baseFactor, this.lbPair.binStep);
 
     const protocolFeePercentage = new Decimal(protocolShare.toString())
       .mul(new Decimal(100))
@@ -1297,9 +1348,11 @@ export class DLMM {
    * @returns {string} price per Lamport of bin
    */
   public toPricePerLamport(price: number): string {
-    return new Decimal(price)
-      .mul(new Decimal(10 ** (this.tokenY.decimal - this.tokenX.decimal)))
-      .toString();
+    return DLMM.getPricePerLamport(
+      this.tokenX.decimal,
+      this.tokenY.decimal,
+      price
+    );
   }
 
   /**
@@ -1356,13 +1409,7 @@ export class DLMM {
    * value should be used.
    */
   public getBinIdFromPrice(price: number, min: boolean): number {
-    const binStepNum = new Decimal(this.lbPair.binStep).div(
-      new Decimal(BASIS_POINT_MAX)
-    );
-    const binId = new Decimal(price)
-      .log()
-      .dividedBy(new Decimal(1).add(binStepNum).log());
-    return (min ? binId.floor() : binId.ceil()).toNumber();
+    return DLMM.getBinIdFromPrice(price, this.lbPair.binStep, min);
   }
 
   /**
