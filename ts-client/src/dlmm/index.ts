@@ -1429,43 +1429,44 @@ export class DLMM {
     activeBin: BinLiquidity;
     userPositions: Array<LbPosition>;
   }> {
-    const activeBin = await this.getActiveBin();
+    const [activeBin, positions, positionsV2] = await Promise.all([
+      this.getActiveBin(),
+      this.program.account.position.all([
+        {
+          memcmp: {
+            bytes: bs58.encode(userPubKey.toBuffer()),
+            offset: 8 + 32,
+          },
+        },
+        {
+          memcmp: {
+            bytes: bs58.encode(this.pubkey.toBuffer()),
+            offset: 8,
+          },
+        },
+      ]),
+      this.program.account.positionV2.all([
+        {
+          memcmp: {
+            bytes: bs58.encode(userPubKey.toBuffer()),
+            offset: 8 + 32,
+          },
+        },
+        {
+          memcmp: {
+            bytes: bs58.encode(this.pubkey.toBuffer()),
+            offset: 8,
+          },
+        },
+      ]),
+    ]);
+
     if (!userPubKey) {
       return {
         activeBin,
         userPositions: [],
       };
     }
-
-    const positions = await this.program.account.position.all([
-      {
-        memcmp: {
-          bytes: bs58.encode(userPubKey.toBuffer()),
-          offset: 8 + 32,
-        },
-      },
-      {
-        memcmp: {
-          bytes: bs58.encode(this.pubkey.toBuffer()),
-          offset: 8,
-        },
-      },
-    ]);
-
-    const positionsV2 = await this.program.account.positionV2.all([
-      {
-        memcmp: {
-          bytes: bs58.encode(userPubKey.toBuffer()),
-          offset: 8 + 32,
-        },
-      },
-      {
-        memcmp: {
-          bytes: bs58.encode(this.pubkey.toBuffer()),
-          offset: 8,
-        },
-      },
-    ]);
 
     const binArrayPubkeySet = new Set<string>();
     positions.forEach(({ account: { upperBinId, lowerBinId } }) => {
@@ -2610,24 +2611,18 @@ export class DLMM {
     user,
     position,
     binIds,
-    liquiditiesBpsToRemove,
+    bps,
     shouldClaimAndClose = false,
   }: {
     user: PublicKey;
     position: PublicKey;
     binIds: number[];
-    liquiditiesBpsToRemove: BN[];
+    bps: BN;
     shouldClaimAndClose?: boolean;
   }): Promise<Transaction | Transaction[]> {
     const { lbPair, lowerBinId } = await this.program.account.positionV2.fetch(
       position
     );
-
-    /// assertions
-    if (binIds.length !== liquiditiesBpsToRemove.length)
-      throw new Error(
-        "binIds and liquiditiesBpsToRemove should be of equal length"
-      );
 
     const { reserveX, reserveY, tokenXMint, tokenYMint } =
       await this.program.account.lbPair.fetch(lbPair);
@@ -2745,15 +2740,6 @@ export class DLMM {
       closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
     }
 
-    const binLiquidityReduction: BinLiquidityReduction[] = binIds.map(
-      (binId, idx) => {
-        return {
-          binId,
-          bpsToRemove: liquiditiesBpsToRemove[idx].toNumber(),
-        };
-      }
-    );
-
     const minBinId = Math.min(...binIds);
     const maxBinId = Math.max(...binIds);
 
@@ -2768,14 +2754,8 @@ export class DLMM {
       ? deriveBinArrayBitmapExtension(this.pubkey, this.program.programId)[0]
       : null;
 
-    const isFullyWithdraw = liquiditiesBpsToRemove.every((bps) =>
-      bps.eq(new BN(100 * 100))
-    );
-    const removeLiquidityMethod = isFullyWithdraw
-      ? this.program.methods.removeAllLiquidity()
-      : this.program.methods.removeLiquidity(binLiquidityReduction);
-
-    const removeLiquidityTx = await removeLiquidityMethod
+    const removeLiquidityTx = await this.program.methods
+      .removeLiquidityByRange(minBinId, maxBinId, bps.toNumber())
       .accounts({
         position,
         lbPair,
