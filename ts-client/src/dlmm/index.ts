@@ -1429,7 +1429,7 @@ export class DLMM {
     activeBin: BinLiquidity;
     userPositions: Array<LbPosition>;
   }> {
-    const [activeBin, positions, positionsV2] = await Promise.all([
+    const promiseResults = await Promise.allSettled([
       this.getActiveBin(),
       this.program.account.position.all([
         {
@@ -1460,6 +1460,22 @@ export class DLMM {
         },
       ]),
     ]);
+
+    if (promiseResults.some(({ status }) => status === "rejected")) {
+      throw new Error("Error fetching positions or active bin");
+    }
+
+    // Have to do this because typescript doesn't map the type properly if using .map
+    const activeBin =
+      promiseResults[0].status === "fulfilled" ? promiseResults[0].value : null;
+    const positions =
+      promiseResults[1].status === "fulfilled" ? promiseResults[1].value : null;
+    const positionsV2 =
+      promiseResults[2].status === "fulfilled" ? promiseResults[2].value : null;
+
+    if (!activeBin || !positions || !positionsV2) {
+      throw new Error("Error fetching positions or active bin");
+    }
 
     if (!userPubKey) {
       return {
