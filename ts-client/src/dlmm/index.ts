@@ -1429,43 +1429,60 @@ export class DLMM {
     activeBin: BinLiquidity;
     userPositions: Array<LbPosition>;
   }> {
-    const activeBin = await this.getActiveBin();
+    const promiseResults = await Promise.allSettled([
+      this.getActiveBin(),
+      this.program.account.position.all([
+        {
+          memcmp: {
+            bytes: bs58.encode(userPubKey.toBuffer()),
+            offset: 8 + 32,
+          },
+        },
+        {
+          memcmp: {
+            bytes: bs58.encode(this.pubkey.toBuffer()),
+            offset: 8,
+          },
+        },
+      ]),
+      this.program.account.positionV2.all([
+        {
+          memcmp: {
+            bytes: bs58.encode(userPubKey.toBuffer()),
+            offset: 8 + 32,
+          },
+        },
+        {
+          memcmp: {
+            bytes: bs58.encode(this.pubkey.toBuffer()),
+            offset: 8,
+          },
+        },
+      ]),
+    ]);
+
+    if (promiseResults.some(({ status }) => status === "rejected")) {
+      throw new Error("Error fetching positions or active bin");
+    }
+
+    // Have to do this because typescript doesn't map the type properly if using .map
+    const activeBin =
+      promiseResults[0].status === "fulfilled" ? promiseResults[0].value : null;
+    const positions =
+      promiseResults[1].status === "fulfilled" ? promiseResults[1].value : null;
+    const positionsV2 =
+      promiseResults[2].status === "fulfilled" ? promiseResults[2].value : null;
+
+    if (!activeBin || !positions || !positionsV2) {
+      throw new Error("Error fetching positions or active bin");
+    }
+
     if (!userPubKey) {
       return {
         activeBin,
         userPositions: [],
       };
     }
-
-    const positions = await this.program.account.position.all([
-      {
-        memcmp: {
-          bytes: bs58.encode(userPubKey.toBuffer()),
-          offset: 8 + 32,
-        },
-      },
-      {
-        memcmp: {
-          bytes: bs58.encode(this.pubkey.toBuffer()),
-          offset: 8,
-        },
-      },
-    ]);
-
-    const positionsV2 = await this.program.account.positionV2.all([
-      {
-        memcmp: {
-          bytes: bs58.encode(userPubKey.toBuffer()),
-          offset: 8 + 32,
-        },
-      },
-      {
-        memcmp: {
-          bytes: bs58.encode(this.pubkey.toBuffer()),
-          offset: 8,
-        },
-      },
-    ]);
 
     const binArrayPubkeySet = new Set<string>();
     positions.forEach(({ account: { upperBinId, lowerBinId } }) => {
@@ -2610,24 +2627,18 @@ export class DLMM {
     user,
     position,
     binIds,
-    liquiditiesBpsToRemove,
+    bps,
     shouldClaimAndClose = false,
   }: {
     user: PublicKey;
     position: PublicKey;
     binIds: number[];
-    liquiditiesBpsToRemove: BN[];
+    bps: BN;
     shouldClaimAndClose?: boolean;
   }): Promise<Transaction | Transaction[]> {
     const { lbPair, lowerBinId } = await this.program.account.positionV2.fetch(
       position
     );
-
-    /// assertions
-    if (binIds.length !== liquiditiesBpsToRemove.length)
-      throw new Error(
-        "binIds and liquiditiesBpsToRemove should be of equal length"
-      );
 
     const { reserveX, reserveY, tokenXMint, tokenYMint } =
       await this.program.account.lbPair.fetch(lbPair);
@@ -2745,15 +2756,6 @@ export class DLMM {
       closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
     }
 
-    const binLiquidityReduction: BinLiquidityReduction[] = binIds.map(
-      (binId, idx) => {
-        return {
-          binId,
-          bpsToRemove: liquiditiesBpsToRemove[idx].toNumber(),
-        };
-      }
-    );
-
     const minBinId = Math.min(...binIds);
     const maxBinId = Math.max(...binIds);
 
@@ -2769,7 +2771,7 @@ export class DLMM {
       : null;
 
     const removeLiquidityTx = await this.program.methods
-      .removeLiquidity(binLiquidityReduction)
+      .removeLiquidityByRange(minBinId, maxBinId, bps.toNumber())
       .accounts({
         position,
         lbPair,
