@@ -261,11 +261,10 @@ export class DLMM {
   ): Promise<DLMM[]> {
     const cluster = opt?.cluster || "mainnet-beta";
 
-    const provider = new AnchorProvider(
-      connection,
-      {} as any,
-      AnchorProvider.defaultOptions()
-    );
+    const provider = new AnchorProvider(connection, {} as any, {
+      commitment: "confirmed",
+      preflightCommitment: "confirmed",
+    });
     const program = new Program(IDL, LBCLMM_PROGRAM_IDS[cluster], provider);
 
     const binArrayBitMapExtensions = dlmmList.map(
@@ -1429,6 +1428,7 @@ export class DLMM {
     activeBin: BinLiquidity;
     userPositions: Array<LbPosition>;
   }> {
+    console.log(this.program.provider.connection);
     const promiseResults = await Promise.allSettled([
       this.getActiveBin(),
       this.program.account.position.all([
