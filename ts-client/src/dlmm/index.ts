@@ -2768,8 +2768,14 @@ export class DLMM {
       ? deriveBinArrayBitmapExtension(this.pubkey, this.program.programId)[0]
       : null;
 
-    const removeLiquidityTx = await this.program.methods
-      .removeLiquidity(binLiquidityReduction)
+    const isFullyWithdraw = liquiditiesBpsToRemove.every((bps) =>
+      bps.eq(new BN(100 * 100))
+    );
+    const removeLiquidityMethod = isFullyWithdraw
+      ? this.program.methods.removeAllLiquidity()
+      : this.program.methods.removeLiquidity(binLiquidityReduction);
+
+    const removeLiquidityTx = await removeLiquidityMethod
       .accounts({
         position,
         lbPair,
