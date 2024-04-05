@@ -1431,7 +1431,7 @@ export class DLMM {
   }> {
     const promiseResults = await Promise.allSettled([
       this.getActiveBin(),
-      this.program.account.position.all([
+      userPubKey && this.program.account.position.all([
         {
           memcmp: {
             bytes: bs58.encode(userPubKey.toBuffer()),
@@ -1445,7 +1445,7 @@ export class DLMM {
           },
         },
       ]),
-      this.program.account.positionV2.all([
+      userPubKey && this.program.account.positionV2.all([
         {
           memcmp: {
             bytes: bs58.encode(userPubKey.toBuffer()),
