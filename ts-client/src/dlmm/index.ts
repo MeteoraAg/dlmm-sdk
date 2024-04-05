@@ -1429,52 +1429,44 @@ export class DLMM {
     activeBin: BinLiquidity;
     userPositions: Array<LbPosition>;
   }> {
-    const promiseResults = await Promise.allSettled([
+    const promiseResults = await Promise.all([
       this.getActiveBin(),
-      this.program.account.position.all([
-        {
-          memcmp: {
-            bytes: bs58.encode(userPubKey.toBuffer()),
-            offset: 8 + 32,
+      userPubKey &&
+        this.program.account.position.all([
+          {
+            memcmp: {
+              bytes: bs58.encode(userPubKey.toBuffer()),
+              offset: 8 + 32,
+            },
           },
-        },
-        {
-          memcmp: {
-            bytes: bs58.encode(this.pubkey.toBuffer()),
-            offset: 8,
+          {
+            memcmp: {
+              bytes: bs58.encode(this.pubkey.toBuffer()),
+              offset: 8,
+            },
           },
-        },
-      ]),
-      this.program.account.positionV2.all([
-        {
-          memcmp: {
-            bytes: bs58.encode(userPubKey.toBuffer()),
-            offset: 8 + 32,
+        ]),
+      userPubKey &&
+        this.program.account.positionV2.all([
+          {
+            memcmp: {
+              bytes: bs58.encode(userPubKey.toBuffer()),
+              offset: 8 + 32,
+            },
           },
-        },
-        {
-          memcmp: {
-            bytes: bs58.encode(this.pubkey.toBuffer()),
-            offset: 8,
+          {
+            memcmp: {
+              bytes: bs58.encode(this.pubkey.toBuffer()),
+              offset: 8,
+            },
           },
-        },
-      ]),
+        ]),
     ]);
 
-    if (promiseResults.some(({ status }) => status === "rejected")) {
-      throw new Error("Error fetching positions or active bin");
-    }
+    const [activeBin, positions, positionsV2] = promiseResults;
 
-    // Have to do this because typescript doesn't map the type properly if using .map
-    const activeBin =
-      promiseResults[0].status === "fulfilled" ? promiseResults[0].value : null;
-    const positions =
-      promiseResults[1].status === "fulfilled" ? promiseResults[1].value : null;
-    const positionsV2 =
-      promiseResults[2].status === "fulfilled" ? promiseResults[2].value : null;
-
-    if (!activeBin || !positions || !positionsV2) {
-      throw new Error("Error fetching positions or active bin");
+    if (!activeBin) {
+      throw new Error("Error fetching active bin");
     }
 
     if (!userPubKey) {
@@ -1482,6 +1474,10 @@ export class DLMM {
         activeBin,
         userPositions: [],
       };
+    }
+
+    if (!positions || !positionsV2) {
+      throw new Error("Error fetching positions");
     }
 
     const binArrayPubkeySet = new Set<string>();
