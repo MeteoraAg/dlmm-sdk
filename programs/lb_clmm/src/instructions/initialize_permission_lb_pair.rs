@@ -1,8 +1,10 @@
-use crate::assert_eq_admin;
+use crate::assert_eq_launch_pool_admin;
 use crate::constants::DEFAULT_OBSERVATION_LENGTH;
 use crate::errors::LBError;
+use crate::events::LbPairCreate;
 use crate::state::bin_array_bitmap_extension::BinArrayBitmapExtension;
 use crate::state::lb_pair::LbPair;
+use crate::state::lb_pair::PairType;
 use crate::state::oracle::Oracle;
 use crate::state::preset_parameters::PresetParameter;
 use crate::utils::seeds::BIN_ARRAY_BITMAP_SEED;
@@ -11,9 +13,19 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use std::cmp::{max, min};
 
+#[derive(AnchorSerialize, AnchorDeserialize)]
+pub struct InitPermissionPairIx {
+    pub active_id: i32,
+    pub bin_step: u16,
+    pub base_factor: u16,
+    pub min_bin_id: i32,
+    pub max_bin_id: i32,
+    pub lock_duration_in_slot: u64,
+}
+
 #[event_cpi]
 #[derive(Accounts)]
-#[instruction(active_id: i32, bin_step: u16)]
+#[instruction(ix_data: InitPermissionPairIx)]
 pub struct InitializePermissionLbPair<'info> {
     pub base: Signer<'info>,
 
@@ -23,7 +35,7 @@ pub struct InitializePermissionLbPair<'info> {
             base.key().as_ref(),
             min(token_mint_x.key(), token_mint_y.key()).as_ref(),
             max(token_mint_x.key(), token_mint_y.key()).as_ref(),
-            &bin_step.to_le_bytes(),
+            &ix_data.bin_step.to_le_bytes(),
         ],
         bump,
         payer = admin,
@@ -85,17 +97,11 @@ pub struct InitializePermissionLbPair<'info> {
     pub oracle: AccountLoader<'info, Oracle>,
 
     #[account(
-        constraint = bin_step == preset_parameter.bin_step @ LBError::NonPresetBinStep,
-    )]
-    pub preset_parameter: Account<'info, PresetParameter>,
-
-    #[account(
         mut,
-        constraint = assert_eq_admin(admin.key()) @ LBError::InvalidAdmin,
+        constraint = assert_eq_launch_pool_admin(admin.key()) @ LBError::InvalidAdmin,
     )]
     pub admin: Signer<'info>,
 
-    // #[account(address = Token2022::id())]
     pub token_program: Interface<'info, TokenInterface>,
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
@@ -103,8 +109,7 @@ pub struct InitializePermissionLbPair<'info> {
 
 pub fn handle(
     ctx: Context<InitializePermissionLbPair>,
-    active_id: i32,
-    bin_step: u16,
+    ix_data: InitPermissionPairIx,
 ) -> Result<()> {
     Ok(())
 }

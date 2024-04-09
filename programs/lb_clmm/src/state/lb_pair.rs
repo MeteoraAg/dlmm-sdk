@@ -117,14 +117,18 @@ pub struct LbPair {
     pub whitelisted_wallet: [Pubkey; 2],
     /// Base keypair. Only required for permission pair
     pub base_key: Pubkey,
-    /// Slot to enable the pair. Only available for permission pair.
+    /// Slot to enable the pair. Only applicable for permission pair.
     pub activation_slot: u64,
     /// Last slot until pool remove max_swapped_amount for buying
     pub swap_cap_deactivate_slot: u64,
     /// Max X swapped amount user can swap from y to x between activation_slot and last_slot
     pub max_swapped_amount: u64,
+    /// Liquidity lock duration for positions which created before activate. Only applicable for permission pair.
+    pub lock_durations_in_slot: u64,
+    /// Pool creator
+    pub creator: Pubkey,
     /// Reserved space for future use
-    pub _reserved: [u8; 64],
+    pub _reserved: [u8; 24],
 }
 
 impl Default for LbPair {
@@ -158,8 +162,10 @@ impl Default for LbPair {
             activation_slot,
             swap_cap_deactivate_slot,
             max_swapped_amount,
+            creator: Pubkey::default(),
+            lock_durations_in_slot: 0,
             _padding1: [0u8; 5],
-            _reserved: [0u8; 64],
+            _reserved: [0u8; 24],
         }
     }
 }
@@ -300,6 +306,8 @@ impl LbPair {
         pair_type: PairType,
         pair_status: u8,
         base_key: Pubkey,
+        lock_duration_in_slot: u64,
+        creator: Pubkey,
     ) -> Result<()> {
         self.parameters = static_parameter;
         self.active_id = active_id;
@@ -315,15 +323,36 @@ impl LbPair {
         self.pair_type = pair_type.into();
         self.base_key = base_key;
         self.status = pair_status;
+        self.creator = creator;
+
         let LaunchPadParams {
             activation_slot,
             swap_cap_deactivate_slot,
             max_swapped_amount,
         } = pair_type.get_pair_default_launch_pad_params();
+
         self.activation_slot = activation_slot;
         self.swap_cap_deactivate_slot = swap_cap_deactivate_slot;
         self.max_swapped_amount = max_swapped_amount;
+        self.lock_durations_in_slot = lock_duration_in_slot;
+
         Ok(())
+    }
+
+    pub fn get_release_slot(&self, current_slot: u64) -> Result<u64> {
+        let release_slot = match self.pair_type()? {
+            PairType::Permission => {
+                if self.lock_durations_in_slot > 0 && current_slot < self.activation_slot {
+                    self.activation_slot
+                        .saturating_add(self.lock_durations_in_slot)
+                } else {
+                    0
+                }
+            }
+            _ => 0,
+        };
+
+        Ok(release_slot)
     }
 
     pub fn update_whitelisted_wallet(&mut self, idx: usize, wallet: Pubkey) -> Result<()> {

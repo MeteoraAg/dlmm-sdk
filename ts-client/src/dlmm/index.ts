@@ -9,6 +9,7 @@ import {
   SystemProgram,
   SYSVAR_CLOCK_PUBKEY,
   ConfirmOptions,
+  Keypair,
 } from "@solana/web3.js";
 import { IDL } from "./idl";
 import {
@@ -62,6 +63,7 @@ import {
   LiquidityParameterByStrategyOneSide,
   StrategyParameters,
   TQuoteCreatePositionParams,
+  InitPermissionPairIx,
 } from "./types";
 import { AnchorProvider, BN, Program } from "@coral-xyz/anchor";
 import {
@@ -92,6 +94,7 @@ import {
   findNextBinArrayIndexWithLiquidity,
   swapQuoteAtBinWithCap,
   toStrategyParameters,
+  derivePermissionLbPair,
 } from "./helpers";
 import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import Decimal from "decimal.js";
@@ -101,7 +104,12 @@ import {
   NATIVE_MINT,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
-import { Rounding, mulShr } from "./helpers/math";
+import {
+  Rounding,
+  computeBaseFactorFromFeeBps,
+  findSwappableMinMaxBinId,
+  mulShr,
+} from "./helpers/math";
 
 type Opt = {
   cluster: Cluster | "localhost";
@@ -958,6 +966,73 @@ export class DLMM {
 
   /** Public methods */
 
+  public static async createPermissionLbPair(
+    connection: Connection,
+    binStep: BN,
+    tokenX: PublicKey,
+    tokenY: PublicKey,
+    activeId: BN,
+    baseKey: PublicKey,
+    creatorKey: PublicKey,
+    feeBps: BN,
+    lockDurationInSlot: BN,
+    opt?: Opt
+  ) {
+    const provider = new AnchorProvider(
+      connection,
+      {} as any,
+      AnchorProvider.defaultOptions()
+    );
+    const program = new Program(IDL, LBCLMM_PROGRAM_IDS[opt.cluster], provider);
+
+    const [lbPair] = derivePermissionLbPair(
+      baseKey,
+      tokenX,
+      tokenY,
+      binStep,
+      program.programId
+    );
+
+    const [reserveX] = deriveReserve(tokenX, lbPair, program.programId);
+    const [reserveY] = deriveReserve(tokenY, lbPair, program.programId);
+    const [oracle] = deriveOracle(lbPair, program.programId);
+
+    const activeBinArrayIndex = binIdToBinArrayIndex(activeId);
+    const binArrayBitmapExtension = isOverflowDefaultBinArrayBitmap(
+      activeBinArrayIndex
+    )
+      ? deriveBinArrayBitmapExtension(lbPair, program.programId)[0]
+      : null;
+
+    const { minBinId, maxBinId } = findSwappableMinMaxBinId(binStep);
+
+    const ixData: InitPermissionPairIx = {
+      activeId: activeId.toNumber(),
+      binStep: binStep.toNumber(),
+      baseFactor: computeBaseFactorFromFeeBps(binStep, feeBps).toNumber(),
+      minBinId: minBinId.toNumber(),
+      maxBinId: maxBinId.toNumber(),
+      lockDurationInSlot,
+    };
+
+    return program.methods
+      .initializePermissionLbPair(ixData)
+      .accounts({
+        lbPair,
+        rent: SYSVAR_RENT_PUBKEY,
+        reserveX,
+        reserveY,
+        binArrayBitmapExtension,
+        tokenMintX: tokenX,
+        tokenMintY: tokenY,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        oracle,
+        systemProgram: SystemProgram.programId,
+        admin: creatorKey,
+        base: baseKey,
+      })
+      .transaction();
+  }
   public static async createLbPair(
     connection: Connection,
     funder: PublicKey,
@@ -3315,6 +3390,61 @@ export class DLMM {
           .add(...claimAllTx);
       })
     );
+  }
+
+  public async setActivationSlot(activationSlot: BN) {
+    const setActivationSlotTx = await this.program.methods
+      .setActivationSlot(activationSlot)
+      .accounts({
+        lbPair: this.pubkey,
+        admin: this.lbPair.creator,
+      })
+      .transaction();
+
+    const { blockhash, lastValidBlockHeight } =
+      await this.program.provider.connection.getLatestBlockhash("confirmed");
+
+    return new Transaction({
+      feePayer: this.lbPair.creator,
+      blockhash,
+      lastValidBlockHeight,
+    }).add(setActivationSlotTx);
+  }
+
+  /**
+   * The function `updateWhitelistedWallet` is used to whitelist a wallet, enabling it to deposit into a permissioned pool before the activation slot.
+   * @param
+   *    - `walletToWhitelist`: The public key of the wallet.
+   *    - `index`: Index of the whitelisted wallet to be inserted. Check DLMM.lbPair.whitelistedWallet for the index
+   * @returns {Promise<Transaction>}
+   */
+  public async updateWhitelistedWallet(
+    walletToWhitelist: PublicKey,
+    index?: number
+  ) {
+    const emptyIndex = this.lbPair.whitelistedWallet.findIndex((pk) =>
+      pk.equals(PublicKey.default)
+    );
+    const idx = index ? index : emptyIndex;
+    if (idx == -1) {
+      throw new Error(
+        "Whitelist wallets are full. Please manually specify index of the wallet to be replaced"
+      );
+    }
+    const updateWhitelistedWalletTx = await this.program.methods
+      .updateWhitelistedWallet(idx, walletToWhitelist)
+      .accounts({
+        lbPair: this.pubkey,
+        creator: this.lbPair.creator,
+      })
+      .transaction();
+    const { blockhash, lastValidBlockHeight } =
+      await this.program.provider.connection.getLatestBlockhash("confirmed");
+    return new Transaction({
+      feePayer: this.lbPair.creator,
+      blockhash,
+      lastValidBlockHeight,
+    }).add(updateWhitelistedWalletTx);
   }
 
   /**

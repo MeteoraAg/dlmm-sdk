@@ -2,32 +2,36 @@ use super::seeds::{self, BIN_ARRAY, BIN_ARRAY_BITMAP_SEED, ORACLE, PERMISSION, P
 use anchor_lang::prelude::Pubkey;
 use std::{cmp::max, cmp::min};
 
+pub fn derive_permission_lb_pair_pda(
+    base: Pubkey,
+    token_x_mint: Pubkey,
+    token_y_mint: Pubkey,
+    bin_step: u16,
+) -> (Pubkey, u8) {
+    Pubkey::find_program_address(
+        &[
+            base.as_ref(),
+            min(token_x_mint, token_y_mint).as_ref(),
+            max(token_x_mint, token_y_mint).as_ref(),
+            &bin_step.to_le_bytes(),
+        ],
+        &crate::ID,
+    )
+}
+
 pub fn derive_lb_pair_pda(
     token_x_mint: Pubkey,
     token_y_mint: Pubkey,
     bin_step: u16,
-    permission: bool,
 ) -> (Pubkey, u8) {
-    if permission {
-        Pubkey::find_program_address(
-            &[
-                PERMISSION,
-                min(token_x_mint, token_y_mint).as_ref(),
-                max(token_x_mint, token_y_mint).as_ref(),
-                &bin_step.to_le_bytes(),
-            ],
-            &crate::ID,
-        )
-    } else {
-        Pubkey::find_program_address(
-            &[
-                min(token_x_mint, token_y_mint).as_ref(),
-                max(token_x_mint, token_y_mint).as_ref(),
-                &bin_step.to_le_bytes(),
-            ],
-            &crate::ID,
-        )
-    }
+    Pubkey::find_program_address(
+        &[
+            min(token_x_mint, token_y_mint).as_ref(),
+            max(token_x_mint, token_y_mint).as_ref(),
+            &bin_step.to_le_bytes(),
+        ],
+        &crate::ID,
+    )
 }
 
 pub fn derive_position_pda(

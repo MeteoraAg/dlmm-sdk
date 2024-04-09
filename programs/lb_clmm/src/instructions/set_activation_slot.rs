@@ -10,7 +10,7 @@ pub struct SetActivationSlot<'info> {
 
     #[account(
         mut,
-        constraint = assert_eq_admin(admin.key()) @ LBError::InvalidAdmin,
+        constraint = lb_pair.load()?.creator.eq(&admin.key()) @ LBError::UnauthorizedAccess,
     )]
     pub admin: Signer<'info>,
 }

@@ -34,6 +34,7 @@ use instructions::migrate_position::*;
 use instructions::position_authorize::*;
 use instructions::remove_liquidity::*;
 use instructions::set_activation_slot::*;
+use instructions::set_lock_release_slot::*;
 use instructions::set_max_swapped_amount::*;
 use instructions::swap::*;
 use instructions::toggle_pair_status::*;
@@ -46,6 +47,7 @@ use instructions::update_reward_funder::*;
 use instructions::update_whitelisted_wallet::*;
 use instructions::withdraw_ineligible_reward::*;
 use instructions::withdraw_protocol_fee::*;
+
 #[cfg(feature = "localnet")]
 declare_id!("LbVRzDTvBDEcrthxfZ4RL6yiq3uZw8bS6MwtdY6UhFQ");
 
@@ -67,6 +69,22 @@ pub mod admin {
     ];
 }
 
+pub mod launch_pool_config_admins {
+    use super::*;
+    use anchor_lang::solana_program::pubkey;
+
+    #[cfg(feature = "localnet")]
+    pub const ADMINS: [Pubkey; 1] = [pubkey!("bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1")];
+
+    #[cfg(not(feature = "localnet"))]
+    pub const ADMINS: [Pubkey; 4] = [
+        pubkey!("4Qo6nr3CqiynvnA3SsbBtzVT3B1pmqQW4dwf2nFmnzYp"),
+        pubkey!("5unTfT2kssBuNvHPY6LbJfJpLqEcdMxGYLWHwShaeTLi"),
+        pubkey!("ChSAh3XXTxpp5n2EmgSCm6vVvVPoD1L9VrK3mcQkYz7m"),
+        pubkey!("DHLXnJdACTY83yKwnUkeoDjqi4QBbsYGa1v8tJL76ViX"),
+    ];
+}
+
 /// Authorized pubkey to withdraw protocol fee
 pub mod fee_owner {
     use super::*;
@@ -81,8 +99,13 @@ pub mod fee_owner {
 pub fn assert_eq_admin(admin: Pubkey) -> bool {
     crate::admin::ADMINS
         .iter()
-        .position(|predefined_admin| predefined_admin.eq(&admin))
-        .is_some()
+        .any(|predefined_admin| predefined_admin.eq(&admin))
+}
+
+pub fn assert_eq_launch_pool_admin(admin: Pubkey) -> bool {
+    crate::launch_pool_config_admins::ADMINS
+        .iter()
+        .any(|predefined_launch_pool_admin| predefined_launch_pool_admin.eq(&admin))
 }
 
 #[program]
@@ -100,10 +123,9 @@ pub mod lb_clmm {
 
     pub fn initialize_permission_lb_pair(
         ctx: Context<InitializePermissionLbPair>,
-        active_id: i32,
-        bin_step: u16,
+        ix_data: InitPermissionPairIx,
     ) -> Result<()> {
-        instructions::initialize_permission_lb_pair::handle(ctx, active_id, bin_step)
+        instructions::initialize_permission_lb_pair::handle(ctx, ix_data)
     }
 
     pub fn initialize_bin_array_bitmap_extension(
@@ -333,5 +355,12 @@ pub mod lb_clmm {
             swap_cap_deactivate_slot,
             max_swapped_amount,
         )
+    }
+
+    pub fn set_lock_release_slot(
+        ctx: Context<SetLockReleaseSlot>,
+        new_lock_release_slot: u64,
+    ) -> Result<()> {
+        instructions::set_lock_release_slot::handle(ctx, new_lock_release_slot)
     }
 }
