@@ -1,4 +1,4 @@
-use super::seeds::{self, BIN_ARRAY, BIN_ARRAY_BITMAP_SEED, ORACLE, PERMISSION, PRESET_PARAMETER};
+use super::seeds::{self, BIN_ARRAY, BIN_ARRAY_BITMAP_SEED, ORACLE, PRESET_PARAMETER};
 use anchor_lang::prelude::Pubkey;
 use std::{cmp::max, cmp::min};
 

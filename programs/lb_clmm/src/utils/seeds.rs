@@ -13,7 +13,4 @@ pub const BIN_ARRAY_BITMAP_SEED: &[u8] = b"bitmap";
 pub const PRESET_PARAMETER: &[u8] = b"preset_parameter";
 
 #[constant]
-pub const PERMISSION: &[u8] = b"permission";
-
-#[constant]
 pub const POSITION: &[u8] = b"position";

@@ -238,7 +238,7 @@ impl PositionV2 {
         Ok(())
     }
 
-    fn update_fee_per_token_stored(&mut self, bin_id: i32, bin: &Bin) -> Result<()> {
+    pub fn update_fee_per_token_stored(&mut self, bin_id: i32, bin: &Bin) -> Result<()> {
         let idx = self.get_idx(bin_id)?;
 
         let fee_infos = &mut self.fee_infos[idx];
@@ -276,7 +276,7 @@ impl PositionV2 {
         Ok(())
     }
 
-    fn update_reward_per_token_stored(&mut self, bin_id: i32, bin: &Bin) -> Result<()> {
+    pub fn update_reward_per_token_stored(&mut self, bin_id: i32, bin: &Bin) -> Result<()> {
         let idx = self.get_idx(bin_id)?;
 
         let reward_info = &mut self.reward_infos[idx];

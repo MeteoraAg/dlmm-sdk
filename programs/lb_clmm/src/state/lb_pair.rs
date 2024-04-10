@@ -489,7 +489,7 @@ impl LbPair {
     }
 
     /// Variable fee rate = variable fee factor * (volatility_accumulator * bin_step)^2
-    fn compute_variable_fee(&self, volatility_accumulator: u32) -> Result<u128> {
+    pub fn compute_variable_fee(&self, volatility_accumulator: u32) -> Result<u128> {
         if self.parameters.variable_fee_control > 0 {
             let volatility_accumulator: u128 = volatility_accumulator.into();
             let bin_step: u128 = self.bin_step.into();
