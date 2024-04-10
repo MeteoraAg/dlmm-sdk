@@ -92,7 +92,9 @@ pub struct LbPair {
     pub bin_step: u16,
     /// Status of the pair. Check PairStatus enum.
     pub status: u8,
-    pub _padding1: [u8; 5],
+    pub require_base_factor_seed: u8,
+    pub base_factor_seed: [u8; 2],
+    pub _padding1: [u8; 2],
     /// Token X mint
     pub token_x_mint: Pubkey,
     /// Token Y mint
@@ -164,7 +166,9 @@ impl Default for LbPair {
             max_swapped_amount,
             creator: Pubkey::default(),
             lock_durations_in_slot: 0,
-            _padding1: [0u8; 5],
+            require_base_factor_seed: 0,
+            base_factor_seed: [0u8; 2],
+            _padding1: [0u8; 2],
             _reserved: [0u8; 24],
         }
     }
