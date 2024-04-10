@@ -20,6 +20,7 @@ pub struct InitializeLbPair<'info> {
             min(token_mint_x.key(), token_mint_y.key()).as_ref(),
             max(token_mint_x.key(), token_mint_y.key()).as_ref(),
             &bin_step.to_le_bytes(),
+            &preset_parameter.base_factor.to_le_bytes()
         ],
         bump,
         payer = funder,

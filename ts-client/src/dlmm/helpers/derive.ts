@@ -22,6 +22,30 @@ export function derivePresetParameter(binStep: BN, programId: PublicKey) {
   );
 }
 
+export function deriveLbPair2(
+  tokenX: PublicKey,
+  tokenY: PublicKey,
+  binStep: BN,
+  baseFactor: BN,
+  programId: PublicKey
+) {
+  const [minKey, maxKey] = sortTokenMints(tokenX, tokenY);
+  return PublicKey.findProgramAddressSync(
+    [
+      minKey.toBuffer(),
+      maxKey.toBuffer(),
+      new Uint8Array(binStep.toArrayLike(Buffer, "le", 2)),
+      new Uint8Array(baseFactor.toArrayLike(Buffer, "le", 2)),
+    ],
+    programId
+  );
+}
+
+/**
+ *
+ * @deprecated Use deriveLbPair2
+ */
+
 export function deriveLbPair(
   tokenX: PublicKey,
   tokenY: PublicKey,

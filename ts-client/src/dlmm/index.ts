@@ -95,6 +95,7 @@ import {
   swapQuoteAtBinWithCap,
   toStrategyParameters,
   derivePermissionLbPair,
+  deriveLbPair2,
 } from "./helpers";
 import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import Decimal from "decimal.js";
@@ -1056,7 +1057,13 @@ export class DLMM {
     );
     const binStep = new BN(presetParameterState.binStep);
 
-    const [lbPair] = deriveLbPair(tokenX, tokenY, binStep, program.programId);
+    const [lbPair] = deriveLbPair2(
+      tokenX,
+      tokenY,
+      binStep,
+      new BN(presetParameterState.baseFactor),
+      program.programId
+    );
 
     const [reserveX] = deriveReserve(tokenX, lbPair, program.programId);
     const [reserveY] = deriveReserve(tokenY, lbPair, program.programId);

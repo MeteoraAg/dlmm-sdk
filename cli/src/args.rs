@@ -63,8 +63,8 @@ fn parse_bin_liquidity_distribution(src: &str) -> Result<(i32, f64, f64), Error>
 pub enum Command {
     /// Create a new liquidity pair.
     InitializePair {
-        /// Bin step of the liquidity pair. It decide the bps when between bins.
-        bin_step: u16,
+        /// Preset parameter pubkey. Get the pubkey from list_all_binstep command.
+        preset_parameter: Pubkey,
         /// Token X mint of the liquidity pair. Eg: BTC. This should be the base token.
         token_mint_x: Pubkey,
         /// Token Y mint of the liquidity pair. Eg: USDC. This should be the quote token.

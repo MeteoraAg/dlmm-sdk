@@ -2,6 +2,23 @@ use super::seeds::{self, BIN_ARRAY, BIN_ARRAY_BITMAP_SEED, ORACLE, PRESET_PARAME
 use anchor_lang::prelude::Pubkey;
 use std::{cmp::max, cmp::min};
 
+pub fn derive_permission_lb_pair_pda2(
+    token_x_mint: Pubkey,
+    token_y_mint: Pubkey,
+    bin_step: u16,
+    base_factor: u16,
+) -> (Pubkey, u8) {
+    Pubkey::find_program_address(
+        &[
+            min(token_x_mint, token_y_mint).as_ref(),
+            max(token_x_mint, token_y_mint).as_ref(),
+            &bin_step.to_le_bytes(),
+            &base_factor.to_le_bytes(),
+        ],
+        &crate::ID,
+    )
+}
+
 pub fn derive_permission_lb_pair_pda(
     base: Pubkey,
     token_x_mint: Pubkey,
@@ -19,6 +36,7 @@ pub fn derive_permission_lb_pair_pda(
     )
 }
 
+#[deprecated]
 pub fn derive_lb_pair_pda(
     token_x_mint: Pubkey,
     token_y_mint: Pubkey,
