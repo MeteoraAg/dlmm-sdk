@@ -1053,6 +1053,10 @@ export type LbClmm = {
         {
           name: "owner";
           type: "publicKey";
+        },
+        {
+          name: "feeOwner";
+          type: "publicKey";
         }
       ];
     },
@@ -2749,10 +2753,17 @@ export type LbClmm = {
             type: "u8";
           },
           {
+            name: "feeOwner";
+            docs: [
+              "Address is able to claim fee in this position, only valid for bootstrap_liquidity_position"
+            ];
+            type: "publicKey";
+          },
+          {
             name: "reserved";
             docs: ["Reserved space for future use"];
             type: {
-              array: ["u8", 119];
+              array: ["u8", 87];
             };
           }
         ];
@@ -5485,6 +5496,10 @@ export const IDL: LbClmm = {
           name: "owner",
           type: "publicKey",
         },
+        {
+          name: "feeOwner",
+          type: "publicKey",
+        },
       ],
     },
     {
@@ -7180,10 +7195,17 @@ export const IDL: LbClmm = {
             type: "u8",
           },
           {
+            name: "feeOwner",
+            docs: [
+              "Address is able to claim fee in this position, only valid for bootstrap_liquidity_position",
+            ],
+            type: "publicKey",
+          },
+          {
             name: "reserved",
             docs: ["Reserved space for future use"],
             type: {
-              array: ["u8", 119],
+              array: ["u8", 87],
             },
           },
         ],

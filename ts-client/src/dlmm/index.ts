@@ -781,7 +781,8 @@ export class DLMM {
         mintXDecimal,
         mintYDecimal,
         lowerBinArray,
-        upperBinArray
+        upperBinArray,
+        PublicKey.default
       );
 
       if (positionData) {
@@ -805,7 +806,7 @@ export class DLMM {
     for (let position of positionsV2) {
       const { account, publicKey: positionPubKey } = position;
 
-      const { upperBinId, lowerBinId, lbPair } = account;
+      const { upperBinId, lowerBinId, lbPair, feeOwner } = account;
       const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(lowerBinId));
       const upperBinArrayIndex = binIdToBinArrayIndex(new BN(upperBinId));
 
@@ -855,7 +856,8 @@ export class DLMM {
         baseTokenDecimal,
         quoteTokenDecimal,
         lowerBinArray,
-        upperBinArray
+        upperBinArray,
+        feeOwner
       );
 
       if (positionData) {
@@ -1682,7 +1684,8 @@ export class DLMM {
             this.tokenX.decimal,
             this.tokenY.decimal,
             lowerBinArray,
-            upperBinArray
+            upperBinArray,
+            PublicKey.default
           ),
           version: PositionVersion.V1,
         };
@@ -1691,7 +1694,7 @@ export class DLMM {
 
     const userPositionsV2 = await Promise.all(
       positionsV2.map(async ({ publicKey, account }) => {
-        const { lowerBinId, upperBinId } = account;
+        const { lowerBinId, upperBinId, feeOwner } = account;
         const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(lowerBinId));
         const upperBinArrayIndex = binIdToBinArrayIndex(new BN(upperBinId));
 
@@ -1722,7 +1725,8 @@ export class DLMM {
             this.tokenX.decimal,
             this.tokenY.decimal,
             lowerBinArray,
-            upperBinArray
+            upperBinArray,
+            feeOwner
           ),
           version: PositionVersion.V2,
         };
@@ -2707,9 +2711,8 @@ export class DLMM {
     bps: BN;
     shouldClaimAndClose?: boolean;
   }): Promise<Transaction | Transaction[]> {
-    const { lbPair, lowerBinId } = await this.program.account.positionV2.fetch(
-      position
-    );
+    const { lbPair, lowerBinId, feeOwner } =
+      await this.program.account.positionV2.fetch(position);
 
     const { reserveX, reserveY, tokenXMint, tokenYMint } =
       await this.program.account.lbPair.fetch(lbPair);
@@ -2730,6 +2733,10 @@ export class DLMM {
     const setComputeUnitLimitIx = computeBudgetIx();
     preInstructions.push(setComputeUnitLimitIx);
 
+    const walletToReceiveFee = feeOwner.equals(PublicKey.default)
+      ? user
+      : feeOwner;
+
     const [
       { ataPubKey: userTokenX, ix: createPayerTokenXIx },
       { ataPubKey: userTokenY, ix: createPayerTokenYIx },
@@ -2737,11 +2744,13 @@ export class DLMM {
       getOrCreateATAInstruction(
         this.program.provider.connection,
         this.tokenX.publicKey,
+        walletToReceiveFee,
         user
       ),
       getOrCreateATAInstruction(
         this.program.provider.connection,
         this.tokenY.publicKey,
+        walletToReceiveFee,
         user
       ),
     ]);
@@ -3891,7 +3900,8 @@ export class DLMM {
     baseTokenDecimal: number,
     quoteTokenDecimal: number,
     lowerBinArray: BinArray,
-    upperBinArray: BinArray
+    upperBinArray: BinArray,
+    feeOwner: PublicKey
   ): Promise<PositionData | null> {
     const {
       lowerBinId,
@@ -3983,6 +3993,7 @@ export class DLMM {
       feeY,
       rewardOne,
       rewardTwo,
+      feeOwner,
     };
   }
 
@@ -4378,7 +4389,7 @@ export class DLMM {
     shouldIncludePretIx?: boolean;
     shouldIncludePostIx?: boolean;
   }) {
-    const { lowerBinId } = position.positionData;
+    const { lowerBinId, feeOwner } = position.positionData;
 
     const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(lowerBinId));
     const [binArrayLower] = deriveBinArray(
@@ -4405,6 +4416,10 @@ export class DLMM {
       this.program.programId
     );
 
+    const walletToReceiveFee = feeOwner.equals(PublicKey.default)
+      ? owner
+      : feeOwner;
+
     const preInstructions: TransactionInstruction[] = [];
     const [
       { ataPubKey: userTokenX, ix: createInTokenAccountIx },
@@ -4413,11 +4428,13 @@ export class DLMM {
       getOrCreateATAInstruction(
         this.program.provider.connection,
         this.tokenX.publicKey,
+        walletToReceiveFee,
         owner
       ),
       getOrCreateATAInstruction(
         this.program.provider.connection,
         this.tokenY.publicKey,
+        walletToReceiveFee,
         owner
       ),
     ]);
