@@ -3540,8 +3540,10 @@ export class DLMM {
     position: LbPosition;
   }): Promise<Transaction[]> {
     const preInstructions: TransactionInstruction[] = [];
+
     const pairTokens = [this.tokenX.publicKey, this.tokenY.publicKey];
     const tokensInvolved = [...pairTokens];
+
     for (let i = 0; i < 2; i++) {
       const rewardMint = this.lbPair.rewardInfos[i].mint;
       if (
@@ -3551,25 +3553,30 @@ export class DLMM {
         tokensInvolved.push(this.lbPair.rewardInfos[i].mint);
       }
     }
+
+    const feeOwner = position.positionData.feeOwner.equals(PublicKey.default)
+      ? owner
+      : position.positionData.feeOwner;
+
     const createATAAccAndIx = await Promise.all(
       tokensInvolved.map((token) => {
-        if (
-          !position.positionData.feeOwner.equals(PublicKey.default) &&
-          pairTokens.some((t) => t.equals(token))
-        ) {
+        // Single position. Swap fee only belongs to owner, or the customized fee owner.
+
+        if (pairTokens.some((t) => t.equals(token))) {
           return getOrCreateATAInstruction(
             this.program.provider.connection,
             token,
-            position.positionData.feeOwner,
-            owner
-          );
-        } else {
-          return getOrCreateATAInstruction(
-            this.program.provider.connection,
-            token,
+            feeOwner,
             owner
           );
         }
+
+        // Reward
+        return getOrCreateATAInstruction(
+          this.program.provider.connection,
+          token,
+          owner
+        );
       })
     );
     createATAAccAndIx.forEach(({ ix }) => ix && preInstructions.push(ix));
@@ -3643,22 +3650,21 @@ export class DLMM {
       }
     }
 
-    const customFeeOwners = [
-      ...new Set(
-        positions
+    const feeOwners = [
+      ...new Set([
+        owner.toBase58(),
+        ...positions
           .filter((p) => !p.positionData.feeOwner.equals(PublicKey.default))
-          .map((p) => p.positionData.feeOwner)
-      ),
-    ];
+          .map((p) => p.positionData.feeOwner.toBase58()),
+      ]),
+    ].map((pk) => new PublicKey(pk));
 
     const createATAAccAndIx = await Promise.all(
       tokensInvolved
         .map((token) => {
-          if (
-            customFeeOwners.length > 0 &&
-            pairsToken.some((p) => p.equals(token))
-          ) {
-            return customFeeOwners.map((customOwner) =>
+          // There's multiple positions, therefore swap fee ATA might includes account from owner, and customized fee owners
+          if (pairsToken.some((p) => p.equals(token))) {
+            return feeOwners.map((customOwner) =>
               getOrCreateATAInstruction(
                 this.program.provider.connection,
                 token,
@@ -3667,6 +3673,7 @@ export class DLMM {
               )
             );
           }
+          //
           return [
             getOrCreateATAInstruction(
               this.program.provider.connection,
