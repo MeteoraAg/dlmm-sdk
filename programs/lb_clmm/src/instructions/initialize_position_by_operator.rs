@@ -40,7 +40,7 @@ pub struct InitializePositionByOperator<'info> {
 
 /// There is scenario that operator create and deposit position with non-valid owner
 /// Then fund will be lost forever, so only whitelisted operators are able to perform this action
-pub fn handle(ctx: Context<InitializePositionByOperator>, lower_bin_id: i32, width: i32, owner: Pubkey) -> Result<()> {
+pub fn handle(ctx: Context<InitializePositionByOperator>, lower_bin_id: i32, width: i32, owner: Pubkey, fee_owner: Pubkey) -> Result<()> {
     Ok(())
 }
 

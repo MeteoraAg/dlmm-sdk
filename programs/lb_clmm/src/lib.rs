@@ -200,8 +200,15 @@ pub mod lb_clmm {
         lower_bin_id: i32,
         width: i32,
         owner: Pubkey,
+        fee_owner: Pubkey,
     ) -> Result<()> {
-        instructions::initialize_position_by_operator::handle(ctx, lower_bin_id, width, owner)
+        instructions::initialize_position_by_operator::handle(
+            ctx,
+            lower_bin_id,
+            width,
+            owner,
+            fee_owner,
+        )
     }
 
     pub fn update_position_operator(

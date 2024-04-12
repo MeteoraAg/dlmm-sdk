@@ -72,8 +72,10 @@ pub struct PositionV2 {
     pub lock_release_slot: u64,
     /// Is the position subjected to liquidity locking for the launch pool.
     pub subjected_to_bootstrap_liquidity_locking: u8,
+    /// Address is able to claim fee in this position, only valid for bootstrap_liquidity_position
+    pub fee_owner: Pubkey,
     /// Reserved space for future use
-    pub _reserved: [u8; 119],
+    pub _reserved: [u8; 87],
 }
 
 impl Default for PositionV2 {
@@ -93,7 +95,8 @@ impl Default for PositionV2 {
             operator: Pubkey::default(),
             subjected_to_bootstrap_liquidity_locking: 0,
             lock_release_slot: 0,
-            _reserved: [0u8; 119],
+            fee_owner: Pubkey::default(),
+            _reserved: [0u8; 87],
         }
     }
 }
@@ -125,6 +128,7 @@ impl PositionV2 {
         current_time: i64,
         lock_release_slot: u64,
         subjected_to_bootstrap_liquidity_locking: bool,
+        fee_owner: Pubkey,
     ) -> Result<()> {
         self.lb_pair = lb_pair;
         self.owner = owner;
@@ -140,6 +144,10 @@ impl PositionV2 {
         self.lock_release_slot = lock_release_slot;
         self.subjected_to_bootstrap_liquidity_locking =
             subjected_to_bootstrap_liquidity_locking.into();
+
+        if subjected_to_bootstrap_liquidity_locking {
+            self.fee_owner = fee_owner;
+        }
 
         Ok(())
     }

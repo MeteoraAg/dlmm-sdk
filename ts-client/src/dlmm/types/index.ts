@@ -212,6 +212,7 @@ export interface PositionData {
   feeY: BN;
   rewardOne: BN;
   rewardTwo: BN;
+  feeOwner: PublicKey;
 }
 
 export interface SwapParams {

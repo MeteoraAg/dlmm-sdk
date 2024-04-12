@@ -1,4 +1,4 @@
-use crate::authorize_modify_position;
+use crate::authorize_claim_fee_position;
 use crate::state::{bin::BinArray, lb_pair::LbPair, position::PositionV2};
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
@@ -17,7 +17,7 @@ pub struct ClaimFee<'info> {
     #[account(
         mut,
         has_one = lb_pair,
-        constraint = authorize_modify_position(&position, sender.key())?
+        constraint = authorize_claim_fee_position(&position, sender.key())?
     )]
     pub position: AccountLoader<'info, PositionV2>,
 
