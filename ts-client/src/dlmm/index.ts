@@ -3650,15 +3650,14 @@ export class DLMM {
       }
     }
 
-    const customFeeOwners = [
-      ...new Set(
-        positions
+    const feeOwners = [
+      ...new Set([
+        owner.toBase58(),
+        ...positions
           .filter((p) => !p.positionData.feeOwner.equals(PublicKey.default))
-          .map((p) => p.positionData.feeOwner)
-      ),
-    ];
-
-    const feeOwners = [owner, ...customFeeOwners];
+          .map((p) => p.positionData.feeOwner.toBase58()),
+      ]),
+    ].map((pk) => new PublicKey(pk));
 
     const createATAAccAndIx = await Promise.all(
       tokensInvolved
