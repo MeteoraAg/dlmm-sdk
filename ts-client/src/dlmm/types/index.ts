@@ -213,6 +213,8 @@ export interface PositionData {
   rewardOne: BN;
   rewardTwo: BN;
   feeOwner: PublicKey;
+  totalClaimedFeeXAmount: BN;
+  totalClaimedFeeYAmount: BN;
 }
 
 export interface SwapParams {
