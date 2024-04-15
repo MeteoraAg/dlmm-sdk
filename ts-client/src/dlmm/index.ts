@@ -3956,6 +3956,8 @@ export class DLMM {
       upperBinId,
       liquidityShares: posShares,
       lastUpdatedAt,
+      totalClaimedFeeXAmount,
+      totalClaimedFeeYAmount
     } = position;
 
     const bins = this.getBinsBetweenLowerAndUpperBound(
@@ -4042,6 +4044,8 @@ export class DLMM {
       rewardOne,
       rewardTwo,
       feeOwner,
+      totalClaimedFeeXAmount,
+      totalClaimedFeeYAmount
     };
   }
 
