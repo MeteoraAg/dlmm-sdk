@@ -68,10 +68,17 @@ export async function checkPoolExists(
   tokenX: PublicKey,
   tokenY: PublicKey,
   binStep: BN,
+  baseFactor: BN,
   programId: PublicKey
 ): Promise<PublicKey | false> {
   try {
-    const [lbPairKey] = deriveLbPair(tokenX, tokenY, binStep, programId);
+    const [lbPairKey] = deriveLbPair2(
+      tokenX,
+      tokenY,
+      binStep,
+      baseFactor,
+      programId
+    );
     await DLMM.create(connection, lbPairKey);
     return lbPairKey;
   } catch {
