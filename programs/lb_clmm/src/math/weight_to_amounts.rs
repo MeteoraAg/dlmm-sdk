@@ -102,6 +102,29 @@ pub fn to_amount_both_side(
     total_amount_y: u64,
     weights: &[(i32, u16)],
 ) -> Result<Vec<(i32, u64, u64)>> {
+    // only bid side
+    if active_id > weights[weights.len() - 1].0 {
+        let amounts = to_amount_bid_side(active_id, total_amount_y, weights)?;
+
+        let amounts = amounts
+            .iter()
+            .map(|x| (x.0, 0, x.1))
+            .collect::<Vec<(i32, u64, u64)>>();
+
+        return Ok(amounts);
+    }
+    // only ask side
+    if active_id < weights[0].0 {
+        let amounts = to_amount_ask_side(active_id, total_amount_x, bin_step, weights)?;
+
+        let amounts = amounts
+            .iter()
+            .map(|x| (x.0, x.1, 0))
+            .collect::<Vec<(i32, u64, u64)>>();
+
+        return Ok(amounts);
+    }
+
     match get_active_bin_index(active_id, weights) {
         Some(index) => {
             let (active_bin_id, active_weight) = weights[index];

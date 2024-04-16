@@ -83,46 +83,6 @@ impl LiquidityParameterByWeight {
         amount_x_in_active_bin: u64, // amount x in active bin
         amount_y_in_active_bin: u64, // amount y in active bin
     ) -> Result<Vec<(i32, u64, u64)>> {
-        // only bid side
-        if active_id > self.bin_liquidity_dist[self.bin_liquidity_dist.len() - 1].bin_id {
-            let amounts = to_amount_bid_side(
-                active_id,
-                self.amount_y,
-                &self
-                    .bin_liquidity_dist
-                    .iter()
-                    .map(|x| (x.bin_id, x.weight))
-                    .collect::<Vec<(i32, u16)>>(),
-            )?;
-
-            let amounts = amounts
-                .iter()
-                .map(|x| (x.0, 0, x.1))
-                .collect::<Vec<(i32, u64, u64)>>();
-
-            return Ok(amounts);
-        }
-        // only ask side
-        if active_id < self.bin_liquidity_dist[0].bin_id {
-            let amounts = to_amount_ask_side(
-                active_id,
-                self.amount_x,
-                bin_step,
-                &self
-                    .bin_liquidity_dist
-                    .iter()
-                    .map(|x| (x.bin_id, x.weight))
-                    .collect::<Vec<(i32, u16)>>(),
-            )?;
-
-            let amounts = amounts
-                .iter()
-                .map(|x| (x.0, x.1, 0))
-                .collect::<Vec<(i32, u64, u64)>>();
-
-            return Ok(amounts);
-        }
-
         to_amount_both_side(
             active_id,
             bin_step,
