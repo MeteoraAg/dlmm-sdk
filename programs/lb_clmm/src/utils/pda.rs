@@ -2,7 +2,7 @@ use super::seeds::{self, BIN_ARRAY, BIN_ARRAY_BITMAP_SEED, ORACLE, PRESET_PARAME
 use anchor_lang::prelude::Pubkey;
 use std::{cmp::max, cmp::min};
 
-pub fn derive_permission_lb_pair_pda2(
+pub fn derive_lb_pair_pda2(
     token_x_mint: Pubkey,
     token_y_mint: Pubkey,
     bin_step: u16,

@@ -48,7 +48,7 @@ pub async fn initialize_lb_pair<C: Deref<Target = impl Signer> + Clone>(
     let computed_active_id = get_id_from_price(bin_step, &price_per_lamport, Rounding::Up)
         .context("get_id_from_price overflow")?;
 
-    let (lb_pair, _bump) = derive_permission_lb_pair_pda2(
+    let (lb_pair, _bump) = derive_lb_pair_pda2(
         token_mint_x,
         token_mint_y,
         bin_step,

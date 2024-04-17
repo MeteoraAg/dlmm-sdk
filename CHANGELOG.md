@@ -46,3 +46,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fix position liquidity withdraw to position owner, instead of customized fee owner
+
+## @meteora-ag/dlmm [1.0.34] - PR #49
+
+### Features
+
+- Support creation of permissionless pair with same binstep, different fee tier.
+
+### Deprecated
+
+- `deriveLbPair` no longer in use. Use `deriveLbPair2` for new pair PDA.
+
+## lb_clmm [0.5.1] - PR #49
+
+### Features
+
+- Support creation of permissionless pair with same binstep but a different fee tier.
+
+### Deprecated
+
+- `derive_lb_pair_pda` no longer in use. Use `derive_lb_pair_pda2` for new pair PDA.
+
+### Breaking
+
+- Initialization of `LbPair` PDA require `base_factor` as the fourth seed now. This break `InitializeLbPair` account context.
