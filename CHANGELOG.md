@@ -169,4 +169,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `getEmissionRate` should not return ended reward, which can be read from `rewardDurationEnd`
-
