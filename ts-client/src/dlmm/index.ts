@@ -110,9 +110,13 @@ import {
 } from "@solana/spl-token";
 import {
   Rounding,
+  compressBinAmount,
   computeBaseFactorFromFeeBps,
+  distributeAmountToCompressedBinsByRatio,
   findSwappableMinMaxBinId,
+  generateAmountForBinRange,
   getC,
+  getPositionCount,
   mulShr,
 } from "./helpers/math";
 
@@ -3715,105 +3719,36 @@ export class DLMM {
 
     // Generate amount for each bin
     const k = 1.0 / curvature;
-    const binDepositAmount = new Map<number, BN>();
 
-    let minAmount = new BN(new Decimal(2).pow(64).sub(1).toString());
-    let maxAmount = new BN(0);
-
-    for (let i = minBinId.toNumber(); i < maxBinId.toNumber(); i++) {
-      const c1 = getC(
-        seedAmount,
-        this.lbPair.binStep,
-        new BN(i + 1),
-        this.tokenX.decimal,
-        this.tokenY.decimal,
-        minPrice,
-        maxPrice,
-        k
-      );
-
-      const c0 = getC(
-        seedAmount,
-        this.lbPair.binStep,
-        new BN(i),
-        this.tokenX.decimal,
-        this.tokenY.decimal,
-        minPrice,
-        maxPrice,
-        k
-      );
-
-      const amount = new BN(c1.sub(c0).floor().toString());
-
-      if (amount.lt(minAmount)) {
-        minAmount = amount;
-      }
-
-      if (amount.gt(maxAmount)) {
-        maxAmount = amount;
-      }
-
-      binDepositAmount.set(i, amount);
-    }
-
-    // Look for multiplier with least loss
-    let decompressMultiplier = new BN(10);
-    const U32_MAX = new BN(2 ** 32 - 1);
-    while (true) {
-      const compressedMaxAmount = maxAmount.div(decompressMultiplier);
-      if (compressedMaxAmount.gt(U32_MAX)) {
-        decompressMultiplier = decompressMultiplier.mul(new BN(10));
-      } else {
-        break;
-      }
-    }
-
-    // What should we do if this happen?
-    const compressedMinAmount = minAmount.div(decompressMultiplier);
-    if (compressedMinAmount.eq(new BN(0))) {
-      throw new Error(
-        "compressed min amount is zero, some bins will resulted in 0 amount"
-      );
-    }
-
-    const compressedBinDepositAmount = new Map<number, BN>();
-    let compressedTotalAmount = new BN(0);
-
-    for (const [binId, amount] of binDepositAmount) {
-      const compressedAmount = amount.div(decompressMultiplier);
-      compressedTotalAmount = compressedTotalAmount.add(compressedAmount);
-      compressedBinDepositAmount.set(binId, compressedAmount);
-    }
-
-    // Distribute loss after compression back to bins based on bin ratio with total deposited amount
-    const lossToDistribute = seedAmount.sub(
-      compressedTotalAmount.mul(decompressMultiplier)
+    const binDepositAmount = generateAmountForBinRange(
+      seedAmount,
+      this.lbPair.binStep,
+      this.tokenX.decimal,
+      this.tokenY.decimal,
+      minBinId,
+      maxBinId,
+      k
     );
 
-    let totalAmount = new BN(0);
-    for (const [binId, amount] of compressedBinDepositAmount) {
-      const lossAmountToDeposit = lossToDistribute
-        .mul(amount)
-        .div(compressedTotalAmount);
+    const decompressMultiplier = new BN(10 ** this.tokenX.decimal);
 
-      const compressedAmount = lossAmountToDeposit.div(decompressMultiplier);
-      const newAmount = amount.add(compressedAmount);
-      compressedBinDepositAmount.set(binId, newAmount);
+    let { compressedBinAmount, compressionLoss } = compressBinAmount(
+      binDepositAmount,
+      decompressMultiplier
+    );
 
-      const decompressedNewAmount = newAmount.mul(decompressMultiplier);
-      totalAmount = totalAmount.add(decompressedNewAmount);
-    }
+    // Distribute loss after compression back to bins based on bin ratio with total deposited amount
+    let {
+      newCompressedBinAmount: compressedBinDepositAmount,
+      loss: finalLoss,
+    } = distributeAmountToCompressedBinsByRatio(
+      compressedBinAmount,
+      compressionLoss,
+      decompressMultiplier
+    );
 
     // This amount will be deposited to the last bin without compression
-    const finalLoss = seedAmount.sub(totalAmount);
-    const binDelta = maxBinId.sub(minBinId);
-
-    let { div: positionCount, mod: rem } =
-      binDelta.divmod(MAX_BIN_PER_POSITION);
-
-    if (!rem.isZero()) {
-      positionCount = positionCount.add(new BN(1));
-    }
+    const positionCount = getPositionCount(minBinId, maxBinId.sub(new BN(1)));
 
     const seederTokenX = getAssociatedTokenAddressSync(
       this.lbPair.tokenXMint,

@@ -7,11 +7,18 @@ import {
   fromWeightDistributionToAmount,
   getPriceOfBinByBinId,
   fromWeightDistributionToAmountOneSide,
-  toAmountsOneSideByStrategy
+  toAmountsOneSideByStrategy,
 } from "../dlmm/helpers";
 import { StrategyType } from "../dlmm/types";
 import babar from "babar";
 import Decimal from "decimal.js";
+import {
+  compressBinAmount,
+  distributeAmountToCompressedBinsByRatio,
+  generateAmountForBinRange,
+  getC,
+  getPositionCount,
+} from "../dlmm/helpers/math";
 
 interface Distribution {
   binId: number;
@@ -645,7 +652,15 @@ describe("calculate_distribution", () => {
       let maxBinId = 70;
       let binStep = 10;
       let amount = new BN(10000);
-      let amountInBins = toAmountsOneSideByStrategy(activeId, binStep, minBinId, maxBinId, amount, StrategyType.SpotOneSide, false);
+      let amountInBins = toAmountsOneSideByStrategy(
+        activeId,
+        binStep,
+        minBinId,
+        maxBinId,
+        amount,
+        StrategyType.SpotOneSide,
+        false
+      );
       const bars = [];
       for (const dist of amountInBins) {
         let price = getPriceOfBinByBinId(dist.binId, binStep);
@@ -653,6 +668,128 @@ describe("calculate_distribution", () => {
         bars.push([dist.binId, liquidity.floor()]);
       }
       console.log(babar(bars));
+    });
+  });
+
+  describe("seed liquidity", () => {
+    const amount = new BN(100_000);
+    const binStep = 10;
+    const baseTokenDecimal = 9;
+    const quoteTokenDecimal = 6;
+    const priceMultiplier = new Decimal(
+      10 ** (baseTokenDecimal - quoteTokenDecimal)
+    );
+    const minBinId = 0;
+    const maxBinId = 100;
+    const minPrice = getPriceOfBinByBinId(0, binStep).mul(priceMultiplier);
+    const maxPrice = getPriceOfBinByBinId(100, binStep).mul(priceMultiplier);
+    const k = 1.25;
+
+    it("getPositionCount return number of position required correctly", () => {
+      expect(getPositionCount(new BN(0), new BN(0)).toNumber()).toBe(1);
+      expect(getPositionCount(new BN(0), new BN(69)).toNumber()).toBe(1);
+      expect(getPositionCount(new BN(0), new BN(70)).toNumber()).toBe(2);
+      expect(getPositionCount(new BN(0), new BN(85)).toNumber()).toBe(2);
+      expect(getPositionCount(new BN(0), new BN(209)).toNumber()).toBe(3);
+      expect(getPositionCount(new BN(0), new BN(210)).toNumber()).toBe(4);
+    });
+
+    it("distribute amount to compressed bin correctly", () => {
+      const multiplier = new BN(1000);
+      const binsAmount = new Map<number, BN>();
+
+      binsAmount.set(0, new BN(1_999));
+      binsAmount.set(1, new BN(2_999));
+      binsAmount.set(2, new BN(3_999));
+      binsAmount.set(3, new BN(4_999));
+
+      const { compressedBinAmount, compressionLoss } = compressBinAmount(
+        binsAmount,
+        multiplier
+      );
+
+      expect(compressionLoss.toString()).toBe((999 * 4).toString());
+      expect(compressedBinAmount.get(0).toString()).toBe("1");
+      expect(compressedBinAmount.get(1).toString()).toBe("2");
+      expect(compressedBinAmount.get(2).toString()).toBe("3");
+      expect(compressedBinAmount.get(3).toString()).toBe("4");
+
+      const { newCompressedBinAmount, loss } =
+        distributeAmountToCompressedBinsByRatio(
+          compressedBinAmount,
+          compressionLoss,
+          multiplier
+        );
+
+      // ((5+4+2+1) - (4+3+2+1)) * multiplier = 2000 (deposited 2000)
+      // loss = 999 * 4 - 2000 = 1996
+
+      expect(loss.toString()).toBe("1996");
+      expect(newCompressedBinAmount.get(0).toString()).toBe("1");
+      expect(newCompressedBinAmount.get(1).toString()).toBe("2");
+      expect(newCompressedBinAmount.get(2).toString()).toBe("4");
+      expect(newCompressedBinAmount.get(3).toString()).toBe("5");
+    });
+
+    it("compress bin amount correctly", () => {
+      const multiplier = new BN(100);
+      const binsAmount = new Map<number, BN>();
+      binsAmount.set(0, new BN(100_000));
+      binsAmount.set(1, new BN(123_456));
+
+      const { compressedBinAmount, compressionLoss } = compressBinAmount(
+        binsAmount,
+        multiplier
+      );
+
+      expect(compressionLoss.toString()).toBe("56");
+      expect(compressedBinAmount.get(0).toString()).toBe("1000");
+      expect(compressedBinAmount.get(1).toString()).toBe("1234");
+    });
+
+    it("generateAmountForBinRange total amount equals seed amount", () => {
+      const binsAmount = generateAmountForBinRange(
+        amount,
+        binStep,
+        baseTokenDecimal,
+        quoteTokenDecimal,
+        new BN(minBinId),
+        new BN(maxBinId),
+        k
+      );
+
+      let totalAmount = new BN(0);
+      for (const [_binId, amount] of binsAmount) {
+        totalAmount = totalAmount.add(amount);
+      }
+
+      expect(totalAmount.toString()).toBe(amount.toString());
+    });
+
+    it("getC c1 > c0", () => {
+      const c0 = getC(
+        amount,
+        binStep,
+        new BN(minBinId),
+        baseTokenDecimal,
+        quoteTokenDecimal,
+        minPrice,
+        maxPrice,
+        k
+      );
+
+      const c1 = getC(
+        amount,
+        binStep,
+        new BN(minBinId + 1),
+        baseTokenDecimal,
+        quoteTokenDecimal,
+        minPrice,
+        maxPrice,
+        k
+      );
+
+      expect(c1.gt(c0)).toBeTruthy();
     });
   });
 });
