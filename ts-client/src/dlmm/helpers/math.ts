@@ -2,6 +2,7 @@ import { BN } from "@coral-xyz/anchor";
 import { BASIS_POINT_MAX, SCALE_OFFSET } from "../constants";
 import Decimal from "decimal.js";
 import { ONE, pow } from "./u64xu64_math";
+import { DLMM } from "..";
 
 export enum Rounding {
   Up,
@@ -90,4 +91,32 @@ export function findSwappableMinMaxBinId(binStep: BN) {
     minBinId,
     maxBinId,
   };
+}
+
+export function getC(
+  amount: BN,
+  binStep: number,
+  binId: BN,
+  baseTokenDecimal: number,
+  quoteTokenDecimal: number,
+  minPrice: number,
+  maxPrice: number,
+  k: number
+) {
+  const currentPricePerLamport = new Decimal(1 + binStep / 10000).pow(
+    binId.toNumber()
+  );
+  const currentPricePerToken = currentPricePerLamport.mul(
+    new Decimal(10 ** (baseTokenDecimal - quoteTokenDecimal))
+  );
+  const priceRange = new Decimal(maxPrice - minPrice);
+  const currentPriceDeltaFromMin = currentPricePerToken.sub(
+    new Decimal(minPrice)
+  );
+
+  const c = new Decimal(amount.toString()).mul(
+    currentPriceDeltaFromMin.div(priceRange).pow(k)
+  );
+
+  return c.floor();
 }

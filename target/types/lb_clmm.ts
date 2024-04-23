@@ -2150,6 +2150,80 @@ export type LbClmm = {
           "type": "u64"
         }
       ]
+    },
+    {
+      "name": "addLiquidityOneSidePrecise",
+      "accounts": [
+        {
+          "name": "position",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayBitmapExtension",
+          "isMut": true,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
+          "name": "userToken",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "reserve",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayLower",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayUpper",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "sender",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "parameter",
+          "type": {
+            "defined": "AddLiquiditySingleSidePreciseParameter"
+          }
+        }
+      ]
     }
   ],
   "accounts": [
@@ -3099,6 +3173,42 @@ export type LbClmm = {
                 "defined": "BinLiquidityDistributionByWeight"
               }
             }
+          }
+        ]
+      }
+    },
+    {
+      "name": "AddLiquiditySingleSidePreciseParameter",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "bins",
+            "type": {
+              "vec": {
+                "defined": "CompressedBinDepositAmount"
+              }
+            }
+          },
+          {
+            "name": "decompressMultiplier",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "CompressedBinDepositAmount",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "binId",
+            "type": "i32"
+          },
+          {
+            "name": "amount",
+            "type": "u32"
           }
         ]
       }
@@ -6710,6 +6820,80 @@ export const IDL: LbClmm = {
           "type": "u64"
         }
       ]
+    },
+    {
+      "name": "addLiquidityOneSidePrecise",
+      "accounts": [
+        {
+          "name": "position",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayBitmapExtension",
+          "isMut": true,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
+          "name": "userToken",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "reserve",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayLower",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayUpper",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "sender",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "parameter",
+          "type": {
+            "defined": "AddLiquiditySingleSidePreciseParameter"
+          }
+        }
+      ]
     }
   ],
   "accounts": [
@@ -7659,6 +7843,42 @@ export const IDL: LbClmm = {
                 "defined": "BinLiquidityDistributionByWeight"
               }
             }
+          }
+        ]
+      }
+    },
+    {
+      "name": "AddLiquiditySingleSidePreciseParameter",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "bins",
+            "type": {
+              "vec": {
+                "defined": "CompressedBinDepositAmount"
+              }
+            }
+          },
+          {
+            "name": "decompressMultiplier",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "CompressedBinDepositAmount",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "binId",
+            "type": "i32"
+          },
+          {
+            "name": "amount",
+            "type": "u32"
           }
         ]
       }

@@ -108,9 +108,21 @@ export function deriveOracle(lbPair: PublicKey, programId: PublicKey) {
   );
 }
 
-export function derivePosition(mint: PublicKey, programId: PublicKey) {
+export function derivePosition(
+  lbPair: PublicKey,
+  base: PublicKey,
+  lowerBinId: BN,
+  width: BN,
+  programId: PublicKey
+) {
   return PublicKey.findProgramAddressSync(
-    [Buffer.from("position"), mint.toBuffer()],
+    [
+      Buffer.from("position"),
+      lbPair.toBuffer(),
+      base.toBuffer(),
+      new Uint8Array(lowerBinId.toBuffer("le", 4)),
+      new Uint8Array(width.toBuffer("le", 4)),
+    ],
     programId
   );
 }

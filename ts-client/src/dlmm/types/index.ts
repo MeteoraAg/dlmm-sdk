@@ -38,6 +38,7 @@ export type BinArray = IdlAccounts<LbClmm>["binArray"];
 export type BinArrayAccount = ProgramAccount<IdlAccounts<LbClmm>["binArray"]>;
 
 export type Position = IdlAccounts<LbClmm>["position"];
+export type PositionV2 = IdlAccounts<LbClmm>["positionV2"];
 
 export type vParameters = IdlAccounts<LbClmm>["lbPair"]["vParameters"];
 export type sParameters = IdlAccounts<LbClmm>["lbPair"]["parameters"];
@@ -66,6 +67,10 @@ export type LiquidityParameterByStrategyOneSide =
 
 export type ProgramStrategyParameter = IdlTypes<LbClmm>["StrategyParameters"];
 export type ProgramStrategyType = IdlTypes<LbClmm>["StrategyType"];
+
+export type CompressedBinDepositAmount =
+  IdlTypes<LbClmm>["CompressedBinDepositAmount"];
+export type CompressedBinDepositAmounts = CompressedBinDepositAmount[];
 
 export interface LbPosition {
   publicKey: PublicKey;
