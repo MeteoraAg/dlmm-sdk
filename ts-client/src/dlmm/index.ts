@@ -1743,11 +1743,11 @@ export class DLMM {
     const { minBinId, maxBinId } = strategy;
 
     const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(minBinId));
-    const upperBinArrayIndex = lowerBinArrayIndex.add(new BN(1));
+    const upperBinArrayIndex = binIdToBinArrayIndex(new BN(maxBinId));
 
     const binArraysNeeded: BN[] = Array.from(
-      { length: upperBinArrayIndex.sub(lowerBinArrayIndex).toNumber() + 4 },
-      (_, index) => index - 2 + lowerBinArrayIndex.toNumber()
+      { length: upperBinArrayIndex.sub(lowerBinArrayIndex).toNumber() + 1 },
+      (_, index) => index + lowerBinArrayIndex.toNumber()
     ).map((idx) => new BN(idx));
 
     const binArraysCount = (await this.binArraysToBeCreate(binArraysNeeded))
@@ -3957,7 +3957,7 @@ export class DLMM {
       liquidityShares: posShares,
       lastUpdatedAt,
       totalClaimedFeeXAmount,
-      totalClaimedFeeYAmount
+      totalClaimedFeeYAmount,
     } = position;
 
     const bins = this.getBinsBetweenLowerAndUpperBound(
@@ -4045,7 +4045,7 @@ export class DLMM {
       rewardTwo,
       feeOwner,
       totalClaimedFeeXAmount,
-      totalClaimedFeeYAmount
+      totalClaimedFeeYAmount,
     };
   }
 
