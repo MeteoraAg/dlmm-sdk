@@ -106,7 +106,7 @@ pub fn derive_preset_parameter_pda(bin_step: u16) -> (Pubkey, u8) {
     Pubkey::find_program_address(&[PRESET_PARAMETER, &bin_step.to_le_bytes()], &crate::ID)
 }
 
-pub fn derive_preset_parameter_pda2(bin_step: u16, base_factor: u16) -> (Pubkey, u8) {
+pub fn derive_preset_parameter_pda_v2(bin_step: u16, base_factor: u16) -> (Pubkey, u8) {
     Pubkey::find_program_address(
         &[
             PRESET_PARAMETER,

@@ -180,6 +180,34 @@ pub struct PositionCreate {
 }
 
 #[event]
+pub struct IncreasePositionLength {
+    // Liquidity pool pair
+    pub lb_pair: Pubkey,
+    // Address of the position
+    pub position: Pubkey,
+    // Owner of the position
+    pub owner: Pubkey,
+    // Length to add
+    pub length_to_add: u16,
+    // side
+    pub side: u8,
+}
+
+#[event]
+pub struct DecreasePositionLength {
+    // Liquidity pool pair
+    pub lb_pair: Pubkey,
+    // Address of the position
+    pub position: Pubkey,
+    // Owner of the position
+    pub owner: Pubkey,
+    // Length to remove
+    pub length_to_remove: u16,
+    // side
+    pub side: u8,
+}
+
+#[event]
 pub struct FeeParameterUpdate {
     // Liquidity pool pair
     pub lb_pair: Pubkey,
@@ -229,4 +257,14 @@ pub struct UpdatePositionLockReleaseSlot {
     pub old_lock_release_slot: u64,
     // Sender public key
     pub sender: Pubkey,
+}
+
+#[event]
+pub struct GoToABin {
+    // Pool pair
+    pub lb_pair: Pubkey,
+    // from bin id
+    pub from_bin_id: i32,
+    // to bin id
+    pub to_bin_id: i32,
 }

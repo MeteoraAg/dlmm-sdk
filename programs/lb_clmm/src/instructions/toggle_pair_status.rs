@@ -1,6 +1,7 @@
 use crate::assert_eq_admin;
 use crate::errors::LBError;
 use crate::state::lb_pair::LbPair;
+use crate::state::PairStatus;
 use anchor_lang::prelude::*;
 
 #[derive(Accounts)]

@@ -1,4 +1,7 @@
-use crate::state::oracle::Oracle;
+use crate::{
+    events::IncreaseObservation,
+    state::oracle::{Oracle, OracleContentLoader},
+};
 use anchor_lang::prelude::*;
 
 #[event_cpi]

@@ -2,10 +2,14 @@ use crate::assert_eq_launch_pool_admin;
 use crate::constants::DEFAULT_OBSERVATION_LENGTH;
 use crate::errors::LBError;
 use crate::events::LbPairCreate;
+use crate::instructions::initialize_lb_pair::handle_initialize_pair;
+use crate::instructions::initialize_lb_pair::InitializePairAccounts;
+use crate::instructions::initialize_lb_pair::InitializePairKeys;
 use crate::state::bin_array_bitmap_extension::BinArrayBitmapExtension;
 use crate::state::lb_pair::LbPair;
 use crate::state::lb_pair::PairType;
 use crate::state::oracle::Oracle;
+use crate::state::preset_parameters::validate_min_max_bin_id;
 use crate::state::preset_parameters::PresetParameter;
 use crate::utils::seeds::BIN_ARRAY_BITMAP_SEED;
 use crate::utils::seeds::ORACLE;
@@ -102,6 +106,7 @@ pub struct InitializePermissionLbPair<'info> {
     )]
     pub admin: Signer<'info>,
 
+    // #[account(address = Token2022::id())]
     pub token_program: Interface<'info, TokenInterface>,
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
@@ -112,4 +117,74 @@ pub fn handle(
     ix_data: InitPermissionPairIx,
 ) -> Result<()> {
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::state::PairStatus;
+    use num_traits::Zero;
+    use proptest::proptest;
+
+    proptest! {
+            #[test]
+            fn test_preset_parameter_without_variable_fee_configuration(
+                bin_step in 1..=10000_u16,
+                active_id in i32::MIN..=i32::MAX,
+                current_timestamp in 0_i64..=(u16::MAX as i64),
+                bin_swapped in 0..=(u16::MAX as i32),
+                swap_direction in 0..=1,
+                seconds_elapsed in 0_i64..=(u16::MAX as i64)
+            ) {
+            let preset_parameter = PresetParameter {
+                bin_step,
+                base_factor: 10000,
+                min_bin_id: i32::MIN,
+                max_bin_id: i32::MAX,
+                ..Default::default()
+            };
+
+            let mut lb_pair = LbPair::default();
+            assert!(lb_pair
+                .initialize(
+                    0,
+                    active_id,
+                    bin_step,
+                    Pubkey::new_unique(),
+                    Pubkey::new_unique(),
+                    Pubkey::new_unique(),
+                    Pubkey::new_unique(),
+                    Pubkey::new_unique(),
+                    preset_parameter.to_static_parameters(),
+                    PairType::Permission,
+                    PairStatus::Enabled.into(),
+                    Pubkey::new_unique(),
+                    0,
+                    Pubkey::new_unique()
+                ).is_ok());
+
+            assert!(lb_pair.update_references(current_timestamp).is_ok());
+
+            let variable_fee_rate = lb_pair.get_variable_fee();
+            assert!(variable_fee_rate.is_ok());
+            // No variable fee rate
+            assert!(variable_fee_rate.unwrap().is_zero());
+
+            let delta = if swap_direction == 0 {
+                -bin_swapped
+            } else {
+                bin_swapped
+            };
+
+            lb_pair.active_id += delta;
+            assert!(lb_pair.update_volatility_accumulator().is_ok());
+
+            assert!(lb_pair.update_references(current_timestamp + seconds_elapsed).is_ok());
+
+            let variable_fee_rate = lb_pair.get_variable_fee();
+            assert!(variable_fee_rate.is_ok());
+            // No variable fee rate
+            assert!(variable_fee_rate.unwrap().is_zero());
+        }
+    }
 }

@@ -4,8 +4,7 @@ use crate::state::bin::Bin;
 use crate::state::lb_pair::LbPair;
 use crate::{math::safe_math::SafeMath, state::bin::BinArray};
 use anchor_lang::prelude::*;
-use std::cell::{Ref, RefMut};
-
+use std::cell::RefMut;
 /// A bin arrays container which make sure that the bin array are in continuous form.
 pub struct BinArrayManager<'a, 'info> {
     bin_arrays: &'a mut [RefMut<'info, BinArray>],
@@ -43,7 +42,6 @@ impl<'a, 'info> BinArrayManager<'a, 'info> {
         require!(self.bin_arrays.len() > 0, LBError::InvalidInput);
 
         let bin_array_0_index = BinArray::bin_id_to_bin_array_index(lower_bin_id)?;
-
         require!(
             bin_array_0_index as i64 == self.bin_arrays[0].index,
             LBError::InvalidInput
@@ -131,28 +129,6 @@ impl<'a, 'info> BinArrayManager<'a, 'info> {
             .find(|ba| ba.index == bin_array_idx as i64)
         {
             Some(bin_array) => bin_array.get_bin_mut(bin_id),
-            None => Err(LBError::InvalidBinArray.into()),
-        }
-    }
-}
-
-pub struct BinArrayManagerReadOnly<'a, 'info> {
-    bin_arrays: &'a [Ref<'info, BinArray>],
-}
-
-impl<'a, 'info> BinArrayManagerReadOnly<'a, 'info> {
-    pub fn new(bin_arrays: &'a [Ref<'info, BinArray>]) -> Result<Self> {
-        Ok(BinArrayManagerReadOnly { bin_arrays })
-    }
-
-    pub fn get_bin(&self, bin_id: i32) -> Result<&Bin> {
-        let bin_array_idx = BinArray::bin_id_to_bin_array_index(bin_id)?;
-        match self
-            .bin_arrays
-            .iter()
-            .find(|ba| ba.index == bin_array_idx as i64)
-        {
-            Some(bin_array) => bin_array.get_bin(bin_id),
             None => Err(LBError::InvalidBinArray.into()),
         }
     }

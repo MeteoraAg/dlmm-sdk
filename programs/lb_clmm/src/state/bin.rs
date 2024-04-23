@@ -15,6 +15,7 @@ use crate::{
 use anchor_lang::prelude::*;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use num_integer::Integer;
+use static_assertions::const_assert_eq;
 /// Calculate out token amount based on liquidity share and supply
 #[inline]
 pub fn get_out_amount(
@@ -62,6 +63,8 @@ pub struct SwapResult {
     pub protocol_fee_after_host_fee: u64,
     /// Part of protocol fee
     pub host_fee: u64,
+    /// whether the swap has reached cap, only used in swap_with_cap_function
+    pub is_reach_cap: bool,
 }
 
 #[zero_copy]
@@ -143,6 +146,26 @@ impl Bin {
         Ok(())
     }
 
+    pub fn swap_with_cap(
+        &mut self,
+        amount_in: u64,
+        price: u128,
+        swap_for_y: bool,
+        lb_pair: &LbPair,
+        host_fee_bps: Option<u16>,
+        remaining_cap: u64,
+    ) -> Result<SwapResult> {
+        // Get maximum out token amount can be swapped out from the bin.
+        let max_amount_out = self.get_max_amount_out(swap_for_y);
+        if max_amount_out < remaining_cap {
+            return self.swap(amount_in, price, swap_for_y, lb_pair, host_fee_bps);
+        }
+
+        let amount_in = amount_in.min(Bin::get_amount_in(remaining_cap, price, swap_for_y)?);
+        let mut swap_result = self.swap(amount_in, price, swap_for_y, lb_pair, host_fee_bps)?;
+        swap_result.is_reach_cap = true;
+        Ok(swap_result)
+    }
     /// Swap
     pub fn swap(
         &mut self,
@@ -176,7 +199,7 @@ impl Bin {
             // TODO: User possible to bypass fee by swapping small amount ? User do a "normal" swap by just bundling all small swap that bypass fee ?
             let fee = lb_pair.compute_fee_from_amount(amount_in)?;
             let amount_in_after_fee = amount_in.safe_sub(fee)?;
-            let amount_out = Bin::get_amount_out(amount_in_after_fee, price, swap_for_y)?;
+            let amount_out = self.get_amount_out(amount_in_after_fee, price, swap_for_y)?;
             (
                 amount_in,
                 std::cmp::min(amount_out, max_amount_out),
@@ -211,6 +234,7 @@ impl Bin {
             fee,
             protocol_fee_after_host_fee,
             host_fee,
+            is_reach_cap: false,
         })
     }
 
@@ -267,7 +291,7 @@ impl Bin {
     /// Get out token amount from the bin based in amount in. The result is floor-ed.
     /// X -> Y: inX * bin_price
     /// Y -> X: inY / bin_price
-    pub fn get_amount_out(amount_in: u64, price: u128, swap_for_y: bool) -> Result<u64> {
+    pub fn get_amount_out(&self, amount_in: u64, price: u128, swap_for_y: bool) -> Result<u64> {
         if swap_for_y {
             // (Q64x64(price) * Q64x0(amount_in)) >> SCALE_OFFSET
             // price * amount_in = amount_out_token_y (Q64x64)
@@ -279,6 +303,22 @@ impl Bin {
             // Division between same Q number format cancel out, result in integer
             // amount_in / price = amount_out_token_x (integer [Rounding::Down])
             safe_shl_div_cast(amount_in.into(), price, SCALE_OFFSET, Rounding::Down)
+        }
+    }
+
+    /// This function reserves amount_in from amount_out, used when user swap with cap limit
+    pub fn get_amount_in(amount_out: u64, price: u128, swap_for_y: bool) -> Result<u64> {
+        if swap_for_y {
+            // (amount_y << SCALE_OFFSET) / price
+            // Convert amount_y into Q64x0, if not the result will always in 0 as price is in Q64x64
+            // Division between same Q number format cancel out, result in integer
+            // amount_y / price = amount_in_token_x (integer [Rounding::Down])
+            safe_shl_div_cast(amount_out.into(), price, SCALE_OFFSET, Rounding::Down)
+        } else {
+            // (Q64x64(price) * Q64x0(amount_x)) >> SCALE_OFFSET
+            // price * amount_x = amount_in_token_y (Q64x64)
+            // amount_in_token_y >> SCALE_OFFSET (convert it back to integer form [Rounding::Down])
+            safe_mul_shr_cast(amount_out.into(), price, SCALE_OFFSET, Rounding::Down)
         }
     }
 
@@ -337,6 +377,8 @@ pub struct BinArray {
     pub bins: [Bin; MAX_BIN_PER_ARRAY],
 }
 
+const_assert_eq!(std::mem::size_of::<BinArray>(), 10128);
+
 impl BinArray {
     pub fn is_zero_liquidity(&self) -> bool {
         for bin in self.bins.iter() {
@@ -373,9 +415,12 @@ impl BinArray {
         Ok(())
     }
 
-    fn get_bin_index_in_array(&self, bin_id: i32) -> Result<usize> {
+    pub fn get_bin_index_in_array(&self, bin_id: i32) -> Result<usize> {
         self.is_bin_id_within_range(bin_id)?;
+        self.get_bin_index_internal(bin_id)
+    }
 
+    fn get_bin_index_internal(&self, bin_id: i32) -> Result<usize> {
         let (lower_bin_id, upper_bin_id) =
             BinArray::get_bin_array_lower_upper_bin_id(self.index as i32)?;
 
@@ -488,5 +533,404 @@ impl BinArray {
             }
         }
         Ok(())
+    }
+
+    // Check whether those bins between from_bin_id to to_bin_id are zero in a binArray
+    pub fn is_zero_liquidity_in_range(&self, from_bin_id: i32, to_bin_id: i32) -> Result<bool> {
+        self.is_bin_id_within_range(from_bin_id)?;
+
+        let (lower_bin_id, upper_bin_id) =
+            BinArray::get_bin_array_lower_upper_bin_id(self.index as i32)?;
+
+        let (start_bin_id, end_bin_id) = if from_bin_id > to_bin_id {
+            let start_bin_id = to_bin_id.max(lower_bin_id);
+            (start_bin_id, from_bin_id)
+        } else {
+            let end_bin_id = to_bin_id.min(upper_bin_id);
+            (from_bin_id, end_bin_id)
+        };
+
+        let start_bin_index = self.get_bin_index_internal(start_bin_id)?;
+        let end_bin_index = self.get_bin_index_internal(end_bin_id)?;
+
+        for i in start_bin_index..=end_bin_index {
+            if !self.bins[i].is_zero_liquidity() {
+                return Ok(false);
+            }
+        }
+        Ok(true)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::state::position::Position;
+
+    use super::*;
+    use proptest::proptest;
+    trait BinArrayExt {
+        fn new(index: i64, lb_pair: Pubkey) -> Self;
+    }
+
+    impl BinArrayExt for BinArray {
+        fn new(index: i64, lb_pair: Pubkey) -> Self {
+            Self {
+                index,
+                lb_pair,
+                bins: [Bin::default(); MAX_BIN_PER_ARRAY],
+                version: LayoutVersion::V1.into(),
+                _padding: [0u8; 7],
+            }
+        }
+    }
+
+    struct TestBinArray {
+        index: i32,
+        bin_ids: Vec<i32>,
+    }
+
+    proptest! {
+        #[test]
+        fn test_is_zero_liquidity_in_range(
+            from_bin_id in -436704..=436704,
+            bin_id in -436704..=436704,
+            flip_id in -436704..=436704) {
+                let bin_array_index = BinArray::bin_id_to_bin_array_index(flip_id).unwrap();
+                let mut bin_array = BinArray::new(bin_array_index.into(), Pubkey::default());
+
+                // init liquidity
+                let bin_array_index_offset = bin_array.get_bin_index_in_array(flip_id).unwrap();
+                bin_array.bins[bin_array_index_offset].liquidity_supply = 1;
+
+                if bin_array.is_bin_id_within_range(from_bin_id).is_ok() {
+                    let is_zero_liquidity = bin_array.is_zero_liquidity_in_range(from_bin_id, bin_id).unwrap();
+
+                    let min_id = from_bin_id.min(bin_id);
+                    let max_id = from_bin_id.max(bin_id);
+                    if flip_id >= min_id && flip_id <= max_id {
+                        assert!(!is_zero_liquidity);
+                    }else{
+                        assert!(is_zero_liquidity);
+                    }
+                }
+            }
+    }
+    #[test]
+    fn test_bin_id_to_bin_array_index() {
+        // Populate 4 bin arrays to the left, and right, starting from bin array index 0
+        let bin_arrays_delta = 4;
+
+        let mut right_bin_arrays = vec![];
+        let mut id = 0;
+        let mut bin_array_idx = 0;
+
+        for _ in 0..bin_arrays_delta {
+            let mut bins = vec![];
+            for _ in 0..MAX_BIN_PER_ARRAY {
+                bins.push(id);
+                id = id + 1;
+            }
+            right_bin_arrays.push(TestBinArray {
+                index: bin_array_idx,
+                bin_ids: bins,
+            });
+            bin_array_idx = bin_array_idx + 1;
+        }
+
+        let mut left_bin_arrays = vec![];
+        id = 0;
+        bin_array_idx = 0;
+
+        for _ in 0..bin_arrays_delta {
+            let mut bins = vec![];
+            for _ in 0..MAX_BIN_PER_ARRAY {
+                id = id - 1;
+                bins.push(id);
+            }
+            bin_array_idx = bin_array_idx - 1;
+            let reversed_bins = bins.into_iter().rev().collect();
+            left_bin_arrays.push(TestBinArray {
+                index: bin_array_idx,
+                bin_ids: reversed_bins,
+            });
+        }
+
+        let continuous_bin_arrays: Vec<TestBinArray> = left_bin_arrays
+            .into_iter()
+            .rev()
+            .chain(right_bin_arrays.into_iter())
+            .collect();
+
+        let mut prev = None;
+        let mut min_bin_id = i32::MAX;
+        let mut max_bin_id = i32::MIN;
+
+        for bin_array in continuous_bin_arrays.iter() {
+            assert_eq!(bin_array.bin_ids.len(), MAX_BIN_PER_ARRAY);
+
+            for bin_id in bin_array.bin_ids.iter() {
+                if let Some(prev) = prev {
+                    assert_eq!(prev + 1, *bin_id);
+                }
+                prev = Some(bin_id);
+
+                if *bin_id < min_bin_id {
+                    min_bin_id = *bin_id;
+                }
+                if *bin_id > max_bin_id {
+                    max_bin_id = *bin_id;
+                }
+            }
+        }
+
+        assert_eq!(min_bin_id, -280);
+        // Because bin id 0 is positioned at positive side
+        assert_eq!(max_bin_id, 279);
+
+        for i in min_bin_id..=max_bin_id {
+            let idx = BinArray::bin_id_to_bin_array_index(i).unwrap();
+            let bin_array = continuous_bin_arrays
+                .iter()
+                .find(|ba| ba.index == idx)
+                .unwrap();
+            let result = bin_array.bin_ids.iter().find(|bid| **bid == i);
+            if let None = result {
+                println!("Bin id causing the error {}", i);
+            }
+            assert!(result.is_some());
+        }
+    }
+
+    #[test]
+    fn test_bin_array_lower_upper_bin_id_negative() {
+        let bin_array_index = -1;
+        let mut amount: i32 = -1;
+
+        let mut bin_array = BinArray::new(bin_array_index, Pubkey::default());
+
+        // Amount here is bin id, negate it and use for assertion later
+        for i in (0..MAX_BIN_PER_ARRAY).rev() {
+            bin_array.bins[i].amount_x = amount.unsigned_abs() as u64;
+            bin_array.bins[i].amount_y = amount.unsigned_abs() as u64;
+            amount -= 1;
+        }
+
+        let (lower, upper) =
+            BinArray::get_bin_array_lower_upper_bin_id(bin_array.index as i32).unwrap();
+
+        println!(
+            "{} {} {:?} {:?}",
+            lower,
+            upper,
+            bin_array.get_bin(lower).unwrap(),
+            bin_array.get_bin(upper).unwrap()
+        );
+
+        assert_eq!(
+            lower,
+            (bin_array.get_bin(lower).unwrap().amount_x as i32).wrapping_neg()
+        );
+        assert_eq!(
+            upper,
+            (bin_array.get_bin(upper).unwrap().amount_x as i32).wrapping_neg()
+        );
+
+        bin_array.index -= 1;
+
+        for i in (0..MAX_BIN_PER_ARRAY).rev() {
+            bin_array.bins[i].amount_x = amount.unsigned_abs() as u64;
+            bin_array.bins[i].amount_y = amount.unsigned_abs() as u64;
+            amount -= 1;
+        }
+
+        let (lower, upper) =
+            BinArray::get_bin_array_lower_upper_bin_id(bin_array.index as i32).unwrap();
+
+        println!(
+            "{} {} {:?} {:?}",
+            lower,
+            upper,
+            bin_array.get_bin(lower).unwrap(),
+            bin_array.get_bin(upper).unwrap()
+        );
+
+        assert_eq!(
+            lower,
+            (bin_array.get_bin(lower).unwrap().amount_x as i32).wrapping_neg()
+        );
+        assert_eq!(
+            upper,
+            (bin_array.get_bin(upper).unwrap().amount_x as i32).wrapping_neg()
+        );
+    }
+
+    #[test]
+    fn test_bin_array_lower_upper_bin_id_positive() {
+        let bin_array_index = 0;
+        let mut amount = 0;
+
+        let mut bin_array = BinArray::new(bin_array_index, Pubkey::default());
+
+        // Amount here is bin id, used for assertion later
+        for i in 0..MAX_BIN_PER_ARRAY {
+            bin_array.bins[i].amount_x = amount;
+            bin_array.bins[i].amount_y = amount;
+            amount += 1;
+        }
+
+        let (lower, upper) =
+            BinArray::get_bin_array_lower_upper_bin_id(bin_array.index as i32).unwrap();
+        println!(
+            "{} {} {:?} {:?}",
+            lower,
+            upper,
+            bin_array.get_bin(lower).unwrap(),
+            bin_array.get_bin(upper).unwrap()
+        );
+
+        assert_eq!(lower, bin_array.get_bin(lower).unwrap().amount_x as i32);
+        assert_eq!(upper, bin_array.get_bin(upper).unwrap().amount_x as i32);
+
+        bin_array.index += 1;
+
+        for i in 0..MAX_BIN_PER_ARRAY {
+            bin_array.bins[i].amount_x = amount;
+            bin_array.bins[i].amount_y = amount;
+            amount += 1;
+        }
+
+        let (lower, upper) =
+            BinArray::get_bin_array_lower_upper_bin_id(bin_array.index as i32).unwrap();
+
+        println!(
+            "{} {} {:?} {:?}",
+            lower,
+            upper,
+            bin_array.get_bin(lower).unwrap(),
+            bin_array.get_bin(upper).unwrap()
+        );
+
+        assert_eq!(lower, bin_array.get_bin(lower).unwrap().amount_x as i32);
+        assert_eq!(upper, bin_array.get_bin(upper).unwrap().amount_x as i32);
+    }
+
+    #[test]
+    fn test_bin_negative() {
+        let bin_id = -11514;
+        let bin_array_index = BinArray::bin_id_to_bin_array_index(bin_id).unwrap();
+
+        let mut bin_arrays = [[Bin::default(); MAX_BIN_PER_ARRAY]; 195];
+        let mut amount: i64 = -1;
+
+        for arr in bin_arrays.iter_mut().rev() {
+            for bin in arr.iter_mut().rev() {
+                bin.amount_x = amount.unsigned_abs();
+                bin.amount_y = amount.unsigned_abs();
+                amount -= 1;
+            }
+        }
+
+        let mut bin_array = BinArray::new(bin_array_index as i64, Pubkey::default());
+        bin_array.bins = bin_arrays[(195 - bin_array_index.abs()) as usize];
+
+        let bin = bin_array.get_bin(bin_id).unwrap();
+        println!("{:?}", bin);
+        assert_eq!((bin.amount_x as i32).wrapping_neg(), bin_id);
+
+        let bin_id = -1332;
+        let bin_array_index = BinArray::bin_id_to_bin_array_index(bin_id).unwrap();
+
+        let mut bin_array = BinArray::new(bin_array_index as i64, Pubkey::default());
+        bin_array.bins = bin_arrays[(195 - bin_array_index.abs()) as usize];
+
+        let bin = bin_array.get_bin(bin_id).unwrap();
+        println!("{:?}", bin);
+        assert_eq!((bin.amount_x as i32).wrapping_neg(), bin_id);
+
+        let bin_id = -66;
+        let bin_array_index = BinArray::bin_id_to_bin_array_index(bin_id).unwrap();
+
+        let mut bin_array = BinArray::new(bin_array_index as i64, Pubkey::default());
+        bin_array.bins = bin_arrays[(195 - bin_array_index.abs()) as usize];
+
+        let bin = bin_array.get_bin(bin_id).unwrap();
+        println!("{:?}", bin);
+        assert_eq!((bin.amount_x as i32).wrapping_neg(), bin_id);
+    }
+
+    #[test]
+    fn test_bin_positive() {
+        let bin_id = 5645;
+        let bin_array_index = BinArray::bin_id_to_bin_array_index(bin_id).unwrap();
+        let mut bin_arrays = [[Bin::default(); MAX_BIN_PER_ARRAY]; 195];
+
+        let mut amount = 0;
+
+        for arr in bin_arrays.iter_mut() {
+            for bin in arr.iter_mut() {
+                bin.amount_x = amount;
+                bin.amount_y = amount;
+                amount += 1;
+            }
+        }
+
+        let mut bin_array = BinArray::new(bin_array_index as i64, Pubkey::default());
+        bin_array.bins = bin_arrays[bin_array_index as usize];
+
+        let bin = bin_array.get_bin(bin_id).unwrap();
+        assert_eq!(bin.amount_x, bin_id as u64);
+        println!("{:?}", bin);
+
+        let bin_id = 10532;
+        let bin_array_index = BinArray::bin_id_to_bin_array_index(bin_id).unwrap();
+
+        let mut bin_array = BinArray::new(bin_array_index as i64, Pubkey::default());
+        bin_array.bins = bin_arrays[bin_array_index as usize];
+
+        let bin = bin_array.get_bin(bin_id).unwrap();
+        assert_eq!(bin.amount_x, bin_id as u64);
+        println!("{:?}", bin);
+
+        let bin_id = 252;
+        let bin_array_index = BinArray::bin_id_to_bin_array_index(bin_id).unwrap();
+
+        let mut bin_array = BinArray::new(bin_array_index as i64, Pubkey::default());
+        bin_array.bins = bin_arrays[bin_array_index as usize];
+
+        let bin = bin_array.get_bin(bin_id).unwrap();
+        assert_eq!(bin.amount_x, bin_id as u64);
+        println!("{:?}", bin);
+    }
+
+    #[test]
+    fn test_bin_array_size() {
+        let bin_array_size = std::mem::size_of::<TestBinArray>();
+        println!("BinArray size {:?}", bin_array_size);
+
+        let bin_size = std::mem::size_of::<Bin>();
+        println!("Bin size {:?}", bin_size);
+
+        let max_size = 10240;
+
+        println!(
+            "No of bin can fit into {} bytes, {} bins",
+            max_size,
+            (max_size - 32 * 2) / bin_size
+        );
+
+        let remaining = max_size - bin_array_size - 8;
+        println!("remaining bytes {:?}", remaining);
+
+        let bin_size = std::mem::size_of::<Bin>();
+        println!("remaining bins {:?}", remaining / bin_size);
+    }
+
+    #[test]
+    fn test_bin_array_and_position_size() {
+        println!(
+            "Bin array size {:?} Position size {:?}",
+            std::mem::size_of::<BinArray>(),
+            std::mem::size_of::<Position>()
+        );
     }
 }

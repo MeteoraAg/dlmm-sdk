@@ -1,5 +1,6 @@
 use crate::assert_eq_admin;
 use crate::errors::LBError;
+use crate::events::FeeParameterUpdate;
 use crate::state::lb_pair::LbPair;
 use anchor_lang::prelude::*;
 
