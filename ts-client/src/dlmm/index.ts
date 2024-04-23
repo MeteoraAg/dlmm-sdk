@@ -3680,9 +3680,16 @@ export class DLMM {
   }
 
   /**
-   * The `seedLiquidity` function create multiple transactions, which each transaction consists of initialize position, and add liquidity instruction. The combination of liquidity deposited to the position will be the ilm / lfg curve
+   * The `seedLiquidity` function create multiple grouped instructions. The grouped instructions will be either [initialize bin array + initialize position instructions] or [deposit instruction] combination.
    * @param
-   *
+   *    - `owner`: The public key of the positions owner.
+   *    - `operator`: The public key of the operator. Operator can add liquidity for the position owner, withdraw on behalf of position owner (only can withdraw to position owner), and claim fee on behalf of position owner / fee owner (only can claim fee to position / fee owner)
+   *    - `feeOwner`: The public key to receive claimed fee.
+   *    - `seedAmount`: Lamport amount to be seeded to the pool.
+   *    - `minPrice`: Start price in UI format
+   *    - `maxPrice`: End price in UI format
+   *    - `base`: Base key
+   * @returns {Promise<TransactionInstruction[][]>}
    */
   public async seedLiquidity(
     owner: PublicKey,
