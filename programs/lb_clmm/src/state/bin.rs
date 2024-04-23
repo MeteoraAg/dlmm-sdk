@@ -199,7 +199,7 @@ impl Bin {
             // TODO: User possible to bypass fee by swapping small amount ? User do a "normal" swap by just bundling all small swap that bypass fee ?
             let fee = lb_pair.compute_fee_from_amount(amount_in)?;
             let amount_in_after_fee = amount_in.safe_sub(fee)?;
-            let amount_out = Bin::get_amount_out(amount_in_after_fee, price, swap_for_y)?;
+            let amount_out = self.get_amount_out(amount_in_after_fee, price, swap_for_y)?;
             (
                 amount_in,
                 std::cmp::min(amount_out, max_amount_out),
@@ -291,7 +291,7 @@ impl Bin {
     /// Get out token amount from the bin based in amount in. The result is floor-ed.
     /// X -> Y: inX * bin_price
     /// Y -> X: inY / bin_price
-    pub fn get_amount_out(amount_in: u64, price: u128, swap_for_y: bool) -> Result<u64> {
+    pub fn get_amount_out(&self, amount_in: u64, price: u128, swap_for_y: bool) -> Result<u64> {
         if swap_for_y {
             // (Q64x64(price) * Q64x0(amount_in)) >> SCALE_OFFSET
             // price * amount_in = amount_out_token_y (Q64x64)
