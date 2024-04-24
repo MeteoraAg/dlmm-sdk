@@ -37,6 +37,10 @@ import { IDL } from "../dlmm/idl";
 import { PairType, StrategyType } from "../dlmm/types";
 import Decimal from "decimal.js";
 import babar from "babar";
+import {
+  findSwappableMinMaxBinId,
+  getQPriceFromId,
+} from "../dlmm/helpers/math";
 
 const keypairBuffer = fs.readFileSync(
   "../keys/localnet/admin-bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1.json",
@@ -157,7 +161,7 @@ describe("SDK test", () => {
       BTC,
       userBTC,
       keypair.publicKey,
-      5_000_000_000 * 10 ** btcDecimal,
+      100_000_000 * 10 ** btcDecimal,
       [],
       {
         commitment: "confirmed",
@@ -171,7 +175,7 @@ describe("SDK test", () => {
       USDC,
       userUSDC,
       keypair.publicKey,
-      5_000_000_000 * 10 ** usdcDecimal,
+      100_000_000 * 10 ** usdcDecimal,
       [],
       {
         commitment: "confirmed",
@@ -275,6 +279,33 @@ describe("SDK test", () => {
         customFeeOwnerPositionOwner.publicKey,
         2 * LAMPORTS_PER_SOL
       );
+    });
+
+    it("findSwappableMinMaxBinId returned min/max bin id are 1 bit from max/min value", () => {
+      for (let binStep = 1; binStep <= 500; binStep++) {
+        const { minBinId, maxBinId } = findSwappableMinMaxBinId(
+          new BN(binStep)
+        );
+        const minQPrice = getQPriceFromId(minBinId, new BN(binStep));
+        const maxQPrice = getQPriceFromId(maxBinId, new BN(binStep));
+        expect(minQPrice.toString()).toBe("2");
+        expect(maxQPrice.toString()).toBe(
+          "170141183460469231731687303715884105727"
+        );
+
+        const nextMinQPrice = getQPriceFromId(
+          minBinId.sub(new BN(1)),
+          new BN(binStep)
+        );
+        const nextMaxQPrice = getQPriceFromId(
+          maxBinId.add(new BN(1)),
+          new BN(binStep)
+        );
+        expect(nextMinQPrice.toString()).toBe("1");
+        expect(nextMaxQPrice.toString()).toBe(
+          "340282366920938463463374607431768211455"
+        );
+      }
     });
 
     it("create permissioned LB pair", async () => {
@@ -693,6 +724,34 @@ describe("SDK test", () => {
     let pair: DLMM;
 
     beforeEach(async () => {
+      await mintTo(
+        connection,
+        keypair,
+        BTC,
+        userBTC,
+        keypair.publicKey,
+        1_000_000_000 * 10 ** btcDecimal,
+        [],
+        {
+          commitment: "confirmed",
+        },
+        TOKEN_PROGRAM_ID
+      );
+
+      await mintTo(
+        connection,
+        keypair,
+        USDC,
+        userUSDC,
+        keypair.publicKey,
+        1_000_000_000 * 10 ** usdcDecimal,
+        [],
+        {
+          commitment: "confirmed",
+        },
+        TOKEN_PROGRAM_ID
+      );
+
       baseKeypair = Keypair.generate();
       const feeBps = new BN(50);
       const lockDurationInSlot = new BN(0);

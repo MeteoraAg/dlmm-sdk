@@ -694,6 +694,44 @@ describe("calculate_distribution", () => {
       expect(getPositionCount(new BN(0), new BN(210)).toNumber()).toBe(4);
     });
 
+    it("distribute amount to compressed bin with remaining cap returned as loss", () => {
+      const multiplier = new BN(1000);
+      const binsAmount = new Map<number, BN>();
+
+      binsAmount.set(0, new BN(1_294_967_295_999));
+      binsAmount.set(1, new BN(2_294_967_295_999));
+      binsAmount.set(2, new BN(3_294_967_295_999));
+      binsAmount.set(3, new BN(4_294_967_295_999));
+
+      const { compressedBinAmount, compressionLoss } = compressBinAmount(
+        binsAmount,
+        multiplier
+      );
+
+      expect(compressionLoss.toString()).toBe((999 * 4).toString());
+      expect(compressedBinAmount.get(0).toString()).toBe("1294967295");
+      expect(compressedBinAmount.get(1).toString()).toBe("2294967295");
+      expect(compressedBinAmount.get(2).toString()).toBe("3294967295");
+      expect(compressedBinAmount.get(3).toString()).toBe("4294967295");
+
+      const { newCompressedBinAmount, loss } =
+        distributeAmountToCompressedBinsByRatio(
+          compressedBinAmount,
+          compressionLoss,
+          multiplier,
+          new BN(2 ** 32 - 1)
+        );
+
+      // (4294967295 + 3294967296 + 2294967295 + 1294967295) - (4294967295 + 3294967295 + 2294967295 + 1294967295) * multiplier = 1000 (deposited uncompressed 1000, 1 if compressed)
+      // loss = 999 * 4 - 1000 = 2996
+
+      expect(loss.toString()).toBe("2996");
+      expect(newCompressedBinAmount.get(0).toString()).toBe("1294967295");
+      expect(newCompressedBinAmount.get(1).toString()).toBe("2294967295");
+      expect(newCompressedBinAmount.get(2).toString()).toBe("3294967296");
+      expect(newCompressedBinAmount.get(3).toString()).toBe("4294967295");
+    });
+
     it("distribute amount to compressed bin correctly", () => {
       const multiplier = new BN(1000);
       const binsAmount = new Map<number, BN>();
@@ -718,10 +756,11 @@ describe("calculate_distribution", () => {
         distributeAmountToCompressedBinsByRatio(
           compressedBinAmount,
           compressionLoss,
-          multiplier
+          multiplier,
+          new BN(2 ** 32 - 1)
         );
 
-      // ((5+4+2+1) - (4+3+2+1)) * multiplier = 2000 (deposited 2000)
+      // ((5+4+2+1) - (4+3+2+1)) * multiplier = 2000 (deposited uncompressed 2000, 2 if compressed)
       // loss = 999 * 4 - 2000 = 1996
 
       expect(loss.toString()).toBe("1996");

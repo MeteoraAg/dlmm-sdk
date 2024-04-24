@@ -57,7 +57,7 @@ export function computeBaseFactorFromFeeBps(binStep: BN, feeBps: BN) {
   return new BN(computedBaseFactor);
 }
 
-export function getQPriceFromId(binId: BN, binStep: BN) {
+export function getQPriceFromId(binId: BN, binStep: BN): BN {
   const bps = binStep.shln(SCALE_OFFSET).div(new BN(BASIS_POINT_MAX));
   const base = ONE.add(bps);
   return pow(base, binId);
@@ -76,7 +76,7 @@ export function findSwappableMinMaxBinId(binStep: BN) {
 
   while (true) {
     const qPrice = getQPriceFromId(minBinId, binStep);
-    if (qPrice.gt(minQPrice)) {
+    if (qPrice.gt(minQPrice) && !qPrice.isZero()) {
       break;
     } else {
       minBinId = minBinId.add(new BN(1));
@@ -85,7 +85,7 @@ export function findSwappableMinMaxBinId(binStep: BN) {
 
   while (true) {
     const qPrice = getQPriceFromId(maxBinId, binStep);
-    if (qPrice.lt(maxQPrice)) {
+    if (qPrice.lt(maxQPrice) && !qPrice.isZero()) {
       break;
     } else {
       maxBinId = maxBinId.sub(new BN(1));
@@ -129,7 +129,8 @@ export function getC(
 export function distributeAmountToCompressedBinsByRatio(
   compressedBinAmount: Map<number, BN>,
   uncompressedAmount: BN,
-  multiplier: BN
+  multiplier: BN,
+  binCapAmount: BN
 ) {
   const newCompressedBinAmount = new Map<number, BN>();
   let totalCompressedAmount = new BN(0);
@@ -145,9 +146,15 @@ export function distributeAmountToCompressedBinsByRatio(
       .mul(uncompressedAmount)
       .div(totalCompressedAmount);
 
-    const compressedDepositAmount = depositAmount.div(multiplier);
+    let compressedDepositAmount = depositAmount.div(multiplier);
 
-    const newCompressedAmount = compressedAmount.add(compressedDepositAmount);
+    let newCompressedAmount = compressedAmount.add(compressedDepositAmount);
+    if (newCompressedAmount.gt(binCapAmount)) {
+      compressedDepositAmount = compressedDepositAmount.sub(
+        newCompressedAmount.sub(binCapAmount)
+      );
+      newCompressedAmount = binCapAmount;
+    }
     newCompressedBinAmount.set(binId, newCompressedAmount);
 
     totalDepositedAmount = totalDepositedAmount.add(

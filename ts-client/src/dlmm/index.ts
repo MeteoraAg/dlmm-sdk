@@ -3751,7 +3751,8 @@ export class DLMM {
     } = distributeAmountToCompressedBinsByRatio(
       compressedBinAmount,
       compressionLoss,
-      decompressMultiplier
+      decompressMultiplier,
+      new BN(2 ** 32 - 1) // u32
     );
 
     // This amount will be deposited to the last bin without compression

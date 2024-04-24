@@ -115,12 +115,20 @@ export function derivePosition(
   width: BN,
   programId: PublicKey
 ) {
+  let lowerBinIdBytes: Uint8Array;
+  if (lowerBinId.isNeg()) {
+    lowerBinIdBytes = new Uint8Array(
+      lowerBinId.toTwos(32).toArrayLike(Buffer, "le", 4)
+    );
+  } else {
+    lowerBinIdBytes = new Uint8Array(lowerBinId.toArrayLike(Buffer, "le", 4));
+  }
   return PublicKey.findProgramAddressSync(
     [
       Buffer.from("position"),
       lbPair.toBuffer(),
       base.toBuffer(),
-      new Uint8Array(lowerBinId.toBuffer("le", 4)),
+      lowerBinIdBytes,
       new Uint8Array(width.toBuffer("le", 4)),
     ],
     programId
