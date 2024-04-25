@@ -822,54 +822,78 @@ describe("SDK test", () => {
         )
       ).mul(priceMultiplier);
 
-      const firstDepositIndex = 1; // Init position + bin arrays first, then deposit
-      let groupedInstructions = await pair.seedLiquidity(
-        keypair.publicKey,
-        keypair.publicKey,
-        keypair.publicKey,
-        seedAmount,
-        curvature,
-        minPrice.toNumber(),
-        maxPrice.toNumber(),
-        baseKeypair.publicKey
-      );
+      let { initializeBinArraysAndPositionIxs, addLiquidityIxs } =
+        await pair.seedLiquidity(
+          keypair.publicKey,
+          keypair.publicKey,
+          keypair.publicKey,
+          seedAmount,
+          curvature,
+          minPrice.toNumber(),
+          maxPrice.toNumber(),
+          baseKeypair.publicKey
+        );
+
+      {
+        const transactions = [];
+        const { blockhash, lastValidBlockHeight } =
+          await connection.getLatestBlockhash("confirmed");
+
+        for (const groupIx of initializeBinArraysAndPositionIxs) {
+          const tx = new Transaction({
+            feePayer: keypair.publicKey,
+            blockhash,
+            lastValidBlockHeight,
+          }).add(...groupIx);
+
+          const signers = [keypair, baseKeypair];
+          transactions.push(sendAndConfirmTransaction(connection, tx, signers));
+        }
+
+        await Promise.all(transactions)
+          .then((txs) => {
+            txs.map(console.log);
+          })
+          .catch((e) => {
+            console.error(e);
+            throw e;
+          });
+      }
 
       let beforeTokenXBalance = await connection
         .getTokenAccountBalance(userBTC)
         .then((i) => new BN(i.value.amount));
 
-      for (const [idx, groupIx] of groupedInstructions.entries()) {
-        if (idx == firstDepositIndex) {
-          continue;
-        }
-        const requireBaseSignature = groupIx.find((ix) =>
-          ix.keys.find((key) => key.pubkey.equals(baseKeypair.publicKey))
-        );
-
+      // Simulate send all add liquidity, but index 0 ix timeout
+      {
         const { blockhash, lastValidBlockHeight } =
           await connection.getLatestBlockhash("confirmed");
 
-        const tx = new Transaction({
-          feePayer: keypair.publicKey,
-          blockhash,
-          lastValidBlockHeight,
-        }).add(...groupIx);
+        const transactions = [];
 
-        const signers = [keypair];
+        for (const [idx, groupIx] of addLiquidityIxs.entries()) {
+          if (idx == 0) {
+            continue;
+          }
 
-        if (requireBaseSignature) {
-          signers.push(baseKeypair);
+          const tx = new Transaction({
+            feePayer: keypair.publicKey,
+            blockhash,
+            lastValidBlockHeight,
+          }).add(...groupIx);
+
+          const signers = [keypair];
+          transactions.push(sendAndConfirmTransaction(connection, tx, signers));
         }
 
-        const txHash = await sendAndConfirmTransaction(
-          connection,
-          tx,
-          signers
-        ).catch((e) => {
-          console.error(e);
-          throw e;
-        });
-        console.log(txHash);
+        await Promise.all(transactions)
+          .then((txs) => {
+            txs.map(console.log);
+          })
+          .catch((e) => {
+            console.error(e);
+            throw e;
+          });
       }
 
       let afterTokenXBalance = await connection
@@ -881,7 +905,7 @@ describe("SDK test", () => {
         seedAmount.toString()
       );
 
-      groupedInstructions = await pair.seedLiquidity(
+      const seedLiquidityResponse = await pair.seedLiquidity(
         keypair.publicKey,
         keypair.publicKey,
         keypair.publicKey,
@@ -892,9 +916,13 @@ describe("SDK test", () => {
         baseKeypair.publicKey
       );
 
-      expect(groupedInstructions.length).toBe(1);
+      expect(
+        seedLiquidityResponse.initializeBinArraysAndPositionIxs.length
+      ).toBe(0);
+      expect(seedLiquidityResponse.addLiquidityIxs.length).toBe(1);
 
       beforeTokenXBalance = afterTokenXBalance;
+
       const { blockhash, lastValidBlockHeight } =
         await connection.getLatestBlockhash("confirmed");
 
@@ -902,7 +930,7 @@ describe("SDK test", () => {
         feePayer: keypair.publicKey,
         blockhash,
         lastValidBlockHeight,
-      }).add(...groupedInstructions[0]);
+      }).add(...seedLiquidityResponse.addLiquidityIxs[0]);
 
       const txHash = await sendAndConfirmTransaction(connection, tx, [
         keypair,
@@ -966,54 +994,78 @@ describe("SDK test", () => {
         )
       ).mul(priceMultiplier);
 
-      const middleDepositIndex = 3; // 0 - InitPosition + BinArrays, 1 - Deposit, 2 - InitPosition + BinArrays, 3 - Deposit
-      let groupedInstructions = await pair.seedLiquidity(
-        keypair.publicKey,
-        keypair.publicKey,
-        keypair.publicKey,
-        seedAmount,
-        curvature,
-        minPrice.toNumber(),
-        maxPrice.toNumber(),
-        baseKeypair.publicKey
-      );
+      let { initializeBinArraysAndPositionIxs, addLiquidityIxs } =
+        await pair.seedLiquidity(
+          keypair.publicKey,
+          keypair.publicKey,
+          keypair.publicKey,
+          seedAmount,
+          curvature,
+          minPrice.toNumber(),
+          maxPrice.toNumber(),
+          baseKeypair.publicKey
+        );
+
+      {
+        const transactions = [];
+        const { blockhash, lastValidBlockHeight } =
+          await connection.getLatestBlockhash("confirmed");
+
+        for (const groupIx of initializeBinArraysAndPositionIxs) {
+          const tx = new Transaction({
+            feePayer: keypair.publicKey,
+            blockhash,
+            lastValidBlockHeight,
+          }).add(...groupIx);
+
+          const signers = [keypair, baseKeypair];
+          transactions.push(sendAndConfirmTransaction(connection, tx, signers));
+        }
+
+        await Promise.all(transactions)
+          .then((txs) => {
+            txs.map(console.log);
+          })
+          .catch((e) => {
+            console.error(e);
+            throw e;
+          });
+      }
 
       let beforeTokenXBalance = await connection
         .getTokenAccountBalance(userBTC)
         .then((i) => new BN(i.value.amount));
 
-      for (const [idx, groupIx] of groupedInstructions.entries()) {
-        if (idx == middleDepositIndex) {
-          continue;
-        }
-        const requireBaseSignature = groupIx.find((ix) =>
-          ix.keys.find((key) => key.pubkey.equals(baseKeypair.publicKey))
-        );
-
+      // Simulate send all add liquidity, but index 1 ix timeout
+      {
         const { blockhash, lastValidBlockHeight } =
           await connection.getLatestBlockhash("confirmed");
 
-        const tx = new Transaction({
-          feePayer: keypair.publicKey,
-          blockhash,
-          lastValidBlockHeight,
-        }).add(...groupIx);
+        const transactions = [];
 
-        const signers = [keypair];
+        for (const [idx, groupIx] of addLiquidityIxs.entries()) {
+          if (idx == 1) {
+            continue;
+          }
 
-        if (requireBaseSignature) {
-          signers.push(baseKeypair);
+          const tx = new Transaction({
+            feePayer: keypair.publicKey,
+            blockhash,
+            lastValidBlockHeight,
+          }).add(...groupIx);
+
+          const signers = [keypair];
+          transactions.push(sendAndConfirmTransaction(connection, tx, signers));
         }
 
-        const txHash = await sendAndConfirmTransaction(
-          connection,
-          tx,
-          signers
-        ).catch((e) => {
-          console.error(e);
-          throw e;
-        });
-        console.log(txHash);
+        await Promise.all(transactions)
+          .then((txs) => {
+            txs.map(console.log);
+          })
+          .catch((e) => {
+            console.error(e);
+            throw e;
+          });
       }
 
       let afterTokenXBalance = await connection
@@ -1025,7 +1077,7 @@ describe("SDK test", () => {
         seedAmount.toString()
       );
 
-      groupedInstructions = await pair.seedLiquidity(
+      const seedLiquidityResponse = await pair.seedLiquidity(
         keypair.publicKey,
         keypair.publicKey,
         keypair.publicKey,
@@ -1036,7 +1088,10 @@ describe("SDK test", () => {
         baseKeypair.publicKey
       );
 
-      expect(groupedInstructions.length).toBe(1);
+      expect(
+        seedLiquidityResponse.initializeBinArraysAndPositionIxs.length
+      ).toBe(0);
+      expect(seedLiquidityResponse.addLiquidityIxs.length).toBe(1);
 
       beforeTokenXBalance = afterTokenXBalance;
       const { blockhash, lastValidBlockHeight } =
@@ -1046,7 +1101,7 @@ describe("SDK test", () => {
         feePayer: keypair.publicKey,
         blockhash,
         lastValidBlockHeight,
-      }).add(...groupedInstructions[0]);
+      }).add(...seedLiquidityResponse.addLiquidityIxs[0]);
 
       const txHash = await sendAndConfirmTransaction(connection, tx, [
         keypair,
@@ -1110,54 +1165,78 @@ describe("SDK test", () => {
         )
       ).mul(priceMultiplier);
 
-      let groupedInstructions = await pair.seedLiquidity(
-        keypair.publicKey,
-        keypair.publicKey,
-        keypair.publicKey,
-        seedAmount,
-        curvature,
-        minPrice.toNumber(),
-        maxPrice.toNumber(),
-        baseKeypair.publicKey
-      );
-      const lastDepositIndex = groupedInstructions.length - 1;
+      let { initializeBinArraysAndPositionIxs, addLiquidityIxs } =
+        await pair.seedLiquidity(
+          keypair.publicKey,
+          keypair.publicKey,
+          keypair.publicKey,
+          seedAmount,
+          curvature,
+          minPrice.toNumber(),
+          maxPrice.toNumber(),
+          baseKeypair.publicKey
+        );
+
+      {
+        const transactions = [];
+        const { blockhash, lastValidBlockHeight } =
+          await connection.getLatestBlockhash("confirmed");
+
+        for (const groupIx of initializeBinArraysAndPositionIxs) {
+          const tx = new Transaction({
+            feePayer: keypair.publicKey,
+            blockhash,
+            lastValidBlockHeight,
+          }).add(...groupIx);
+
+          const signers = [keypair, baseKeypair];
+          transactions.push(sendAndConfirmTransaction(connection, tx, signers));
+        }
+
+        await Promise.all(transactions)
+          .then((txs) => {
+            txs.map(console.log);
+          })
+          .catch((e) => {
+            console.error(e);
+            throw e;
+          });
+      }
 
       let beforeTokenXBalance = await connection
         .getTokenAccountBalance(userBTC)
         .then((i) => new BN(i.value.amount));
 
-      for (const [idx, groupIx] of groupedInstructions.entries()) {
-        if (idx == lastDepositIndex) {
-          continue;
-        }
-        const requireBaseSignature = groupIx.find((ix) =>
-          ix.keys.find((key) => key.pubkey.equals(baseKeypair.publicKey))
-        );
-
+      // Simulate send all add liquidity, but index 2 ix timeout
+      {
         const { blockhash, lastValidBlockHeight } =
           await connection.getLatestBlockhash("confirmed");
 
-        const tx = new Transaction({
-          feePayer: keypair.publicKey,
-          blockhash,
-          lastValidBlockHeight,
-        }).add(...groupIx);
+        const transactions = [];
 
-        const signers = [keypair];
+        for (const [idx, groupIx] of addLiquidityIxs.entries()) {
+          if (idx == 2) {
+            continue;
+          }
 
-        if (requireBaseSignature) {
-          signers.push(baseKeypair);
+          const tx = new Transaction({
+            feePayer: keypair.publicKey,
+            blockhash,
+            lastValidBlockHeight,
+          }).add(...groupIx);
+
+          const signers = [keypair];
+          transactions.push(sendAndConfirmTransaction(connection, tx, signers));
         }
 
-        const txHash = await sendAndConfirmTransaction(
-          connection,
-          tx,
-          signers
-        ).catch((e) => {
-          console.error(e);
-          throw e;
-        });
-        console.log(txHash);
+        await Promise.all(transactions)
+          .then((txs) => {
+            txs.map(console.log);
+          })
+          .catch((e) => {
+            console.error(e);
+            throw e;
+          });
       }
 
       let afterTokenXBalance = await connection
@@ -1169,7 +1248,7 @@ describe("SDK test", () => {
         seedAmount.toString()
       );
 
-      groupedInstructions = await pair.seedLiquidity(
+      const seedLiquidityResponse = await pair.seedLiquidity(
         keypair.publicKey,
         keypair.publicKey,
         keypair.publicKey,
@@ -1180,7 +1259,10 @@ describe("SDK test", () => {
         baseKeypair.publicKey
       );
 
-      expect(groupedInstructions.length).toBe(1);
+      expect(
+        seedLiquidityResponse.initializeBinArraysAndPositionIxs.length
+      ).toBe(0);
+      expect(seedLiquidityResponse.addLiquidityIxs.length).toBe(1);
 
       beforeTokenXBalance = afterTokenXBalance;
       const { blockhash, lastValidBlockHeight } =
@@ -1190,7 +1272,7 @@ describe("SDK test", () => {
         feePayer: keypair.publicKey,
         blockhash,
         lastValidBlockHeight,
-      }).add(...groupedInstructions[0]);
+      }).add(...seedLiquidityResponse.addLiquidityIxs[0]);
 
       const txHash = await sendAndConfirmTransaction(connection, tx, [
         keypair,
@@ -1267,50 +1349,73 @@ describe("SDK test", () => {
       console.log("Min/Max price", minPrice, maxPrice);
       console.log("Binstep", pair.lbPair.binStep);
 
-      const groupedInstructions = await pair.seedLiquidity(
-        keypair.publicKey,
-        keypair.publicKey,
-        keypair.publicKey,
-        seedAmount,
-        curvature,
-        minPrice.toNumber(),
-        maxPrice.toNumber(),
-        baseKeypair.publicKey
-      );
+      const { initializeBinArraysAndPositionIxs, addLiquidityIxs } =
+        await pair.seedLiquidity(
+          keypair.publicKey,
+          keypair.publicKey,
+          keypair.publicKey,
+          seedAmount,
+          curvature,
+          minPrice.toNumber(),
+          maxPrice.toNumber(),
+          baseKeypair.publicKey
+        );
 
       const beforeTokenXBalance = await connection
         .getTokenAccountBalance(userBTC)
         .then((i) => new BN(i.value.amount));
 
-      for (const groupIx of groupedInstructions) {
-        const requireBaseSignature = groupIx.find((ix) =>
-          ix.keys.find((key) => key.pubkey.equals(baseKeypair.publicKey))
-        );
-
+      {
+        const transactions = [];
         const { blockhash, lastValidBlockHeight } =
           await connection.getLatestBlockhash("confirmed");
 
-        const tx = new Transaction({
-          feePayer: keypair.publicKey,
-          blockhash,
-          lastValidBlockHeight,
-        }).add(...groupIx);
+        for (const groupIx of initializeBinArraysAndPositionIxs) {
+          const tx = new Transaction({
+            feePayer: keypair.publicKey,
+            blockhash,
+            lastValidBlockHeight,
+          }).add(...groupIx);
 
-        const signers = [keypair];
-
-        if (requireBaseSignature) {
-          signers.push(baseKeypair);
+          const signers = [keypair, baseKeypair];
+          transactions.push(sendAndConfirmTransaction(connection, tx, signers));
         }
 
-        const txHash = await sendAndConfirmTransaction(
-          connection,
-          tx,
-          signers
-        ).catch((e) => {
-          console.error(e);
-          throw e;
-        });
-        console.log(txHash);
+        await Promise.all(transactions)
+          .then((txs) => {
+            txs.map(console.log);
+          })
+          .catch((e) => {
+            console.error(e);
+            throw e;
+          });
+      }
+
+      {
+        const { blockhash, lastValidBlockHeight } =
+          await connection.getLatestBlockhash("confirmed");
+
+        const transactions = [];
+
+        for (const groupIx of addLiquidityIxs) {
+          const tx = new Transaction({
+            feePayer: keypair.publicKey,
+            blockhash,
+            lastValidBlockHeight,
+          }).add(...groupIx);
+
+          const signers = [keypair];
+          transactions.push(sendAndConfirmTransaction(connection, tx, signers));
+        }
+
+        await Promise.all(transactions)
+          .then((txs) => {
+            txs.map(console.log);
+          })
+          .catch((e) => {
+            console.error(e);
+            throw e;
+          });
       }
 
       const afterTokenXBalance = await connection

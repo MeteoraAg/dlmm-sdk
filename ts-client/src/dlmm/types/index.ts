@@ -259,3 +259,8 @@ export enum BitmapType {
   U1024,
   U512,
 }
+
+export interface SeedLiquidityResponse {
+  initializeBinArraysAndPositionIxs: TransactionInstruction[][];
+  addLiquidityIxs: TransactionInstruction[][];
+}

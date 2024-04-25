@@ -198,50 +198,77 @@ describe("ILM test", () => {
     });
 
     it("seed liquidity", async () => {
-      const groupedInstructions = await pair.seedLiquidity(
-        keypair.publicKey,
-        keypair.publicKey,
-        keypair.publicKey,
-        seedAmount,
-        curvature,
-        minPrice,
-        maxPrice,
-        baseKeypair.publicKey
-      );
+      const { initializeBinArraysAndPositionIxs, addLiquidityIxs } =
+        await pair.seedLiquidity(
+          keypair.publicKey,
+          keypair.publicKey,
+          keypair.publicKey,
+          seedAmount,
+          curvature,
+          minPrice,
+          maxPrice,
+          baseKeypair.publicKey
+        );
+
+      // Initialize all bin array and position, transaction order can be in sequence or not
+      {
+        const { blockhash, lastValidBlockHeight } =
+          await connection.getLatestBlockhash("confirmed");
+        const transactions = [];
+
+        for (const groupIx of initializeBinArraysAndPositionIxs) {
+          const tx = new Transaction({
+            feePayer: keypair.publicKey,
+            blockhash,
+            lastValidBlockHeight,
+          }).add(...groupIx);
+
+          const signers = [keypair, baseKeypair];
+
+          transactions.push(sendAndConfirmTransaction(connection, tx, signers));
+        }
+
+        await Promise.all(transactions)
+          .then((txs) => {
+            txs.map(console.log);
+          })
+          .catch((e) => {
+            console.error(e);
+            throw e;
+          });
+      }
 
       const beforeTokenXBalance = await connection
         .getTokenAccountBalance(userWEN)
         .then((i) => new BN(i.value.amount));
 
-      for (const groupIx of groupedInstructions) {
-        const requireBaseSignature = groupIx.find((ix) =>
-          ix.keys.find((key) => key.pubkey.equals(baseKeypair.publicKey))
-        );
-
+      {
         const { blockhash, lastValidBlockHeight } =
           await connection.getLatestBlockhash("confirmed");
 
-        const tx = new Transaction({
-          feePayer: keypair.publicKey,
-          blockhash,
-          lastValidBlockHeight,
-        }).add(...groupIx);
+        const transactions = [];
 
-        const signers = [keypair];
+        // Deposit to positions created in above step. The add liquidity order can be in sequence or not.
+        for (const groupIx of addLiquidityIxs) {
+          const tx = new Transaction({
+            feePayer: keypair.publicKey,
+            blockhash,
+            lastValidBlockHeight,
+          }).add(...groupIx);
 
-        if (requireBaseSignature) {
-          signers.push(baseKeypair);
+          const signers = [keypair];
+
+          transactions.push(sendAndConfirmTransaction(connection, tx, signers));
         }
 
-        const txHash = await sendAndConfirmTransaction(
-          connection,
-          tx,
-          signers
-        ).catch((e) => {
-          console.error(e);
-          throw e;
-        });
-        console.log(txHash);
+        await Promise.all(transactions)
+          .then((txs) => {
+            txs.map(console.log);
+          })
+          .catch((e) => {
+            console.error(e);
+            throw e;
+          });
       }
 
       const afterTokenXBalance = await connection
@@ -433,50 +460,77 @@ describe("ILM test", () => {
     });
 
     it("seed liquidity", async () => {
-      const groupedInstructions = await pair.seedLiquidity(
-        keypair.publicKey,
-        keypair.publicKey,
-        keypair.publicKey,
-        seedAmount,
-        curvature,
-        minPrice,
-        maxPrice,
-        baseKeypair.publicKey
-      );
+      const { initializeBinArraysAndPositionIxs, addLiquidityIxs } =
+        await pair.seedLiquidity(
+          keypair.publicKey,
+          keypair.publicKey,
+          keypair.publicKey,
+          seedAmount,
+          curvature,
+          minPrice,
+          maxPrice,
+          baseKeypair.publicKey
+        );
+
+      // Initialize all bin array and position, transaction order can be in sequence or not
+      {
+        const { blockhash, lastValidBlockHeight } =
+          await connection.getLatestBlockhash("confirmed");
+        const transactions = [];
+
+        for (const groupIx of initializeBinArraysAndPositionIxs) {
+          const tx = new Transaction({
+            feePayer: keypair.publicKey,
+            blockhash,
+            lastValidBlockHeight,
+          }).add(...groupIx);
+
+          const signers = [keypair, baseKeypair];
+
+          transactions.push(sendAndConfirmTransaction(connection, tx, signers));
+        }
+
+        await Promise.all(transactions)
+          .then((txs) => {
+            txs.map(console.log);
+          })
+          .catch((e) => {
+            console.error(e);
+            throw e;
+          });
+      }
 
       const beforeTokenXBalance = await connection
         .getTokenAccountBalance(userSHAKY)
         .then((i) => new BN(i.value.amount));
 
-      for (const groupIx of groupedInstructions) {
-        const requireBaseSignature = groupIx.find((ix) =>
-          ix.keys.find((key) => key.pubkey.equals(baseKeypair.publicKey))
-        );
-
+      {
         const { blockhash, lastValidBlockHeight } =
           await connection.getLatestBlockhash("confirmed");
 
-        const tx = new Transaction({
-          feePayer: keypair.publicKey,
-          blockhash,
-          lastValidBlockHeight,
-        }).add(...groupIx);
+        const transactions = [];
 
-        const signers = [keypair];
+        // Deposit to positions created in above step. The add liquidity order can be in sequence or not.
+        for (const groupIx of addLiquidityIxs) {
+          const tx = new Transaction({
+            feePayer: keypair.publicKey,
+            blockhash,
+            lastValidBlockHeight,
+          }).add(...groupIx);
 
-        if (requireBaseSignature) {
-          signers.push(baseKeypair);
+          const signers = [keypair];
+
+          transactions.push(sendAndConfirmTransaction(connection, tx, signers));
         }
 
-        const txHash = await sendAndConfirmTransaction(
-          connection,
-          tx,
-          signers
-        ).catch((e) => {
-          console.error(e);
-          throw e;
-        });
-        console.log(txHash);
+        await Promise.all(transactions)
+          .then((txs) => {
+            txs.map(console.log);
+          })
+          .catch((e) => {
+            console.error(e);
+            throw e;
+          });
       }
 
       const afterTokenXBalance = await connection

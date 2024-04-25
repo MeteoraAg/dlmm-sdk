@@ -66,6 +66,7 @@ import {
   InitPermissionPairIx,
   CompressedBinDepositAmounts,
   PositionV2,
+  SeedLiquidityResponse,
 } from "./types";
 import { AnchorProvider, BN, Program } from "@coral-xyz/anchor";
 import {
@@ -3689,7 +3690,7 @@ export class DLMM {
    *    - `minPrice`: Start price in UI format
    *    - `maxPrice`: End price in UI format
    *    - `base`: Base key
-   * @returns {Promise<TransactionInstruction[][]>}
+   * @returns {Promise<SeedLiquidityResponse>}
    */
   public async seedLiquidity(
     owner: PublicKey,
@@ -3700,7 +3701,7 @@ export class DLMM {
     minPrice: number,
     maxPrice: number,
     base: PublicKey
-  ): Promise<TransactionInstruction[][]> {
+  ): Promise<SeedLiquidityResponse> {
     const toLamportMultiplier = new Decimal(
       10 ** (this.tokenY.decimal - this.tokenX.decimal)
     );
@@ -3764,7 +3765,8 @@ export class DLMM {
       false
     );
 
-    const groupedInstructions = [];
+    const initializeBinArraysAndPositionIxs = [];
+    const addLiquidityIxs = [];
     const appendedInitBinArrayIx = new Set();
 
     for (let i = 0; i < positionCount.toNumber(); i++) {
@@ -3864,7 +3866,7 @@ export class DLMM {
 
       // Initialize bin arrays and initialize position account in 1 tx
       if (instructions.length > 1) {
-        groupedInstructions.push(instructions);
+        initializeBinArraysAndPositionIxs.push(instructions);
         instructions = [computeBudgetIx()];
       }
 
@@ -3944,11 +3946,14 @@ export class DLMM {
           );
         }
 
-        groupedInstructions.push(instructions);
+        addLiquidityIxs.push(instructions);
       }
     }
 
-    return groupedInstructions;
+    return {
+      initializeBinArraysAndPositionIxs,
+      addLiquidityIxs,
+    };
   }
 
   /**
