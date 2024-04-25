@@ -12,7 +12,7 @@ env:
 
 jobs:
   program_changed_files:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     outputs:
       program: ${{steps.changed-files-specific.outputs.any_changed}}
     steps:
@@ -27,7 +27,7 @@ jobs:
             programs/lb_clmm
 
   lb_clmm_anchor_build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     needs: program_changed_files
     if: needs.program_changed_files.outputs.program == 'true'
     steps:

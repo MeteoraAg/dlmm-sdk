@@ -12,7 +12,7 @@ env:
 
 jobs:
   market_making_changed_files:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     outputs:
       market_making: ${{steps.changed-files-specific.outputs.any_changed}}
     steps:
@@ -27,7 +27,7 @@ jobs:
             market_making
 
   market_making_build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     needs: market_making_changed_files
     if: needs.market_making_changed_files.outputs.market_making == 'true'
     steps:

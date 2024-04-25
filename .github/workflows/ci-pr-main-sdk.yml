@@ -12,7 +12,7 @@ env:
 
 jobs:
   sdk_changed_files:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     outputs:
       sdk: ${{steps.changed-files-specific.outputs.any_changed}}
     steps:
@@ -27,7 +27,7 @@ jobs:
             ts-client
 
   sdk_test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     needs: sdk_changed_files
     if: needs.sdk_changed_files.outputs.sdk == 'true'
     steps:
