@@ -245,7 +245,7 @@ export function findNextBinArrayIndexWithLiquidity(
             binArrayBitmapExtension
           );
 
-          if (binArrayIndex != null) {
+          if (binArrayIndex !== null) {
             return new BN(binArrayIndex);
           } else {
             return null;

@@ -3734,6 +3734,61 @@ export class DLMM {
     );
   }
 
+  public async syncWithMarketPrice(marketPrice: number, owner: PublicKey) {
+    const marketPriceBinId = this.getBinIdFromPrice(marketPrice, false);
+    const activeBin = await this.getActiveBin();
+    const activeBinId = activeBin.binId;
+
+    const fromBinArrayIndex = binIdToBinArrayIndex(new BN(activeBinId));
+
+    const swapForY = marketPriceBinId < activeBinId;
+    const toBinArrayIndex = findNextBinArrayIndexWithLiquidity(
+      swapForY,
+      new BN(activeBinId),
+      this.lbPair,
+      this.binArrayBitmapExtension.account
+    );
+    const [lowerBinId, upperBinId] =
+      getBinArrayLowerUpperBinId(toBinArrayIndex);
+    const toBinArrayBins = await this.getBins(
+      this.pubkey,
+      lowerBinId.toNumber(),
+      upperBinId.toNumber(),
+      this.tokenX.decimal,
+      this.tokenY.decimal
+    );
+
+    const toBinId = swapForY
+      ? toBinArrayBins.findLast(({ yAmount }) => !yAmount.isZero())
+      : toBinArrayBins.find(({ xAmount }) => !xAmount.isZero());
+
+    const { blockhash, lastValidBlockHeight } =
+      await this.program.provider.connection.getLatestBlockhash("confirmed");
+    const syncWithMarketPriceTx = await this.program.methods
+      .goToABin(toBinId.binId)
+      .accounts({
+        lbPair: this.pubkey,
+        binArrayBitmapExtension: this.binArrayBitmapExtension.publicKey,
+        fromBinArray: deriveBinArray(
+          this.pubkey,
+          fromBinArrayIndex,
+          this.program.programId
+        )[0],
+        toBinArray: deriveBinArray(
+          this.pubkey,
+          toBinArrayIndex,
+          this.program.programId
+        )[0],
+      })
+      .transaction();
+
+    return new Transaction({
+      feePayer: owner,
+      blockhash,
+      lastValidBlockHeight,
+    }).add(syncWithMarketPriceTx);
+  }
+
   /** Private static method */
 
   private static async getBinArrays(
