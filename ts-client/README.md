@@ -231,6 +231,7 @@ try {
 | `claimSwapFee`                                | Claim swap fees for a specific position owned by a specific owner                                                             | `Promise<Transaction>`                                                                   |
 | `claimAllSwapFee`                             | Claim swap fees for multiple positions owned by a specific owner                                                              | `Promise<Transaction>`                                                                   |
 | `claimAllRewards`                             | Claim swap fees and LM rewards for multiple positions owned by a specific owner                                               | `Promise<Transaction[]>`                                                                 |
+| `syncWithMarketPrice`                         | Sync the pool current active bin to match nearest market price bin                                                            | `Promise<Transaction>`                                                                   |
 
 ```
 
