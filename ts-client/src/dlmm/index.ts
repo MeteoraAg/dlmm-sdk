@@ -1750,8 +1750,9 @@ export class DLMM {
       (_, index) => index + lowerBinArrayIndex.toNumber()
     ).map((idx) => new BN(idx));
 
-    const binArraysCount = (await this.binArraysToBeCreate(binArraysNeeded))
-      .length;
+    const binArraysCount = (
+      await this.binArraysToBeCreate(lowerBinArrayIndex, upperBinArrayIndex)
+    ).length;
     const positionCount = Math.ceil((maxBinId - minBinId) / MAX_BIN_PER_TX);
 
     const binArrayCost = binArraysCount * BIN_ARRAY_FEE;
@@ -1810,20 +1811,16 @@ export class DLMM {
       this.program.programId
     );
 
-    const upperBinArrayIndex = lowerBinArrayIndex.add(new BN(1));
+    const upperBinArrayIndex = binIdToBinArrayIndex(new BN(maxBinId));
     const [binArrayUpper] = deriveBinArray(
       this.pubkey,
       upperBinArrayIndex,
       this.program.programId
     );
 
-    const binArraysNeeded: BN[] = Array.from(
-      { length: upperBinArrayIndex.sub(lowerBinArrayIndex).toNumber() + 4 },
-      (_, index) => index - 2 + lowerBinArrayIndex.toNumber()
-    ).map((idx) => new BN(idx));
-
     const createBinArrayIxs = await this.createBinArraysIfNeeded(
-      binArraysNeeded,
+      upperBinArrayIndex,
+      lowerBinArrayIndex,
       user
     );
     preInstructions.push(...createBinArrayIxs);
@@ -2020,20 +2017,16 @@ export class DLMM {
       this.program.programId
     );
 
-    const upperBinArrayIndex = lowerBinArrayIndex.add(new BN(1));
+    const upperBinArrayIndex = binIdToBinArrayIndex(new BN(upperBinId));
     const [binArrayUpper] = deriveBinArray(
       this.pubkey,
       upperBinArrayIndex,
       this.program.programId
     );
 
-    const binArraysNeeded: BN[] = Array.from(
-      { length: upperBinArrayIndex.sub(lowerBinArrayIndex).toNumber() + 4 },
-      (_, index) => index - 2 + lowerBinArrayIndex.toNumber()
-    ).map((idx) => new BN(idx));
-
     const createBinArrayIxs = await this.createBinArraysIfNeeded(
-      binArraysNeeded,
+      upperBinArrayIndex,
+      lowerBinArrayIndex,
       user
     );
     preInstructions.push(...createBinArrayIxs);
@@ -2285,20 +2278,16 @@ export class DLMM {
       this.program.programId
     );
 
-    const upperBinArrayIndex = lowerBinArrayIndex.add(new BN(1));
+    const upperBinArrayIndex = binIdToBinArrayIndex(new BN(maxBinId));
     const [binArrayUpper] = deriveBinArray(
       this.pubkey,
       upperBinArrayIndex,
       this.program.programId
     );
 
-    const binArraysNeeded: BN[] = Array.from(
-      { length: upperBinArrayIndex.sub(lowerBinArrayIndex).toNumber() + 4 },
-      (_, index) => index - 2 + lowerBinArrayIndex.toNumber()
-    ).map((idx) => new BN(idx));
-
     const createBinArrayIxs = await this.createBinArraysIfNeeded(
-      binArraysNeeded,
+      upperBinArrayIndex,
+      lowerBinArrayIndex,
       user
     );
     preInstructions.push(...createBinArrayIxs);
@@ -2507,21 +2496,19 @@ export class DLMM {
       this.program.programId
     );
 
-    const upperBinArrayIndex = lowerBinArrayIndex.add(new BN(1));
+    const upperBinArrayIndex = binIdToBinArrayIndex(
+      new BN(positionAccount.upperBinId)
+    );
     const [binArrayUpper] = deriveBinArray(
       this.pubkey,
       upperBinArrayIndex,
       this.program.programId
     );
 
-    const binArraysNeeded: BN[] = Array.from(
-      { length: upperBinArrayIndex.sub(lowerBinArrayIndex).toNumber() + 4 },
-      (_, index) => index - 2 + lowerBinArrayIndex.toNumber()
-    ).map((idx) => new BN(idx));
-
     const preInstructions: TransactionInstruction[] = [];
     const createBinArrayIxs = await this.createBinArraysIfNeeded(
-      binArraysNeeded,
+      upperBinArrayIndex,
+      lowerBinArrayIndex,
       user
     );
     preInstructions.push(...createBinArrayIxs);
@@ -4284,7 +4271,15 @@ export class DLMM {
     return bins;
   }
 
-  private async binArraysToBeCreate(binArrayIndexes: BN[]) {
+  private async binArraysToBeCreate(
+    lowerBinArrayIndex: BN,
+    upperBinArrayIndex: BN
+  ) {
+    const binArrayIndexes: BN[] = Array.from(
+      { length: upperBinArrayIndex.sub(lowerBinArrayIndex).toNumber() + 1 },
+      (_, index) => index + lowerBinArrayIndex.toNumber()
+    ).map((idx) => new BN(idx));
+
     const binArrays: PublicKey[] = [];
     for (const idx of binArrayIndexes) {
       const [binArray] = deriveBinArray(
@@ -4303,10 +4298,16 @@ export class DLMM {
   }
 
   private async createBinArraysIfNeeded(
-    binArrayIndexes: BN[],
+    upperBinArrayIndex: BN,
+    lowerBinArrayIndex: BN,
     funder: PublicKey
   ): Promise<TransactionInstruction[]> {
     const ixs: TransactionInstruction[] = [];
+
+    const binArrayIndexes: BN[] = Array.from(
+      { length: upperBinArrayIndex.sub(lowerBinArrayIndex).toNumber() + 1 },
+      (_, index) => index + lowerBinArrayIndex.toNumber()
+    ).map((idx) => new BN(idx));
 
     for (const idx of binArrayIndexes) {
       const [binArray] = deriveBinArray(
