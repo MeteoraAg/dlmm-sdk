@@ -3746,7 +3746,7 @@ export class DLMM {
       swapForY,
       new BN(activeBinId),
       this.lbPair,
-      this.binArrayBitmapExtension.account
+      this.binArrayBitmapExtension?.account ?? null
     );
     const [lowerBinId, upperBinId] =
       getBinArrayLowerUpperBinId(toBinArrayIndex);
