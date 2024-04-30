@@ -1811,7 +1811,10 @@ export class DLMM {
       this.program.programId
     );
 
-    const upperBinArrayIndex = binIdToBinArrayIndex(new BN(maxBinId));
+    const upperBinArrayIndex = BN.max(
+      lowerBinArrayIndex.add(new BN(1)),
+      binIdToBinArrayIndex(new BN(maxBinId))
+    );
     const [binArrayUpper] = deriveBinArray(
       this.pubkey,
       upperBinArrayIndex,
@@ -2017,7 +2020,10 @@ export class DLMM {
       this.program.programId
     );
 
-    const upperBinArrayIndex = binIdToBinArrayIndex(new BN(upperBinId));
+    const upperBinArrayIndex = BN.max(
+      lowerBinArrayIndex.add(new BN(1)),
+      binIdToBinArrayIndex(new BN(upperBinId))
+    );
     const [binArrayUpper] = deriveBinArray(
       this.pubkey,
       upperBinArrayIndex,
@@ -2278,7 +2284,10 @@ export class DLMM {
       this.program.programId
     );
 
-    const upperBinArrayIndex = binIdToBinArrayIndex(new BN(maxBinId));
+    const upperBinArrayIndex = BN.max(
+      lowerBinArrayIndex.add(new BN(1)),
+      binIdToBinArrayIndex(new BN(maxBinId))
+    );
     const [binArrayUpper] = deriveBinArray(
       this.pubkey,
       upperBinArrayIndex,
@@ -2496,8 +2505,9 @@ export class DLMM {
       this.program.programId
     );
 
-    const upperBinArrayIndex = binIdToBinArrayIndex(
-      new BN(positionAccount.upperBinId)
+    const upperBinArrayIndex = BN.max(
+      lowerBinArrayIndex.add(new BN(1)),
+      binIdToBinArrayIndex(new BN(positionAccount.upperBinId))
     );
     const [binArrayUpper] = deriveBinArray(
       this.pubkey,
