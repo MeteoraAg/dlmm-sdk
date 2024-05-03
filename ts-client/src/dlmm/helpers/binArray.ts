@@ -190,7 +190,7 @@ export function findNextBinArrayIndexWithLiquidity(
 
   while (true) {
     if (isOverflowDefaultBinArrayBitmap(startBinArrayIndex)) {
-      if (binArrayBitmapExtension == null) {
+      if (binArrayBitmapExtension === null) {
         return null;
       }
       // When bin array index is negative, the MSB is smallest bin array index.
@@ -205,7 +205,7 @@ export function findNextBinArrayIndexWithLiquidity(
             binArrayBitmapExtension
           );
 
-          if (binArrayIndex != null) {
+          if (binArrayIndex !== null) {
             return new BN(binArrayIndex);
           } else {
             return null;
@@ -217,7 +217,7 @@ export function findNextBinArrayIndexWithLiquidity(
             binArrayBitmapExtension
           );
 
-          if (binArrayIndex != null) {
+          if (binArrayIndex !== null) {
             return new BN(binArrayIndex);
           } else {
             // Move to internal bitmap
@@ -232,7 +232,7 @@ export function findNextBinArrayIndexWithLiquidity(
             binArrayBitmapExtension
           );
 
-          if (binArrayIndex != null) {
+          if (binArrayIndex !== null) {
             return new BN(binArrayIndex);
           } else {
             // Move to internal bitmap
@@ -269,7 +269,7 @@ export function findNextBinArrayIndexWithLiquidity(
 
         const msb = mostSignificantBit(croppedBitmap, bitmapDetail.bits);
 
-        if (msb != null) {
+        if (msb !== null) {
           return startBinArrayIndex.sub(new BN(msb));
         } else {
           // Move to extension
@@ -279,7 +279,7 @@ export function findNextBinArrayIndexWithLiquidity(
         const lowerBitRange = offset;
         const croppedBitmap = bitmap.shrn(lowerBitRange.toNumber());
         const lsb = leastSignificantBit(croppedBitmap, bitmapDetail.bits);
-        if (lsb != null) {
+        if (lsb !== null) {
           return startBinArrayIndex.add(new BN(lsb));
         } else {
           // Move to extension
