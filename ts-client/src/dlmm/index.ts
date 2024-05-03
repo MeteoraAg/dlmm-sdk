@@ -1745,15 +1745,10 @@ export class DLMM {
     const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(minBinId));
     const upperBinArrayIndex = binIdToBinArrayIndex(new BN(maxBinId));
 
-    const binArraysNeeded: BN[] = Array.from(
-      { length: upperBinArrayIndex.sub(lowerBinArrayIndex).toNumber() + 1 },
-      (_, index) => index + lowerBinArrayIndex.toNumber()
-    ).map((idx) => new BN(idx));
-
     const binArraysCount = (
       await this.binArraysToBeCreate(lowerBinArrayIndex, upperBinArrayIndex)
     ).length;
-    const positionCount = Math.ceil((maxBinId - minBinId) / MAX_BIN_PER_TX);
+    const positionCount = Math.ceil((maxBinId - minBinId + 1) / MAX_BIN_PER_TX);
 
     const binArrayCost = binArraysCount * BIN_ARRAY_FEE;
     const positionCost = positionCount * POSITION_FEE;
