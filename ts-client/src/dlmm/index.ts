@@ -3735,7 +3735,16 @@ export class DLMM {
   }
 
   public async canSyncWithMarketPrice(marketPrice: number) {
-    const marketPriceBinId = this.getBinIdFromPrice(marketPrice, false);
+    const marketPriceBinId = this.getBinIdFromPrice(
+      Number(
+        DLMM.getPricePerLamport(
+          this.tokenX.decimal,
+          this.tokenY.decimal,
+          marketPrice
+        )
+      ),
+      false
+    );
     const activeBin = await this.getActiveBin();
     const activeBinId = activeBin.binId;
 
@@ -3765,7 +3774,16 @@ export class DLMM {
    * @returns {Promise<Transaction>}
    */
   public async syncWithMarketPrice(marketPrice: number, owner: PublicKey) {
-    const marketPriceBinId = this.getBinIdFromPrice(marketPrice, false);
+    const marketPriceBinId = this.getBinIdFromPrice(
+      Number(
+        DLMM.getPricePerLamport(
+          this.tokenX.decimal,
+          this.tokenY.decimal,
+          marketPrice
+        )
+      ),
+      false
+    );
     const activeBin = await this.getActiveBin();
     const activeBinId = activeBin.binId;
 
@@ -3781,10 +3799,6 @@ export class DLMM {
       this.lbPair,
       this.binArrayBitmapExtension?.account ?? null
     );
-    console.log(
-      "🚀 ~ DLMM ~ syncWithMarketPrice ~ toBinArrayIndex:",
-      toBinArrayIndex
-    );
     if (
       toBinArrayIndex !== null &&
       (swapForY
@@ -3795,44 +3809,30 @@ export class DLMM {
         "Unable to sync with market price due to bin with liquidity between current and market price bin"
       );
     }
-
-    const preInstructions: TransactionInstruction[] = [];
+    const accountsToFetch = [];
     const [binArrayBitMapExtensionPubkey] = deriveBinArrayBitmapExtension(
       this.pubkey,
       this.program.programId
     );
-    if (toBinArrayIndex === null) {
-      const initializedBinArrayBitMapExtension = await this.program.methods
-        .initializeBinArrayBitmapExtension()
-        .accounts({
-          binArrayBitmapExtension: binArrayBitMapExtensionPubkey,
-          funder: owner,
-          lbPair: this.pubkey,
-          rent: SYSVAR_RENT_PUBKEY,
-          systemProgram: SystemProgram.programId,
-        })
-        .instruction();
-      preInstructions.push(initializedBinArrayBitMapExtension);
-    }
-
-    const [fromBinArray] = deriveBinArray(
+    accountsToFetch.push(binArrayBitMapExtensionPubkey);
+    const [fromBinArrayPubkey] = deriveBinArray(
       this.pubkey,
       fromBinArrayIndex,
       this.program.programId
     );
-    const accountsToFetch = [fromBinArray];
-    const toBinArray = (() => {
+    accountsToFetch.push(fromBinArrayPubkey);
+    const toBinArrayPubkey = (() => {
       if (!toBinArrayIndex) return null;
 
-      const [toBinArray] = deriveBinArray(
+      const [toBinArrayPubkey] = deriveBinArray(
         this.pubkey,
         toBinArrayIndex,
         this.program.programId
       );
 
-      accountsToFetch.push(toBinArray);
+      accountsToFetch.push(toBinArrayPubkey);
 
-      return toBinArray;
+      return toBinArrayPubkey;
     })();
 
     const binArrayAccounts =
@@ -3840,30 +3840,18 @@ export class DLMM {
         accountsToFetch
       );
 
-    if (!binArrayAccounts?.[0]) {
-      preInstructions.push(
-        await this.program.methods
-          .initializeBinArray(fromBinArrayIndex)
-          .accounts({
-            binArray: fromBinArray,
-            funder: owner,
-            lbPair: this.pubkey,
-          })
-          .instruction()
-      );
+    let fromBinArray: PublicKey | null = null;
+    let toBinArray: PublicKey | null = null;
+    let binArrayBitmapExtension: PublicKey | null = null;
+    if (!!binArrayAccounts?.[0]) {
+      binArrayBitmapExtension = binArrayBitMapExtensionPubkey;
+    }
+    if (!!binArrayAccounts?.[1]) {
+      fromBinArray = fromBinArrayPubkey;
     }
 
-    if (!binArrayAccounts?.[1] && toBinArrayIndex) {
-      preInstructions.push(
-        await this.program.methods
-          .initializeBinArray(toBinArrayIndex)
-          .accounts({
-            binArray: toBinArray,
-            funder: owner,
-            lbPair: this.pubkey,
-          })
-          .instruction()
-      );
+    if (!!binArrayAccounts?.[2] && !!toBinArrayIndex) {
+      toBinArray = toBinArrayPubkey;
     }
 
     const { blockhash, lastValidBlockHeight } =
@@ -3872,11 +3860,10 @@ export class DLMM {
       .goToABin(marketPriceBinId)
       .accounts({
         lbPair: this.pubkey,
-        binArrayBitmapExtension: binArrayBitMapExtensionPubkey,
+        binArrayBitmapExtension,
         fromBinArray,
         toBinArray,
       })
-      .preInstructions(preInstructions)
       .transaction();
 
     return new Transaction({
