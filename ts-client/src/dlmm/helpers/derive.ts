@@ -58,7 +58,7 @@ export async function checkPoolExists(
 export function derivePermissionLbPair(baseKey: PublicKey, tokenX: PublicKey, tokenY: PublicKey, binStep: BN, programId: PublicKey) {
     const [minKey, maxKey] = sortTokenMints(tokenX, tokenY);
     return PublicKey.findProgramAddressSync(
-        [baseKey.toBuffer(), minKey.toBuffer(), maxKey.toBuffer(), new Uint8Array(binStep.toBuffer('le', 2))],
+        [baseKey.toBuffer(), minKey.toBuffer(), maxKey.toBuffer(), new Uint8Array(binStep.toArrayLike(Buffer, "le", 2))],
         programId,
     );
 
