@@ -1,5 +1,5 @@
 {
-  "version": "0.5.0",
+  "version": "0.5.1",
   "name": "lb_clmm",
   "constants": [
     {
@@ -2315,11 +2315,24 @@
             "type": "u8"
           },
           {
+            "name": "requireBaseFactorSeed",
+            "type": "u8"
+          },
+          {
+            "name": "baseFactorSeed",
+            "type": {
+              "array": [
+                "u8",
+                2
+              ]
+            }
+          },
+          {
             "name": "padding1",
             "type": {
               "array": [
                 "u8",
-                5
+                2
               ]
             }
           },

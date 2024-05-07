@@ -35,7 +35,8 @@ pub struct InitializePresetParameter<'info> {
         init,
         seeds = [
             PRESET_PARAMETER,
-            &ix.bin_step.to_le_bytes()
+            &ix.bin_step.to_le_bytes(),
+            &ix.base_factor.to_le_bytes()
         ],
         bump,
         payer = admin,

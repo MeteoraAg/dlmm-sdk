@@ -1,5 +1,5 @@
 export type LbClmm = {
-  "version": "0.5.0",
+  "version": "0.5.1",
   "name": "lb_clmm",
   "constants": [
     {
@@ -2315,11 +2315,24 @@ export type LbClmm = {
             "type": "u8"
           },
           {
+            "name": "requireBaseFactorSeed",
+            "type": "u8"
+          },
+          {
+            "name": "baseFactorSeed",
+            "type": {
+              "array": [
+                "u8",
+                2
+              ]
+            }
+          },
+          {
             "name": "padding1",
             "type": {
               "array": [
                 "u8",
-                5
+                2
               ]
             }
           },
@@ -4546,7 +4559,7 @@ export type LbClmm = {
 };
 
 export const IDL: LbClmm = {
-  "version": "0.5.0",
+  "version": "0.5.1",
   "name": "lb_clmm",
   "constants": [
     {
@@ -6862,11 +6875,24 @@ export const IDL: LbClmm = {
             "type": "u8"
           },
           {
+            "name": "requireBaseFactorSeed",
+            "type": "u8"
+          },
+          {
+            "name": "baseFactorSeed",
+            "type": {
+              "array": [
+                "u8",
+                2
+              ]
+            }
+          },
+          {
             "name": "padding1",
             "type": {
               "array": [
                 "u8",
-                5
+                2
               ]
             }
           },

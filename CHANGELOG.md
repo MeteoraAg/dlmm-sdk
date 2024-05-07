@@ -56,6 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Deprecated
 
 - `deriveLbPair` no longer in use. Use `deriveLbPair2` for new pair PDA.
+- `derivePresetParameter` no longer in use. Use `derivePresetParameter2` for new preset parameter PDA.
 
 ## lb_clmm [0.5.1] - PR #49
 
@@ -66,6 +67,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Deprecated
 
 - `derive_lb_pair_pda` no longer in use. Use `derive_lb_pair_pda2` for new pair PDA.
+- `derive_preset_parameter_pda` no longer in use. Use `derive_preset_parameter_pda2` for new pair PDA.
 
 ### Breaking
 

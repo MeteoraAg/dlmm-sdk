@@ -12,11 +12,30 @@ function sortTokenMints(tokenX: PublicKey, tokenY: PublicKey) {
 }
 /** private */
 
+/**
+ *
+ * @deprecated Use derivePresetParameter2
+ */
 export function derivePresetParameter(binStep: BN, programId: PublicKey) {
   return PublicKey.findProgramAddressSync(
     [
       Buffer.from("preset_parameter"),
       new Uint8Array(binStep.toArrayLike(Buffer, "le", 2)),
+    ],
+    programId
+  );
+}
+
+export function derivePresetParameter2(
+  binStep: BN,
+  baseFactor: BN,
+  programId: PublicKey
+) {
+  return PublicKey.findProgramAddressSync(
+    [
+      Buffer.from("preset_parameter"),
+      new Uint8Array(binStep.toArrayLike(Buffer, "le", 2)),
+      new Uint8Array(baseFactor.toArrayLike(Buffer, "le", 2)),
     ],
     programId
   );
@@ -86,13 +105,23 @@ export async function checkPoolExists(
   }
 }
 
-export function derivePermissionLbPair(baseKey: PublicKey, tokenX: PublicKey, tokenY: PublicKey, binStep: BN, programId: PublicKey) {
-    const [minKey, maxKey] = sortTokenMints(tokenX, tokenY);
-    return PublicKey.findProgramAddressSync(
-        [baseKey.toBuffer(), minKey.toBuffer(), maxKey.toBuffer(), new Uint8Array(binStep.toArrayLike(Buffer, "le", 2))],
-        programId,
-    );
-
+export function derivePermissionLbPair(
+  baseKey: PublicKey,
+  tokenX: PublicKey,
+  tokenY: PublicKey,
+  binStep: BN,
+  programId: PublicKey
+) {
+  const [minKey, maxKey] = sortTokenMints(tokenX, tokenY);
+  return PublicKey.findProgramAddressSync(
+    [
+      baseKey.toBuffer(),
+      minKey.toBuffer(),
+      maxKey.toBuffer(),
+      new Uint8Array(binStep.toArrayLike(Buffer, "le", 2)),
+    ],
+    programId
+  );
 }
 
 export function deriveOracle(lbPair: PublicKey, programId: PublicKey) {

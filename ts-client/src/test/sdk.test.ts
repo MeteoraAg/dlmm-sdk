@@ -20,10 +20,9 @@ import { DLMM } from "../dlmm/index";
 import {
   binIdToBinArrayIndex,
   deriveBinArray,
-  deriveLbPair,
   deriveLbPair2,
   derivePermissionLbPair,
-  derivePresetParameter,
+  derivePresetParameter2,
 } from "../dlmm/helpers";
 import {
   BASIS_POINT_MAX,
@@ -189,7 +188,11 @@ describe("SDK test", () => {
       DEFAULT_BASE_FACTOR,
       programId
     );
-    [presetParamPda] = derivePresetParameter(DEFAULT_BIN_STEP, programId);
+    [presetParamPda] = derivePresetParameter2(
+      DEFAULT_BIN_STEP,
+      DEFAULT_BASE_FACTOR,
+      programId
+    );
 
     const provider = new AnchorProvider(
       connection,
