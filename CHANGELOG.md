@@ -25,6 +25,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fix position quotation calculation for position count.
 
-## @mercurial-finance/dlmm-sdk [1.0.29] - PR #65
+## @mercurial-finance/dlmm-sdk [1.0.30] - PR #65
 
 - Fix create permission lb pair browser compatibility
