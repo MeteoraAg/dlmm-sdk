@@ -1763,39 +1763,6 @@ export type LbClmm = {
       ];
     },
     {
-      name: "initializePresetParameterV2";
-      accounts: [
-        {
-          name: "presetParameter";
-          isMut: true;
-          isSigner: false;
-        },
-        {
-          name: "admin";
-          isMut: true;
-          isSigner: true;
-        },
-        {
-          name: "systemProgram";
-          isMut: false;
-          isSigner: false;
-        },
-        {
-          name: "rent";
-          isMut: false;
-          isSigner: false;
-        }
-      ];
-      args: [
-        {
-          name: "ix";
-          type: {
-            defined: "InitPresetParametersIx";
-          };
-        }
-      ];
-    },
-    {
       name: "closePresetParameter";
       accounts: [
         {
@@ -6362,39 +6329,6 @@ export const IDL: LbClmm = {
     },
     {
       name: "initializePresetParameter",
-      accounts: [
-        {
-          name: "presetParameter",
-          isMut: true,
-          isSigner: false,
-        },
-        {
-          name: "admin",
-          isMut: true,
-          isSigner: true,
-        },
-        {
-          name: "systemProgram",
-          isMut: false,
-          isSigner: false,
-        },
-        {
-          name: "rent",
-          isMut: false,
-          isSigner: false,
-        },
-      ],
-      args: [
-        {
-          name: "ix",
-          type: {
-            defined: "InitPresetParametersIx",
-          },
-        },
-      ],
-    },
-    {
-      name: "initializePresetParameterV2",
       accounts: [
         {
           name: "presetParameter",
