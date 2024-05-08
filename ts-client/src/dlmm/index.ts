@@ -3734,6 +3734,136 @@ export class DLMM {
     );
   }
 
+  public canSyncWithMarketPrice(marketPrice: number, activeBinId: number) {
+    const marketPriceBinId = this.getBinIdFromPrice(
+      Number(
+        DLMM.getPricePerLamport(
+          this.tokenX.decimal,
+          this.tokenY.decimal,
+          marketPrice
+        )
+      ),
+      false
+    );
+
+    const marketPriceBinArrayIndex = binIdToBinArrayIndex(
+      new BN(marketPriceBinId)
+    );
+
+    const swapForY = marketPriceBinId < activeBinId;
+    const toBinArrayIndex = findNextBinArrayIndexWithLiquidity(
+      swapForY,
+      new BN(activeBinId),
+      this.lbPair,
+      this.binArrayBitmapExtension?.account ?? null
+    );
+    if (toBinArrayIndex === null) return true;
+
+    return swapForY
+      ? marketPriceBinArrayIndex.gt(toBinArrayIndex)
+      : marketPriceBinArrayIndex.lt(toBinArrayIndex);
+  }
+
+  /**
+   * The `syncWithMarketPrice` function is used to sync the liquidity pool with the market price.
+   * @param
+   *    - `marketPrice`: The market price to sync with.
+   *    - `owner`: The public key of the owner of the liquidity pool.
+   * @returns {Promise<Transaction>}
+   */
+  public async syncWithMarketPrice(marketPrice: number, owner: PublicKey) {
+    const marketPriceBinId = this.getBinIdFromPrice(
+      Number(
+        DLMM.getPricePerLamport(
+          this.tokenX.decimal,
+          this.tokenY.decimal,
+          marketPrice
+        )
+      ),
+      false
+    );
+    const activeBin = await this.getActiveBin();
+    const activeBinId = activeBin.binId;
+
+    if (!this.canSyncWithMarketPrice(marketPrice, activeBinId)) {
+      throw new Error(
+        "Unable to sync with market price due to bin with liquidity between current and market price bin"
+      );
+    }
+
+    const fromBinArrayIndex = binIdToBinArrayIndex(new BN(activeBinId));
+
+    const swapForY = marketPriceBinId < activeBinId;
+    const toBinArrayIndex = findNextBinArrayIndexWithLiquidity(
+      swapForY,
+      new BN(activeBinId),
+      this.lbPair,
+      this.binArrayBitmapExtension?.account ?? null
+    );
+    const accountsToFetch = [];
+    const [binArrayBitMapExtensionPubkey] = deriveBinArrayBitmapExtension(
+      this.pubkey,
+      this.program.programId
+    );
+    accountsToFetch.push(binArrayBitMapExtensionPubkey);
+    const [fromBinArrayPubkey] = deriveBinArray(
+      this.pubkey,
+      fromBinArrayIndex,
+      this.program.programId
+    );
+    accountsToFetch.push(fromBinArrayPubkey);
+    const toBinArrayPubkey = (() => {
+      if (!toBinArrayIndex) return null;
+
+      const [toBinArrayPubkey] = deriveBinArray(
+        this.pubkey,
+        toBinArrayIndex,
+        this.program.programId
+      );
+
+      accountsToFetch.push(toBinArrayPubkey);
+
+      return toBinArrayPubkey;
+    })();
+
+    const binArrayAccounts =
+      await this.program.provider.connection.getMultipleAccountsInfo(
+        accountsToFetch
+      );
+
+    let fromBinArray: PublicKey | null = null;
+    let toBinArray: PublicKey | null = null;
+    let binArrayBitmapExtension: PublicKey | null = null;
+    if (!!binArrayAccounts?.[0]) {
+      binArrayBitmapExtension = binArrayBitMapExtensionPubkey;
+    }
+    if (!!binArrayAccounts?.[1]) {
+      fromBinArray = fromBinArrayPubkey;
+    }
+
+    if (!!binArrayAccounts?.[2] && !!toBinArrayIndex) {
+      toBinArray = toBinArrayPubkey;
+    }
+
+    const { blockhash, lastValidBlockHeight } =
+      await this.program.provider.connection.getLatestBlockhash("confirmed");
+    const syncWithMarketPriceTx = await this.program.methods
+      .goToABin(marketPriceBinId)
+      .accounts({
+        lbPair: this.pubkey,
+        binArrayBitmapExtension,
+        fromBinArray,
+        toBinArray,
+      })
+      .transaction();
+
+    return new Transaction({
+      feePayer: owner,
+      blockhash,
+      lastValidBlockHeight,
+    }).add(syncWithMarketPriceTx);
+  }
+
   /** Private static method */
 
   private static async getBinArrays(

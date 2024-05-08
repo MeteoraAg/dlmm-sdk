@@ -1,5 +1,5 @@
 export type LbClmm = {
-  version: "0.5.0";
+  version: "0.5.1";
   name: "lb_clmm";
   constants: [
     {
@@ -2279,6 +2279,124 @@ export type LbClmm = {
           type: "u16";
         }
       ];
+    },
+    {
+      name: "addLiquidityOneSidePrecise";
+      accounts: [
+        {
+          name: "position";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "lbPair";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "binArrayBitmapExtension";
+          isMut: true;
+          isSigner: false;
+          isOptional: true;
+        },
+        {
+          name: "userToken";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "reserve";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "tokenMint";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "binArrayLower";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "binArrayUpper";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "sender";
+          isMut: false;
+          isSigner: true;
+        },
+        {
+          name: "tokenProgram";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "eventAuthority";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "program";
+          isMut: false;
+          isSigner: false;
+        }
+      ];
+      args: [
+        {
+          name: "parameter";
+          type: {
+            defined: "AddLiquiditySingleSidePreciseParameter";
+          };
+        }
+      ];
+    },
+    {
+      name: "goToABin";
+      accounts: [
+        {
+          name: "lbPair";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "binArrayBitmapExtension";
+          isMut: false;
+          isSigner: false;
+          isOptional: true;
+        },
+        {
+          name: "fromBinArray";
+          isMut: false;
+          isSigner: false;
+          isOptional: true;
+        },
+        {
+          name: "toBinArray";
+          isMut: false;
+          isSigner: false;
+          isOptional: true;
+        },
+        {
+          name: "eventAuthority";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "program";
+          isMut: false;
+          isSigner: false;
+        }
+      ];
+      args: [
+        {
+          name: "binId";
+          type: "i32";
+        }
+      ];
     }
   ];
   accounts: [
@@ -3027,6 +3145,42 @@ export type LbClmm = {
                 defined: "BinLiquidityDistributionByWeight";
               };
             };
+          }
+        ];
+      };
+    },
+    {
+      name: "AddLiquiditySingleSidePreciseParameter";
+      type: {
+        kind: "struct";
+        fields: [
+          {
+            name: "bins";
+            type: {
+              vec: {
+                defined: "CompressedBinDepositAmount";
+              };
+            };
+          },
+          {
+            name: "decompressMultiplier";
+            type: "u64";
+          }
+        ];
+      };
+    },
+    {
+      name: "CompressedBinDepositAmount";
+      type: {
+        kind: "struct";
+        fields: [
+          {
+            name: "binId";
+            type: "i32";
+          },
+          {
+            name: "amount";
+            type: "u32";
           }
         ];
       };
@@ -4143,6 +4297,26 @@ export type LbClmm = {
           index: false;
         }
       ];
+    },
+    {
+      name: "GoToABin";
+      fields: [
+        {
+          name: "lbPair";
+          type: "publicKey";
+          index: false;
+        },
+        {
+          name: "fromBinId";
+          type: "i32";
+          index: false;
+        },
+        {
+          name: "toBinId";
+          type: "i32";
+          index: false;
+        }
+      ];
     }
   ];
   errors: [
@@ -4435,12 +4609,17 @@ export type LbClmm = {
       code: 6057;
       name: "InvalidLockReleaseSlot";
       msg: "Invalid lock release slot";
+    },
+    {
+      code: 6058;
+      name: "BinRangeIsNotEmpty";
+      msg: "Bin range is not empty";
     }
   ];
 };
 
 export const IDL: LbClmm = {
-  version: "0.5.0",
+  version: "0.5.1",
   name: "lb_clmm",
   constants: [
     {
@@ -6722,6 +6901,124 @@ export const IDL: LbClmm = {
         },
       ],
     },
+    {
+      name: "addLiquidityOneSidePrecise",
+      accounts: [
+        {
+          name: "position",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "lbPair",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "binArrayBitmapExtension",
+          isMut: true,
+          isSigner: false,
+          isOptional: true,
+        },
+        {
+          name: "userToken",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "reserve",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "tokenMint",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "binArrayLower",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "binArrayUpper",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "sender",
+          isMut: false,
+          isSigner: true,
+        },
+        {
+          name: "tokenProgram",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "eventAuthority",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "program",
+          isMut: false,
+          isSigner: false,
+        },
+      ],
+      args: [
+        {
+          name: "parameter",
+          type: {
+            defined: "AddLiquiditySingleSidePreciseParameter",
+          },
+        },
+      ],
+    },
+    {
+      name: "goToABin",
+      accounts: [
+        {
+          name: "lbPair",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "binArrayBitmapExtension",
+          isMut: false,
+          isSigner: false,
+          isOptional: true,
+        },
+        {
+          name: "fromBinArray",
+          isMut: false,
+          isSigner: false,
+          isOptional: true,
+        },
+        {
+          name: "toBinArray",
+          isMut: false,
+          isSigner: false,
+          isOptional: true,
+        },
+        {
+          name: "eventAuthority",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "program",
+          isMut: false,
+          isSigner: false,
+        },
+      ],
+      args: [
+        {
+          name: "binId",
+          type: "i32",
+        },
+      ],
+    },
   ],
   accounts: [
     {
@@ -7469,6 +7766,42 @@ export const IDL: LbClmm = {
                 defined: "BinLiquidityDistributionByWeight",
               },
             },
+          },
+        ],
+      },
+    },
+    {
+      name: "AddLiquiditySingleSidePreciseParameter",
+      type: {
+        kind: "struct",
+        fields: [
+          {
+            name: "bins",
+            type: {
+              vec: {
+                defined: "CompressedBinDepositAmount",
+              },
+            },
+          },
+          {
+            name: "decompressMultiplier",
+            type: "u64",
+          },
+        ],
+      },
+    },
+    {
+      name: "CompressedBinDepositAmount",
+      type: {
+        kind: "struct",
+        fields: [
+          {
+            name: "binId",
+            type: "i32",
+          },
+          {
+            name: "amount",
+            type: "u32",
           },
         ],
       },
@@ -8586,6 +8919,26 @@ export const IDL: LbClmm = {
         },
       ],
     },
+    {
+      name: "GoToABin",
+      fields: [
+        {
+          name: "lbPair",
+          type: "publicKey",
+          index: false,
+        },
+        {
+          name: "fromBinId",
+          type: "i32",
+          index: false,
+        },
+        {
+          name: "toBinId",
+          type: "i32",
+          index: false,
+        },
+      ],
+    },
   ],
   errors: [
     {
@@ -8877,6 +9230,11 @@ export const IDL: LbClmm = {
       code: 6057,
       name: "InvalidLockReleaseSlot",
       msg: "Invalid lock release slot",
+    },
+    {
+      code: 6058,
+      name: "BinRangeIsNotEmpty",
+      msg: "Bin range is not empty",
     },
   ],
 };
