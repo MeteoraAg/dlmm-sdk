@@ -2703,7 +2703,7 @@ export class DLMM {
     bps: BN;
     shouldClaimAndClose?: boolean;
   }): Promise<Transaction | Transaction[]> {
-    const { lbPair, lowerBinId, feeOwner } =
+    const { lbPair, lowerBinId, owner, feeOwner } =
       await this.program.account.positionV2.fetch(position);
 
     const { reserveX, reserveY, tokenXMint, tokenYMint } =
@@ -2732,7 +2732,21 @@ export class DLMM {
     const [
       { ataPubKey: userTokenX, ix: createPayerTokenXIx },
       { ataPubKey: userTokenY, ix: createPayerTokenYIx },
+      { ataPubKey: feeOwnerTokenX, ix: createFeeOwnerTokenXIx },
+      { ataPubKey: feeOwnerTokenY, ix: createFeeOwnerTokenYIx },
     ] = await Promise.all([
+      getOrCreateATAInstruction(
+        this.program.provider.connection,
+        this.tokenX.publicKey,
+        owner,
+        user
+      ),
+      getOrCreateATAInstruction(
+        this.program.provider.connection,
+        this.tokenY.publicKey,
+        owner,
+        user
+      ),
       getOrCreateATAInstruction(
         this.program.provider.connection,
         this.tokenX.publicKey,
@@ -2746,8 +2760,14 @@ export class DLMM {
         user
       ),
     ]);
+
     createPayerTokenXIx && preInstructions.push(createPayerTokenXIx);
     createPayerTokenYIx && preInstructions.push(createPayerTokenYIx);
+
+    if (!walletToReceiveFee.equals(owner)) {
+      createFeeOwnerTokenXIx && preInstructions.push(createFeeOwnerTokenXIx);
+      createFeeOwnerTokenYIx && preInstructions.push(createFeeOwnerTokenYIx);
+    }
 
     const secondTransactionsIx: TransactionInstruction[] = [];
     const postInstructions: Array<TransactionInstruction> = [];
@@ -2766,8 +2786,8 @@ export class DLMM {
           tokenProgram: TOKEN_PROGRAM_ID,
           tokenXMint: this.tokenX.publicKey,
           tokenYMint: this.tokenY.publicKey,
-          userTokenX,
-          userTokenY,
+          userTokenX: feeOwnerTokenX,
+          userTokenY: feeOwnerTokenY,
         })
         .instruction();
       postInstructions.push(claimSwapFeeIx);
