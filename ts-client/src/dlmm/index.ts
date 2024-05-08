@@ -3734,7 +3734,7 @@ export class DLMM {
     );
   }
 
-  public async canSyncWithMarketPrice(marketPrice: number) {
+  public canSyncWithMarketPrice(marketPrice: number, activeBinId: number) {
     const marketPriceBinId = this.getBinIdFromPrice(
       Number(
         DLMM.getPricePerLamport(
@@ -3745,8 +3745,6 @@ export class DLMM {
       ),
       false
     );
-    const activeBin = await this.getActiveBin();
-    const activeBinId = activeBin.binId;
 
     const marketPriceBinArrayIndex = binIdToBinArrayIndex(
       new BN(marketPriceBinId)
@@ -3787,9 +3785,6 @@ export class DLMM {
     const activeBin = await this.getActiveBin();
     const activeBinId = activeBin.binId;
 
-    const marketPriceBinArrayIndex = binIdToBinArrayIndex(
-      new BN(marketPriceBinId)
-    );
     const fromBinArrayIndex = binIdToBinArrayIndex(new BN(activeBinId));
 
     const swapForY = marketPriceBinId < activeBinId;
@@ -3799,12 +3794,7 @@ export class DLMM {
       this.lbPair,
       this.binArrayBitmapExtension?.account ?? null
     );
-    if (
-      toBinArrayIndex !== null &&
-      (swapForY
-        ? marketPriceBinArrayIndex.lt(toBinArrayIndex)
-        : marketPriceBinArrayIndex.gt(toBinArrayIndex))
-    ) {
+    if (!this.canSyncWithMarketPrice(marketPrice, activeBinId)) {
       throw new Error(
         "Unable to sync with market price due to bin with liquidity between current and market price bin"
       );
