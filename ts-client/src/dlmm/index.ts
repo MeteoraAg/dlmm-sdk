@@ -155,6 +155,38 @@ export class DLMM {
     return program.account.lbPair.all();
   }
 
+  public static async checkPoolExists(
+    connection: Connection,
+    tokenX: PublicKey,
+    tokenY: PublicKey,
+    binStep: BN,
+    baseFactor: BN,
+    opt?: Opt
+  ) {
+    const cluster = opt?.cluster || "mainnet-beta";
+
+    const provider = new AnchorProvider(
+      connection,
+      {} as any,
+      AnchorProvider.defaultOptions()
+    );
+    const program = new Program(IDL, LBCLMM_PROGRAM_IDS[cluster], provider);
+
+    try {
+      const [lbPairKey] = deriveLbPair2(
+        tokenX,
+        tokenY,
+        binStep,
+        baseFactor,
+        program.programId
+      );
+      await program.account.lbPair.fetch(lbPairKey);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   /**
    * The `create` function is a static method that creates a new instance of the `DLMM` class
    * @param {Connection} connection - The `connection` parameter is an instance of the `Connection`
@@ -1039,6 +1071,8 @@ export class DLMM {
     funder: PublicKey,
     tokenX: PublicKey,
     tokenY: PublicKey,
+    binStep: BN,
+    baseFactor: BN,
     presetParameter: PublicKey,
     activeId: BN,
     opt?: Opt
@@ -1050,16 +1084,11 @@ export class DLMM {
     );
     const program = new Program(IDL, LBCLMM_PROGRAM_IDS[opt.cluster], provider);
 
-    const presetParameterState = await program.account.presetParameter.fetch(
-      presetParameter
-    );
-    const binStep = new BN(presetParameterState.binStep);
-
     const [lbPair] = deriveLbPair2(
       tokenX,
       tokenY,
       binStep,
-      new BN(presetParameterState.baseFactor),
+      baseFactor,
       program.programId
     );
 

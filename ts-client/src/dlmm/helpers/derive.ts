@@ -82,29 +82,6 @@ export function deriveLbPair(
   );
 }
 
-export async function checkPoolExists(
-  connection: Connection,
-  tokenX: PublicKey,
-  tokenY: PublicKey,
-  binStep: BN,
-  baseFactor: BN,
-  programId: PublicKey
-): Promise<PublicKey | false> {
-  try {
-    const [lbPairKey] = deriveLbPair2(
-      tokenX,
-      tokenY,
-      binStep,
-      baseFactor,
-      programId
-    );
-    await DLMM.create(connection, lbPairKey);
-    return lbPairKey;
-  } catch {
-    return false;
-  }
-}
-
 export function derivePermissionLbPair(
   baseKey: PublicKey,
   tokenX: PublicKey,
