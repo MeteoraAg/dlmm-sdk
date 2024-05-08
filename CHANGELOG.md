@@ -29,12 +29,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Fixed
 
-- fix position quotation calculation for position count.
+- Fix position quotation calculation for bin array creation.
 
 ## @mercurial-finance/dlmm-sdk [1.0.30] - PR #65
 
 - Fix create permission lb pair browser compatibility
-- Fix position quotation calculation for bin array creation.
 
 ## @mercurial-finance/dynamic-amm-sdk [1.0.31] - PR #58
 
