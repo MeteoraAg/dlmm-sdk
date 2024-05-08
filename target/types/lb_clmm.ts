@@ -108,11 +108,6 @@ export type LbClmm = {
       "value": "[112, 114, 101, 115, 101, 116, 95, 112, 97, 114, 97, 109, 101, 116, 101, 114]"
     },
     {
-      "name": "PERMISSION",
-      "type": "bytes",
-      "value": "[112, 101, 114, 109, 105, 115, 115, 105, 111, 110]"
-    },
-    {
       "name": "POSITION",
       "type": "bytes",
       "value": "[112, 111, 115, 105, 116, 105, 111, 110]"
@@ -1061,6 +1056,10 @@ export type LbClmm = {
         },
         {
           "name": "owner",
+          "type": "publicKey"
+        },
+        {
+          "name": "feeOwner",
           "type": "publicKey"
         }
       ]
@@ -2755,6 +2754,13 @@ export type LbClmm = {
             "type": "u8"
           },
           {
+            "name": "feeOwner",
+            "docs": [
+              "Address is able to claim fee in this position, only valid for bootstrap_liquidity_position"
+            ],
+            "type": "publicKey"
+          },
+          {
             "name": "reserved",
             "docs": [
               "Reserved space for future use"
@@ -2762,7 +2768,7 @@ export type LbClmm = {
             "type": {
               "array": [
                 "u8",
-                119
+                87
               ]
             }
           }
@@ -4649,11 +4655,6 @@ export const IDL: LbClmm = {
       "value": "[112, 114, 101, 115, 101, 116, 95, 112, 97, 114, 97, 109, 101, 116, 101, 114]"
     },
     {
-      "name": "PERMISSION",
-      "type": "bytes",
-      "value": "[112, 101, 114, 109, 105, 115, 115, 105, 111, 110]"
-    },
-    {
       "name": "POSITION",
       "type": "bytes",
       "value": "[112, 111, 115, 105, 116, 105, 111, 110]"
@@ -5602,6 +5603,10 @@ export const IDL: LbClmm = {
         },
         {
           "name": "owner",
+          "type": "publicKey"
+        },
+        {
+          "name": "feeOwner",
           "type": "publicKey"
         }
       ]
@@ -7296,6 +7301,13 @@ export const IDL: LbClmm = {
             "type": "u8"
           },
           {
+            "name": "feeOwner",
+            "docs": [
+              "Address is able to claim fee in this position, only valid for bootstrap_liquidity_position"
+            ],
+            "type": "publicKey"
+          },
+          {
             "name": "reserved",
             "docs": [
               "Reserved space for future use"
@@ -7303,7 +7315,7 @@ export const IDL: LbClmm = {
             "type": {
               "array": [
                 "u8",
-                119
+                87
               ]
             }
           }

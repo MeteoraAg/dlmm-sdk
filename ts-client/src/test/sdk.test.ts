@@ -4,25 +4,34 @@ import {
   NATIVE_MINT,
   TOKEN_PROGRAM_ID,
   createMint,
+  getAssociatedTokenAddressSync,
   getOrCreateAssociatedTokenAccount,
   mintTo,
 } from "@solana/spl-token";
 import {
   Connection,
   Keypair,
+  LAMPORTS_PER_SOL,
   PublicKey,
   sendAndConfirmTransaction,
 } from "@solana/web3.js";
 import fs from "fs";
 import { DLMM } from "../dlmm/index";
 import {
+  binIdToBinArrayIndex,
+  deriveBinArray,
   deriveLbPair,
   derivePermissionLbPair,
   derivePresetParameter,
 } from "../dlmm/helpers";
-import { BASIS_POINT_MAX, LBCLMM_PROGRAM_IDS } from "../dlmm/constants";
+import {
+  BASIS_POINT_MAX,
+  LBCLMM_PROGRAM_IDS,
+  MAX_BIN_PER_POSITION,
+} from "../dlmm/constants";
 import { IDL } from "../dlmm/idl";
-import { PairType } from "../dlmm/types";
+import { PairType, StrategyType } from "../dlmm/types";
+import Decimal from "decimal.js";
 
 const keypairBuffer = fs.readFileSync(
   "../keys/localnet/admin-bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1.json",
@@ -142,7 +151,7 @@ describe("SDK test", () => {
       BTC,
       userBTC,
       keypair.publicKey,
-      1000 * 10 ** btcDecimal,
+      1_000_000_000 * 10 ** btcDecimal,
       [],
       {
         commitment: "confirmed",
@@ -156,7 +165,7 @@ describe("SDK test", () => {
       USDC,
       userUSDC,
       keypair.publicKey,
-      1_000_000 * 10 ** usdcDecimal,
+      1_000_000_000 * 10 ** usdcDecimal,
       [],
       {
         commitment: "confirmed",
@@ -212,8 +221,44 @@ describe("SDK test", () => {
 
   describe("Permissioned lb pair", () => {
     const baseKeypair = Keypair.generate();
+
     let pairKey: PublicKey;
     let pair: DLMM;
+    let customFeeOwnerPosition: PublicKey;
+
+    const customFeeOwnerPositionFeeOwner = Keypair.generate();
+    const customFeeOwnerPositionOwner = Keypair.generate();
+
+    const normalPosition = Keypair.generate();
+    const normalPositionOwner = keypair.publicKey;
+
+    const btcInAmount = new BN(1).mul(new BN(10 ** btcDecimal));
+    const usdcInAmount = new BN(24000).mul(new BN(10 ** usdcDecimal));
+
+    const xYAmountDistribution = [
+      {
+        binId: DEFAULT_ACTIVE_ID.sub(new BN(1)).toNumber(),
+        xAmountBpsOfTotal: new BN(0),
+        yAmountBpsOfTotal: new BN(7500),
+      },
+      {
+        binId: DEFAULT_ACTIVE_ID.toNumber(),
+        xAmountBpsOfTotal: new BN(2500),
+        yAmountBpsOfTotal: new BN(2500),
+      },
+      {
+        binId: DEFAULT_ACTIVE_ID.add(new BN(1)).toNumber(),
+        xAmountBpsOfTotal: new BN(7500),
+        yAmountBpsOfTotal: new BN(0),
+      },
+    ];
+
+    beforeAll(async () => {
+      await connection.requestAirdrop(
+        customFeeOwnerPositionOwner.publicKey,
+        2 * LAMPORTS_PER_SOL
+      );
+    });
 
     it("create permissioned LB pair", async () => {
       const feeBps = new BN(50);
@@ -279,11 +324,91 @@ describe("SDK test", () => {
       }
     });
 
+    it("initialize position by operator and add liquidity", async () => {
+      const updateWhitelistedWalletRawTx = await pair.updateWhitelistedWallet(
+        keypair.publicKey
+      );
+      await sendAndConfirmTransaction(
+        connection,
+        updateWhitelistedWalletRawTx,
+        [keypair]
+      );
+
+      const program = pair.program;
+      const baseKeypair = Keypair.generate();
+      const lowerBinId = DEFAULT_ACTIVE_ID.sub(new BN(30));
+      const width = MAX_BIN_PER_POSITION;
+
+      const lowerBinIdBytes = lowerBinId.isNeg()
+        ? lowerBinId.toTwos(32).toArrayLike(Buffer, "le", 4)
+        : lowerBinId.toArrayLike(Buffer, "le", 4);
+
+      const widthBytes = width.isNeg()
+        ? width.toTwos(32).toArrayLike(Buffer, "le", 4)
+        : width.toArrayLike(Buffer, "le", 4);
+
+      [customFeeOwnerPosition] = PublicKey.findProgramAddressSync(
+        [
+          Buffer.from("position"),
+          pair.pubkey.toBuffer(),
+          baseKeypair.publicKey.toBuffer(),
+          lowerBinIdBytes,
+          widthBytes,
+        ],
+        pair.program.programId
+      );
+
+      const initializePositionByOperatorTx = await program.methods
+        .initializePositionByOperator(
+          lowerBinId.toNumber(),
+          width.toNumber(),
+          customFeeOwnerPositionOwner.publicKey,
+          customFeeOwnerPositionFeeOwner.publicKey
+        )
+        .accounts({
+          lbPair: pair.pubkey,
+          position: customFeeOwnerPosition,
+          base: baseKeypair.publicKey,
+          operator: keypair.publicKey,
+          program: program.programId,
+          payer: keypair.publicKey,
+        })
+        .transaction();
+
+      await sendAndConfirmTransaction(
+        connection,
+        initializePositionByOperatorTx,
+        [keypair, baseKeypair]
+      ).catch((e) => {
+        console.error(e);
+        throw e;
+      });
+
+      await pair.refetchStates();
+
+      let addLiquidityTxs = await pair.addLiquidityByWeight({
+        positionPubKey: customFeeOwnerPosition,
+        totalXAmount: btcInAmount,
+        totalYAmount: usdcInAmount,
+        xYAmountDistribution,
+        user: keypair.publicKey,
+        slippage: 0,
+      });
+
+      addLiquidityTxs = Array.isArray(addLiquidityTxs)
+        ? addLiquidityTxs[0]
+        : addLiquidityTxs;
+
+      await sendAndConfirmTransaction(connection, addLiquidityTxs, [keypair]);
+
+      await pair.refetchStates();
+    });
+
     it("update activation slot", async () => {
       try {
         const currentSlot = await connection.getSlot();
-        const activationSlot = new BN(currentSlot + 5000);
-        const rawTx = await pair.setActivationSlot(new BN(currentSlot + 5000));
+        const activationSlot = new BN(currentSlot + 10);
+        const rawTx = await pair.setActivationSlot(new BN(currentSlot + 10));
         const txHash = await sendAndConfirmTransaction(connection, rawTx, [
           keypair,
         ]);
@@ -297,6 +422,251 @@ describe("SDK test", () => {
       } catch (error) {
         console.log(JSON.parse(JSON.stringify(error)));
       }
+    });
+
+    it("normal position add liquidity after activation", async () => {
+      while (true) {
+        const currentSlot = await connection.getSlot();
+        if (currentSlot >= pair.lbPair.activationSlot.toNumber()) {
+          break;
+        } else {
+          await new Promise((res) => setTimeout(res, 1000));
+        }
+      }
+
+      const initPositionAddLiquidityTx =
+        await pair.initializePositionAndAddLiquidityByStrategy({
+          positionPubKey: normalPosition.publicKey,
+          totalXAmount: btcInAmount,
+          totalYAmount: usdcInAmount,
+          strategy: {
+            strategyType: StrategyType.SpotBalanced,
+            maxBinId:
+              xYAmountDistribution[xYAmountDistribution.length - 1].binId,
+            minBinId: xYAmountDistribution[0].binId,
+          },
+          user: keypair.publicKey,
+          slippage: 0,
+        });
+
+      await sendAndConfirmTransaction(connection, initPositionAddLiquidityTx, [
+        keypair,
+        normalPosition,
+      ]);
+    });
+
+    it("remove liquidity from position with custom owner, capital to position owner, but fee to fee owner", async () => {
+      const activeBinArrayIdx = binIdToBinArrayIndex(
+        new BN(pair.lbPair.activeId)
+      );
+      const [activeBinArray] = deriveBinArray(
+        pair.pubkey,
+        activeBinArrayIdx,
+        pair.program.programId
+      );
+
+      let swapTx = await pair.swap({
+        inAmount: new BN(10000).mul(new BN(10 ** usdcDecimal)),
+        outToken: BTC,
+        minOutAmount: new BN(0),
+        user: keypair.publicKey,
+        inToken: USDC,
+        lbPair: pair.pubkey,
+        binArraysPubkey: [activeBinArray],
+      });
+
+      await sendAndConfirmTransaction(connection, swapTx, [keypair]);
+
+      swapTx = await pair.swap({
+        inAmount: new BN(1000000),
+        outToken: USDC,
+        minOutAmount: new BN(0),
+        user: keypair.publicKey,
+        inToken: BTC,
+        lbPair: pair.pubkey,
+        binArraysPubkey: [activeBinArray],
+      });
+
+      await sendAndConfirmTransaction(connection, swapTx, [keypair]);
+
+      const ownerTokenXAta = getAssociatedTokenAddressSync(
+        pair.tokenX.publicKey,
+        customFeeOwnerPositionOwner.publicKey
+      );
+      const ownerTokenYAta = getAssociatedTokenAddressSync(
+        pair.tokenY.publicKey,
+        customFeeOwnerPositionOwner.publicKey
+      );
+      const feeOwnerTokenXAta = getAssociatedTokenAddressSync(
+        pair.tokenX.publicKey,
+        customFeeOwnerPositionFeeOwner.publicKey
+      );
+      const feeOwnerTokenYAta = getAssociatedTokenAddressSync(
+        pair.tokenY.publicKey,
+        customFeeOwnerPositionFeeOwner.publicKey
+      );
+
+      const [
+        beforeOwnerTokenX,
+        beforeOwnerTokenY,
+        beforeFeeOwnerTokenX,
+        beforeFeeOwnerTokenY,
+      ] = await Promise.all([
+        connection
+          .getTokenAccountBalance(ownerTokenXAta)
+          .then((b) => new BN(b.value.amount))
+          .catch((_) => new BN(0)),
+        connection
+          .getTokenAccountBalance(ownerTokenYAta)
+          .then((b) => new BN(b.value.amount))
+          .catch((_) => new BN(0)),
+        connection
+          .getTokenAccountBalance(feeOwnerTokenXAta)
+          .then((b) => new BN(b.value.amount))
+          .catch((_) => new BN(0)),
+        connection
+          .getTokenAccountBalance(feeOwnerTokenYAta)
+          .then((b) => new BN(b.value.amount))
+          .catch((_) => new BN(0)),
+      ]);
+
+      const removeLiquidityTx = await pair.removeLiquidity({
+        user: customFeeOwnerPositionOwner.publicKey,
+        binIds: xYAmountDistribution.map((dist) => dist.binId),
+        position: customFeeOwnerPosition,
+        bps: new BN(10_000),
+        shouldClaimAndClose: true,
+      });
+
+      if (Array.isArray(removeLiquidityTx)) {
+        for (const tx of removeLiquidityTx) {
+          const txHash = await sendAndConfirmTransaction(connection, tx, [
+            customFeeOwnerPositionOwner,
+          ]);
+          console.log(txHash);
+        }
+      } else {
+        const txHash = await sendAndConfirmTransaction(
+          connection,
+          removeLiquidityTx,
+          [customFeeOwnerPositionOwner]
+        );
+        console.log(txHash);
+      }
+
+      const [
+        afterOwnerTokenX,
+        afterOwnerTokenY,
+        afterFeeOwnerTokenX,
+        afterFeeOwnerTokenY,
+      ] = await Promise.all([
+        connection
+          .getTokenAccountBalance(ownerTokenXAta)
+          .then((b) => new BN(b.value.amount)),
+        connection
+          .getTokenAccountBalance(ownerTokenYAta)
+          .then((b) => new BN(b.value.amount)),
+        connection
+          .getTokenAccountBalance(feeOwnerTokenXAta)
+          .then((b) => new BN(b.value.amount)),
+        connection
+          .getTokenAccountBalance(feeOwnerTokenYAta)
+          .then((b) => new BN(b.value.amount)),
+      ]);
+
+      expect(
+        afterOwnerTokenX.sub(beforeOwnerTokenX).toNumber()
+      ).toBeGreaterThan(0);
+      expect(
+        afterOwnerTokenY.sub(beforeOwnerTokenY).toNumber()
+      ).toBeGreaterThan(0);
+      expect(
+        afterFeeOwnerTokenX.sub(beforeFeeOwnerTokenX).toNumber()
+      ).toBeGreaterThan(0);
+      expect(
+        afterFeeOwnerTokenY.sub(beforeFeeOwnerTokenY).toNumber()
+      ).toBeGreaterThan(0);
+    });
+
+    it("remove liquidity from position, capital and fee to position owner", async () => {
+      await pair.refetchStates();
+
+      const positionState = await pair
+        .getPositionsByUserAndLbPair(normalPositionOwner)
+        .then((positions) => {
+          return positions.userPositions.find((p) =>
+            p.publicKey.equals(normalPosition.publicKey)
+          );
+        });
+
+      const fullAmountX = new Decimal(
+        positionState.positionData.feeX.toString()
+      )
+        .add(positionState.positionData.totalXAmount)
+        .floor();
+
+      const fullAmountY = new Decimal(
+        positionState.positionData.feeY.toString()
+      )
+        .add(positionState.positionData.totalYAmount)
+        .floor();
+
+      const ownerTokenXAta = getAssociatedTokenAddressSync(
+        pair.tokenX.publicKey,
+        normalPositionOwner
+      );
+      const ownerTokenYAta = getAssociatedTokenAddressSync(
+        pair.tokenY.publicKey,
+        normalPositionOwner
+      );
+
+      const [beforeOwnerTokenX, beforeOwnerTokenY] = await Promise.all([
+        connection
+          .getTokenAccountBalance(ownerTokenXAta)
+          .then((b) => new BN(b.value.amount)),
+        connection
+          .getTokenAccountBalance(ownerTokenYAta)
+          .then((b) => new BN(b.value.amount)),
+      ]);
+
+      const removeLiquidityTx = await pair.removeLiquidity({
+        user: keypair.publicKey,
+        binIds: xYAmountDistribution.map((dist) => dist.binId),
+        position: normalPosition.publicKey,
+        bps: new BN(10_000),
+        shouldClaimAndClose: true,
+      });
+
+      if (Array.isArray(removeLiquidityTx)) {
+        for (const tx of removeLiquidityTx) {
+          const txHash = await sendAndConfirmTransaction(connection, tx, [
+            keypair,
+          ]);
+          console.log(txHash);
+        }
+      } else {
+        const txHash = await sendAndConfirmTransaction(
+          connection,
+          removeLiquidityTx,
+          [keypair]
+        );
+        console.log(txHash);
+      }
+
+      const [afterOwnerTokenX, afterOwnerTokenY] = await Promise.all([
+        connection
+          .getTokenAccountBalance(ownerTokenXAta)
+          .then((b) => new BN(b.value.amount)),
+        connection
+          .getTokenAccountBalance(ownerTokenYAta)
+          .then((b) => new BN(b.value.amount)),
+      ]);
+
+      const amountX = afterOwnerTokenX.sub(beforeOwnerTokenX);
+      const amountY = afterOwnerTokenY.sub(beforeOwnerTokenY);
+
+      expect(fullAmountX.toString()).toBe(amountX.toString());
+      expect(fullAmountY.toString()).toBe(amountY.toString());
     });
   });
 
@@ -476,6 +846,7 @@ describe("SDK test", () => {
     const { positionData } = position;
 
     expect(+positionData.totalXAmount).toBeLessThan(btcInAmount.toNumber());
+
     assertAmountWithPrecision(
       +positionData.totalXAmount,
       btcInAmount.toNumber(),
