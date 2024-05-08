@@ -3785,6 +3785,12 @@ export class DLMM {
     const activeBin = await this.getActiveBin();
     const activeBinId = activeBin.binId;
 
+    if (!this.canSyncWithMarketPrice(marketPrice, activeBinId)) {
+      throw new Error(
+        "Unable to sync with market price due to bin with liquidity between current and market price bin"
+      );
+    }
+
     const fromBinArrayIndex = binIdToBinArrayIndex(new BN(activeBinId));
 
     const swapForY = marketPriceBinId < activeBinId;
@@ -3794,11 +3800,6 @@ export class DLMM {
       this.lbPair,
       this.binArrayBitmapExtension?.account ?? null
     );
-    if (!this.canSyncWithMarketPrice(marketPrice, activeBinId)) {
-      throw new Error(
-        "Unable to sync with market price due to bin with liquidity between current and market price bin"
-      );
-    }
     const accountsToFetch = [];
     const [binArrayBitMapExtensionPubkey] = deriveBinArrayBitmapExtension(
       this.pubkey,
