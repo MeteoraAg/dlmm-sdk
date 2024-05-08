@@ -35,7 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fix create permission lb pair browser compatibility
 
-## @mercurial-finance/dynamic-amm-sdk [1.0.31] - PR #58
+## @mercurial-finance/dynamic-amm-sdk [1.0.32] - PR #58
 
 ### Added
 
