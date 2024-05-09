@@ -3480,37 +3480,54 @@ export class DLMM {
   /**
    * The function `updateWhitelistedWallet` is used to whitelist a wallet, enabling it to deposit into a permissioned pool before the activation slot.
    * @param
-   *    - `walletToWhitelist`: The public key of the wallet.
-   *    - `index`: Index of the whitelisted wallet to be inserted. Check DLMM.lbPair.whitelistedWallet for the index
+   *    - `walletsToWhitelist`: The public key of the wallet.
+   *    - `overrideIndexes`: Index of the whitelisted wallet to be inserted. Check DLMM.lbPair.whitelistedWallet for the index
    * @returns {Promise<Transaction>}
    */
   public async updateWhitelistedWallet(
-    walletToWhitelist: PublicKey,
-    index?: number
+    walletsToWhitelist: PublicKey[],
+    overrideIndexes?: number[]
   ) {
-    const emptyIndex = this.lbPair.whitelistedWallet.findIndex((pk) =>
-      pk.equals(PublicKey.default)
-    );
-    const idx = index ? index : emptyIndex;
-    if (idx == -1) {
-      throw new Error(
-        "Whitelist wallets are full. Please manually specify index of the wallet to be replaced"
-      );
+    let emptyIndexes = this.lbPair.whitelistedWallet
+      .map((pk, idx) => (pk.equals(PublicKey.default) ? idx : -1))
+      .filter((idx) => idx >= 0);
+
+    if (emptyIndexes.length < walletsToWhitelist.length) {
+      if (!overrideIndexes) {
+        throw new Error(
+          "Whitelist wallets are full. Please manually specify index of the wallet to be replaced"
+        );
+      } else if (overrideIndexes.length != walletsToWhitelist.length) {
+        throw new Error(
+          "Index provided do not match the number of wallets to be whitelist."
+        );
+      } else {
+        emptyIndexes = overrideIndexes;
+      }
     }
-    const updateWhitelistedWalletTx = await this.program.methods
-      .updateWhitelistedWallet(idx, walletToWhitelist)
-      .accounts({
-        lbPair: this.pubkey,
-        creator: this.lbPair.creator,
-      })
-      .transaction();
+
+    const instructions = [];
+
+    for (const [idx, wallet] of walletsToWhitelist.entries()) {
+      const updateWhitelistedWalletIx = await this.program.methods
+        .updateWhitelistedWallet(idx, wallet)
+        .accounts({
+          lbPair: this.pubkey,
+          creator: this.lbPair.creator,
+        })
+        .instruction();
+
+      instructions.push(updateWhitelistedWalletIx);
+    }
+
     const { blockhash, lastValidBlockHeight } =
       await this.program.provider.connection.getLatestBlockhash("confirmed");
+
     return new Transaction({
       feePayer: this.lbPair.creator,
       blockhash,
       lastValidBlockHeight,
-    }).add(updateWhitelistedWalletTx);
+    }).add(...instructions);
   }
 
   /**

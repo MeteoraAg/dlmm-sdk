@@ -354,7 +354,7 @@ describe("SDK test", () => {
     it("update whitelisted wallet", async () => {
       try {
         const walletToWhitelist = keypair.publicKey;
-        const rawTx = await pair.updateWhitelistedWallet(walletToWhitelist);
+        const rawTx = await pair.updateWhitelistedWallet([walletToWhitelist]);
         const txHash = await sendAndConfirmTransaction(connection, rawTx, [
           keypair,
         ]);
@@ -791,7 +791,7 @@ describe("SDK test", () => {
       expect(pairState.pairType).toBe(PairType.Permissioned);
 
       const walletToWhitelist = keypair.publicKey;
-      rawTx = await pair.updateWhitelistedWallet(walletToWhitelist);
+      rawTx = await pair.updateWhitelistedWallet([walletToWhitelist]);
       txHash = await sendAndConfirmTransaction(connection, rawTx, [keypair]);
       console.log("Update whitelisted wallet", txHash);
       expect(txHash).not.toBeNull();
