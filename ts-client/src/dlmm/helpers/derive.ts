@@ -12,6 +12,10 @@ function sortTokenMints(tokenX: PublicKey, tokenY: PublicKey) {
 }
 /** private */
 
+/**
+ *
+ * @deprecated Use derivePresetParameter2
+ */
 export function derivePresetParameter(binStep: BN, programId: PublicKey) {
   return PublicKey.findProgramAddressSync(
     [
@@ -21,6 +25,45 @@ export function derivePresetParameter(binStep: BN, programId: PublicKey) {
     programId
   );
 }
+
+export function derivePresetParameter2(
+  binStep: BN,
+  baseFactor: BN,
+  programId: PublicKey
+) {
+  return PublicKey.findProgramAddressSync(
+    [
+      Buffer.from("preset_parameter"),
+      new Uint8Array(binStep.toArrayLike(Buffer, "le", 2)),
+      new Uint8Array(baseFactor.toArrayLike(Buffer, "le", 2)),
+    ],
+    programId
+  );
+}
+
+export function deriveLbPair2(
+  tokenX: PublicKey,
+  tokenY: PublicKey,
+  binStep: BN,
+  baseFactor: BN,
+  programId: PublicKey
+) {
+  const [minKey, maxKey] = sortTokenMints(tokenX, tokenY);
+  return PublicKey.findProgramAddressSync(
+    [
+      minKey.toBuffer(),
+      maxKey.toBuffer(),
+      new Uint8Array(binStep.toArrayLike(Buffer, "le", 2)),
+      new Uint8Array(baseFactor.toArrayLike(Buffer, "le", 2)),
+    ],
+    programId
+  );
+}
+
+/**
+ *
+ * @deprecated Use deriveLbPair2
+ */
 
 export function deriveLbPair(
   tokenX: PublicKey,
@@ -39,29 +82,23 @@ export function deriveLbPair(
   );
 }
 
-export async function checkPoolExists(
-  connection: Connection,
+export function derivePermissionLbPair(
+  baseKey: PublicKey,
   tokenX: PublicKey,
   tokenY: PublicKey,
   binStep: BN,
   programId: PublicKey
-): Promise<PublicKey | false> {
-  try {
-    const [lbPairKey] = deriveLbPair(tokenX, tokenY, binStep, programId);
-    await DLMM.create(connection, lbPairKey);
-    return lbPairKey;
-  } catch {
-    return false;
-  }
-}
-
-export function derivePermissionLbPair(baseKey: PublicKey, tokenX: PublicKey, tokenY: PublicKey, binStep: BN, programId: PublicKey) {
-    const [minKey, maxKey] = sortTokenMints(tokenX, tokenY);
-    return PublicKey.findProgramAddressSync(
-        [baseKey.toBuffer(), minKey.toBuffer(), maxKey.toBuffer(), new Uint8Array(binStep.toArrayLike(Buffer, "le", 2))],
-        programId,
-    );
-
+) {
+  const [minKey, maxKey] = sortTokenMints(tokenX, tokenY);
+  return PublicKey.findProgramAddressSync(
+    [
+      baseKey.toBuffer(),
+      minKey.toBuffer(),
+      maxKey.toBuffer(),
+      new Uint8Array(binStep.toArrayLike(Buffer, "le", 2)),
+    ],
+    programId
+  );
 }
 
 export function deriveOracle(lbPair: PublicKey, programId: PublicKey) {

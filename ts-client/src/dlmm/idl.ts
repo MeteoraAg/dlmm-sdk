@@ -1763,39 +1763,6 @@ export type LbClmm = {
       ];
     },
     {
-      name: "initializePresetParameterV2";
-      accounts: [
-        {
-          name: "presetParameter";
-          isMut: true;
-          isSigner: false;
-        },
-        {
-          name: "admin";
-          isMut: true;
-          isSigner: true;
-        },
-        {
-          name: "systemProgram";
-          isMut: false;
-          isSigner: false;
-        },
-        {
-          name: "rent";
-          isMut: false;
-          isSigner: false;
-        }
-      ];
-      args: [
-        {
-          name: "ix";
-          type: {
-            defined: "InitPresetParametersIx";
-          };
-        }
-      ];
-    },
-    {
       name: "closePresetParameter";
       accounts: [
         {
@@ -2535,9 +2502,19 @@ export type LbClmm = {
             type: "u8";
           },
           {
+            name: "requireBaseFactorSeed";
+            type: "u8";
+          },
+          {
+            name: "baseFactorSeed";
+            type: {
+              array: ["u8", 2];
+            };
+          },
+          {
             name: "padding1";
             type: {
-              array: ["u8", 5];
+              array: ["u8", 2];
             };
           },
           {
@@ -6384,39 +6361,6 @@ export const IDL: LbClmm = {
       ],
     },
     {
-      name: "initializePresetParameterV2",
-      accounts: [
-        {
-          name: "presetParameter",
-          isMut: true,
-          isSigner: false,
-        },
-        {
-          name: "admin",
-          isMut: true,
-          isSigner: true,
-        },
-        {
-          name: "systemProgram",
-          isMut: false,
-          isSigner: false,
-        },
-        {
-          name: "rent",
-          isMut: false,
-          isSigner: false,
-        },
-      ],
-      args: [
-        {
-          name: "ix",
-          type: {
-            defined: "InitPresetParametersIx",
-          },
-        },
-      ],
-    },
-    {
       name: "closePresetParameter",
       accounts: [
         {
@@ -7156,9 +7100,19 @@ export const IDL: LbClmm = {
             type: "u8",
           },
           {
+            name: "requireBaseFactorSeed",
+            type: "u8",
+          },
+          {
+            name: "baseFactorSeed",
+            type: {
+              array: ["u8", 2],
+            },
+          },
+          {
             name: "padding1",
             type: {
-              array: ["u8", 5],
+              array: ["u8", 2],
             },
           },
           {

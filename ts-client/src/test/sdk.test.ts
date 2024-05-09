@@ -20,9 +20,9 @@ import { DLMM } from "../dlmm/index";
 import {
   binIdToBinArrayIndex,
   deriveBinArray,
-  deriveLbPair,
+  deriveLbPair2,
   derivePermissionLbPair,
-  derivePresetParameter,
+  derivePresetParameter2,
 } from "../dlmm/helpers";
 import {
   BASIS_POINT_MAX,
@@ -56,6 +56,7 @@ export const MAX_BIN_PER_ARRAY = new BN(
 const ACTIVE_ID_OUT_OF_RANGE = BIN_ARRAY_BITMAP_SIZE.mul(MAX_BIN_PER_ARRAY);
 const DEFAULT_ACTIVE_ID = new BN(5660);
 const DEFAULT_BIN_STEP = new BN(10);
+const DEFAULT_BASE_FACTOR = new BN(10000);
 
 const programId = new web3.PublicKey(LBCLMM_PROGRAM_IDS["localhost"]);
 
@@ -173,14 +174,25 @@ describe("SDK test", () => {
       TOKEN_PROGRAM_ID
     );
 
-    [lbPairPubkey] = deriveLbPair(BTC, USDC, DEFAULT_BIN_STEP, programId);
-    [lbPairWithBitMapExtPubkey] = deriveLbPair(
+    [lbPairPubkey] = deriveLbPair2(
+      BTC,
+      USDC,
+      DEFAULT_BIN_STEP,
+      DEFAULT_BASE_FACTOR,
+      programId
+    );
+    [lbPairWithBitMapExtPubkey] = deriveLbPair2(
       NATIVE_MINT,
       USDC,
       DEFAULT_BIN_STEP,
+      DEFAULT_BASE_FACTOR,
       programId
     );
-    [presetParamPda] = derivePresetParameter(DEFAULT_BIN_STEP, programId);
+    [presetParamPda] = derivePresetParameter2(
+      DEFAULT_BIN_STEP,
+      DEFAULT_BASE_FACTOR,
+      programId
+    );
 
     const provider = new AnchorProvider(
       connection,
@@ -196,7 +208,7 @@ describe("SDK test", () => {
       await program.methods
         .initializePresetParameter({
           binStep: DEFAULT_BIN_STEP.toNumber(),
-          baseFactor: 10000,
+          baseFactor: DEFAULT_BASE_FACTOR.toNumber(),
           filterPeriod: 30,
           decayPeriod: 600,
           reductionFactor: 5000,
@@ -672,11 +684,16 @@ describe("SDK test", () => {
 
   it("create LB pair", async () => {
     try {
+      const presetParamState = await DLMM.getAllPresetParameters(connection, {
+        cluster: "localhost",
+      });
       const rawTx = await DLMM.createLbPair(
         connection,
         keypair.publicKey,
         BTC,
         USDC,
+        new BN(presetParamState[0].account.binStep),
+        new BN(presetParamState[0].account.baseFactor),
         presetParamPda,
         DEFAULT_ACTIVE_ID,
         { cluster: "localhost" }
@@ -699,11 +716,16 @@ describe("SDK test", () => {
   });
 
   it("create LB pair with bitmap extension", async () => {
+    const presetParamState = await DLMM.getAllPresetParameters(connection, {
+      cluster: "localhost",
+    });
     const rawTx = await DLMM.createLbPair(
       connection,
       keypair.publicKey,
       NATIVE_MINT,
       USDC,
+      new BN(presetParamState[0].account.binStep),
+      new BN(presetParamState[0].account.baseFactor),
       presetParamPda,
       ACTIVE_ID_OUT_OF_RANGE,
       { cluster: "localhost" }

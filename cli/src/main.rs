@@ -97,14 +97,14 @@ async fn main() -> Result<()> {
     match cli.command {
         Command::InitializePair {
             initial_price,
-            bin_step,
             token_mint_x,
             token_mint_y,
+            preset_parameter,
         } => {
             let params = InitLbPairParameters {
                 token_mint_x,
                 token_mint_y,
-                bin_step,
+                preset_parameter,
                 initial_price,
             };
             initialize_lb_pair(params, &amm_program, transaction_config).await?;
