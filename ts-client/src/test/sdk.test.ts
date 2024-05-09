@@ -684,11 +684,16 @@ describe("SDK test", () => {
 
   it("create LB pair", async () => {
     try {
+      const presetParamState = await DLMM.getAllPresetParameters(connection, {
+        cluster: "localhost",
+      });
       const rawTx = await DLMM.createLbPair(
         connection,
         keypair.publicKey,
         BTC,
         USDC,
+        new BN(presetParamState[0].account.binStep),
+        new BN(presetParamState[0].account.baseFactor),
         presetParamPda,
         DEFAULT_ACTIVE_ID,
         { cluster: "localhost" }
@@ -711,11 +716,16 @@ describe("SDK test", () => {
   });
 
   it("create LB pair with bitmap extension", async () => {
+    const presetParamState = await DLMM.getAllPresetParameters(connection, {
+      cluster: "localhost",
+    });
     const rawTx = await DLMM.createLbPair(
       connection,
       keypair.publicKey,
       NATIVE_MINT,
       USDC,
+      new BN(presetParamState[0].account.binStep),
+      new BN(presetParamState[0].account.baseFactor),
       presetParamPda,
       ACTIVE_ID_OUT_OF_RANGE,
       { cluster: "localhost" }
