@@ -40,3 +40,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - A new function to sync outdated pool to nearest market price bin
+
+## @mercurial-finance/dynamic-amm-sdk [1.0.33] - PR #67
+
+### Fixed
+
+- Fix position liquidity withdraw to position owner, instead of customized fee owner
