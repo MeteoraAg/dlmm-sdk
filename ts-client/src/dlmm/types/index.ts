@@ -39,6 +39,7 @@ export type BinArrayAccount = ProgramAccount<IdlAccounts<LbClmm>["binArray"]>;
 
 export type Position = IdlAccounts<LbClmm>["position"];
 export type PositionV2 = IdlAccounts<LbClmm>["positionV2"];
+export type PositionV3 = IdlAccounts<LbClmm>["positionV3"];
 
 export type vParameters = IdlAccounts<LbClmm>["lbPair"]["vParameters"];
 export type sParameters = IdlAccounts<LbClmm>["lbPair"]["parameters"];
@@ -110,6 +111,7 @@ export interface LMRewards {
 export enum PositionVersion {
   V1,
   V2,
+  V3,
 }
 
 export enum PairType {
@@ -264,3 +266,35 @@ export interface SeedLiquidityResponse {
   initializeBinArraysAndPositionIxs: TransactionInstruction[][];
   addLiquidityIxs: TransactionInstruction[][];
 }
+export type DynamicPosition = {
+  lbPair: PublicKey;
+  owner: PublicKey;
+  lowerBinId: number;
+  upperBinId: number;
+  lastUpdatedAt: BN;
+  totalClaimedFeeXAmount: BN;
+  totalClaimedFeeYAmount: BN;
+  totalClaimedRewards: BN[];
+  operator: PublicKey;
+  lockReleaseSlot: BN;
+  subjectedToBootstrapLiquidityLocking: number;
+  padding0: number[];
+  feeOwner: PublicKey;
+  length: BN;
+  reserved: number[];
+  positionBinData: [
+    {
+      liquidityShare: BN;
+      feeInfo: {
+        feeXPerTokenComplete: BN;
+        feeYPerTokenComplete: BN;
+        feeXPending: BN;
+        feeYPending: BN;
+      };
+      rewardInfo: {
+        rewardPerTokenCompletes: BN[];
+        rewardPending: BN[];
+      };
+    }
+  ];
+};
