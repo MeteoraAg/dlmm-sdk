@@ -90,3 +90,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `findSwappableMinMaxBinId` returned invalid min/max bin id under some edge case
 - `derivePosition` using invalid seed
+
+## @meteora-ag/dlmm [1.0.36] - PR #68
+
+### Added
+
+- `getPairPubkeyIfExists` function to get the public key of existing pool address, if the pool doesn't exists return null

@@ -98,6 +98,7 @@ import {
   derivePermissionLbPair,
   deriveLbPair2,
   derivePosition,
+  deriveLbPair,
 } from "./helpers";
 import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import Decimal from "decimal.js";
@@ -166,7 +167,7 @@ export class DLMM {
     return program.account.lbPair.all();
   }
 
-  public static async checkPoolExists(
+  public static async getPairPubkeyIfExists(
     connection: Connection,
     tokenX: PublicKey,
     tokenY: PublicKey,
@@ -184,17 +185,31 @@ export class DLMM {
     const program = new Program(IDL, LBCLMM_PROGRAM_IDS[cluster], provider);
 
     try {
-      const [lbPairKey] = deriveLbPair2(
+      const [lbPair2Key] = deriveLbPair2(
         tokenX,
         tokenY,
         binStep,
         baseFactor,
         program.programId
       );
-      await program.account.lbPair.fetch(lbPairKey);
-      return true;
-    } catch {
-      return false;
+      const account2 = await program.account.lbPair.fetchNullable(lbPair2Key);
+      if (account2) return lbPair2Key;
+
+      const [lbPairKey] = deriveLbPair(
+        tokenX,
+        tokenY,
+        binStep,
+        program.programId
+      );
+
+      const account = await program.account.lbPair.fetchNullable(lbPairKey);
+      if (account && account.parameters.baseFactor === baseFactor.toNumber()) {
+        return lbPairKey;
+      }
+
+      return null;
+    } catch (error) {
+      return null;
     }
   }
 
@@ -1094,6 +1109,17 @@ export class DLMM {
       AnchorProvider.defaultOptions()
     );
     const program = new Program(IDL, LBCLMM_PROGRAM_IDS[opt.cluster], provider);
+
+    const existsPool = await this.getPairPubkeyIfExists(
+      connection,
+      tokenX,
+      tokenY,
+      binStep,
+      baseFactor
+    );
+    if (existsPool) {
+      throw new Error("Pool already exists");
+    }
 
     const [lbPair] = deriveLbPair2(
       tokenX,
