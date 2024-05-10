@@ -167,7 +167,7 @@ export class DLMM {
     return program.account.lbPair.all();
   }
 
-  public static async isPoolExisted(
+  public static async getPairPubkeyIfExists(
     connection: Connection,
     tokenX: PublicKey,
     tokenY: PublicKey,
@@ -203,15 +203,13 @@ export class DLMM {
       );
 
       const account = await program.account.lbPair.fetchNullable(lbPairKey);
-      if (!account) {
-        return false;
-      }
-
-      if (account.parameters.baseFactor === baseFactor.toNumber()) {
+      if (account && account.parameters.baseFactor === baseFactor.toNumber()) {
         return lbPairKey;
       }
-    } catch {
-      return false;
+
+      return null;
+    } catch (error) {
+      return null;
     }
   }
 
@@ -1112,7 +1110,7 @@ export class DLMM {
     );
     const program = new Program(IDL, LBCLMM_PROGRAM_IDS[opt.cluster], provider);
 
-    const existsPool = await this.isPoolExisted(
+    const existsPool = await this.getPairPubkeyIfExists(
       connection,
       tokenX,
       tokenY,
