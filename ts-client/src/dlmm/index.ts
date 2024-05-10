@@ -1112,7 +1112,7 @@ export class DLMM {
     );
     const program = new Program(IDL, LBCLMM_PROGRAM_IDS[opt.cluster], provider);
 
-    if (!this.isPoolExisted(connection, tokenX, tokenY, binStep, baseFactor)) {
+    if (this.isPoolExisted(connection, tokenX, tokenY, binStep, baseFactor)) {
       throw new Error("Pool already exists");
     }
 
