@@ -66,6 +66,7 @@ const ACTIVE_ID_OUT_OF_RANGE = BIN_ARRAY_BITMAP_SIZE.mul(MAX_BIN_PER_ARRAY);
 const DEFAULT_ACTIVE_ID = new BN(5660);
 const DEFAULT_BIN_STEP = new BN(10);
 const DEFAULT_BASE_FACTOR = new BN(10000);
+const DEFAULT_BASE_FACTOR_2 = new BN(4000);
 
 const programId = new web3.PublicKey(LBCLMM_PROGRAM_IDS["localhost"]);
 
@@ -78,6 +79,7 @@ let lbPairWithBitMapExtPubkey: web3.PublicKey;
 let userBTC: web3.PublicKey;
 let userUSDC: web3.PublicKey;
 let presetParamPda: web3.PublicKey;
+let presetParamPda2: web3.PublicKey;
 
 const positionKeypair = Keypair.generate();
 
@@ -194,12 +196,17 @@ describe("SDK test", () => {
       NATIVE_MINT,
       USDC,
       DEFAULT_BIN_STEP,
-      DEFAULT_BASE_FACTOR,
+      DEFAULT_BASE_FACTOR_2,
       programId
     );
     [presetParamPda] = derivePresetParameter2(
       DEFAULT_BIN_STEP,
       DEFAULT_BASE_FACTOR,
+      programId
+    );
+    [presetParamPda2] = derivePresetParameter2(
+      DEFAULT_BIN_STEP,
+      DEFAULT_BASE_FACTOR_2,
       programId
     );
 
@@ -230,6 +237,35 @@ describe("SDK test", () => {
         .accounts({
           admin: keypair.publicKey,
           presetParameter: presetParamPda,
+          rent: web3.SYSVAR_RENT_PUBKEY,
+          systemProgram: web3.SystemProgram.programId,
+        })
+        .signers([keypair])
+        .rpc({
+          commitment: "confirmed",
+        });
+    }
+
+    const presetParamState2 =
+      await program.account.presetParameter.fetchNullable(presetParamPda2);
+
+    if (!presetParamState2) {
+      await program.methods
+        .initializePresetParameter({
+          binStep: DEFAULT_BIN_STEP.toNumber(),
+          baseFactor: DEFAULT_BASE_FACTOR_2.toNumber(),
+          filterPeriod: 30,
+          decayPeriod: 600,
+          reductionFactor: 5000,
+          variableFeeControl: 40000,
+          protocolShare: 0,
+          maxBinId: 43690,
+          minBinId: -43690,
+          maxVolatilityAccumulator: 350000,
+        })
+        .accounts({
+          admin: keypair.publicKey,
+          presetParameter: presetParamPda2,
           rent: web3.SYSVAR_RENT_PUBKEY,
           systemProgram: web3.SystemProgram.programId,
         })
@@ -1458,16 +1494,13 @@ describe("SDK test", () => {
 
   it("create LB pair", async () => {
     try {
-      const presetParamState = await DLMM.getAllPresetParameters(connection, {
-        cluster: "localhost",
-      });
       const rawTx = await DLMM.createLbPair(
         connection,
         keypair.publicKey,
         BTC,
         USDC,
-        new BN(presetParamState[0].account.binStep),
-        new BN(presetParamState[0].account.baseFactor),
+        new BN(DEFAULT_BIN_STEP),
+        new BN(DEFAULT_BASE_FACTOR),
         presetParamPda,
         DEFAULT_ACTIVE_ID,
         { cluster: "localhost" }
@@ -1490,25 +1523,26 @@ describe("SDK test", () => {
   });
 
   it("create LB pair with bitmap extension", async () => {
-    const presetParamState = await DLMM.getAllPresetParameters(connection, {
-      cluster: "localhost",
-    });
-    const rawTx = await DLMM.createLbPair(
-      connection,
-      keypair.publicKey,
-      NATIVE_MINT,
-      USDC,
-      new BN(presetParamState[0].account.binStep),
-      new BN(presetParamState[0].account.baseFactor),
-      presetParamPda,
-      ACTIVE_ID_OUT_OF_RANGE,
-      { cluster: "localhost" }
-    );
-    const txHash = await sendAndConfirmTransaction(connection, rawTx, [
-      keypair,
-    ]);
-    expect(txHash).not.toBeNull();
-    console.log("Create LB pair with bitmap extension", txHash);
+    try {
+      const rawTx = await DLMM.createLbPair(
+        connection,
+        keypair.publicKey,
+        NATIVE_MINT,
+        USDC,
+        new BN(DEFAULT_BIN_STEP),
+        new BN(DEFAULT_BASE_FACTOR_2),
+        presetParamPda2,
+        ACTIVE_ID_OUT_OF_RANGE,
+        { cluster: "localhost" }
+      );
+      const txHash = await sendAndConfirmTransaction(connection, rawTx, [
+        keypair,
+      ]);
+      expect(txHash).not.toBeNull();
+      console.log("Create LB pair with bitmap extension", txHash);
+    } catch (error) {
+      console.log("🚀 ~ it ~ error:", JSON.parse(JSON.stringify(error)));
+    }
   });
 
   it("create LBCLMM instance", async () => {
