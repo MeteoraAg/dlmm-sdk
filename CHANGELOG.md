@@ -73,13 +73,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initialization of `LbPair` PDA require `base_factor` as the fourth seed now. This break `InitializeLbPair` account context.
 - Initialization of `PresetParameter` PDA require `base_factor` as the third seed now. This break `InitializePresetParameter` account context.
-## lb_clmm [0.5.1] - PR #59
+
+## lb_clmm [0.5.2] - PR #59
 
 ### Added
 
 - Add deposit single sided with exact amount endpoint
 
-## @meteora-ag/dlmm [1.0.31] - PR #59
+## @meteora-ag/dlmm [1.0.35] - PR #59
 
 ### Added
 

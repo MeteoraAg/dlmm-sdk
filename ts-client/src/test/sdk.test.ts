@@ -373,9 +373,9 @@ describe("SDK test", () => {
     });
 
     it("initialize position by operator and add liquidity", async () => {
-      const updateWhitelistedWalletRawTx = await pair.updateWhitelistedWallet(
-        keypair.publicKey
-      );
+      const updateWhitelistedWalletRawTx = await pair.updateWhitelistedWallet([
+        keypair.publicKey,
+      ]);
       await sendAndConfirmTransaction(
         connection,
         updateWhitelistedWalletRawTx,
