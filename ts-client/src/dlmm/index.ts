@@ -203,9 +203,13 @@ export class DLMM {
       );
 
       const account = await program.account.lbPair.fetchNullable(lbPairKey);
-      if (account) return lbPairKey;
+      if (!account) {
+        return false;
+      }
 
-      return false;
+      if (account.parameters.baseFactor === baseFactor.toNumber()) {
+        return lbPairKey;
+      }
     } catch {
       return false;
     }
