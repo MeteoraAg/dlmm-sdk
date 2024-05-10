@@ -167,7 +167,7 @@ export class DLMM {
     return program.account.lbPair.all();
   }
 
-  public static async checkPoolExists(
+  public static async isPoolExisted(
     connection: Connection,
     tokenX: PublicKey,
     tokenY: PublicKey,
@@ -1112,9 +1112,7 @@ export class DLMM {
     );
     const program = new Program(IDL, LBCLMM_PROGRAM_IDS[opt.cluster], provider);
 
-    if (
-      !this.checkPoolExists(connection, tokenX, tokenY, binStep, baseFactor)
-    ) {
+    if (!this.isPoolExisted(connection, tokenX, tokenY, binStep, baseFactor)) {
       throw new Error("Pool already exists");
     }
 
