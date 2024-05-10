@@ -14,6 +14,7 @@ use instructions::add_liquidity_by_strategy::*;
 use instructions::add_liquidity_by_strategy_one_side::*;
 use instructions::add_liquidity_by_weight::*;
 use instructions::add_liquidity_by_weight_one_side::*;
+use instructions::add_liquidity_single_side_precise::*;
 use instructions::claim_fee::*;
 use instructions::claim_reward::*;
 use instructions::close_position::*;
@@ -110,6 +111,8 @@ pub fn assert_eq_launch_pool_admin(admin: Pubkey) -> bool {
 
 #[program]
 pub mod lb_clmm {
+
+    use self::instructions::add_liquidity_single_side_precise::CompressedBinDepositAmount;
 
     use super::*;
 
@@ -369,5 +372,12 @@ pub mod lb_clmm {
         new_lock_release_slot: u64,
     ) -> Result<()> {
         instructions::set_lock_release_slot::handle(ctx, new_lock_release_slot)
+    }
+
+    pub fn add_liquidity_one_side_precise<'a, 'b, 'c, 'info>(
+        ctx: Context<'a, 'b, 'c, 'info, ModifyLiquidityOneSide<'info>>,
+        parameter: AddLiquiditySingleSidePreciseParameter,
+    ) -> Result<()> {
+        instructions::add_liquidity_single_side_precise::handle(ctx, parameter)
     }
 }

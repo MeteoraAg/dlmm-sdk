@@ -13,6 +13,7 @@ import {
   Keypair,
   LAMPORTS_PER_SOL,
   PublicKey,
+  Transaction,
   sendAndConfirmTransaction,
 } from "@solana/web3.js";
 import fs from "fs";
@@ -23,6 +24,9 @@ import {
   deriveLbPair2,
   derivePermissionLbPair,
   derivePresetParameter2,
+  derivePresetParameter,
+  getBinArrayLowerUpperBinId,
+  getPriceOfBinByBinId,
 } from "../dlmm/helpers";
 import {
   BASIS_POINT_MAX,
@@ -32,6 +36,11 @@ import {
 import { IDL } from "../dlmm/idl";
 import { PairType, StrategyType } from "../dlmm/types";
 import Decimal from "decimal.js";
+import babar from "babar";
+import {
+  findSwappableMinMaxBinId,
+  getQPriceFromId,
+} from "../dlmm/helpers/math";
 
 const keypairBuffer = fs.readFileSync(
   "../keys/localnet/admin-bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1.json",
@@ -152,7 +161,7 @@ describe("SDK test", () => {
       BTC,
       userBTC,
       keypair.publicKey,
-      1_000_000_000 * 10 ** btcDecimal,
+      100_000_000 * 10 ** btcDecimal,
       [],
       {
         commitment: "confirmed",
@@ -166,7 +175,7 @@ describe("SDK test", () => {
       USDC,
       userUSDC,
       keypair.publicKey,
-      1_000_000_000 * 10 ** usdcDecimal,
+      100_000_000 * 10 ** usdcDecimal,
       [],
       {
         commitment: "confirmed",
@@ -272,6 +281,33 @@ describe("SDK test", () => {
       );
     });
 
+    it("findSwappableMinMaxBinId returned min/max bin id are 1 bit from max/min value", () => {
+      for (let binStep = 1; binStep <= 500; binStep++) {
+        const { minBinId, maxBinId } = findSwappableMinMaxBinId(
+          new BN(binStep)
+        );
+        const minQPrice = getQPriceFromId(minBinId, new BN(binStep));
+        const maxQPrice = getQPriceFromId(maxBinId, new BN(binStep));
+        expect(minQPrice.toString()).toBe("2");
+        expect(maxQPrice.toString()).toBe(
+          "170141183460469231731687303715884105727"
+        );
+
+        const nextMinQPrice = getQPriceFromId(
+          minBinId.sub(new BN(1)),
+          new BN(binStep)
+        );
+        const nextMaxQPrice = getQPriceFromId(
+          maxBinId.add(new BN(1)),
+          new BN(binStep)
+        );
+        expect(nextMinQPrice.toString()).toBe("1");
+        expect(nextMaxQPrice.toString()).toBe(
+          "340282366920938463463374607431768211455"
+        );
+      }
+    });
+
     it("create permissioned LB pair", async () => {
       const feeBps = new BN(50);
       const lockDurationInSlot = new BN(0);
@@ -317,8 +353,8 @@ describe("SDK test", () => {
 
     it("update whitelisted wallet", async () => {
       try {
-        const walletToWhitelist = PublicKey.unique();
-        const rawTx = await pair.updateWhitelistedWallet(walletToWhitelist);
+        const walletToWhitelist = keypair.publicKey;
+        const rawTx = await pair.updateWhitelistedWallet([walletToWhitelist]);
         const txHash = await sendAndConfirmTransaction(connection, rawTx, [
           keypair,
         ]);
@@ -337,9 +373,9 @@ describe("SDK test", () => {
     });
 
     it("initialize position by operator and add liquidity", async () => {
-      const updateWhitelistedWalletRawTx = await pair.updateWhitelistedWallet(
-        keypair.publicKey
-      );
+      const updateWhitelistedWalletRawTx = await pair.updateWhitelistedWallet([
+        keypair.publicKey,
+      ]);
       await sendAndConfirmTransaction(
         connection,
         updateWhitelistedWalletRawTx,
@@ -679,6 +715,744 @@ describe("SDK test", () => {
 
       expect(fullAmountX.toString()).toBe(amountX.toString());
       expect(fullAmountY.toString()).toBe(amountY.toString());
+    });
+  });
+
+  describe("seed liquidity", () => {
+    let baseKeypair: Keypair;
+    let pairKey: PublicKey;
+    let pair: DLMM;
+
+    beforeEach(async () => {
+      await mintTo(
+        connection,
+        keypair,
+        BTC,
+        userBTC,
+        keypair.publicKey,
+        1_000_000_000 * 10 ** btcDecimal,
+        [],
+        {
+          commitment: "confirmed",
+        },
+        TOKEN_PROGRAM_ID
+      );
+
+      await mintTo(
+        connection,
+        keypair,
+        USDC,
+        userUSDC,
+        keypair.publicKey,
+        1_000_000_000 * 10 ** usdcDecimal,
+        [],
+        {
+          commitment: "confirmed",
+        },
+        TOKEN_PROGRAM_ID
+      );
+
+      baseKeypair = Keypair.generate();
+      const feeBps = new BN(50);
+      const lockDurationInSlot = new BN(0);
+
+      let rawTx = await DLMM.createPermissionLbPair(
+        connection,
+        DEFAULT_BIN_STEP,
+        BTC,
+        USDC,
+        DEFAULT_ACTIVE_ID,
+        baseKeypair.publicKey,
+        keypair.publicKey,
+        feeBps,
+        lockDurationInSlot,
+        { cluster: "localhost" }
+      );
+      let txHash = await sendAndConfirmTransaction(connection, rawTx, [
+        keypair,
+        baseKeypair,
+      ]);
+      expect(txHash).not.toBeNull();
+      console.log("Create permissioned LB pair", txHash);
+
+      [pairKey] = derivePermissionLbPair(
+        baseKeypair.publicKey,
+        BTC,
+        USDC,
+        DEFAULT_BIN_STEP,
+        programId
+      );
+
+      pair = await DLMM.create(connection, pairKey, {
+        cluster: "localhost",
+      });
+
+      let pairState = pair.lbPair;
+      expect(pairState.pairType).toBe(PairType.Permissioned);
+
+      const walletToWhitelist = keypair.publicKey;
+      rawTx = await pair.updateWhitelistedWallet([walletToWhitelist]);
+      txHash = await sendAndConfirmTransaction(connection, rawTx, [keypair]);
+      console.log("Update whitelisted wallet", txHash);
+      expect(txHash).not.toBeNull();
+
+      await pair.refetchStates();
+
+      pairState = pair.lbPair;
+      expect(pairState.whitelistedWallet[0].toBase58()).toBe(
+        walletToWhitelist.toBase58()
+      );
+    });
+
+    it("Rerun if failed at first deposit", async () => {
+      const seedAmount = new BN(100_000_000).mul(new BN(10 ** btcDecimal));
+      const curvature = 0.8;
+
+      const priceMultiplier = new Decimal(
+        10 ** (pair.tokenX.decimal - pair.tokenY.decimal)
+      );
+
+      const minPrice = new Decimal(
+        pair.getPriceOfBinByBinId(pair.lbPair.activeId) + 1
+      ).mul(priceMultiplier);
+
+      const maxPrice = new Decimal(
+        pair.getPriceOfBinByBinId(
+          pair.lbPair.activeId + 1 + MAX_BIN_PER_POSITION.toNumber() * 3
+        )
+      ).mul(priceMultiplier);
+
+      let { initializeBinArraysAndPositionIxs, addLiquidityIxs } =
+        await pair.seedLiquidity(
+          keypair.publicKey,
+          keypair.publicKey,
+          keypair.publicKey,
+          seedAmount,
+          curvature,
+          minPrice.toNumber(),
+          maxPrice.toNumber(),
+          baseKeypair.publicKey
+        );
+
+      {
+        const transactions = [];
+        const { blockhash, lastValidBlockHeight } =
+          await connection.getLatestBlockhash("confirmed");
+
+        for (const groupIx of initializeBinArraysAndPositionIxs) {
+          const tx = new Transaction({
+            feePayer: keypair.publicKey,
+            blockhash,
+            lastValidBlockHeight,
+          }).add(...groupIx);
+
+          const signers = [keypair, baseKeypair];
+          transactions.push(sendAndConfirmTransaction(connection, tx, signers));
+        }
+
+        await Promise.all(transactions)
+          .then((txs) => {
+            txs.map(console.log);
+          })
+          .catch((e) => {
+            console.error(e);
+            throw e;
+          });
+      }
+
+      let beforeTokenXBalance = await connection
+        .getTokenAccountBalance(userBTC)
+        .then((i) => new BN(i.value.amount));
+
+      // Simulate send all add liquidity, but index 0 ix timeout
+      {
+        const { blockhash, lastValidBlockHeight } =
+          await connection.getLatestBlockhash("confirmed");
+
+        const transactions = [];
+
+        for (const [idx, groupIx] of addLiquidityIxs.entries()) {
+          if (idx == 0) {
+            continue;
+          }
+
+          const tx = new Transaction({
+            feePayer: keypair.publicKey,
+            blockhash,
+            lastValidBlockHeight,
+          }).add(...groupIx);
+
+          const signers = [keypair];
+          transactions.push(sendAndConfirmTransaction(connection, tx, signers));
+        }
+
+        await Promise.all(transactions)
+          .then((txs) => {
+            txs.map(console.log);
+          })
+          .catch((e) => {
+            console.error(e);
+            throw e;
+          });
+      }
+
+      let afterTokenXBalance = await connection
+        .getTokenAccountBalance(userBTC)
+        .then((i) => new BN(i.value.amount));
+
+      const actualDepositedAmount = beforeTokenXBalance.sub(afterTokenXBalance);
+      expect(actualDepositedAmount.toString()).not.toEqual(
+        seedAmount.toString()
+      );
+
+      const seedLiquidityResponse = await pair.seedLiquidity(
+        keypair.publicKey,
+        keypair.publicKey,
+        keypair.publicKey,
+        seedAmount,
+        curvature,
+        minPrice.toNumber(),
+        maxPrice.toNumber(),
+        baseKeypair.publicKey
+      );
+
+      expect(
+        seedLiquidityResponse.initializeBinArraysAndPositionIxs.length
+      ).toBe(0);
+      expect(seedLiquidityResponse.addLiquidityIxs.length).toBe(1);
+
+      beforeTokenXBalance = afterTokenXBalance;
+
+      const { blockhash, lastValidBlockHeight } =
+        await connection.getLatestBlockhash("confirmed");
+
+      const tx = new Transaction({
+        feePayer: keypair.publicKey,
+        blockhash,
+        lastValidBlockHeight,
+      }).add(...seedLiquidityResponse.addLiquidityIxs[0]);
+
+      const txHash = await sendAndConfirmTransaction(connection, tx, [
+        keypair,
+      ]).catch((e) => {
+        console.error(e);
+        throw e;
+      });
+      console.log(txHash);
+
+      afterTokenXBalance = await connection
+        .getTokenAccountBalance(userBTC)
+        .then((i) => new BN(i.value.amount));
+
+      const depositedAmount = beforeTokenXBalance.sub(afterTokenXBalance);
+      expect(actualDepositedAmount.add(depositedAmount).toString()).toEqual(
+        seedAmount.toString()
+      );
+
+      let binArrays = await pair.getBinArrays();
+      binArrays = binArrays.sort((a, b) =>
+        a.account.index.cmp(b.account.index)
+      );
+      const binLiquidities = binArrays
+        .map((ba) => {
+          const [lowerBinId, upperBinId] = getBinArrayLowerUpperBinId(
+            ba.account.index
+          );
+          const binWithLiquidity: [number, number][] = [];
+          for (let i = lowerBinId.toNumber(); i <= upperBinId.toNumber(); i++) {
+            const binAmountX =
+              ba.account.bins[i - lowerBinId.toNumber()].amountX;
+            const binPrice = getPriceOfBinByBinId(i, pair.lbPair.binStep);
+            const liquidity = new Decimal(binAmountX.toString())
+              .mul(binPrice)
+              .floor()
+              .toNumber();
+            binWithLiquidity.push([i, liquidity]);
+          }
+          return binWithLiquidity;
+        })
+        .flat();
+
+      console.log(babar(binLiquidities));
+    });
+
+    it("Rerun if failed at middle deposit", async () => {
+      const seedAmount = new BN(100_000_000).mul(new BN(10 ** btcDecimal));
+      const curvature = 0.8;
+
+      const priceMultiplier = new Decimal(
+        10 ** (pair.tokenX.decimal - pair.tokenY.decimal)
+      );
+
+      const minPrice = new Decimal(
+        pair.getPriceOfBinByBinId(pair.lbPair.activeId) + 1
+      ).mul(priceMultiplier);
+
+      const maxPrice = new Decimal(
+        pair.getPriceOfBinByBinId(
+          pair.lbPair.activeId + 1 + MAX_BIN_PER_POSITION.toNumber() * 3
+        )
+      ).mul(priceMultiplier);
+
+      let { initializeBinArraysAndPositionIxs, addLiquidityIxs } =
+        await pair.seedLiquidity(
+          keypair.publicKey,
+          keypair.publicKey,
+          keypair.publicKey,
+          seedAmount,
+          curvature,
+          minPrice.toNumber(),
+          maxPrice.toNumber(),
+          baseKeypair.publicKey
+        );
+
+      {
+        const transactions = [];
+        const { blockhash, lastValidBlockHeight } =
+          await connection.getLatestBlockhash("confirmed");
+
+        for (const groupIx of initializeBinArraysAndPositionIxs) {
+          const tx = new Transaction({
+            feePayer: keypair.publicKey,
+            blockhash,
+            lastValidBlockHeight,
+          }).add(...groupIx);
+
+          const signers = [keypair, baseKeypair];
+          transactions.push(sendAndConfirmTransaction(connection, tx, signers));
+        }
+
+        await Promise.all(transactions)
+          .then((txs) => {
+            txs.map(console.log);
+          })
+          .catch((e) => {
+            console.error(e);
+            throw e;
+          });
+      }
+
+      let beforeTokenXBalance = await connection
+        .getTokenAccountBalance(userBTC)
+        .then((i) => new BN(i.value.amount));
+
+      // Simulate send all add liquidity, but index 1 ix timeout
+      {
+        const { blockhash, lastValidBlockHeight } =
+          await connection.getLatestBlockhash("confirmed");
+
+        const transactions = [];
+
+        for (const [idx, groupIx] of addLiquidityIxs.entries()) {
+          if (idx == 1) {
+            continue;
+          }
+
+          const tx = new Transaction({
+            feePayer: keypair.publicKey,
+            blockhash,
+            lastValidBlockHeight,
+          }).add(...groupIx);
+
+          const signers = [keypair];
+          transactions.push(sendAndConfirmTransaction(connection, tx, signers));
+        }
+
+        await Promise.all(transactions)
+          .then((txs) => {
+            txs.map(console.log);
+          })
+          .catch((e) => {
+            console.error(e);
+            throw e;
+          });
+      }
+
+      let afterTokenXBalance = await connection
+        .getTokenAccountBalance(userBTC)
+        .then((i) => new BN(i.value.amount));
+
+      const actualDepositedAmount = beforeTokenXBalance.sub(afterTokenXBalance);
+      expect(actualDepositedAmount.toString()).not.toEqual(
+        seedAmount.toString()
+      );
+
+      const seedLiquidityResponse = await pair.seedLiquidity(
+        keypair.publicKey,
+        keypair.publicKey,
+        keypair.publicKey,
+        seedAmount,
+        curvature,
+        minPrice.toNumber(),
+        maxPrice.toNumber(),
+        baseKeypair.publicKey
+      );
+
+      expect(
+        seedLiquidityResponse.initializeBinArraysAndPositionIxs.length
+      ).toBe(0);
+      expect(seedLiquidityResponse.addLiquidityIxs.length).toBe(1);
+
+      beforeTokenXBalance = afterTokenXBalance;
+      const { blockhash, lastValidBlockHeight } =
+        await connection.getLatestBlockhash("confirmed");
+
+      const tx = new Transaction({
+        feePayer: keypair.publicKey,
+        blockhash,
+        lastValidBlockHeight,
+      }).add(...seedLiquidityResponse.addLiquidityIxs[0]);
+
+      const txHash = await sendAndConfirmTransaction(connection, tx, [
+        keypair,
+      ]).catch((e) => {
+        console.error(e);
+        throw e;
+      });
+      console.log(txHash);
+
+      afterTokenXBalance = await connection
+        .getTokenAccountBalance(userBTC)
+        .then((i) => new BN(i.value.amount));
+
+      const depositedAmount = beforeTokenXBalance.sub(afterTokenXBalance);
+      expect(actualDepositedAmount.add(depositedAmount).toString()).toEqual(
+        seedAmount.toString()
+      );
+
+      let binArrays = await pair.getBinArrays();
+      binArrays = binArrays.sort((a, b) =>
+        a.account.index.cmp(b.account.index)
+      );
+      const binLiquidities = binArrays
+        .map((ba) => {
+          const [lowerBinId, upperBinId] = getBinArrayLowerUpperBinId(
+            ba.account.index
+          );
+          const binWithLiquidity: [number, number][] = [];
+          for (let i = lowerBinId.toNumber(); i <= upperBinId.toNumber(); i++) {
+            const binAmountX =
+              ba.account.bins[i - lowerBinId.toNumber()].amountX;
+            const binPrice = getPriceOfBinByBinId(i, pair.lbPair.binStep);
+            const liquidity = new Decimal(binAmountX.toString())
+              .mul(binPrice)
+              .floor()
+              .toNumber();
+            binWithLiquidity.push([i, liquidity]);
+          }
+          return binWithLiquidity;
+        })
+        .flat();
+
+      console.log(babar(binLiquidities));
+    });
+
+    it("Rerun if failed at last deposit", async () => {
+      const seedAmount = new BN(100_000_000).mul(new BN(10 ** btcDecimal));
+      const curvature = 0.8;
+
+      const priceMultiplier = new Decimal(
+        10 ** (pair.tokenX.decimal - pair.tokenY.decimal)
+      );
+
+      const minPrice = new Decimal(
+        pair.getPriceOfBinByBinId(pair.lbPair.activeId) + 1
+      ).mul(priceMultiplier);
+
+      const maxPrice = new Decimal(
+        pair.getPriceOfBinByBinId(
+          pair.lbPair.activeId + 1 + MAX_BIN_PER_POSITION.toNumber() * 3
+        )
+      ).mul(priceMultiplier);
+
+      let { initializeBinArraysAndPositionIxs, addLiquidityIxs } =
+        await pair.seedLiquidity(
+          keypair.publicKey,
+          keypair.publicKey,
+          keypair.publicKey,
+          seedAmount,
+          curvature,
+          minPrice.toNumber(),
+          maxPrice.toNumber(),
+          baseKeypair.publicKey
+        );
+
+      {
+        const transactions = [];
+        const { blockhash, lastValidBlockHeight } =
+          await connection.getLatestBlockhash("confirmed");
+
+        for (const groupIx of initializeBinArraysAndPositionIxs) {
+          const tx = new Transaction({
+            feePayer: keypair.publicKey,
+            blockhash,
+            lastValidBlockHeight,
+          }).add(...groupIx);
+
+          const signers = [keypair, baseKeypair];
+          transactions.push(sendAndConfirmTransaction(connection, tx, signers));
+        }
+
+        await Promise.all(transactions)
+          .then((txs) => {
+            txs.map(console.log);
+          })
+          .catch((e) => {
+            console.error(e);
+            throw e;
+          });
+      }
+
+      let beforeTokenXBalance = await connection
+        .getTokenAccountBalance(userBTC)
+        .then((i) => new BN(i.value.amount));
+
+      // Simulate send all add liquidity, but index 2 ix timeout
+      {
+        const { blockhash, lastValidBlockHeight } =
+          await connection.getLatestBlockhash("confirmed");
+
+        const transactions = [];
+
+        for (const [idx, groupIx] of addLiquidityIxs.entries()) {
+          if (idx == 2) {
+            continue;
+          }
+
+          const tx = new Transaction({
+            feePayer: keypair.publicKey,
+            blockhash,
+            lastValidBlockHeight,
+          }).add(...groupIx);
+
+          const signers = [keypair];
+          transactions.push(sendAndConfirmTransaction(connection, tx, signers));
+        }
+
+        await Promise.all(transactions)
+          .then((txs) => {
+            txs.map(console.log);
+          })
+          .catch((e) => {
+            console.error(e);
+            throw e;
+          });
+      }
+
+      let afterTokenXBalance = await connection
+        .getTokenAccountBalance(userBTC)
+        .then((i) => new BN(i.value.amount));
+
+      const actualDepositedAmount = beforeTokenXBalance.sub(afterTokenXBalance);
+      expect(actualDepositedAmount.toString()).not.toEqual(
+        seedAmount.toString()
+      );
+
+      const seedLiquidityResponse = await pair.seedLiquidity(
+        keypair.publicKey,
+        keypair.publicKey,
+        keypair.publicKey,
+        seedAmount,
+        curvature,
+        minPrice.toNumber(),
+        maxPrice.toNumber(),
+        baseKeypair.publicKey
+      );
+
+      expect(
+        seedLiquidityResponse.initializeBinArraysAndPositionIxs.length
+      ).toBe(0);
+      expect(seedLiquidityResponse.addLiquidityIxs.length).toBe(1);
+
+      beforeTokenXBalance = afterTokenXBalance;
+      const { blockhash, lastValidBlockHeight } =
+        await connection.getLatestBlockhash("confirmed");
+
+      const tx = new Transaction({
+        feePayer: keypair.publicKey,
+        blockhash,
+        lastValidBlockHeight,
+      }).add(...seedLiquidityResponse.addLiquidityIxs[0]);
+
+      const txHash = await sendAndConfirmTransaction(connection, tx, [
+        keypair,
+      ]).catch((e) => {
+        console.error(e);
+        throw e;
+      });
+      console.log(txHash);
+
+      afterTokenXBalance = await connection
+        .getTokenAccountBalance(userBTC)
+        .then((i) => new BN(i.value.amount));
+
+      const depositedAmount = beforeTokenXBalance.sub(afterTokenXBalance);
+      expect(actualDepositedAmount.add(depositedAmount).toString()).toEqual(
+        seedAmount.toString()
+      );
+
+      let binArrays = await pair.getBinArrays();
+      binArrays = binArrays.sort((a, b) =>
+        a.account.index.cmp(b.account.index)
+      );
+      const binLiquidities = binArrays
+        .map((ba) => {
+          const [lowerBinId, upperBinId] = getBinArrayLowerUpperBinId(
+            ba.account.index
+          );
+          const binWithLiquidity: [number, number][] = [];
+          for (let i = lowerBinId.toNumber(); i <= upperBinId.toNumber(); i++) {
+            const binAmountX =
+              ba.account.bins[i - lowerBinId.toNumber()].amountX;
+            const binPrice = getPriceOfBinByBinId(i, pair.lbPair.binStep);
+            const liquidity = new Decimal(binAmountX.toString())
+              .mul(binPrice)
+              .floor()
+              .toNumber();
+            binWithLiquidity.push([i, liquidity]);
+          }
+          return binWithLiquidity;
+        })
+        .flat();
+
+      console.log(babar(binLiquidities));
+    });
+
+    it("Happy path", async () => {
+      const seedAmount = new BN(Math.random() * 1_000_000_000)
+        .add(new BN(100_000_000))
+        .mul(new BN(10 ** btcDecimal));
+
+      const curvature = Math.floor((Math.random() * 1.5 + 0.5) * 100) / 100;
+
+      const priceMultiplier = new Decimal(
+        10 ** (pair.tokenX.decimal - pair.tokenY.decimal)
+      );
+
+      const positionNeeded = Math.floor(Math.random() * 11 + 1);
+
+      const minPrice = new Decimal(
+        pair.getPriceOfBinByBinId(pair.lbPair.activeId) + 1
+      ).mul(priceMultiplier);
+
+      const maxPrice = new Decimal(
+        pair.getPriceOfBinByBinId(
+          pair.lbPair.activeId +
+            1 +
+            MAX_BIN_PER_POSITION.toNumber() * positionNeeded
+        )
+      ).mul(priceMultiplier);
+
+      console.log("SeedAmount", seedAmount.toString());
+      console.log("Curvature", curvature);
+      console.log("PositionNeeded", positionNeeded);
+      console.log("Min/Max price", minPrice, maxPrice);
+      console.log("Binstep", pair.lbPair.binStep);
+
+      const { initializeBinArraysAndPositionIxs, addLiquidityIxs } =
+        await pair.seedLiquidity(
+          keypair.publicKey,
+          keypair.publicKey,
+          keypair.publicKey,
+          seedAmount,
+          curvature,
+          minPrice.toNumber(),
+          maxPrice.toNumber(),
+          baseKeypair.publicKey
+        );
+
+      const beforeTokenXBalance = await connection
+        .getTokenAccountBalance(userBTC)
+        .then((i) => new BN(i.value.amount));
+
+      {
+        const transactions = [];
+        const { blockhash, lastValidBlockHeight } =
+          await connection.getLatestBlockhash("confirmed");
+
+        for (const groupIx of initializeBinArraysAndPositionIxs) {
+          const tx = new Transaction({
+            feePayer: keypair.publicKey,
+            blockhash,
+            lastValidBlockHeight,
+          }).add(...groupIx);
+
+          const signers = [keypair, baseKeypair];
+          transactions.push(sendAndConfirmTransaction(connection, tx, signers));
+        }
+
+        await Promise.all(transactions)
+          .then((txs) => {
+            txs.map(console.log);
+          })
+          .catch((e) => {
+            console.error(e);
+            throw e;
+          });
+      }
+
+      {
+        const { blockhash, lastValidBlockHeight } =
+          await connection.getLatestBlockhash("confirmed");
+
+        const transactions = [];
+
+        for (const groupIx of addLiquidityIxs) {
+          const tx = new Transaction({
+            feePayer: keypair.publicKey,
+            blockhash,
+            lastValidBlockHeight,
+          }).add(...groupIx);
+
+          const signers = [keypair];
+          transactions.push(sendAndConfirmTransaction(connection, tx, signers));
+        }
+
+        await Promise.all(transactions)
+          .then((txs) => {
+            txs.map(console.log);
+          })
+          .catch((e) => {
+            console.error(e);
+            throw e;
+          });
+      }
+
+      const afterTokenXBalance = await connection
+        .getTokenAccountBalance(userBTC)
+        .then((i) => new BN(i.value.amount));
+
+      const actualDepositedAmount = beforeTokenXBalance.sub(afterTokenXBalance);
+      expect(actualDepositedAmount.toString()).toEqual(seedAmount.toString());
+
+      let binArrays = await pair.getBinArrays();
+      binArrays = binArrays.sort((a, b) =>
+        a.account.index.cmp(b.account.index)
+      );
+
+      const binLiquidities = binArrays
+        .map((ba) => {
+          const [lowerBinId, upperBinId] = getBinArrayLowerUpperBinId(
+            ba.account.index
+          );
+          const binWithLiquidity: [number, number][] = [];
+          for (let i = lowerBinId.toNumber(); i <= upperBinId.toNumber(); i++) {
+            const binAmountX =
+              ba.account.bins[i - lowerBinId.toNumber()].amountX;
+            const binPrice = getPriceOfBinByBinId(i, pair.lbPair.binStep);
+            const liquidity = new Decimal(binAmountX.toString())
+              .mul(binPrice)
+              .floor()
+              .toNumber();
+            binWithLiquidity.push([i, liquidity]);
+          }
+          return binWithLiquidity;
+        })
+        .flat();
+
+      // console.log(binLiquidities.filter((b) => b[1] > 0).reverse());
+      // console.log(binLiquidities.filter((b) => b[1] > 0));
+      console.log(babar(binLiquidities));
     });
   });
 

@@ -64,6 +64,9 @@ import {
   StrategyParameters,
   TQuoteCreatePositionParams,
   InitPermissionPairIx,
+  CompressedBinDepositAmounts,
+  PositionV2,
+  SeedLiquidityResponse,
 } from "./types";
 import { AnchorProvider, BN, Program } from "@coral-xyz/anchor";
 import {
@@ -94,6 +97,7 @@ import {
   toStrategyParameters,
   derivePermissionLbPair,
   deriveLbPair2,
+  derivePosition,
 } from "./helpers";
 import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import Decimal from "decimal.js";
@@ -102,11 +106,18 @@ import {
   MintLayout,
   NATIVE_MINT,
   TOKEN_PROGRAM_ID,
+  getAssociatedTokenAddress,
+  getAssociatedTokenAddressSync,
 } from "@solana/spl-token";
 import {
   Rounding,
+  compressBinAmount,
   computeBaseFactorFromFeeBps,
+  distributeAmountToCompressedBinsByRatio,
   findSwappableMinMaxBinId,
+  generateAmountForBinRange,
+  getC,
+  getPositionCount,
   mulShr,
 } from "./helpers/math";
 
@@ -3469,37 +3480,54 @@ export class DLMM {
   /**
    * The function `updateWhitelistedWallet` is used to whitelist a wallet, enabling it to deposit into a permissioned pool before the activation slot.
    * @param
-   *    - `walletToWhitelist`: The public key of the wallet.
-   *    - `index`: Index of the whitelisted wallet to be inserted. Check DLMM.lbPair.whitelistedWallet for the index
+   *    - `walletsToWhitelist`: The public key of the wallet.
+   *    - `overrideIndexes`: Index of the whitelisted wallet to be inserted. Check DLMM.lbPair.whitelistedWallet for the index
    * @returns {Promise<Transaction>}
    */
   public async updateWhitelistedWallet(
-    walletToWhitelist: PublicKey,
-    index?: number
+    walletsToWhitelist: PublicKey[],
+    overrideIndexes?: number[]
   ) {
-    const emptyIndex = this.lbPair.whitelistedWallet.findIndex((pk) =>
-      pk.equals(PublicKey.default)
-    );
-    const idx = index ? index : emptyIndex;
-    if (idx == -1) {
-      throw new Error(
-        "Whitelist wallets are full. Please manually specify index of the wallet to be replaced"
-      );
+    let emptyIndexes = this.lbPair.whitelistedWallet
+      .map((pk, idx) => (pk.equals(PublicKey.default) ? idx : -1))
+      .filter((idx) => idx >= 0);
+
+    if (emptyIndexes.length < walletsToWhitelist.length) {
+      if (!overrideIndexes) {
+        throw new Error(
+          "Whitelist wallets are full. Please manually specify index of the wallet to be replaced"
+        );
+      } else if (overrideIndexes.length != walletsToWhitelist.length) {
+        throw new Error(
+          "Index provided do not match the number of wallets to be whitelist."
+        );
+      } else {
+        emptyIndexes = overrideIndexes;
+      }
     }
-    const updateWhitelistedWalletTx = await this.program.methods
-      .updateWhitelistedWallet(idx, walletToWhitelist)
-      .accounts({
-        lbPair: this.pubkey,
-        creator: this.lbPair.creator,
-      })
-      .transaction();
+
+    const instructions = [];
+
+    for (const [idx, wallet] of walletsToWhitelist.entries()) {
+      const updateWhitelistedWalletIx = await this.program.methods
+        .updateWhitelistedWallet(idx, wallet)
+        .accounts({
+          lbPair: this.pubkey,
+          creator: this.lbPair.creator,
+        })
+        .instruction();
+
+      instructions.push(updateWhitelistedWalletIx);
+    }
+
     const { blockhash, lastValidBlockHeight } =
       await this.program.provider.connection.getLatestBlockhash("confirmed");
+
     return new Transaction({
       feePayer: this.lbPair.creator,
       blockhash,
       lastValidBlockHeight,
-    }).add(updateWhitelistedWalletTx);
+    }).add(...instructions);
   }
 
   /**
@@ -3667,6 +3695,282 @@ export class DLMM {
         return tx;
       })
     );
+  }
+
+  /**
+   * The `seedLiquidity` function create multiple grouped instructions. The grouped instructions will be either [initialize bin array + initialize position instructions] or [deposit instruction] combination.
+   * @param
+   *    - `owner`: The public key of the positions owner.
+   *    - `operator`: The public key of the operator. Operator can add liquidity for the position owner, withdraw on behalf of position owner (only can withdraw to position owner), and claim fee on behalf of position owner / fee owner (only can claim fee to position / fee owner)
+   *    - `feeOwner`: The public key to receive claimed fee.
+   *    - `seedAmount`: Lamport amount to be seeded to the pool.
+   *    - `minPrice`: Start price in UI format
+   *    - `maxPrice`: End price in UI format
+   *    - `base`: Base key
+   * @returns {Promise<SeedLiquidityResponse>}
+   */
+  public async seedLiquidity(
+    owner: PublicKey,
+    operator: PublicKey,
+    feeOwner: PublicKey,
+    seedAmount: BN,
+    curvature: number,
+    minPrice: number,
+    maxPrice: number,
+    base: PublicKey
+  ): Promise<SeedLiquidityResponse> {
+    const toLamportMultiplier = new Decimal(
+      10 ** (this.tokenY.decimal - this.tokenX.decimal)
+    );
+
+    const minPricePerLamport = new Decimal(minPrice).mul(toLamportMultiplier);
+    const maxPricePerLamport = new Decimal(maxPrice).mul(toLamportMultiplier);
+
+    const minBinId = new BN(
+      DLMM.getBinIdFromPrice(minPricePerLamport, this.lbPair.binStep, false)
+    );
+
+    const maxBinId = new BN(
+      DLMM.getBinIdFromPrice(maxPricePerLamport, this.lbPair.binStep, true)
+    );
+
+    if (minBinId.toNumber() < this.lbPair.activeId) {
+      throw new Error("minPrice < current pair price");
+    }
+
+    if (minBinId.toNumber() >= maxBinId.toNumber()) {
+      throw new Error("Price range too small");
+    }
+
+    // Generate amount for each bin
+    const k = 1.0 / curvature;
+
+    const binDepositAmount = generateAmountForBinRange(
+      seedAmount,
+      this.lbPair.binStep,
+      this.tokenX.decimal,
+      this.tokenY.decimal,
+      minBinId,
+      maxBinId,
+      k
+    );
+
+    const decompressMultiplier = new BN(10 ** this.tokenX.decimal);
+
+    let { compressedBinAmount, compressionLoss } = compressBinAmount(
+      binDepositAmount,
+      decompressMultiplier
+    );
+
+    // Distribute loss after compression back to bins based on bin ratio with total deposited amount
+    let {
+      newCompressedBinAmount: compressedBinDepositAmount,
+      loss: finalLoss,
+    } = distributeAmountToCompressedBinsByRatio(
+      compressedBinAmount,
+      compressionLoss,
+      decompressMultiplier,
+      new BN(2 ** 32 - 1) // u32
+    );
+
+    // This amount will be deposited to the last bin without compression
+    const positionCount = getPositionCount(minBinId, maxBinId.sub(new BN(1)));
+
+    const seederTokenX = getAssociatedTokenAddressSync(
+      this.lbPair.tokenXMint,
+      operator,
+      false
+    );
+
+    const initializeBinArraysAndPositionIxs = [];
+    const addLiquidityIxs = [];
+    const appendedInitBinArrayIx = new Set();
+
+    for (let i = 0; i < positionCount.toNumber(); i++) {
+      const lowerBinId = minBinId.add(MAX_BIN_PER_POSITION.mul(new BN(i)));
+      const upperBinId = lowerBinId.add(MAX_BIN_PER_POSITION).sub(new BN(1));
+
+      const lowerBinArrayIndex = binIdToBinArrayIndex(lowerBinId);
+      const upperBinArrayIndex = binIdToBinArrayIndex(upperBinId);
+
+      const [positionPda, _bump] = derivePosition(
+        this.pubkey,
+        base,
+        lowerBinId,
+        MAX_BIN_PER_POSITION,
+        this.program.programId
+      );
+
+      const [lowerBinArray] = deriveBinArray(
+        this.pubkey,
+        lowerBinArrayIndex,
+        this.program.programId
+      );
+
+      const [upperBinArray] = deriveBinArray(
+        this.pubkey,
+        upperBinArrayIndex,
+        this.program.programId
+      );
+
+      const accounts =
+        await this.program.provider.connection.getMultipleAccountsInfo([
+          lowerBinArray,
+          upperBinArray,
+          positionPda,
+        ]);
+
+      let instructions = [computeBudgetIx()];
+
+      const lowerBinArrayAccount = accounts[0];
+      if (
+        !lowerBinArrayAccount &&
+        !appendedInitBinArrayIx.has(lowerBinArray.toBase58())
+      ) {
+        instructions.push(
+          await this.program.methods
+            .initializeBinArray(lowerBinArrayIndex)
+            .accounts({
+              lbPair: this.pubkey,
+              binArray: lowerBinArray,
+              funder: operator,
+            })
+            .instruction()
+        );
+
+        appendedInitBinArrayIx.add(lowerBinArray.toBase58());
+      }
+
+      const upperBinArrayAccount = accounts[1];
+      if (
+        !upperBinArrayAccount &&
+        !appendedInitBinArrayIx.has(upperBinArray.toBase58())
+      ) {
+        instructions.push(
+          await this.program.methods
+            .initializeBinArray(upperBinArrayIndex)
+            .accounts({
+              lbPair: this.pubkey,
+              binArray: upperBinArray,
+              funder: operator,
+            })
+            .instruction()
+        );
+
+        appendedInitBinArrayIx.add(upperBinArray.toBase58());
+      }
+
+      const positionAccount = accounts[2];
+      if (!positionAccount) {
+        instructions.push(
+          await this.program.methods
+            .initializePositionByOperator(
+              lowerBinId.toNumber(),
+              MAX_BIN_PER_POSITION.toNumber(),
+              owner,
+              feeOwner
+            )
+            .accounts({
+              lbPair: this.pubkey,
+              position: positionPda,
+              base,
+              operator,
+              payer: operator,
+            })
+            .instruction()
+        );
+      }
+
+      // Initialize bin arrays and initialize position account in 1 tx
+      if (instructions.length > 1) {
+        initializeBinArraysAndPositionIxs.push(instructions);
+        instructions = [computeBudgetIx()];
+      }
+
+      const positionDeposited =
+        positionAccount &&
+        this.program.coder.accounts
+          .decode<PositionV2>("positionV2", positionAccount.data)
+          .liquidityShares.reduce((total, cur) => total.add(cur), new BN(0))
+          .gt(new BN(0));
+
+      if (!positionDeposited) {
+        const cappedUpperBinId = Math.min(
+          upperBinId.toNumber(),
+          maxBinId.toNumber() - 1
+        );
+
+        const bins: CompressedBinDepositAmounts = [];
+
+        for (let i = lowerBinId.toNumber(); i <= cappedUpperBinId; i++) {
+          bins.push({
+            binId: i,
+            amount: compressedBinDepositAmount.get(i).toNumber(),
+          });
+        }
+
+        instructions.push(
+          await this.program.methods
+            .addLiquidityOneSidePrecise({
+              bins,
+              decompressMultiplier,
+            })
+            .accounts({
+              position: positionPda,
+              lbPair: this.pubkey,
+              binArrayBitmapExtension: this.binArrayBitmapExtension
+                ? this.binArrayBitmapExtension.publicKey
+                : this.program.programId,
+              userToken: seederTokenX,
+              reserve: this.lbPair.reserveX,
+              tokenMint: this.lbPair.tokenXMint,
+              binArrayLower: lowerBinArray,
+              binArrayUpper: upperBinArray,
+              sender: operator,
+            })
+            .instruction()
+        );
+
+        // Last position
+        if (i + 1 >= positionCount.toNumber() && !finalLoss.isZero()) {
+          instructions.push(
+            await this.program.methods
+              .addLiquidityOneSide({
+                amount: finalLoss,
+                activeId: this.lbPair.activeId,
+                maxActiveBinSlippage: 0,
+                binLiquidityDist: [
+                  {
+                    binId: cappedUpperBinId,
+                    weight: 1,
+                  },
+                ],
+              })
+              .accounts({
+                position: positionPda,
+                lbPair: this.pubkey,
+                binArrayBitmapExtension: this.binArrayBitmapExtension
+                  ? this.binArrayBitmapExtension.publicKey
+                  : this.program.programId,
+                userToken: seederTokenX,
+                reserve: this.lbPair.reserveX,
+                tokenMint: this.lbPair.tokenXMint,
+                binArrayLower: lowerBinArray,
+                binArrayUpper: upperBinArray,
+                sender: operator,
+              })
+              .instruction()
+          );
+        }
+
+        addLiquidityIxs.push(instructions);
+      }
+    }
+
+    return {
+      initializeBinArraysAndPositionIxs,
+      addLiquidityIxs,
+    };
   }
 
   /**
