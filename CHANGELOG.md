@@ -96,3 +96,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `getPairPubkeyIfExists` function to get the public key of existing pool address, if the pool doesn't exists return null
+
+## @meteora-ag/dlmm [1.0.37] - PR #68
+
+### Added
+
+- `initializePositionByOperator` function allow operator to initialize positio for other user
+
+### Fixed
+
+- `withdrawLiquidity` error when close position due to rent receiver must be position owner
