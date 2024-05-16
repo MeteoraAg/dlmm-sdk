@@ -2896,7 +2896,7 @@ export class DLMM {
         .accounts({
           binArrayLower,
           binArrayUpper,
-          rentReceiver: user,
+          rentReceiver: owner, // Must be position owner
           position,
           lbPair: this.pubkey,
           sender: user,
@@ -3997,6 +3997,67 @@ export class DLMM {
       initializeBinArraysAndPositionIxs,
       addLiquidityIxs,
     };
+  }
+
+  /**
+   *
+   * @param
+   *    - `lowerBinId`: Lower bin ID of the position. This represent the lowest price of the position
+   *    - `positionWidth`: Width of the position. This will decide the upper bin id of the position, which represents the highest price of the position. UpperBinId = lowerBinId + positionWidth
+   *    - `owner`: Owner of the position.
+   *    - `operator`: Operator of the position. Operator able to manage the position on behalf of the position owner. However, liquidity withdrawal issue by the operator can only send to the position owner.
+   *    - `base`: Base key
+   *    - `feeOwner`: Owner of the fees earned by the position.
+   *    - `payer`: Payer for the position account rental.
+   * @returns
+   */
+  public async initializePositionByOperator({
+    lowerBinId,
+    positionWidth,
+    owner,
+    feeOwner,
+    base,
+    operator,
+    payer,
+  }: {
+    lowerBinId: BN;
+    positionWidth: BN;
+    owner: PublicKey;
+    feeOwner: PublicKey;
+    operator: PublicKey;
+    payer: PublicKey;
+    base: PublicKey;
+  }): Promise<Transaction> {
+    const [positionPda, _bump] = derivePosition(
+      this.pubkey,
+      base,
+      lowerBinId,
+      positionWidth,
+      this.program.programId
+    );
+    let initializePositionByOperatorTx = await this.program.methods
+      .initializePositionByOperator(
+        lowerBinId.toNumber(),
+        MAX_BIN_PER_POSITION.toNumber(),
+        owner,
+        feeOwner
+      )
+      .accounts({
+        lbPair: this.pubkey,
+        position: positionPda,
+        base,
+        operator,
+        payer,
+      })
+      .transaction();
+
+    const { blockhash, lastValidBlockHeight } =
+      await this.program.provider.connection.getLatestBlockhash("confirmed");
+    return new Transaction({
+      feePayer: operator,
+      blockhash,
+      lastValidBlockHeight,
+    }).add(initializePositionByOperatorTx);
   }
 
   /**
