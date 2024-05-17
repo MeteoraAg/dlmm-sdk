@@ -8,8 +8,6 @@ import {
   SYSVAR_RENT_PUBKEY,
   SystemProgram,
   SYSVAR_CLOCK_PUBKEY,
-  ConfirmOptions,
-  Keypair,
 } from "@solana/web3.js";
 import { IDL } from "./idl";
 import {
@@ -42,7 +40,6 @@ import {
   sParameters,
   BinArrayAccount,
   SwapParams,
-  BinLiquidityReduction,
   BinArrayBitmapExtensionAccount,
   Bin,
   BinArray,
@@ -61,7 +58,6 @@ import {
   LiquidityParameterByStrategy,
   ProgramStrategyParameter,
   LiquidityParameterByStrategyOneSide,
-  StrategyParameters,
   TQuoteCreatePositionParams,
   InitPermissionPairIx,
   CompressedBinDepositAmounts,
@@ -107,7 +103,6 @@ import {
   MintLayout,
   NATIVE_MINT,
   TOKEN_PROGRAM_ID,
-  getAssociatedTokenAddress,
   getAssociatedTokenAddressSync,
 } from "@solana/spl-token";
 import {
@@ -117,7 +112,6 @@ import {
   distributeAmountToCompressedBinsByRatio,
   findSwappableMinMaxBinId,
   generateAmountForBinRange,
-  getC,
   getPositionCount,
   mulShr,
 } from "./helpers/math";

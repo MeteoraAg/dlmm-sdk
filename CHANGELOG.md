@@ -106,3 +106,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - `withdrawLiquidity` error when close position due to rent receiver must be position owner
+
+## @meteora-ag/dlmm [1.0.38] - PR #71
+
+### Added
+
+- `getTokensMintFromPoolAddress` helper function to get tokenX mint & tokenY mint from lb pair address
