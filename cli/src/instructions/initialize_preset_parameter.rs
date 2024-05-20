@@ -8,7 +8,7 @@ use anyhow::*;
 use lb_clmm::accounts;
 use lb_clmm::instruction;
 use lb_clmm::instructions::initialize_preset_parameters::InitPresetParametersIx;
-use lb_clmm::utils::pda::derive_preset_parameter_pda;
+use lb_clmm::utils::pda::derive_preset_parameter_pda2;
 
 #[derive(Debug)]
 pub struct InitPresetParameters {
@@ -52,7 +52,7 @@ pub async fn initialize_preset_parameter<C: Deref<Target = impl Signer> + Clone>
         variable_fee_control,
     } = params;
 
-    let (preset_parameter, _bump) = derive_preset_parameter_pda(bin_step);
+    let (preset_parameter, _bump) = derive_preset_parameter_pda2(bin_step, base_factor);
 
     let accounts = accounts::InitializePresetParameter {
         preset_parameter,
@@ -81,7 +81,8 @@ pub async fn initialize_preset_parameter<C: Deref<Target = impl Signer> + Clone>
     let signature = request_builder
         .accounts(accounts)
         .args(ix)
-        .send_with_spinner_and_config(transaction_config).await;
+        .send_with_spinner_and_config(transaction_config)
+        .await;
 
     println!(
         "Initialize preset parameter {}. Signature: {signature:#?}",

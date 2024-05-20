@@ -248,12 +248,12 @@ pub enum Command {
         protocol_share: u16,
     },
     ClosePresetParameter {
-        /// Bin step. Represent the price increment / decrement.
-        bin_step: u16,
+        /// Preset parameter pubkey. Get from ListAllBinStep
+        preset_parameter: Pubkey,
     },
     ShowPresetParameter {
-        /// Bin step. Represent the price increment / decrement.
-        bin_step: u16,
+        /// Preset parameter pubkey. Get from ListAllBinStep
+        preset_parameter: Pubkey,
     },
 
     /// Remove whitelisted wallet from a permission pool

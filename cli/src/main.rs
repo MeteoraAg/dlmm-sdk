@@ -18,7 +18,6 @@ mod math;
 use args::*;
 use instructions::initialize_lb_pair::*;
 use lb_clmm::state::preset_parameters::PresetParameter;
-use lb_clmm::utils::pda::derive_preset_parameter_pda;
 
 use crate::instructions::initialize_bin_array_with_bin_range::{
     initialize_bin_array_with_bin_range, InitBinArrayWithBinRangeParameters,
@@ -342,12 +341,11 @@ async fn main() -> Result<()> {
             };
             initialize_preset_parameter(params, &amm_program, transaction_config).await?;
         }
-        Command::ClosePresetParameter { bin_step } => {
-            close_preset_parameter(bin_step, &amm_program, transaction_config).await?;
+        Command::ClosePresetParameter { preset_parameter } => {
+            close_preset_parameter(preset_parameter, &amm_program, transaction_config).await?;
         }
-        Command::ShowPresetParameter { bin_step } => {
-            let (preset_param_pda, _bump) = derive_preset_parameter_pda(bin_step);
-            let preset_param_state: PresetParameter = amm_program.account(preset_param_pda).await?;
+        Command::ShowPresetParameter { preset_parameter } => {
+            let preset_param_state: PresetParameter = amm_program.account(preset_parameter).await?;
             println!("{:#?}", preset_param_state);
         }
         Command::UpdateWhitelistedWallet {
