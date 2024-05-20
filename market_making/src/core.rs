@@ -221,25 +221,38 @@ impl Core {
                 ComputeBudgetInstruction::set_compute_unit_limit(1_400_000),
                 Instruction {
                     program_id: lb_clmm::ID,
-                    accounts: accounts::ModifyLiquidity {
-                        bin_array_lower,
-                        bin_array_upper,
-                        lb_pair,
-                        bin_array_bitmap_extension: None,
-                        position,
-                        reserve_x: lb_pair_state.reserve_x,
-                        reserve_y: lb_pair_state.reserve_y,
-                        token_x_mint: lb_pair_state.token_x_mint,
-                        token_y_mint: lb_pair_state.token_y_mint,
-                        sender: payer.pubkey(),
-                        user_token_x,
-                        user_token_y,
-                        token_x_program: anchor_spl::token::ID,
-                        token_y_program: anchor_spl::token::ID,
-                        event_authority,
-                        program: lb_clmm::ID,
-                    }
-                    .to_account_metas(None),
+                    accounts: [
+                        accounts::ModifyLiquidity {
+                            lb_pair,
+                            bin_array_bitmap_extension: None,
+                            position,
+                            reserve_x: lb_pair_state.reserve_x,
+                            reserve_y: lb_pair_state.reserve_y,
+                            token_x_mint: lb_pair_state.token_x_mint,
+                            token_y_mint: lb_pair_state.token_y_mint,
+                            sender: payer.pubkey(),
+                            user_token_x,
+                            user_token_y,
+                            token_x_program: anchor_spl::token::ID,
+                            token_y_program: anchor_spl::token::ID,
+                            event_authority,
+                            program: lb_clmm::ID,
+                        }
+                        .to_account_metas(None),
+                        vec![
+                            AccountMeta {
+                                is_signer: false,
+                                is_writable: true,
+                                pubkey: bin_array_lower,
+                            },
+                            AccountMeta {
+                                is_signer: false,
+                                is_writable: true,
+                                pubkey: bin_array_upper,
+                            },
+                        ],
+                    ]
+                    .concat(),
                     data: instruction::RemoveAllLiquidity {}.data(),
                 },
                 Instruction {

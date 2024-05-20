@@ -3,7 +3,7 @@ members = [
     "programs/*",
     "cli",
     "market_making"
-]
+, "common"]
 
 [workspace.dependencies]
 anchor-lang = "0.28.0"

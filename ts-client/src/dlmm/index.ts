@@ -62,15 +62,11 @@ import {
   LiquidityParameterByStrategyOneSide,
   TQuoteCreatePositionParams,
   InitPermissionPairIx,
-<<<<<<< HEAD
   CompressedBinDepositAmounts,
-  PositionV2,
   SeedLiquidityResponse,
-=======
   PositionV3,
   PositionV2,
   DynamicPosition,
->>>>>>> af05c8f (feat: ts client for position v3 migration)
 } from "./types";
 import { AnchorProvider, BN, Program } from "@coral-xyz/anchor";
 import {
@@ -3268,13 +3264,7 @@ export class DLMM {
       const closePositionIx = await this.program.methods
         .closePosition()
         .accounts({
-<<<<<<< HEAD
-          binArrayLower,
-          binArrayUpper,
-          rentReceiver: owner, // Must be position owner
-=======
           rentReceiver: user,
->>>>>>> af05c8f (feat: ts client for position v3 migration)
           position,
           sender: user,
         })
