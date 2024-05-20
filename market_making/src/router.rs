@@ -17,10 +17,6 @@ pub fn router(core: Arc<Core>) -> Router<Body, Infallible> {
         .unwrap()
 }
 
-async fn get_version(_req: Request<Body>) -> Result<Response<Body>, Infallible> {
-    Ok(Response::new(Body::from("0.1")))
-}
-
 async fn check_positions(req: Request<Body>) -> Result<Response<Body>, Infallible> {
     // Access the app state.
     let core = req.data::<Arc<Core>>().unwrap();

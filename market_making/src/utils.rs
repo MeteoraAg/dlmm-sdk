@@ -1,10 +1,7 @@
-use crate::read_keypair_file;
 use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
+use anchor_client::solana_client::rpc_config::RpcTransactionConfig;
 use anchor_client::solana_client::rpc_response::Response;
 use anchor_client::solana_client::rpc_response::RpcSimulateTransactionResult;
-use anchor_client::solana_client::{
-    rpc_client::GetConfirmedSignaturesForAddress2Config, rpc_config::RpcTransactionConfig,
-};
 use anchor_client::solana_sdk::commitment_config::CommitmentConfig;
 use anchor_client::solana_sdk::signature::Signature;
 use anchor_client::solana_sdk::signer::keypair::Keypair;
@@ -19,16 +16,12 @@ use anchor_lang::{AnchorDeserialize, AnchorSerialize, Discriminator};
 use anchor_spl::associated_token::get_associated_token_address;
 use anchor_spl::token::spl_token;
 use anyhow::*;
-use lb_clmm::events::{self, Swap as SwapEvent};
+use lb_clmm::events::Swap as SwapEvent;
 use solana_transaction_status::option_serializer::OptionSerializer;
-use solana_transaction_status::{
-    EncodedConfirmedTransactionWithStatusMeta, UiInstruction, UiTransactionEncoding,
-};
+use solana_transaction_status::{UiInstruction, UiTransactionEncoding};
 use spl_associated_token_account::instruction::create_associated_token_account;
 use std::ops::Deref;
 use std::result::Result::Ok;
-use std::str::FromStr;
-use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Create an anchor program instance
