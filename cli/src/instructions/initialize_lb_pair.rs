@@ -87,7 +87,7 @@ pub async fn initialize_lb_pair<C: Deref<Target = impl Signer> + Clone>(
         bin_step,
     };
 
-    let mut request_builder = program.request();
+    let request_builder = program.request();
 
     let signature = request_builder
         .accounts(accounts)

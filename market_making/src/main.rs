@@ -4,38 +4,27 @@ pub mod pair_config;
 pub mod router;
 pub mod state;
 pub mod utils;
-use crate::state::SinglePosition;
 use anchor_client::solana_sdk::pubkey::Pubkey;
-use anchor_client::solana_sdk::signature::{read_keypair_file, Keypair};
-use anchor_client::solana_sdk::{
-    commitment_config::CommitmentConfig,
-    signer::{keypair::*, Signer},
-};
+use anchor_client::solana_sdk::signature::read_keypair_file;
+use anchor_client::solana_sdk::signer::Signer;
 use anchor_client::Cluster;
 use clap::Parser;
 use core::Core;
 use hyper::Server;
-use log::LevelFilter;
 use pair_config::{get_config_from_file, should_market_making};
 use router::router;
 use routerify::RouterService;
 use serde::{Deserialize, Serialize};
 use state::AllPosition;
-use std::collections::HashMap;
 use std::convert::Into;
-use std::fmt;
 use std::fmt::Debug;
-use std::io::Write;
+use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Duration;
-use std::{env, str::FromStr};
-use std::{thread, time};
 
 #[macro_use]
 extern crate log;
-
-use log::Level;
 
 use tokio::time::interval;
 

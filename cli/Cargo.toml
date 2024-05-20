@@ -8,18 +8,18 @@ authors = ["tian <tian@racoons.dev>"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anchor-lang = "0.28.0"
-anchor-spl = "0.28.0"
-anchor-client = { version = "0.28.0", features = ["async"] }
-clap = { version = "4.3.3", features = ["derive"] }
-anyhow = "1.0.71"
-shellexpand = "3.1.0"
-rust_decimal = { version = "1.31.0", features = ["maths"] }
+anchor-lang = {workspace=true}
+anchor-spl = {workspace=true}
+anchor-client = { workspace=true, features = ["async"] }
+clap = { workspace=true, features = ["derive"] }
+anyhow = {workspace=true}
+shellexpand = {workspace=true}
+rust_decimal = { workspace=true, features = ["maths"] }
 lb_clmm = { path = "../programs/lb_clmm", features = ["cpi"] }
-spl-associated-token-account = "1"
-mpl-token-metadata = "3.0.1"
-rand = "0.8.5"
-tokio = { version = "~1.14.1", features = ["full", "parking_lot"] }
+spl-associated-token-account = {workspace=true}
+mpl-token-metadata = {workspace=true}
+rand = {workspace=true}
+tokio = { workspace=true, features = ["full", "parking_lot"] }
 
 [dev-dependencies]
 proptest = "1.2.0"

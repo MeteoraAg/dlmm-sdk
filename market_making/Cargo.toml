@@ -6,23 +6,23 @@ edition = "2021"
 authors = ["andrew <andrew@racoons.dev>"]
 
 [dependencies]
-tokio = {version = "~1.14.1", features = ["full"] }
-hyper = { version = "0.14.17", features = ["full"] }
-routerify = "3"
-ureq = { version = "2.0.0", features = ["json"]}
-anchor-client={version="0.28.0", features=["async"]}
-anchor-spl="0.28.0"
-anchor-lang="0.28.0"
-env_logger="0.9.0"
-log="0.4.17"
-clap = { version = "4.3.3", features = ["derive"] }
-shellexpand = "3.1.0"
-anyhow = "1.0.71"
+tokio = {workspace=true, features = ["full"] }
+hyper = { workspace=true, features = ["full"] }
+routerify = {workspace=true}
+ureq = { workspace=true, features = ["json"]}
+anchor-client={workspace=true, features=["async"]}
+anchor-spl={workspace=true}
+anchor-lang={workspace=true}
+env_logger={workspace=true}
+log={workspace=true}
+clap = { workspace=true, features = ["derive"] }
+shellexpand = {workspace=true}
+anyhow = {workspace=true}
 lb_clmm =  { path = "../programs/lb_clmm", features = ["cpi"] }
-serde_json = "1.0.48"
-serde = { version = "1.0.104", features = ["derive"] }
-spl-associated-token-account = "1"
-solana-transaction-status="1.16.12"
-bs58 = "0.5.0"
-chrono="0.4.31"
+serde_json = {workspace=true}
+serde = { workspace=true, features = ["derive"] }
+spl-associated-token-account = {workspace=true}
+solana-transaction-status={workspace=true}
+bs58 = {workspace=true}
+chrono={workspace=true}
 
