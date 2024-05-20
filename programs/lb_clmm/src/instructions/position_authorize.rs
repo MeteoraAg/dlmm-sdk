@@ -1,8 +1,8 @@
-use crate::{assert_eq_launch_pool_admin, state::position::PositionV2};
+use crate::assert_eq_launch_pool_admin;
+use crate::state::dynamic_position::PositionV3;
 use anchor_lang::prelude::*;
-
 pub fn authorize_modify_position<'info>(
-    position: &AccountLoader<'info, PositionV2>,
+    position: &AccountLoader<'info, PositionV3>,
     sender: Pubkey,
 ) -> Result<bool> {
     let position = position.load()?;
@@ -10,7 +10,7 @@ pub fn authorize_modify_position<'info>(
 }
 
 pub fn authorize_claim_fee_position<'info>(
-    position: &AccountLoader<'info, PositionV2>,
+    position: &AccountLoader<'info, PositionV3>,
     sender: Pubkey,
 ) -> Result<bool> {
     let position = position.load()?;

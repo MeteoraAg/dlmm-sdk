@@ -1,6 +1,9 @@
-use crate::state::position::PositionV2;
+use crate::events::PositionCreate;
+use crate::handle_initialize_position;
+use crate::state::dynamic_position::PositionV3;
 use crate::state::lb_pair::LbPair;
 use crate::utils::seeds;
+use crate::InitializePositionAccounts;
 use anchor_lang::prelude::*;
 
 #[event_cpi]
@@ -12,7 +15,7 @@ pub struct InitializePositionPda<'info> {
 
     pub base: Signer<'info>,
     #[account(
-        init,        
+        init,
         seeds = [
             seeds::POSITION.as_ref(),
             lb_pair.key().as_ref(),
@@ -22,13 +25,13 @@ pub struct InitializePositionPda<'info> {
         ],
         bump,
         payer = payer,
-        space = 8 + PositionV2::INIT_SPACE,
+        space = PositionV3::space(width as usize),
     )]
-    pub position: AccountLoader<'info, PositionV2>,
+    pub position: AccountLoader<'info, PositionV3>,
 
     pub lb_pair: AccountLoader<'info, LbPair>,
 
-    /// owner 
+    /// owner
     pub owner: Signer<'info>,
 
     pub system_program: Program<'info, System>,

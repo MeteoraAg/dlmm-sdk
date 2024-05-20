@@ -1,12 +1,14 @@
 use crate::constants::{BASIS_POINT_MAX, MAX_PROTOCOL_SHARE, U24_MAX};
 use crate::errors::LBError;
 use crate::math::price_math::get_price_from_id;
+use crate::math::safe_math::SafeMath;
 use anchor_lang::prelude::*;
+use static_assertions::const_assert_eq;
 
 use super::parameters::StaticParameters;
 
 #[account]
-#[derive(InitSpace, Debug)]
+#[derive(InitSpace, Debug, Default, Copy)]
 pub struct PresetParameter {
     /// Bin step. Represent the price increment / decrement.
     pub bin_step: u16,
@@ -29,6 +31,8 @@ pub struct PresetParameter {
     /// Portion of swap fees retained by the protocol by controlling protocol_share parameter. protocol_swap_fee = protocol_share * total_swap_fee
     pub protocol_share: u16,
 }
+
+const_assert_eq!(std::mem::size_of::<PresetParameter>(), 28);
 
 impl PresetParameter {
     pub fn init(
@@ -111,23 +115,7 @@ impl PresetParameter {
             LBError::InvalidInput
         );
 
-        let max_price = get_price_from_id(self.max_bin_id, self.bin_step);
-        let min_price = get_price_from_id(self.min_bin_id, self.bin_step);
-
-        require!(max_price.is_ok(), LBError::InvalidInput);
-        require!(min_price.is_ok(), LBError::InvalidInput);
-
-        // Bin is not swap-able when the price is u128::MAX, and 1. Make sure the min and max price bound is 2**127 - 1, 2
-        if let Ok(max_price) = max_price {
-            require!(
-                max_price == 170141183460469231731687303715884105727,
-                LBError::InvalidInput
-            );
-        }
-
-        if let Ok(min_price) = min_price {
-            require!(min_price == 2, LBError::InvalidInput);
-        }
+        validate_min_max_bin_id(self.bin_step, self.min_bin_id, self.max_bin_id)?;
 
         Ok(())
     }
@@ -144,6 +132,52 @@ impl PresetParameter {
             protocol_share: self.protocol_share,
             max_volatility_accumulator: self.max_volatility_accumulator,
             _padding: [0u8; 6],
+        }
+    }
+}
+
+pub fn validate_min_max_bin_id(bin_step: u16, min_bin_id: i32, max_bin_id: i32) -> Result<()> {
+    require!(min_bin_id < max_bin_id, LBError::InvalidInput);
+
+    let max_price = get_price_from_id(max_bin_id, bin_step);
+    let min_price = get_price_from_id(min_bin_id, bin_step);
+
+    require!(max_price.is_ok(), LBError::InvalidInput);
+    require!(min_price.is_ok(), LBError::InvalidInput);
+
+    // Bin is not swap-able when the price is u128::MAX, and 1. Make sure the min and max bin id is +/- 1 from edge min, and max bin id (bin ids with 1, and u128::MAX price).
+    let next_min_price = get_price_from_id(min_bin_id.safe_sub(1)?, bin_step)?;
+    require!(next_min_price == 1, LBError::InvalidInput);
+
+    let next_max_price = get_price_from_id(max_bin_id.safe_add(1)?, bin_step)?;
+    require!(next_max_price == u128::MAX, LBError::InvalidInput);
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::validate_min_max_bin_id;
+    use std::ops::Neg;
+
+    #[test]
+    fn test_validate_min_max_bin_id() {
+        // Test case: (bin_step, bin_id)
+        let test_cases = vec![(1, 436704), (2, 218363), (5, 87358)];
+
+        for (bin_step, bin_id) in test_cases {
+            let validation_result = validate_min_max_bin_id(bin_step, bin_id.neg(), bin_id);
+            assert!(validation_result.is_ok());
+        }
+    }
+
+    #[test]
+    fn test_validate_min_max_bin_id_not_at_edge() {
+        let test_cases = vec![(1, 426704), (2, 208363), (5, 86358)];
+
+        for (bin_step, bin_id) in test_cases {
+            let validation_result = validate_min_max_bin_id(bin_step, bin_id.neg(), bin_id);
+            assert!(validation_result.is_err());
         }
     }
 }

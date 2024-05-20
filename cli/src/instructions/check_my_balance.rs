@@ -3,15 +3,17 @@ use crate::math::price_per_token_to_per_lamport;
 use anchor_client::{solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, Program};
 use anchor_spl::token_interface::Mint;
 use anyhow::*;
-use lb_clmm::constants::{MAX_BIN_PER_ARRAY, MAX_BIN_PER_POSITION};
+use dlmm_common::DynamicPosition;
+use lb_clmm::constants::{DEFAULT_BIN_PER_POSITION, MAX_BIN_PER_ARRAY};
 use lb_clmm::math::safe_math::SafeMath;
 use lb_clmm::math::u128x128_math::Rounding;
 use lb_clmm::math::u64x64_math::SCALE_OFFSET;
 use lb_clmm::math::utils_math::safe_mul_shr_cast;
 use lb_clmm::state::bin::Bin;
 use lb_clmm::state::bin::BinArray;
+use lb_clmm::state::dynamic_position::get_idx;
+use lb_clmm::state::dynamic_position::PositionBinData;
 use lb_clmm::state::lb_pair::LbPair;
-use lb_clmm::state::position::PositionV2;
 use lb_clmm::utils::pda::*;
 use std::ops::Deref;
 use std::result::Result::Ok;
@@ -61,7 +63,7 @@ pub async fn check_my_balance<C: Deref<Target = impl Signer> + Clone>(
     let max_active_id = get_id_from_price(bin_step, &max_price_per_lamport, Rounding::Up)
         .context("get_id_from_price overflow")?;
 
-    let width = MAX_BIN_PER_POSITION as i32;
+    let width = DEFAULT_BIN_PER_POSITION as i32;
     let mut total_amount_x = 0u64;
     let mut total_amount_y = 0u64;
     let mut total_fee_x_pending = 0u64;
@@ -69,10 +71,10 @@ pub async fn check_my_balance<C: Deref<Target = impl Signer> + Clone>(
 
     for i in min_active_id..max_active_id {
         let (position, _bump) = derive_position_pda(lb_pair, base_position_key, i, width);
-        match program.account::<PositionV2>(position).await {
+        match program.account::<DynamicPosition>(position).await {
             Ok(position_state) => {
                 let lower_bin_array_idx =
-                    BinArray::bin_id_to_bin_array_index(position_state.lower_bin_id)?;
+                    BinArray::bin_id_to_bin_array_index(position_state.lower_bin_id())?;
                 let upper_bin_array_idx =
                     lower_bin_array_idx.checked_add(1).context("MathOverflow")?;
 
@@ -88,13 +90,19 @@ pub async fn check_my_balance<C: Deref<Target = impl Signer> + Clone>(
                 let bin_array_manager = BinArrayManager {
                     bin_arrays: &bin_arrays,
                 };
-                for (i, &share) in position_state.liquidity_shares.iter().enumerate() {
-                    if share == 0 {
+                for (
+                    i,
+                    &PositionBinData {
+                        liquidity_share, ..
+                    },
+                ) in position_state.position_bin_data.iter().enumerate()
+                {
+                    if liquidity_share == 0 {
                         continue;
                     }
                     let bin_id = position_state.from_idx_to_bin_id(i)?;
                     let bin = bin_array_manager.get_bin(bin_id)?;
-                    let (amount_x, amount_y) = bin.calculate_out_amount(share)?;
+                    let (amount_x, amount_y) = bin.calculate_out_amount(liquidity_share)?;
                     total_amount_x = total_amount_x.safe_add(amount_x).unwrap();
                     total_amount_y = total_amount_y.safe_add(amount_y).unwrap();
                 }
@@ -158,20 +166,20 @@ impl<'a> BinArrayManager<'a> {
     }
 
     /// Update reward + fee earning
-    pub fn get_total_fee_pending(&self, position: &PositionV2) -> Result<(u64, u64)> {
+    pub fn get_total_fee_pending(&self, position: &DynamicPosition) -> Result<(u64, u64)> {
         let (bin_arrays_lower_bin_id, bin_arrays_upper_bin_id) = self.get_lower_upper_bin_id()?;
 
         // Make sure that the bin arrays cover all the bins of the position.
         // TODO: Should we? Maybe we shall update only the bins the user are interacting with, and allow chunk for claim reward.
-        if position.lower_bin_id < bin_arrays_lower_bin_id
-            && position.upper_bin_id > bin_arrays_upper_bin_id
+        if position.lower_bin_id() < bin_arrays_lower_bin_id
+            && position.upper_bin_id() > bin_arrays_upper_bin_id
         {
             return Err(anyhow::Error::msg("Bin array is not correct"));
         }
 
         let mut total_fee_x = 0u64;
         let mut total_fee_y = 0u64;
-        for bin_id in position.lower_bin_id..=position.upper_bin_id {
+        for bin_id in position.lower_bin_id()..=position.upper_bin_id() {
             let bin = self.get_bin(bin_id)?;
             let (fee_x_pending, fee_y_pending) =
                 BinArrayManager::get_fee_pending_for_a_bin(position, bin_id, &bin)?;
@@ -187,18 +195,18 @@ impl<'a> BinArrayManager<'a> {
     }
 
     fn get_fee_pending_for_a_bin(
-        position: &PositionV2,
+        position: &DynamicPosition,
         bin_id: i32,
         bin: &Bin,
     ) -> Result<(u64, u64)> {
-        let idx = position.get_idx(bin_id)?;
+        let idx = get_idx(bin_id, position.lower_bin_id())?;
 
-        let fee_infos = &position.fee_infos[idx];
+        let fee_infos = &position.position_bin_data[idx].fee_info;
 
         let fee_x_per_token_stored = bin.fee_amount_x_per_token_stored;
 
         let new_fee_x: u64 = safe_mul_shr_cast(
-            position.liquidity_shares[idx].into(),
+            position.position_bin_data[idx].liquidity_share.into(),
             fee_x_per_token_stored
                 .safe_sub(fee_infos.fee_x_per_token_complete)
                 .map_err(|_| anyhow::Error::msg("math is overflow"))?,
@@ -212,7 +220,7 @@ impl<'a> BinArrayManager<'a> {
 
         let fee_y_per_token_stored = bin.fee_amount_y_per_token_stored;
         let new_fee_y: u64 = safe_mul_shr_cast(
-            position.liquidity_shares[idx].into(),
+            position.position_bin_data[idx].liquidity_share.into(),
             fee_y_per_token_stored
                 .safe_sub(fee_infos.fee_y_per_token_complete)
                 .map_err(|_| anyhow::Error::msg("math is overflow"))?,

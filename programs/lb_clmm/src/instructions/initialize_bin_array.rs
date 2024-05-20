@@ -1,3 +1,5 @@
+use crate::errors::LBError;
+use crate::state::action_access::get_lb_pair_type_access_validator;
 use crate::state::{bin::BinArray, lb_pair::LbPair};
 use crate::utils::seeds::BIN_ARRAY;
 use anchor_lang::prelude::*;

@@ -1,7 +1,8 @@
 use anchor_client::solana_sdk::signer::Signer;
 use anchor_client::Program;
+use dlmm_common::DynamicPosition;
 use lb_clmm::state::bin::BinArray;
-use lb_clmm::state::position::Position;
+use lb_clmm::state::dynamic_position::PositionV3;
 use lb_clmm::utils::pda::derive_bin_array_pda;
 use spl_associated_token_account::instruction::create_associated_token_account;
 use std::ops::Deref;
@@ -35,7 +36,9 @@ pub async fn get_or_create_ata<C: Deref<Target = impl Signer> + Clone>(
                     &spl_token::ID,
                 ));
 
-            builder.send_with_spinner_and_config(transaction_config).await?;
+            builder
+                .send_with_spinner_and_config(transaction_config)
+                .await?;
             Ok(user_ata)
         }
     }
@@ -45,15 +48,15 @@ pub async fn get_bin_arrays_for_position<C: Deref<Target = impl Signer> + Clone>
     program: &Program<C>,
     position_address: Pubkey,
 ) -> Result<[Pubkey; 2]> {
-    let position: Position = program.account(position_address).await?;
+    let position: DynamicPosition = program.account(position_address).await?;
 
-    let lower_bin_array_idx = BinArray::bin_id_to_bin_array_index(position.lower_bin_id)?;
+    let lower_bin_array_idx = BinArray::bin_id_to_bin_array_index(position.lower_bin_id())?;
     let upper_bin_array_idx = lower_bin_array_idx.checked_add(1).context("MathOverflow")?;
 
     let (lower_bin_array, _bump) =
-        derive_bin_array_pda(position.lb_pair, lower_bin_array_idx.into());
+        derive_bin_array_pda(position.lb_pair(), lower_bin_array_idx.into());
     let (upper_bin_array, _bump) =
-        derive_bin_array_pda(position.lb_pair, upper_bin_array_idx.into());
+        derive_bin_array_pda(position.lb_pair(), upper_bin_array_idx.into());
 
     Ok([lower_bin_array, upper_bin_array])
 }

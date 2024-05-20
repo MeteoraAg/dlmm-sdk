@@ -1,20 +1,21 @@
 use anchor_lang::prelude::*;
 
-use crate::state::{
-    bin::BinArray,
-    lb_pair::LbPair,
-    position::{Position, PositionV2},
+use crate::events::{PositionClose, PositionCreate};
+use crate::state::dynamic_position::{DynamicPositionLoader, PositionV3};
+use crate::{
+    manager::bin_array_manager::BinArrayManager,
+    state::{bin::BinArray, lb_pair::LbPair, position::Position},
 };
 
 #[event_cpi]
 #[derive(Accounts)]
-pub struct MigratePosition<'info> {
+pub struct MigratePositionFromV1<'info> {
     #[account(
         init,
         payer = owner,
-        space = 8 + PositionV2::INIT_SPACE,
+        space = PositionV3::space(position_v1.load()?.width()),
     )]
-    pub position_v2: AccountLoader<'info, PositionV2>,
+    pub position_v3: AccountLoader<'info, PositionV3>,
 
     // TODO do we need to check whether it is pda?
     #[account(
@@ -48,6 +49,6 @@ pub struct MigratePosition<'info> {
     pub rent_receiver: UncheckedAccount<'info>,
 }
 
-pub fn handle(ctx: Context<MigratePosition>) -> Result<()> {
+pub fn handle(ctx: Context<MigratePositionFromV1>) -> Result<()> {
     Ok(())
 }

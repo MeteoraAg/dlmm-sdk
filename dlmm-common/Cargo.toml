@@ -1,0 +1,17 @@
+[package]
+name = "dlmm-common"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "dlmm_common"
+
+[dependencies]
+anchor-lang = {workspace=true}
+anchor-spl = {workspace=true}
+anchor-client = {workspace=true}
+lb_clmm = { path = "../programs/lb_clmm" }
+anyhow = {workspace=true}
+bytemuck = {workspace=true}
+num-traits = {workspace=true}

@@ -191,3 +191,196 @@ impl VariableParameters {
         self.update_volatility_accumulator(active_id, static_params)
     }
 }
+
+#[cfg(test)]
+mod parameter_tests {
+    use super::*;
+    use crate::constants::tests::*;
+    use crate::state::lb_pair::{LbPair, PairType};
+    use crate::state::PairStatus;
+    use proptest::proptest;
+    proptest! {
+        #[test]
+        fn test_update_volatility_accumulator_range(
+            max_volatility_accumulator in u32::MIN..=u32::MAX,
+            index_reference in i32::MIN..=i32::MAX,
+            volatility_accumulator in u32::MIN..=u32::MAX,
+            volatility_reference in u32::MIN..=u32::MAX,
+        ) {
+            for bin_step in PRESET_BIN_STEP {
+                let mut params = get_preset(bin_step).unwrap();
+                params.max_volatility_accumulator = max_volatility_accumulator;
+
+                let mut v_params = VariableParameters::default();
+                v_params.index_reference = index_reference;
+                v_params.volatility_accumulator = volatility_accumulator;
+                v_params.volatility_reference = volatility_reference;
+
+                assert!(v_params
+                    .update_volatility_accumulator(i32::MAX, &params)
+                    .is_ok());
+            }
+
+        }
+    }
+
+    #[test]
+    fn test_total_fee_volatile() {
+        let mut active_id = 1000;
+        let bin_step = 10;
+        let mut last_update_timestamp = 1_000_000;
+
+        let mut lb_pair = LbPair::default();
+        let pair_type = PairType::Permissionless;
+
+        lb_pair
+            .initialize(
+                0,
+                active_id,
+                bin_step,
+                Pubkey::default(),
+                Pubkey::default(),
+                Pubkey::default(),
+                Pubkey::default(),
+                Pubkey::default(),
+                get_preset(bin_step).unwrap(),
+                pair_type,
+                PairStatus::Enabled.into(),
+                Pubkey::default(),
+                0,
+                Pubkey::default(),
+            )
+            .unwrap();
+
+        let total_fee: u128 = lb_pair.get_total_fee().unwrap().try_into().unwrap();
+        let fee_rate = total_fee as f64 / 10f64.powi(16);
+        println!("fee_rate {}", fee_rate);
+
+        lb_pair
+            .v_parameters
+            .update_references(active_id, last_update_timestamp, &lb_pair.parameters)
+            .unwrap();
+
+        active_id += 1;
+
+        lb_pair
+            .v_parameters
+            .update_volatility_accumulator(active_id, &lb_pair.parameters)
+            .unwrap();
+
+        let total_fee: u128 = lb_pair.get_total_fee().unwrap().try_into().unwrap();
+        let fee_rate = total_fee as f64 / 10f64.powi(16);
+        println!("fee_rate {}", fee_rate);
+
+        // Decay window
+        last_update_timestamp += 30;
+
+        lb_pair
+            .v_parameters
+            .update_references(active_id, last_update_timestamp, &lb_pair.parameters)
+            .unwrap();
+
+        lb_pair
+            .v_parameters
+            .update_volatility_accumulator(active_id, &lb_pair.parameters)
+            .unwrap();
+
+        let total_fee: u128 = lb_pair.get_total_fee().unwrap().try_into().unwrap();
+        let fee_rate = total_fee as f64 / 10f64.powi(16);
+        println!("fee_rate {}", fee_rate);
+    }
+
+    #[test]
+    fn test_update_volatility_accumulator() {
+        let mut active_id = 1000;
+        let bin_step = 10;
+        let mut last_update_timestamp = 1_000_000;
+
+        let static_param = get_preset(bin_step).unwrap();
+
+        let mut var_param = VariableParameters {
+            last_update_timestamp,
+            index_reference: active_id,
+            ..Default::default()
+        };
+
+        var_param
+            .update_references(active_id, last_update_timestamp, &static_param)
+            .unwrap();
+
+        active_id += 5;
+
+        var_param
+            .update_volatility_accumulator(active_id, &static_param)
+            .unwrap();
+
+        println!("{:?}", var_param);
+        // High freq window
+        for _ in 0..1000 {
+            last_update_timestamp += 20;
+
+            var_param
+                .update_references(active_id, last_update_timestamp, &static_param)
+                .unwrap();
+
+            var_param
+                .update_volatility_accumulator(active_id, &static_param)
+                .unwrap();
+        }
+
+        println!("{:?}", var_param);
+
+        // Decay window
+        last_update_timestamp += 30;
+
+        var_param
+            .update_references(active_id, last_update_timestamp, &static_param)
+            .unwrap();
+
+        active_id += 2;
+
+        var_param
+            .update_volatility_accumulator(active_id, &static_param)
+            .unwrap();
+        println!("{:?}", var_param);
+
+        // High freq
+        last_update_timestamp += 10;
+
+        var_param
+            .update_references(active_id, last_update_timestamp, &static_param)
+            .unwrap();
+
+        var_param
+            .update_volatility_accumulator(active_id, &static_param)
+            .unwrap();
+        println!("{:?}", var_param);
+
+        // Decay window
+        last_update_timestamp += 30;
+
+        var_param
+            .update_references(active_id, last_update_timestamp, &static_param)
+            .unwrap();
+
+        var_param
+            .update_volatility_accumulator(active_id, &static_param)
+            .unwrap();
+        println!("{:?}", var_param);
+
+        // High freq
+        last_update_timestamp += 10;
+
+        active_id += 2;
+
+        var_param
+            .update_references(active_id, last_update_timestamp, &static_param)
+            .unwrap();
+
+        var_param
+            .update_volatility_accumulator(active_id, &static_param)
+            .unwrap();
+
+        println!("{:?}", var_param);
+    }
+}

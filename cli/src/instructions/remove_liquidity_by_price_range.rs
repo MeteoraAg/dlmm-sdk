@@ -4,21 +4,21 @@ use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
 use anchor_client::solana_sdk::compute_budget::ComputeBudgetInstruction;
 use anchor_client::solana_sdk::instruction::Instruction;
 use anchor_client::{solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, Program};
+use anchor_lang::prelude::AccountMeta;
 use anchor_lang::InstructionData;
 use anchor_lang::ToAccountMetas;
 use anchor_spl::token::Mint;
 use anyhow::*;
+use dlmm_common::DynamicPosition;
 use lb_clmm::accounts;
-use lb_clmm::constants::MAX_BIN_PER_POSITION;
+use lb_clmm::constants::DEFAULT_BIN_PER_POSITION;
 use lb_clmm::instruction;
 use lb_clmm::math::u128x128_math::Rounding;
 use lb_clmm::state::bin::BinArray;
 use lb_clmm::state::lb_pair::LbPair;
-use lb_clmm::state::position::Position;
 use lb_clmm::utils::pda::*;
 use std::ops::Deref;
 use std::result::Result::Ok;
-
 #[derive(Debug)]
 pub struct RemoveLiquidityByPriceRangeParameters {
     pub lb_pair: Pubkey,
@@ -66,7 +66,7 @@ pub async fn remove_liquidity_by_price_range<C: Deref<Target = impl Signer> + Cl
     assert_eq!(min_active_id < max_active_id, true);
 
     println!("go here");
-    let width = MAX_BIN_PER_POSITION as i32;
+    let width = DEFAULT_BIN_PER_POSITION as i32;
     for i in min_active_id..=max_active_id {
         let (position, _bump) = derive_position_pda(lb_pair, base_position_key, i, width);
 
@@ -76,10 +76,10 @@ pub async fn remove_liquidity_by_price_range<C: Deref<Target = impl Signer> + Cl
         // }
         // continue;
 
-        match program.account::<Position>(position).await {
+        match program.account::<DynamicPosition>(position).await {
             Ok(position_state) => {
                 let lower_bin_array_idx =
-                    BinArray::bin_id_to_bin_array_index(position_state.lower_bin_id)?;
+                    BinArray::bin_id_to_bin_array_index(position_state.lower_bin_id())?;
                 let upper_bin_array_idx =
                     lower_bin_array_idx.checked_add(1).context("MathOverflow")?;
 
@@ -108,55 +108,86 @@ pub async fn remove_liquidity_by_price_range<C: Deref<Target = impl Signer> + Cl
                     ComputeBudgetInstruction::set_compute_unit_limit(1_400_000),
                     Instruction {
                         program_id: lb_clmm::ID,
-                        accounts: accounts::ModifyLiquidity {
-                            bin_array_lower,
-                            bin_array_upper,
-                            lb_pair,
-                            bin_array_bitmap_extension: None,
-                            position,
-                            reserve_x: lb_pair_state.reserve_x,
-                            reserve_y: lb_pair_state.reserve_y,
-                            token_x_mint: lb_pair_state.token_x_mint,
-                            token_y_mint: lb_pair_state.token_y_mint,
-                            sender: program.payer(),
-                            user_token_x,
-                            user_token_y,
-                            token_x_program: anchor_spl::token::ID,
-                            token_y_program: anchor_spl::token::ID,
-                            event_authority,
-                            program: lb_clmm::ID,
+                        accounts: [
+                            accounts::ModifyLiquidity {
+                                lb_pair,
+                                bin_array_bitmap_extension: None,
+                                position,
+                                reserve_x: lb_pair_state.reserve_x,
+                                reserve_y: lb_pair_state.reserve_y,
+                                token_x_mint: lb_pair_state.token_x_mint,
+                                token_y_mint: lb_pair_state.token_y_mint,
+                                sender: program.payer(),
+                                user_token_x,
+                                user_token_y,
+                                token_x_program: anchor_spl::token::ID,
+                                token_y_program: anchor_spl::token::ID,
+                                event_authority,
+                                program: lb_clmm::ID,
+                            }
+                            .to_account_metas(None),
+                            vec![
+                                AccountMeta {
+                                    is_signer: false,
+                                    is_writable: true,
+                                    pubkey: bin_array_lower,
+                                },
+                                AccountMeta {
+                                    is_signer: false,
+                                    is_writable: true,
+                                    pubkey: bin_array_upper,
+                                },
+                            ],
+                        ]
+                        .concat(),
+                        data: instruction::RemoveAllLiquidity {
+                            min_bin_id: position_state.lower_bin_id(),
+                            max_bin_id: position_state.upper_bin_id(),
                         }
-                        .to_account_metas(None),
-                        data: instruction::RemoveAllLiquidity {}.data(),
+                        .data(),
                     },
                     Instruction {
                         program_id: lb_clmm::ID,
-                        accounts: accounts::ClaimFee {
-                            bin_array_lower,
-                            bin_array_upper,
-                            lb_pair,
-                            sender: program.payer(),
-                            position,
-                            reserve_x: lb_pair_state.reserve_x,
-                            reserve_y: lb_pair_state.reserve_y,
-                            token_program: anchor_spl::token::ID,
-                            token_x_mint: lb_pair_state.token_x_mint,
-                            token_y_mint: lb_pair_state.token_y_mint,
-                            user_token_x,
-                            user_token_y,
-                            event_authority,
-                            program: lb_clmm::ID,
+                        accounts: [
+                            accounts::ClaimFee {
+                                lb_pair,
+                                sender: program.payer(),
+                                position,
+                                reserve_x: lb_pair_state.reserve_x,
+                                reserve_y: lb_pair_state.reserve_y,
+                                token_program: anchor_spl::token::ID,
+                                token_x_mint: lb_pair_state.token_x_mint,
+                                token_y_mint: lb_pair_state.token_y_mint,
+                                user_token_x,
+                                user_token_y,
+                                event_authority,
+                                program: lb_clmm::ID,
+                            }
+                            .to_account_metas(None),
+                            vec![
+                                AccountMeta {
+                                    is_signer: false,
+                                    is_writable: true,
+                                    pubkey: bin_array_lower,
+                                },
+                                AccountMeta {
+                                    is_signer: false,
+                                    is_writable: true,
+                                    pubkey: bin_array_upper,
+                                },
+                            ],
+                        ]
+                        .concat(),
+                        data: instruction::ClaimFee {
+                            min_bin_id: position_state.lower_bin_id(),
+                            max_bin_id: position_state.upper_bin_id(),
                         }
-                        .to_account_metas(None),
-                        data: instruction::ClaimFee {}.data(),
+                        .data(),
                     },
                     Instruction {
                         program_id: lb_clmm::ID,
                         accounts: accounts::ClosePosition {
-                            lb_pair,
                             position,
-                            bin_array_lower,
-                            bin_array_upper,
                             rent_receiver: program.payer(),
                             sender: program.payer(),
                             event_authority,

@@ -9,6 +9,7 @@ pub mod instructions;
 pub mod manager;
 pub mod math;
 pub mod state;
+pub mod tests;
 pub mod utils;
 
 use instructions::add_liquidity::*;
@@ -21,8 +22,11 @@ use instructions::claim_fee::*;
 use instructions::claim_reward::*;
 use instructions::close_position::*;
 use instructions::close_preset_parameter::*;
+use instructions::decrease_position_length::*;
 use instructions::fund_reward::*;
+use instructions::go_to_a_bin::*;
 use instructions::increase_oracle_length::*;
+use instructions::increase_position_length::*;
 use instructions::initialize_bin_array::*;
 use instructions::initialize_bin_array_bitmap_extension::*;
 use instructions::initialize_lb_pair::*;
@@ -33,7 +37,8 @@ use instructions::initialize_position_pda::*;
 use instructions::initialize_preset_parameters::*;
 use instructions::initialize_reward::*;
 use instructions::migrate_bin_array::*;
-use instructions::migrate_position::*;
+use instructions::migrate_position_from_v1::*;
+use instructions::migrate_position_from_v2::*;
 use instructions::position_authorize::*;
 use instructions::remove_liquidity::*;
 use instructions::set_activation_slot::*;
@@ -80,11 +85,13 @@ pub mod launch_pool_config_admins {
     pub const ADMINS: [Pubkey; 1] = [pubkey!("bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1")];
 
     #[cfg(not(feature = "localnet"))]
-    pub const ADMINS: [Pubkey; 4] = [
-        pubkey!("4Qo6nr3CqiynvnA3SsbBtzVT3B1pmqQW4dwf2nFmnzYp"),
-        pubkey!("5unTfT2kssBuNvHPY6LbJfJpLqEcdMxGYLWHwShaeTLi"),
-        pubkey!("ChSAh3XXTxpp5n2EmgSCm6vVvVPoD1L9VrK3mcQkYz7m"),
-        pubkey!("DHLXnJdACTY83yKwnUkeoDjqi4QBbsYGa1v8tJL76ViX"),
+    pub const ADMINS: [Pubkey; 6] = [
+        pubkey!("6h43GsVT3TjtLa5nRpsXp15GDpAY4smWCYHgcq58dSPM"), // bin
+        pubkey!("4U8keyQCV8NFMCevhRJffLawYiUZMyeUrwBjaMcZkGeh"), // soju
+        pubkey!("4zvTjdpyr3SAgLeSpCnq4KaHvX2j5SbkwxYydzbfqhRQ"), // zhen
+        pubkey!("5unTfT2kssBuNvHPY6LbJfJpLqEcdMxGYLWHwShaeTLi"), // tian
+        pubkey!("ChSAh3XXTxpp5n2EmgSCm6vVvVPoD1L9VrK3mcQkYz7m"), // ben
+        pubkey!("DHLXnJdACTY83yKwnUkeoDjqi4QBbsYGa1v8tJL76ViX"), // andrew
     ];
 }
 
@@ -99,23 +106,20 @@ pub mod fee_owner {
     declare_id!("6WaLrrRfReGKBYUSkmx2K6AuT21ida4j8at2SUiZdXu8");
 }
 
-pub fn assert_eq_admin(admin: Pubkey) -> bool {
-    crate::admin::ADMINS
-        .iter()
-        .any(|predefined_admin| predefined_admin.eq(&admin))
-}
-
 pub fn assert_eq_launch_pool_admin(admin: Pubkey) -> bool {
     crate::launch_pool_config_admins::ADMINS
         .iter()
         .any(|predefined_launch_pool_admin| predefined_launch_pool_admin.eq(&admin))
 }
 
+pub fn assert_eq_admin(admin: Pubkey) -> bool {
+    crate::admin::ADMINS
+        .iter()
+        .any(|predefined_admin| predefined_admin.eq(&admin))
+}
+
 #[program]
 pub mod lb_clmm {
-
-    use self::instructions::add_liquidity_single_side_precise::CompressedBinDepositAmount;
-
     use super::*;
 
     pub fn initialize_lb_pair(
@@ -149,6 +153,7 @@ pub mod lb_clmm {
     ) -> Result<()> {
         instructions::add_liquidity::handle(ctx, liquidity_parameter)
     }
+
     pub fn add_liquidity_by_weight<'a, 'b, 'c, 'info>(
         ctx: Context<'a, 'b, 'c, 'info, ModifyLiquidity<'info>>,
         liquidity_parameter: LiquidityParameterByWeight,
@@ -277,12 +282,17 @@ pub mod lb_clmm {
         instructions::update_reward_duration::handle(ctx, reward_index, new_duration)
     }
 
-    pub fn claim_reward(ctx: Context<ClaimReward>, reward_index: u64) -> Result<()> {
-        instructions::claim_reward::handle(ctx, reward_index)
+    pub fn claim_reward(
+        ctx: Context<ClaimReward>,
+        reward_index: u64,
+        min_bin_id: i32,
+        max_bin_id: i32,
+    ) -> Result<()> {
+        instructions::claim_reward::handle(ctx, reward_index, min_bin_id, max_bin_id)
     }
 
-    pub fn claim_fee(ctx: Context<ClaimFee>) -> Result<()> {
-        instructions::claim_fee::handle(ctx)
+    pub fn claim_fee(ctx: Context<ClaimFee>, min_bin_id: i32, max_bin_id: i32) -> Result<()> {
+        instructions::claim_fee::handle(ctx, min_bin_id, max_bin_id)
     }
 
     pub fn close_position(ctx: Context<ClosePosition>) -> Result<()> {
@@ -303,11 +313,34 @@ pub mod lb_clmm {
         instructions::increase_oracle_length::handle(ctx, length_to_add)
     }
 
+    pub fn increase_position_length(
+        ctx: Context<IncreasePositionLength>,
+        length_to_add: u16,
+        side: u8,
+    ) -> Result<()> {
+        instructions::increase_position_length::handle(ctx, length_to_add, side)
+    }
+
+    pub fn decrease_position_length(
+        ctx: Context<DecreasePositionLength>,
+        length_to_remove: u16,
+        side: u8,
+    ) -> Result<()> {
+        instructions::decrease_position_length::handle(ctx, length_to_remove, side)
+    }
+
     pub fn initialize_preset_parameter(
         ctx: Context<InitializePresetParameter>,
         ix: InitPresetParametersIx,
     ) -> Result<()> {
-        instructions::initialize_preset_parameters::handle(ctx, ix)
+        instructions::initialize_preset_parameters::handle_v1(ctx, ix)
+    }
+
+    pub fn initialize_preset_parameter_v2(
+        ctx: Context<InitializePresetParameterV2>,
+        ix: InitPresetParametersIx,
+    ) -> Result<()> {
+        instructions::initialize_preset_parameters::handle_v2(ctx, ix)
     }
 
     pub fn close_preset_parameter(ctx: Context<ClosePresetParameter>) -> Result<()> {
@@ -316,8 +349,10 @@ pub mod lb_clmm {
 
     pub fn remove_all_liquidity<'a, 'b, 'c, 'info>(
         ctx: Context<'a, 'b, 'c, 'info, ModifyLiquidity<'info>>,
+        min_bin_id: i32,
+        max_bin_id: i32,
     ) -> Result<()> {
-        instructions::remove_all_liquidity::handle(ctx)
+        instructions::remove_all_liquidity::handle(ctx, min_bin_id, max_bin_id)
     }
 
     pub fn toggle_pair_status(ctx: Context<TogglePairStatus>) -> Result<()> {
@@ -332,16 +367,23 @@ pub mod lb_clmm {
         instructions::update_whitelisted_wallet::handle(ctx, idx.into(), wallet)
     }
 
-    pub fn migrate_position(ctx: Context<MigratePosition>) -> Result<()> {
-        instructions::migrate_position::handle(ctx)
+    pub fn migrate_position_from_v1(ctx: Context<MigratePositionFromV1>) -> Result<()> {
+        instructions::migrate_position_from_v1::handle(ctx)
+    }
+    pub fn migrate_position_from_v2(ctx: Context<MigratePositionFromV2>) -> Result<()> {
+        instructions::migrate_position_from_v2::handle(ctx)
     }
 
     pub fn migrate_bin_array(ctx: Context<MigrateBinArray>) -> Result<()> {
         instructions::migrate_bin_array::handle(ctx)
     }
 
-    pub fn update_fees_and_rewards(ctx: Context<UpdateFeesAndRewards>) -> Result<()> {
-        instructions::update_fees_and_rewards::handle(ctx)
+    pub fn update_fees_and_rewards(
+        ctx: Context<UpdateFeesAndRewards>,
+        min_bin_id: i32,
+        max_bin_id: i32,
+    ) -> Result<()> {
+        instructions::update_fees_and_rewards::handle(ctx, min_bin_id, max_bin_id)
     }
 
     pub fn withdraw_ineligible_reward(
@@ -357,6 +399,7 @@ pub mod lb_clmm {
     ) -> Result<()> {
         instructions::set_activation_slot::handle(ctx, activation_slot)
     }
+
     pub fn set_max_swapped_amount(
         ctx: Context<SetMaxSwappedAmount>,
         swap_cap_deactivate_slot: u64,
@@ -376,10 +419,23 @@ pub mod lb_clmm {
         instructions::set_lock_release_slot::handle(ctx, new_lock_release_slot)
     }
 
+    pub fn remove_liquidity_by_range<'a, 'b, 'c, 'info>(
+        ctx: Context<'a, 'b, 'c, 'info, ModifyLiquidity<'info>>,
+        from_bin_id: i32,
+        to_bin_id: i32,
+        bps_to_remove: u16,
+    ) -> Result<()> {
+        instructions::remove_liquidity_by_range::handle(ctx, from_bin_id, to_bin_id, bps_to_remove)
+    }
+
     pub fn add_liquidity_one_side_precise<'a, 'b, 'c, 'info>(
         ctx: Context<'a, 'b, 'c, 'info, ModifyLiquidityOneSide<'info>>,
         parameter: AddLiquiditySingleSidePreciseParameter,
     ) -> Result<()> {
         instructions::add_liquidity_single_side_precise::handle(ctx, parameter)
+    }
+
+    pub fn go_to_a_bin(ctx: Context<GoToABin>, bin_id: i32) -> Result<()> {
+        instructions::go_to_a_bin::handle(ctx, bin_id)
     }
 }

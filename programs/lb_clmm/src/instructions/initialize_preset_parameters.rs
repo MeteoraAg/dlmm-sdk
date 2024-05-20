@@ -30,6 +30,32 @@ pub struct InitPresetParametersIx {
 
 #[derive(Accounts)]
 #[instruction(ix: InitPresetParametersIx)]
+pub struct InitializePresetParameterV2<'info> {
+    #[account(
+        init,
+        seeds = [
+            PRESET_PARAMETER,
+            &ix.bin_step.to_le_bytes(),
+            &ix.base_factor.to_le_bytes(),
+        ],
+        bump,
+        payer = admin,
+        space = 8 + PresetParameter::INIT_SPACE
+    )]
+    pub preset_parameter: Account<'info, PresetParameter>,
+
+    #[account(
+        mut,
+        constraint = assert_eq_admin(admin.key()) @ LBError::InvalidAdmin
+    )]
+    pub admin: Signer<'info>,
+
+    pub system_program: Program<'info, System>,
+    pub rent: Sysvar<'info, Rent>,
+}
+
+#[derive(Accounts)]
+#[instruction(ix: InitPresetParametersIx)]
 pub struct InitializePresetParameter<'info> {
     #[account(
         init,
@@ -54,6 +80,39 @@ pub struct InitializePresetParameter<'info> {
     pub rent: Sysvar<'info, Rent>,
 }
 
-pub fn handle(ctx: Context<InitializePresetParameter>, ix: InitPresetParametersIx) -> Result<()> {
+pub fn handle_v2(
+    ctx: Context<InitializePresetParameterV2>,
+    ix: InitPresetParametersIx,
+) -> Result<()> {
+    Ok(())
+}
+
+pub fn handle_v1(
+    ctx: Context<InitializePresetParameter>,
+    ix: InitPresetParametersIx,
+) -> Result<()> {
+    Ok(())
+}
+
+#[inline(never)]
+fn create_preset_parameters(
+    preset_parameter: &mut Account<'_, PresetParameter>,
+    ix: InitPresetParametersIx,
+) -> Result<()> {
+    preset_parameter.init(
+        ix.bin_step,
+        ix.base_factor,
+        ix.filter_period,
+        ix.decay_period,
+        ix.reduction_factor,
+        ix.variable_fee_control,
+        ix.max_volatility_accumulator,
+        ix.min_bin_id,
+        ix.max_bin_id,
+        ix.protocol_share,
+    );
+
+    preset_parameter.validate()?;
+
     Ok(())
 }

@@ -15,11 +15,25 @@ export type LbClmm = {
       "value": "70"
     },
     {
-      "name": "MAX_BIN_PER_POSITION",
+      "name": "DEFAULT_BIN_PER_POSITION",
       "type": {
         "defined": "usize"
       },
       "value": "70"
+    },
+    {
+      "name": "MAX_RESIZE_LENGTH",
+      "type": {
+        "defined": "usize"
+      },
+      "value": "70"
+    },
+    {
+      "name": "POSITION_MAX_LENGTH",
+      "type": {
+        "defined": "usize"
+      },
+      "value": "1400"
     },
     {
       "name": "MIN_BIN_ID",
@@ -399,16 +413,6 @@ export type LbClmm = {
           "isSigner": false
         },
         {
-          "name": "binArrayLower",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayUpper",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
           "name": "sender",
           "isMut": false,
           "isSigner": true
@@ -490,16 +494,6 @@ export type LbClmm = {
         {
           "name": "tokenYMint",
           "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayLower",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayUpper",
-          "isMut": true,
           "isSigner": false
         },
         {
@@ -587,16 +581,6 @@ export type LbClmm = {
           "isSigner": false
         },
         {
-          "name": "binArrayLower",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayUpper",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
           "name": "sender",
           "isMut": false,
           "isSigner": true
@@ -666,16 +650,6 @@ export type LbClmm = {
           "isSigner": false
         },
         {
-          "name": "binArrayLower",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayUpper",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
           "name": "sender",
           "isMut": false,
           "isSigner": true
@@ -737,16 +711,6 @@ export type LbClmm = {
         {
           "name": "tokenMint",
           "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayLower",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayUpper",
-          "isMut": true,
           "isSigner": false
         },
         {
@@ -826,16 +790,6 @@ export type LbClmm = {
         {
           "name": "tokenYMint",
           "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayLower",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayUpper",
-          "isMut": true,
           "isSigner": false
         },
         {
@@ -1490,16 +1444,6 @@ export type LbClmm = {
           "isSigner": false
         },
         {
-          "name": "binArrayLower",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayUpper",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
           "name": "sender",
           "isMut": false,
           "isSigner": true
@@ -1539,6 +1483,14 @@ export type LbClmm = {
         {
           "name": "rewardIndex",
           "type": "u64"
+        },
+        {
+          "name": "minBinId",
+          "type": "i32"
+        },
+        {
+          "name": "maxBinId",
+          "type": "i32"
         }
       ]
     },
@@ -1552,16 +1504,6 @@ export type LbClmm = {
         },
         {
           "name": "position",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayLower",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayUpper",
           "isMut": true,
           "isSigner": false
         },
@@ -1616,28 +1558,22 @@ export type LbClmm = {
           "isSigner": false
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "minBinId",
+          "type": "i32"
+        },
+        {
+          "name": "maxBinId",
+          "type": "i32"
+        }
+      ]
     },
     {
       "name": "closePosition",
       "accounts": [
         {
           "name": "position",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "lbPair",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayLower",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayUpper",
           "isMut": true,
           "isSigner": false
         },
@@ -1734,7 +1670,135 @@ export type LbClmm = {
       ]
     },
     {
+      "name": "increasePositionLength",
+      "accounts": [
+        {
+          "name": "funder",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "lbPair",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "position",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "owner",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "lengthToAdd",
+          "type": "u16"
+        },
+        {
+          "name": "side",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "decreasePositionLength",
+      "accounts": [
+        {
+          "name": "rentReceiver",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "position",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "owner",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "lengthToRemove",
+          "type": "u16"
+        },
+        {
+          "name": "side",
+          "type": "u8"
+        }
+      ]
+    },
+    {
       "name": "initializePresetParameter",
+      "accounts": [
+        {
+          "name": "presetParameter",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "admin",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "rent",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "ix",
+          "type": {
+            "defined": "InitPresetParametersIx"
+          }
+        }
+      ]
+    },
+    {
+      "name": "initializePresetParameterV2",
       "accounts": [
         {
           "name": "presetParameter",
@@ -1837,16 +1901,6 @@ export type LbClmm = {
           "isSigner": false
         },
         {
-          "name": "binArrayLower",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayUpper",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
           "name": "sender",
           "isMut": false,
           "isSigner": true
@@ -1872,7 +1926,16 @@ export type LbClmm = {
           "isSigner": false
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "minBinId",
+          "type": "i32"
+        },
+        {
+          "name": "maxBinId",
+          "type": "i32"
+        }
+      ]
     },
     {
       "name": "togglePairStatus",
@@ -1916,15 +1979,71 @@ export type LbClmm = {
       ]
     },
     {
-      "name": "migratePosition",
+      "name": "migratePositionFromV1",
       "accounts": [
         {
-          "name": "positionV2",
+          "name": "positionV3",
           "isMut": true,
           "isSigner": true
         },
         {
           "name": "positionV1",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "lbPair",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayLower",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayUpper",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "owner",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "rentReceiver",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "migratePositionFromV2",
+      "accounts": [
+        {
+          "name": "positionV3",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "positionV2",
           "isMut": true,
           "isSigner": false
         },
@@ -1996,22 +2115,21 @@ export type LbClmm = {
           "isSigner": false
         },
         {
-          "name": "binArrayLower",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayUpper",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
           "name": "owner",
           "isMut": false,
           "isSigner": true
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "minBinId",
+          "type": "i32"
+        },
+        {
+          "name": "maxBinId",
+          "type": "i32"
+        }
+      ]
     },
     {
       "name": "withdrawIneligibleReward",
@@ -2152,6 +2270,96 @@ export type LbClmm = {
       ]
     },
     {
+      "name": "removeLiquidityByRange",
+      "accounts": [
+        {
+          "name": "position",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayBitmapExtension",
+          "isMut": true,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
+          "name": "userTokenX",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userTokenY",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "reserveX",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "reserveY",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenXMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenYMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "sender",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "tokenXProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenYProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "fromBinId",
+          "type": "i32"
+        },
+        {
+          "name": "toBinId",
+          "type": "i32"
+        },
+        {
+          "name": "bpsToRemove",
+          "type": "u16"
+        }
+      ]
+    },
+    {
       "name": "addLiquidityOneSidePrecise",
       "accounts": [
         {
@@ -2186,16 +2394,6 @@ export type LbClmm = {
           "isSigner": false
         },
         {
-          "name": "binArrayLower",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayUpper",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
           "name": "sender",
           "isMut": false,
           "isSigner": true
@@ -2222,6 +2420,50 @@ export type LbClmm = {
           "type": {
             "defined": "AddLiquiditySingleSidePreciseParameter"
           }
+        }
+      ]
+    },
+    {
+      "name": "goToABin",
+      "accounts": [
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayBitmapExtension",
+          "isMut": false,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
+          "name": "fromBinArray",
+          "isMut": false,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
+          "name": "toBinArray",
+          "isMut": false,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "binId",
+          "type": "i32"
         }
       ]
     }
@@ -2323,6 +2565,134 @@ export type LbClmm = {
       }
     },
     {
+      "name": "positionV3",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "lbPair",
+            "docs": [
+              "The LB pair of this position"
+            ],
+            "type": "publicKey"
+          },
+          {
+            "name": "owner",
+            "docs": [
+              "Owner of the position. Client rely on this to to fetch their positions."
+            ],
+            "type": "publicKey"
+          },
+          {
+            "name": "lowerBinId",
+            "docs": [
+              "Lower bin ID"
+            ],
+            "type": "i32"
+          },
+          {
+            "name": "upperBinId",
+            "docs": [
+              "Upper bin ID"
+            ],
+            "type": "i32"
+          },
+          {
+            "name": "lastUpdatedAt",
+            "docs": [
+              "Last updated timestamp"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "totalClaimedFeeXAmount",
+            "docs": [
+              "Total claimed token fee X"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "totalClaimedFeeYAmount",
+            "docs": [
+              "Total claimed token fee Y"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "totalClaimedRewards",
+            "docs": [
+              "Total claimed rewards"
+            ],
+            "type": {
+              "array": [
+                "u64",
+                2
+              ]
+            }
+          },
+          {
+            "name": "operator",
+            "docs": [
+              "Operator of position"
+            ],
+            "type": "publicKey"
+          },
+          {
+            "name": "lockReleaseSlot",
+            "docs": [
+              "Slot which the locked liquidity can be withdraw"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "subjectedToBootstrapLiquidityLocking",
+            "docs": [
+              "Is the position subjected to liquidity locking for the launch pool."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "padding0",
+            "docs": [
+              "Padding"
+            ],
+            "type": {
+              "array": [
+                "u8",
+                7
+              ]
+            }
+          },
+          {
+            "name": "feeOwner",
+            "docs": [
+              "Address is able to claim fee in this position, only valid for bootstrap_liquidity_position"
+            ],
+            "type": "publicKey"
+          },
+          {
+            "name": "length",
+            "docs": [
+              "Number of bins"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "reserved",
+            "docs": [
+              "Reserved space for future use"
+            ],
+            "type": {
+              "array": [
+                "u8",
+                128
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
       "name": "lbPair",
       "type": {
         "kind": "struct",
@@ -2389,24 +2759,11 @@ export type LbClmm = {
             "type": "u8"
           },
           {
-            "name": "requireBaseFactorSeed",
-            "type": "u8"
-          },
-          {
-            "name": "baseFactorSeed",
-            "type": {
-              "array": [
-                "u8",
-                2
-              ]
-            }
-          },
-          {
             "name": "padding1",
             "type": {
               "array": [
                 "u8",
-                2
+                5
               ]
             }
           },
@@ -3500,6 +3857,30 @@ export type LbClmm = {
       }
     },
     {
+      "name": "PositionBinData",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "liquidityShare",
+            "type": "u128"
+          },
+          {
+            "name": "rewardInfo",
+            "type": {
+              "defined": "UserRewardInfo"
+            }
+          },
+          {
+            "name": "feeInfo",
+            "type": {
+              "defined": "FeeInfo"
+            }
+          }
+        ]
+      }
+    },
+    {
       "name": "ProtocolFee",
       "type": {
         "kind": "struct",
@@ -3873,6 +4254,23 @@ export type LbClmm = {
           },
           {
             "name": "V1"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ResizeSide",
+      "docs": [
+        "Side of resize, 0 for lower and 1 for upper"
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Lower"
+          },
+          {
+            "name": "Upper"
           }
         ]
       }
@@ -4304,6 +4702,66 @@ export type LbClmm = {
       ]
     },
     {
+      "name": "IncreasePositionLength",
+      "fields": [
+        {
+          "name": "lbPair",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "position",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "owner",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "lengthToAdd",
+          "type": "u16",
+          "index": false
+        },
+        {
+          "name": "side",
+          "type": "u8",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "DecreasePositionLength",
+      "fields": [
+        {
+          "name": "lbPair",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "position",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "owner",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "lengthToRemove",
+          "type": "u16",
+          "index": false
+        },
+        {
+          "name": "side",
+          "type": "u8",
+          "index": false
+        }
+      ]
+    },
+    {
       "name": "FeeParameterUpdate",
       "fields": [
         {
@@ -4404,6 +4862,26 @@ export type LbClmm = {
         {
           "name": "sender",
           "type": "publicKey",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "GoToABin",
+      "fields": [
+        {
+          "name": "lbPair",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "fromBinId",
+          "type": "i32",
+          "index": false
+        },
+        {
+          "name": "toBinId",
+          "type": "i32",
           "index": false
         }
       ]
@@ -4652,18 +5130,68 @@ export type LbClmm = {
     },
     {
       "code": 6048,
+      "name": "UnauthorizedAddress",
+      "msg": "Unauthorized address"
+    },
+    {
+      "code": 6049,
+      "name": "OperatorsAreTheSame",
+      "msg": "Cannot update because operators are the same"
+    },
+    {
+      "code": 6050,
+      "name": "WithdrawToWrongTokenAccount",
+      "msg": "Withdraw to wrong token account"
+    },
+    {
+      "code": 6051,
+      "name": "WrongRentReceiver",
+      "msg": "Wrong rent receiver"
+    },
+    {
+      "code": 6052,
+      "name": "AlreadyPassActivationSlot",
+      "msg": "Already activated"
+    },
+    {
+      "code": 6053,
+      "name": "LastSlotCannotBeSmallerThanActivateSlot",
+      "msg": "Last slot cannot be smaller than activate slot"
+    },
+    {
+      "code": 6054,
+      "name": "ExceedMaxSwappedAmount",
+      "msg": "Swapped amount is exceeded max swapped amount"
+    },
+    {
+      "code": 6055,
       "name": "InvalidStrategyParameters",
       "msg": "Invalid strategy parameters"
     },
     {
-      "code": 6049,
+      "code": 6056,
       "name": "LiquidityLocked",
       "msg": "Liquidity locked"
     },
     {
-      "code": 6050,
+      "code": 6057,
       "name": "InvalidLockReleaseSlot",
       "msg": "Invalid lock release slot"
+    },
+    {
+      "code": 6058,
+      "name": "BinRangeIsNotEmpty",
+      "msg": "Bin range is not empty"
+    },
+    {
+      "code": 6059,
+      "name": "InvalidSide",
+      "msg": "Invalid side"
+    },
+    {
+      "code": 6060,
+      "name": "InvalidResizeLength",
+      "msg": "Invalid resize length"
     }
   ]
 };
@@ -4685,11 +5213,25 @@ export const IDL: LbClmm = {
       "value": "70"
     },
     {
-      "name": "MAX_BIN_PER_POSITION",
+      "name": "DEFAULT_BIN_PER_POSITION",
       "type": {
         "defined": "usize"
       },
       "value": "70"
+    },
+    {
+      "name": "MAX_RESIZE_LENGTH",
+      "type": {
+        "defined": "usize"
+      },
+      "value": "70"
+    },
+    {
+      "name": "POSITION_MAX_LENGTH",
+      "type": {
+        "defined": "usize"
+      },
+      "value": "1400"
     },
     {
       "name": "MIN_BIN_ID",
@@ -5069,16 +5611,6 @@ export const IDL: LbClmm = {
           "isSigner": false
         },
         {
-          "name": "binArrayLower",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayUpper",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
           "name": "sender",
           "isMut": false,
           "isSigner": true
@@ -5160,16 +5692,6 @@ export const IDL: LbClmm = {
         {
           "name": "tokenYMint",
           "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayLower",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayUpper",
-          "isMut": true,
           "isSigner": false
         },
         {
@@ -5257,16 +5779,6 @@ export const IDL: LbClmm = {
           "isSigner": false
         },
         {
-          "name": "binArrayLower",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayUpper",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
           "name": "sender",
           "isMut": false,
           "isSigner": true
@@ -5336,16 +5848,6 @@ export const IDL: LbClmm = {
           "isSigner": false
         },
         {
-          "name": "binArrayLower",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayUpper",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
           "name": "sender",
           "isMut": false,
           "isSigner": true
@@ -5407,16 +5909,6 @@ export const IDL: LbClmm = {
         {
           "name": "tokenMint",
           "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayLower",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayUpper",
-          "isMut": true,
           "isSigner": false
         },
         {
@@ -5496,16 +5988,6 @@ export const IDL: LbClmm = {
         {
           "name": "tokenYMint",
           "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayLower",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayUpper",
-          "isMut": true,
           "isSigner": false
         },
         {
@@ -6160,16 +6642,6 @@ export const IDL: LbClmm = {
           "isSigner": false
         },
         {
-          "name": "binArrayLower",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayUpper",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
           "name": "sender",
           "isMut": false,
           "isSigner": true
@@ -6209,6 +6681,14 @@ export const IDL: LbClmm = {
         {
           "name": "rewardIndex",
           "type": "u64"
+        },
+        {
+          "name": "minBinId",
+          "type": "i32"
+        },
+        {
+          "name": "maxBinId",
+          "type": "i32"
         }
       ]
     },
@@ -6222,16 +6702,6 @@ export const IDL: LbClmm = {
         },
         {
           "name": "position",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayLower",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayUpper",
           "isMut": true,
           "isSigner": false
         },
@@ -6286,28 +6756,22 @@ export const IDL: LbClmm = {
           "isSigner": false
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "minBinId",
+          "type": "i32"
+        },
+        {
+          "name": "maxBinId",
+          "type": "i32"
+        }
+      ]
     },
     {
       "name": "closePosition",
       "accounts": [
         {
           "name": "position",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "lbPair",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayLower",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayUpper",
           "isMut": true,
           "isSigner": false
         },
@@ -6404,7 +6868,135 @@ export const IDL: LbClmm = {
       ]
     },
     {
+      "name": "increasePositionLength",
+      "accounts": [
+        {
+          "name": "funder",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "lbPair",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "position",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "owner",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "lengthToAdd",
+          "type": "u16"
+        },
+        {
+          "name": "side",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "decreasePositionLength",
+      "accounts": [
+        {
+          "name": "rentReceiver",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "position",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "owner",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "lengthToRemove",
+          "type": "u16"
+        },
+        {
+          "name": "side",
+          "type": "u8"
+        }
+      ]
+    },
+    {
       "name": "initializePresetParameter",
+      "accounts": [
+        {
+          "name": "presetParameter",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "admin",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "rent",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "ix",
+          "type": {
+            "defined": "InitPresetParametersIx"
+          }
+        }
+      ]
+    },
+    {
+      "name": "initializePresetParameterV2",
       "accounts": [
         {
           "name": "presetParameter",
@@ -6507,16 +7099,6 @@ export const IDL: LbClmm = {
           "isSigner": false
         },
         {
-          "name": "binArrayLower",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayUpper",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
           "name": "sender",
           "isMut": false,
           "isSigner": true
@@ -6542,7 +7124,16 @@ export const IDL: LbClmm = {
           "isSigner": false
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "minBinId",
+          "type": "i32"
+        },
+        {
+          "name": "maxBinId",
+          "type": "i32"
+        }
+      ]
     },
     {
       "name": "togglePairStatus",
@@ -6586,15 +7177,71 @@ export const IDL: LbClmm = {
       ]
     },
     {
-      "name": "migratePosition",
+      "name": "migratePositionFromV1",
       "accounts": [
         {
-          "name": "positionV2",
+          "name": "positionV3",
           "isMut": true,
           "isSigner": true
         },
         {
           "name": "positionV1",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "lbPair",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayLower",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayUpper",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "owner",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "rentReceiver",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "migratePositionFromV2",
+      "accounts": [
+        {
+          "name": "positionV3",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "positionV2",
           "isMut": true,
           "isSigner": false
         },
@@ -6666,22 +7313,21 @@ export const IDL: LbClmm = {
           "isSigner": false
         },
         {
-          "name": "binArrayLower",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayUpper",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
           "name": "owner",
           "isMut": false,
           "isSigner": true
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "minBinId",
+          "type": "i32"
+        },
+        {
+          "name": "maxBinId",
+          "type": "i32"
+        }
+      ]
     },
     {
       "name": "withdrawIneligibleReward",
@@ -6822,6 +7468,96 @@ export const IDL: LbClmm = {
       ]
     },
     {
+      "name": "removeLiquidityByRange",
+      "accounts": [
+        {
+          "name": "position",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayBitmapExtension",
+          "isMut": true,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
+          "name": "userTokenX",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userTokenY",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "reserveX",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "reserveY",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenXMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenYMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "sender",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "tokenXProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenYProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "fromBinId",
+          "type": "i32"
+        },
+        {
+          "name": "toBinId",
+          "type": "i32"
+        },
+        {
+          "name": "bpsToRemove",
+          "type": "u16"
+        }
+      ]
+    },
+    {
       "name": "addLiquidityOneSidePrecise",
       "accounts": [
         {
@@ -6856,16 +7592,6 @@ export const IDL: LbClmm = {
           "isSigner": false
         },
         {
-          "name": "binArrayLower",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayUpper",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
           "name": "sender",
           "isMut": false,
           "isSigner": true
@@ -6892,6 +7618,50 @@ export const IDL: LbClmm = {
           "type": {
             "defined": "AddLiquiditySingleSidePreciseParameter"
           }
+        }
+      ]
+    },
+    {
+      "name": "goToABin",
+      "accounts": [
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayBitmapExtension",
+          "isMut": false,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
+          "name": "fromBinArray",
+          "isMut": false,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
+          "name": "toBinArray",
+          "isMut": false,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "binId",
+          "type": "i32"
         }
       ]
     }
@@ -6993,6 +7763,134 @@ export const IDL: LbClmm = {
       }
     },
     {
+      "name": "positionV3",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "lbPair",
+            "docs": [
+              "The LB pair of this position"
+            ],
+            "type": "publicKey"
+          },
+          {
+            "name": "owner",
+            "docs": [
+              "Owner of the position. Client rely on this to to fetch their positions."
+            ],
+            "type": "publicKey"
+          },
+          {
+            "name": "lowerBinId",
+            "docs": [
+              "Lower bin ID"
+            ],
+            "type": "i32"
+          },
+          {
+            "name": "upperBinId",
+            "docs": [
+              "Upper bin ID"
+            ],
+            "type": "i32"
+          },
+          {
+            "name": "lastUpdatedAt",
+            "docs": [
+              "Last updated timestamp"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "totalClaimedFeeXAmount",
+            "docs": [
+              "Total claimed token fee X"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "totalClaimedFeeYAmount",
+            "docs": [
+              "Total claimed token fee Y"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "totalClaimedRewards",
+            "docs": [
+              "Total claimed rewards"
+            ],
+            "type": {
+              "array": [
+                "u64",
+                2
+              ]
+            }
+          },
+          {
+            "name": "operator",
+            "docs": [
+              "Operator of position"
+            ],
+            "type": "publicKey"
+          },
+          {
+            "name": "lockReleaseSlot",
+            "docs": [
+              "Slot which the locked liquidity can be withdraw"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "subjectedToBootstrapLiquidityLocking",
+            "docs": [
+              "Is the position subjected to liquidity locking for the launch pool."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "padding0",
+            "docs": [
+              "Padding"
+            ],
+            "type": {
+              "array": [
+                "u8",
+                7
+              ]
+            }
+          },
+          {
+            "name": "feeOwner",
+            "docs": [
+              "Address is able to claim fee in this position, only valid for bootstrap_liquidity_position"
+            ],
+            "type": "publicKey"
+          },
+          {
+            "name": "length",
+            "docs": [
+              "Number of bins"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "reserved",
+            "docs": [
+              "Reserved space for future use"
+            ],
+            "type": {
+              "array": [
+                "u8",
+                128
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
       "name": "lbPair",
       "type": {
         "kind": "struct",
@@ -7059,24 +7957,11 @@ export const IDL: LbClmm = {
             "type": "u8"
           },
           {
-            "name": "requireBaseFactorSeed",
-            "type": "u8"
-          },
-          {
-            "name": "baseFactorSeed",
-            "type": {
-              "array": [
-                "u8",
-                2
-              ]
-            }
-          },
-          {
             "name": "padding1",
             "type": {
               "array": [
                 "u8",
-                2
+                5
               ]
             }
           },
@@ -8170,6 +9055,30 @@ export const IDL: LbClmm = {
       }
     },
     {
+      "name": "PositionBinData",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "liquidityShare",
+            "type": "u128"
+          },
+          {
+            "name": "rewardInfo",
+            "type": {
+              "defined": "UserRewardInfo"
+            }
+          },
+          {
+            "name": "feeInfo",
+            "type": {
+              "defined": "FeeInfo"
+            }
+          }
+        ]
+      }
+    },
+    {
       "name": "ProtocolFee",
       "type": {
         "kind": "struct",
@@ -8543,6 +9452,23 @@ export const IDL: LbClmm = {
           },
           {
             "name": "V1"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ResizeSide",
+      "docs": [
+        "Side of resize, 0 for lower and 1 for upper"
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Lower"
+          },
+          {
+            "name": "Upper"
           }
         ]
       }
@@ -8974,6 +9900,66 @@ export const IDL: LbClmm = {
       ]
     },
     {
+      "name": "IncreasePositionLength",
+      "fields": [
+        {
+          "name": "lbPair",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "position",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "owner",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "lengthToAdd",
+          "type": "u16",
+          "index": false
+        },
+        {
+          "name": "side",
+          "type": "u8",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "DecreasePositionLength",
+      "fields": [
+        {
+          "name": "lbPair",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "position",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "owner",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "lengthToRemove",
+          "type": "u16",
+          "index": false
+        },
+        {
+          "name": "side",
+          "type": "u8",
+          "index": false
+        }
+      ]
+    },
+    {
       "name": "FeeParameterUpdate",
       "fields": [
         {
@@ -9074,6 +10060,26 @@ export const IDL: LbClmm = {
         {
           "name": "sender",
           "type": "publicKey",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "GoToABin",
+      "fields": [
+        {
+          "name": "lbPair",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "fromBinId",
+          "type": "i32",
+          "index": false
+        },
+        {
+          "name": "toBinId",
+          "type": "i32",
           "index": false
         }
       ]
@@ -9322,18 +10328,68 @@ export const IDL: LbClmm = {
     },
     {
       "code": 6048,
+      "name": "UnauthorizedAddress",
+      "msg": "Unauthorized address"
+    },
+    {
+      "code": 6049,
+      "name": "OperatorsAreTheSame",
+      "msg": "Cannot update because operators are the same"
+    },
+    {
+      "code": 6050,
+      "name": "WithdrawToWrongTokenAccount",
+      "msg": "Withdraw to wrong token account"
+    },
+    {
+      "code": 6051,
+      "name": "WrongRentReceiver",
+      "msg": "Wrong rent receiver"
+    },
+    {
+      "code": 6052,
+      "name": "AlreadyPassActivationSlot",
+      "msg": "Already activated"
+    },
+    {
+      "code": 6053,
+      "name": "LastSlotCannotBeSmallerThanActivateSlot",
+      "msg": "Last slot cannot be smaller than activate slot"
+    },
+    {
+      "code": 6054,
+      "name": "ExceedMaxSwappedAmount",
+      "msg": "Swapped amount is exceeded max swapped amount"
+    },
+    {
+      "code": 6055,
       "name": "InvalidStrategyParameters",
       "msg": "Invalid strategy parameters"
     },
     {
-      "code": 6049,
+      "code": 6056,
       "name": "LiquidityLocked",
       "msg": "Liquidity locked"
     },
     {
-      "code": 6050,
+      "code": 6057,
       "name": "InvalidLockReleaseSlot",
       "msg": "Invalid lock release slot"
+    },
+    {
+      "code": 6058,
+      "name": "BinRangeIsNotEmpty",
+      "msg": "Bin range is not empty"
+    },
+    {
+      "code": 6059,
+      "name": "InvalidSide",
+      "msg": "Invalid side"
+    },
+    {
+      "code": 6060,
+      "name": "InvalidResizeLength",
+      "msg": "Invalid resize length"
     }
   ]
 };

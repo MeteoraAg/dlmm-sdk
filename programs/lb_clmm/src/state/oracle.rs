@@ -254,3 +254,336 @@ impl<'info> OracleContentLoader<'info> for AccountLoader<'info, Oracle> {
         oracle_account_split(&self)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::constants::SAMPLE_LIFETIME;
+    use rand::Rng;
+    use std::cell::RefCell;
+
+    struct OracleAccount<const N: usize> {
+        oracle: RefCell<Oracle>,
+        observations: RefCell<[Observation; N]>,
+    }
+
+    impl<const N: usize> OracleAccount<N> {
+        fn dynamic_oracle(&self) -> DynamicOracle<'_> {
+            DynamicOracle::new(self.oracle.borrow_mut(), self.observations.borrow_mut())
+        }
+
+        fn increase_length<const M: usize>(self) -> OracleAccount<M> {
+            let extended_oracle_account = setup_oracle_account::<M>();
+
+            {
+                let metadata = self.oracle.borrow();
+                let mut extended_metadata = extended_oracle_account.oracle.borrow_mut();
+                extended_metadata.idx = metadata.idx;
+                extended_metadata.length = M as u64;
+            }
+
+            {
+                let observations = self.observations.borrow();
+                let mut extended_observations = extended_oracle_account.observations.borrow_mut();
+
+                for (idx, observation) in observations.iter().enumerate() {
+                    let new_observation = &mut extended_observations[idx];
+                    new_observation.cumulative_active_bin_id = observation.cumulative_active_bin_id;
+                    new_observation.created_at = observation.created_at;
+                    new_observation.last_updated_at = observation.last_updated_at;
+                }
+            }
+
+            extended_oracle_account
+        }
+    }
+
+    fn setup_oracle_account<const N: usize>() -> OracleAccount<N> {
+        OracleAccount {
+            oracle: RefCell::new(Oracle {
+                idx: 0,
+                active_size: 0,
+                length: N as u64,
+            }),
+            observations: RefCell::new([Observation::default(); N]),
+        }
+    }
+
+    #[test]
+    fn test_dynamic_oracle_samples_in_ascending_order() {
+        const SIZE: usize = 100;
+        let mut current_timestamp = 1698225292;
+        let mut active_id = 5555;
+
+        let oracle_account = setup_oracle_account::<SIZE>();
+        let mut dynamic_oracle = oracle_account.dynamic_oracle();
+
+        let mut rng = rand::thread_rng();
+        let circular_count = rng.gen_range(1, 10);
+        let record_per_iteration = rng.gen_range(SIZE, SIZE + 20);
+
+        for _ in 0..=circular_count {
+            for _ in 0..=record_per_iteration {
+                let timestamp_elapsed = rng.gen_range(5, 300);
+                let active_id_moved = rng.gen_range(-10, 10);
+                current_timestamp += timestamp_elapsed;
+                active_id += active_id_moved;
+                assert!(dynamic_oracle.update(active_id, current_timestamp).is_ok());
+            }
+        }
+
+        let mut start_idx = dynamic_oracle.metadata.idx;
+
+        for _ in 0..SIZE - 1 {
+            let sample_cur = &dynamic_oracle.observations[start_idx as usize];
+            start_idx = if start_idx == 0 {
+                dynamic_oracle.metadata.length - 1
+            } else {
+                start_idx - 1
+            };
+            let sample_prev = &dynamic_oracle.observations[start_idx as usize];
+            assert!(sample_cur.last_updated_at > sample_prev.last_updated_at);
+        }
+    }
+
+    #[test]
+    fn test_dynamic_oracle_update_extendable_circular() {
+        let created_timestamp = 1698225292;
+        let mut current_timestamp = created_timestamp;
+        let active_id = 5555;
+
+        let oracle_account = setup_oracle_account::<2>();
+        let mut dynamic_oracle = oracle_account.dynamic_oracle();
+
+        current_timestamp += SAMPLE_LIFETIME as i64;
+
+        assert!(dynamic_oracle.update(active_id, current_timestamp).is_ok());
+        assert_eq!(dynamic_oracle.metadata.idx, 0);
+
+        current_timestamp += SAMPLE_LIFETIME as i64;
+
+        assert!(dynamic_oracle.update(active_id, current_timestamp).is_ok());
+        assert_eq!(dynamic_oracle.metadata.idx, 1);
+
+        drop(dynamic_oracle);
+
+        let oracle_account = oracle_account.increase_length::<5>();
+        let mut dynamic_oracle = oracle_account.dynamic_oracle();
+
+        for i in 2..5 {
+            current_timestamp += SAMPLE_LIFETIME as i64;
+            assert!(dynamic_oracle.update(active_id, current_timestamp).is_ok());
+            assert_eq!(dynamic_oracle.metadata.idx, i);
+        }
+
+        current_timestamp += SAMPLE_LIFETIME as i64;
+        assert!(dynamic_oracle.update(active_id, current_timestamp).is_ok());
+        assert_eq!(dynamic_oracle.metadata.idx, 0);
+    }
+
+    #[test]
+    fn test_dynamic_oracle_get_earliest_sample_mut() {
+        let current_timestamp = 1698225292;
+        let active_id = 5555;
+
+        let oracle_account = setup_oracle_account::<2>();
+        let mut dynamic_oracle = oracle_account.dynamic_oracle();
+
+        let timepoint_0 = current_timestamp;
+        assert!(dynamic_oracle.update(active_id, timepoint_0).is_ok());
+
+        let timepoint_1 = timepoint_0 + SAMPLE_LIFETIME as i64;
+        assert!(dynamic_oracle.update(active_id, timepoint_1).is_ok());
+
+        // Timepoint 2 overwrite timepoint 0
+        let timepoint_2 = timepoint_1 + SAMPLE_LIFETIME as i64;
+        assert!(dynamic_oracle.update(active_id, timepoint_2).is_ok());
+
+        let earliest_sample = dynamic_oracle.get_earliest_sample().unwrap();
+        assert!(earliest_sample.created_at == timepoint_1);
+    }
+
+    #[test]
+    fn test_dynamic_oracle_get_latest_sample_mut() {
+        let mut current_timestamp = 1698225292;
+        let active_id = 5555;
+
+        let oracle_account = setup_oracle_account::<2>();
+        let mut dynamic_oracle = oracle_account.dynamic_oracle();
+
+        assert!(dynamic_oracle.update(active_id, current_timestamp).is_ok());
+        let latest_sample = dynamic_oracle.get_latest_sample_mut().cloned().unwrap();
+        assert_eq!(dynamic_oracle.metadata.idx, 0);
+        assert_eq!(latest_sample.last_updated_at, current_timestamp);
+
+        current_timestamp += 100;
+
+        assert!(dynamic_oracle.update(active_id, current_timestamp).is_ok());
+        let latest_sample = dynamic_oracle.get_latest_sample_mut().cloned().unwrap();
+        assert_eq!(dynamic_oracle.metadata.idx, 0);
+        assert_eq!(latest_sample.last_updated_at, current_timestamp);
+
+        current_timestamp += SAMPLE_LIFETIME as i64;
+
+        assert!(dynamic_oracle.update(active_id, current_timestamp).is_ok());
+        let latest_sample = dynamic_oracle.get_latest_sample_mut().cloned().unwrap();
+        assert_eq!(dynamic_oracle.metadata.idx, 1);
+        assert_eq!(latest_sample.last_updated_at, current_timestamp);
+
+        current_timestamp += SAMPLE_LIFETIME as i64;
+        assert!(dynamic_oracle.update(active_id, current_timestamp).is_ok());
+        let latest_sample = dynamic_oracle.get_latest_sample_mut().cloned().unwrap();
+        assert_eq!(dynamic_oracle.metadata.idx, 0);
+        assert_eq!(latest_sample.last_updated_at, current_timestamp);
+    }
+
+    #[test]
+    fn test_dynamic_oracle_metadata_active_size() {
+        let mut current_timestamp = 1698225292;
+        let active_id = 5555;
+
+        let oracle_account = setup_oracle_account::<3>();
+        let mut dynamic_oracle = oracle_account.dynamic_oracle();
+
+        assert!(dynamic_oracle.update(active_id, current_timestamp).is_ok());
+        assert!(dynamic_oracle.metadata.idx == 0);
+        assert!(dynamic_oracle.metadata.active_size == 1);
+
+        current_timestamp += SAMPLE_LIFETIME as i64;
+
+        assert!(dynamic_oracle.update(active_id, current_timestamp).is_ok());
+        assert!(dynamic_oracle.metadata.idx == 1);
+        assert!(dynamic_oracle.metadata.active_size == 2);
+
+        current_timestamp += SAMPLE_LIFETIME as i64;
+
+        assert!(dynamic_oracle.update(active_id, current_timestamp).is_ok());
+        assert!(dynamic_oracle.metadata.idx == 2);
+        assert!(dynamic_oracle.metadata.active_size == 3);
+
+        current_timestamp += SAMPLE_LIFETIME as i64;
+
+        assert!(dynamic_oracle.update(active_id, current_timestamp).is_ok());
+        assert!(dynamic_oracle.metadata.idx == 0);
+        assert!(dynamic_oracle.metadata.active_size == 3);
+    }
+
+    #[test]
+    fn test_dynamic_oracle_next_reset() {
+        let oracle_account = setup_oracle_account::<2>();
+        let mut dynamic_oracle = oracle_account.dynamic_oracle();
+
+        {
+            let observations = &mut dynamic_oracle.observations;
+            let sample_0 = &mut observations[0];
+            sample_0.cumulative_active_bin_id = 1;
+
+            let sample_1 = &mut observations[1];
+            sample_1.cumulative_active_bin_id = 2;
+        }
+
+        for observation in dynamic_oracle.observations.iter() {
+            assert!(observation.cumulative_active_bin_id > 0);
+        }
+
+        let observation = dynamic_oracle.next_reset().unwrap();
+        assert!(observation.cumulative_active_bin_id == 0);
+        assert!(dynamic_oracle.metadata.idx == 1);
+
+        let observation = dynamic_oracle.next_reset().unwrap();
+        assert!(observation.cumulative_active_bin_id == 0);
+        assert!(dynamic_oracle.metadata.idx == 0);
+    }
+
+    #[test]
+    fn test_dynamic_oracle_update_multiple_samples() {
+        let created_timestamp = 1698225292;
+        let mut current_timestamp = created_timestamp;
+        let active_id = 5555;
+
+        let oracle_account = setup_oracle_account::<2>();
+        let mut dynamic_oracle = oracle_account.dynamic_oracle();
+
+        assert!(dynamic_oracle.update(active_id, current_timestamp).is_ok());
+        assert_eq!(dynamic_oracle.metadata.idx, 0);
+
+        let sample = dynamic_oracle.get_latest_sample_mut().unwrap();
+        assert_eq!(sample.cumulative_active_bin_id, active_id as i128);
+        assert_eq!(sample.created_at, created_timestamp);
+        assert_eq!(sample.last_updated_at, current_timestamp);
+
+        current_timestamp += SAMPLE_LIFETIME as i64;
+
+        let accumulated_active_id = active_id as i64 * SAMPLE_LIFETIME as i64;
+        let cumulative_active_id = sample.cumulative_active_bin_id + accumulated_active_id as i128;
+
+        assert!(dynamic_oracle.update(active_id, current_timestamp).is_ok());
+        assert_eq!(dynamic_oracle.metadata.idx, 1);
+
+        let sample = dynamic_oracle.get_latest_sample_mut().unwrap();
+        assert_eq!(sample.cumulative_active_bin_id, cumulative_active_id);
+        assert_eq!(sample.created_at, current_timestamp);
+        assert_eq!(sample.last_updated_at, current_timestamp);
+
+        current_timestamp += SAMPLE_LIFETIME as i64;
+
+        let cumulative_active_id = sample.cumulative_active_bin_id + accumulated_active_id as i128;
+
+        assert!(dynamic_oracle.update(active_id, current_timestamp).is_ok());
+        assert_eq!(dynamic_oracle.metadata.idx, 0);
+
+        let sample = dynamic_oracle.get_latest_sample_mut().unwrap();
+        assert_eq!(sample.cumulative_active_bin_id, cumulative_active_id);
+        assert_eq!(sample.created_at, current_timestamp);
+        assert_eq!(sample.last_updated_at, current_timestamp);
+    }
+
+    #[test]
+    fn test_dynamic_oracle_update_same_sample_if_lifetime_not_expired() {
+        let created_timestamp = 1698225292;
+        let mut current_timestamp = created_timestamp;
+        let mut active_id = 5555;
+
+        let oracle_account = setup_oracle_account::<2>();
+        let mut dynamic_oracle = oracle_account.dynamic_oracle();
+
+        assert!(dynamic_oracle.update(active_id, current_timestamp).is_ok());
+        assert_eq!(dynamic_oracle.metadata.idx, 0);
+
+        let sample = dynamic_oracle.get_latest_sample_mut().unwrap();
+        assert_eq!(sample.cumulative_active_bin_id, active_id as i128);
+        assert_eq!(sample.created_at, created_timestamp);
+        assert_eq!(sample.last_updated_at, current_timestamp);
+
+        let delta_seconds = 5;
+        let accumulated_active_id = active_id as i64 * delta_seconds;
+        let cumulative_active_id = sample.cumulative_active_bin_id + accumulated_active_id as i128;
+
+        current_timestamp += delta_seconds;
+
+        assert!(dynamic_oracle.update(active_id, current_timestamp).is_ok());
+        active_id += 1;
+
+        assert_eq!(dynamic_oracle.metadata.idx, 0);
+
+        let sample = dynamic_oracle.get_latest_sample_mut().unwrap();
+        assert_eq!(sample.cumulative_active_bin_id, cumulative_active_id);
+        assert_eq!(sample.created_at, created_timestamp);
+        assert_eq!(sample.last_updated_at, current_timestamp);
+
+        let delta_seconds = 10;
+        let accumulated_active_id = active_id as i64 * delta_seconds;
+        let cumulative_active_id = sample.cumulative_active_bin_id + accumulated_active_id as i128;
+
+        current_timestamp += delta_seconds;
+        assert!(dynamic_oracle.update(active_id, current_timestamp).is_ok());
+        // active_id += 5;
+
+        assert_eq!(dynamic_oracle.metadata.idx, 0);
+
+        let sample = dynamic_oracle.get_latest_sample_mut().unwrap();
+        assert_eq!(sample.cumulative_active_bin_id, cumulative_active_id);
+        assert_eq!(sample.created_at, created_timestamp);
+        assert_eq!(sample.last_updated_at, current_timestamp);
+    }
+}

@@ -1,8 +1,11 @@
-use crate::constants::MAX_BIN_PER_POSITION;
 use crate::errors::LBError;
-use crate::math::weight_to_amounts::{to_amount_ask_side, to_amount_bid_side, to_amount_both_side};
+use crate::handle_deposit_by_amounts;
+use crate::manager::bin_array_manager::BinArrayManager;
+use crate::math::weight_to_amounts::{to_amount_both_side, AmountInBin};
+use crate::BinArrayAccount;
 use crate::ModifyLiquidity;
 use anchor_lang::prelude::*;
+use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(AnchorSerialize, AnchorDeserialize, Eq, PartialEq, Clone, Debug, Default)]
 pub struct BinLiquidityDistributionByWeight {
@@ -34,11 +37,6 @@ impl LiquidityParameterByWeight {
     pub fn validate<'a, 'info>(&'a self, active_id: i32) -> Result<()> {
         let bin_count = self.bin_count();
         require!(bin_count > 0, LBError::InvalidInput);
-
-        require!(
-            bin_count <= MAX_BIN_PER_POSITION as u32,
-            LBError::InvalidInput
-        );
 
         let bin_shift = if active_id > self.active_id {
             active_id - self.active_id
@@ -75,6 +73,14 @@ impl LiquidityParameterByWeight {
         Ok(())
     }
 
+    pub fn is_include_bin_id(&self, bin_id: i32) -> bool {
+        for bin_dist in self.bin_liquidity_dist.iter() {
+            if bin_dist.bin_id == bin_id {
+                return true;
+            }
+        }
+        false
+    }
     // require bin id to be sorted before doing this
     pub fn to_amounts_into_bin<'a, 'info>(
         &'a self,
@@ -82,47 +88,7 @@ impl LiquidityParameterByWeight {
         bin_step: u16,
         amount_x_in_active_bin: u64, // amount x in active bin
         amount_y_in_active_bin: u64, // amount y in active bin
-    ) -> Result<Vec<(i32, u64, u64)>> {
-        // only bid side
-        if active_id > self.bin_liquidity_dist[self.bin_liquidity_dist.len() - 1].bin_id {
-            let amounts = to_amount_bid_side(
-                active_id,
-                self.amount_y,
-                &self
-                    .bin_liquidity_dist
-                    .iter()
-                    .map(|x| (x.bin_id, x.weight))
-                    .collect::<Vec<(i32, u16)>>(),
-            )?;
-
-            let amounts = amounts
-                .iter()
-                .map(|x| (x.0, 0, x.1))
-                .collect::<Vec<(i32, u64, u64)>>();
-
-            return Ok(amounts);
-        }
-        // only ask side
-        if active_id < self.bin_liquidity_dist[0].bin_id {
-            let amounts = to_amount_ask_side(
-                active_id,
-                self.amount_x,
-                bin_step,
-                &self
-                    .bin_liquidity_dist
-                    .iter()
-                    .map(|x| (x.bin_id, x.weight))
-                    .collect::<Vec<(i32, u16)>>(),
-            )?;
-
-            let amounts = amounts
-                .iter()
-                .map(|x| (x.0, x.1, 0))
-                .collect::<Vec<(i32, u64, u64)>>();
-
-            return Ok(amounts);
-        }
-
+    ) -> Result<Vec<AmountInBin>> {
         to_amount_both_side(
             active_id,
             bin_step,
@@ -144,4 +110,30 @@ pub fn handle<'a, 'b, 'c, 'info>(
     liquidity_parameter: &LiquidityParameterByWeight,
 ) -> Result<()> {
     Ok(())
+}
+
+pub fn find_amount_in_active_bin<'a>(
+    lb_pair_pk: Pubkey,
+    active_id: i32,
+    remaining_accounts: &mut &[AccountInfo<'a>],
+) -> Result<(u64, u64)> {
+    let amount_x;
+    let amount_y;
+    loop {
+        let bin_array_account = BinArrayAccount::try_accounts(
+            &crate::ID,
+            remaining_accounts,
+            &[],
+            &mut BTreeMap::new(),
+            &mut BTreeSet::new(),
+        )?;
+        let mut bin_arrays = [bin_array_account.load_and_validate(lb_pair_pk)?];
+        let bin_array_manager = BinArrayManager::new(&mut bin_arrays)?;
+        if let Ok(bin) = bin_array_manager.get_bin(active_id) {
+            amount_x = bin.amount_x;
+            amount_y = bin.amount_y;
+            break;
+        };
+    }
+    Ok((amount_x, amount_y))
 }

@@ -1,5 +1,8 @@
-use crate::state::lb_pair::LbPair;
 use anchor_lang::prelude::*;
+
+use crate::state::lb_pair::LbPair;
+use crate::BinArrayAccount;
+use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Accounts)]
 pub struct MigrateBinArray<'info> {

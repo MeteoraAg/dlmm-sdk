@@ -1,6 +1,13 @@
 use crate::authorize_modify_position;
-use crate::state::{bin::BinArray, lb_pair::LbPair, position::PositionV2};
+use crate::math::safe_math::SafeMath;
+use crate::state::dynamic_position::{DynamicPositionLoader, PositionV3};
+use crate::BinArrayAccount;
+use crate::{
+    manager::bin_array_manager::BinArrayManager,
+    state::{bin::BinArray, lb_pair::LbPair},
+};
 use anchor_lang::prelude::*;
+use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Accounts)]
 pub struct UpdateFeesAndRewards<'info> {
@@ -9,25 +16,14 @@ pub struct UpdateFeesAndRewards<'info> {
         has_one = lb_pair,
         constraint = authorize_modify_position(&position, owner.key())?
     )]
-    pub position: AccountLoader<'info, PositionV2>,
+    pub position: AccountLoader<'info, PositionV3>,
 
     #[account(mut)]
     pub lb_pair: AccountLoader<'info, LbPair>,
 
-    #[account(
-        mut,
-        has_one = lb_pair
-    )]
-    pub bin_array_lower: AccountLoader<'info, BinArray>,
-    #[account(
-        mut,
-        has_one = lb_pair
-    )]
-    pub bin_array_upper: AccountLoader<'info, BinArray>,
-
     pub owner: Signer<'info>,
 }
 
-pub fn handle(ctx: Context<UpdateFeesAndRewards>) -> Result<()> {
+pub fn handle(ctx: Context<UpdateFeesAndRewards>, min_bin_id: i32, max_bin_id: i32) -> Result<()> {
     Ok(())
 }
