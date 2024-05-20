@@ -23,7 +23,7 @@ pub struct ConfigOverride {
 }
 
 fn parse_bin_liquidity_removal(src: &str) -> Result<(i32, f64), Error> {
-    let mut parsed_str: Vec<&str> = src.split(",").collect();
+    let mut parsed_str: Vec<&str> = src.split(',').collect();
 
     let bps_to_remove = parsed_str
         .pop()
@@ -39,7 +39,7 @@ fn parse_bin_liquidity_removal(src: &str) -> Result<(i32, f64), Error> {
 }
 
 fn parse_bin_liquidity_distribution(src: &str) -> Result<(i32, f64, f64), Error> {
-    let mut parsed_str: Vec<&str> = src.split(",").collect();
+    let mut parsed_str: Vec<&str> = src.split(',').collect();
 
     let dist_y = parsed_str
         .pop()

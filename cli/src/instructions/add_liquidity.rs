@@ -47,17 +47,17 @@ pub async fn add_liquidity<C: Deref<Target = impl Signer> + Clone>(
         })
         .collect::<Vec<_>>();
 
-    let [bin_array_lower, bin_array_upper] = get_bin_arrays_for_position(&program, position).await?;
+    let [bin_array_lower, bin_array_upper] = get_bin_arrays_for_position(program, position).await?;
 
     let user_token_x = get_or_create_ata(
-        &program,
+        program,
         transaction_config,
         lb_pair_state.token_x_mint,
         program.payer(),
     ).await?;
 
     let user_token_y = get_or_create_ata(
-        &program,
+        program,
         transaction_config,
         lb_pair_state.token_y_mint,
         program.payer(),

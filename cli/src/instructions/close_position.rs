@@ -18,7 +18,7 @@ pub async fn close_position<C: Deref<Target = impl Signer> + Clone>(
     transaction_config: RpcSendTransactionConfig,
 ) -> Result<()> {
     let position_state: Position = program.account(position).await?;
-    let [bin_array_lower, bin_array_upper] = get_bin_arrays_for_position(&program, position).await?;
+    let [bin_array_lower, bin_array_upper] = get_bin_arrays_for_position(program, position).await?;
 
     let (event_authority, _bump) = derive_event_authority_pda();
 

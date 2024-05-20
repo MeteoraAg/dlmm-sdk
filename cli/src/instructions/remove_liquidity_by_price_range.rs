@@ -63,7 +63,7 @@ pub async fn remove_liquidity_by_price_range<C: Deref<Target = impl Signer> + Cl
     let max_active_id = get_id_from_price(bin_step, &max_price_per_lamport, Rounding::Up)
         .context("get_id_from_price overflow")?;
 
-    assert_eq!(min_active_id < max_active_id, true);
+    assert!(min_active_id < max_active_id);
 
     println!("go here");
     let width = MAX_BIN_PER_POSITION as i32;
@@ -88,7 +88,7 @@ pub async fn remove_liquidity_by_price_range<C: Deref<Target = impl Signer> + Cl
                 let (bin_array_upper, _bump) =
                     derive_bin_array_pda(lb_pair, upper_bin_array_idx.into());
                 let user_token_x = get_or_create_ata(
-                    &program,
+                    program,
                     transaction_config,
                     lb_pair_state.token_x_mint,
                     program.payer(),
@@ -96,7 +96,7 @@ pub async fn remove_liquidity_by_price_range<C: Deref<Target = impl Signer> + Cl
                 .await?;
 
                 let user_token_y = get_or_create_ata(
-                    &program,
+                    program,
                     transaction_config,
                     lb_pair_state.token_y_mint,
                     program.payer(),

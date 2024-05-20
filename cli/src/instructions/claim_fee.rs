@@ -31,7 +31,7 @@ pub async fn claim_fee<C: Deref<Target = impl Signer> + Clone>(
         program.payer(),
     ).await?;
 
-    let [bin_array_lower, bin_array_upper] = get_bin_arrays_for_position(&program, position).await?;
+    let [bin_array_lower, bin_array_upper] = get_bin_arrays_for_position(program, position).await?;
 
     let (event_authority, _bump) = derive_event_authority_pda();
 
