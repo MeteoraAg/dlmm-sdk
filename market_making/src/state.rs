@@ -3,14 +3,15 @@ use crate::pair_config::PairConfig;
 use anchor_lang::prelude::Pubkey;
 use anchor_spl::token::Mint;
 use anyhow::*;
+use dlmm_common::DynamicPosition;
 use lb_clmm::math::price_math::get_price_from_id;
 use lb_clmm::math::safe_math::SafeMath;
 use lb_clmm::math::u64x64_math::to_decimal;
 use lb_clmm::math::u64x64_math::PRECISION;
 use lb_clmm::state::bin::Bin;
 use lb_clmm::state::bin::BinArray;
+use lb_clmm::state::dynamic_position::PositionBinData;
 use lb_clmm::state::lb_pair::LbPair;
-use lb_clmm::state::position::PositionV2;
 use lb_clmm::utils::pda;
 use serde::Deserialize;
 use serde::Serialize;
@@ -41,7 +42,7 @@ pub struct SinglePosition {
     pub lb_pair: Pubkey,
     pub lb_pair_state: LbPair,
     pub bin_arrays: HashMap<Pubkey, BinArray>, // only store relevant bin arrays
-    pub positions: Vec<PositionV2>,
+    pub positions: Vec<DynamicPosition>,
     pub position_pks: Vec<Pubkey>,
     pub rebalance_time: u64,
     pub min_bin_id: i32,
@@ -81,7 +82,7 @@ impl SinglePosition {
         let mut fee_x = 0u64;
         let mut fee_y = 0u64;
         for position in self.positions.iter() {
-            let lower_bin_array_idx = BinArray::bin_id_to_bin_array_index(position.lower_bin_id)?;
+            let lower_bin_array_idx = BinArray::bin_id_to_bin_array_index(position.lower_bin_id())?;
             let upper_bin_array_idx = lower_bin_array_idx.checked_add(1).context("MathOverflow")?;
             let mut bin_arrays = vec![];
             for i in lower_bin_array_idx..=upper_bin_array_idx {
@@ -97,14 +98,20 @@ impl SinglePosition {
                 bin_arrays: &bin_arrays,
             };
 
-            for (i, &share) in position.liquidity_shares.iter().enumerate() {
-                if share == 0 {
+            for (
+                i,
+                &PositionBinData {
+                    liquidity_share, ..
+                },
+            ) in position.position_bin_data.iter().enumerate()
+            {
+                if liquidity_share == 0 {
                     continue;
                 }
 
                 let bin_id = position.from_idx_to_bin_id(i)?;
                 let bin = bin_array_manager.get_bin(bin_id)?;
-                let (bin_amount_x, bin_amount_y) = bin.calculate_out_amount(share)?;
+                let (bin_amount_x, bin_amount_y) = bin.calculate_out_amount(liquidity_share)?;
                 amount_x = amount_x
                     .safe_add(bin_amount_x)
                     .map_err(|_| Error::msg("Math is overflow"))?;

@@ -1,32 +1,39 @@
-use anchor_client::{solana_sdk::signer::Signer, Program};
 use anchor_lang::prelude::*;
 use lb_clmm::math::safe_math::SafeMath;
 use lb_clmm::state::dynamic_position::get_idx;
 use lb_clmm::state::dynamic_position::{PositionBinData, PositionV3};
 use num_traits::identities::Zero;
-use std::ops::Deref;
 use std::result::Result::Ok;
 
-pub fn fetch_dynamic_position<C: Deref<Target = impl Signer> + Clone>(
-    program: &Program<C>,
-    position: Pubkey,
-) -> anyhow::Result<DynamicPosition> {
-    let data = program.rpc().get_account_data(&position)?;
-    let (global_bytes, position_bin_data_bytes) = data.split_at(8 + PositionV3::INIT_SPACE);
-    let global_data = bytemuck::from_bytes::<PositionV3>(&global_bytes[8..]);
-    let position_bin_data = bytemuck::cast_slice::<u8, PositionBinData>(position_bin_data_bytes);
-    Ok(DynamicPosition {
-        global_data: global_data.clone(),
-        position_bin_data: position_bin_data.to_vec(),
-    })
-}
-
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DynamicPosition {
     pub global_data: PositionV3,
     pub position_bin_data: Vec<PositionBinData>,
 }
 
+impl anchor_lang::AccountDeserialize for DynamicPosition {
+    fn try_deserialize(buf: &mut &[u8]) -> Result<Self> {
+        DynamicPosition::try_deserialize_unchecked(buf)
+    }
+
+    fn try_deserialize_unchecked(buf: &mut &[u8]) -> Result<Self> {
+        let (global_bytes, position_bin_data_bytes) = buf.split_at(8 + PositionV3::INIT_SPACE);
+        let global_data = bytemuck::from_bytes::<PositionV3>(&global_bytes[8..]);
+        let position_bin_data =
+            bytemuck::cast_slice::<u8, PositionBinData>(position_bin_data_bytes);
+        Ok(DynamicPosition {
+            global_data: global_data.clone(),
+            position_bin_data: position_bin_data.to_vec(),
+        })
+    }
+}
+
+impl anchor_lang::Discriminator for DynamicPosition {
+    const DISCRIMINATOR: [u8; 8] = [0u8; 8]; // TODO fix this
+    fn discriminator() -> [u8; 8] {
+        PositionV3::discriminator()
+    }
+}
 impl DynamicPosition {
     pub fn from_idx_to_bin_id(&self, i: usize) -> Result<i32> {
         Ok(self.lower_bin_id().safe_add(i as i32)?)

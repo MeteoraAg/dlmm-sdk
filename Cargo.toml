@@ -2,8 +2,10 @@
 members = [
     "programs/*",
     "cli",
-    "market_making"
-, "common"]
+    "market_making",
+    "dlmm-common"
+]
+resolver = "2"
 
 [workspace.dependencies]
 anchor-lang = "0.28.0"
@@ -27,6 +29,8 @@ chrono="0.4.31"
 hyper = "0.14.17"
 routerify = "3"
 ureq = "2.0.0"
+bytemuck = "1.15.0"
+num-traits = "0.2.16"
 
 [profile.release]
 overflow-checks = true

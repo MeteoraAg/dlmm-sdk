@@ -9,7 +9,6 @@ use crate::utils::send_tx;
 use crate::utils::simulate_transaction;
 use crate::utils::{create_program, get_epoch_sec, get_or_create_ata};
 use crate::MarketMakingMode;
-use anchor_client::anchor_lang::Space;
 use anchor_client::solana_client::rpc_filter::{Memcmp, RpcFilterType};
 use anchor_client::solana_sdk::compute_budget::ComputeBudgetInstruction;
 use anchor_client::solana_sdk::instruction::Instruction;
@@ -26,16 +25,17 @@ use anchor_spl::token::Mint;
 use anchor_spl::token::TokenAccount;
 use anyhow::Ok;
 use anyhow::*;
+use dlmm_common::DynamicPosition;
 use lb_clmm::accounts;
+use lb_clmm::constants::DEFAULT_BIN_PER_POSITION;
 use lb_clmm::constants::MAX_BIN_PER_ARRAY;
-use lb_clmm::constants::MAX_BIN_PER_POSITION;
 use lb_clmm::events::Swap as SwapEvent;
 use lb_clmm::instruction;
 use lb_clmm::instructions::add_liquidity_by_strategy::LiquidityParameterByStrategy;
 use lb_clmm::instructions::add_liquidity_by_strategy::StrategyParameters;
 use lb_clmm::instructions::add_liquidity_by_strategy::StrategyType;
 use lb_clmm::math::safe_math::SafeMath;
-use lb_clmm::state::{bin::BinArray, lb_pair::LbPair, position::PositionV2};
+use lb_clmm::state::{bin::BinArray, lb_pair::LbPair};
 use lb_clmm::utils::pda;
 use lb_clmm::utils::pda::*;
 use std::collections::HashMap;
@@ -65,9 +65,9 @@ impl Core {
             // let token_x: Mint = program.account(lb_pair_state.token_x_mint).await?;
             // let token_y: Mint = program.account(lb_pair_state.token_y_mint).await?;
             // get all position with an user
+
             let mut position_states = program
-                .accounts::<PositionV2>(vec![
-                    RpcFilterType::DataSize((8 + PositionV2::INIT_SPACE) as u64),
+                .accounts::<DynamicPosition>(vec![
                     RpcFilterType::Memcmp(Memcmp::new_raw_bytes(
                         8 + 32,
                         self.owner.to_bytes().to_vec(),
@@ -86,17 +86,17 @@ impl Core {
             if position_states.len() > 0 {
                 // sort position by bin id
                 position_states
-                    .sort_by(|a, b| a.1.lower_bin_id.partial_cmp(&b.1.lower_bin_id).unwrap());
+                    .sort_by(|a, b| a.1.lower_bin_id().partial_cmp(&b.1.lower_bin_id()).unwrap());
 
-                min_bin_id = position_states[0].1.lower_bin_id;
-                max_bin_id = position_states[position_states.len() - 1].1.upper_bin_id;
+                min_bin_id = position_states[0].1.lower_bin_id();
+                max_bin_id = position_states[position_states.len() - 1].1.upper_bin_id();
                 for position in position_states.iter() {
                     position_pks.push(position.0);
-                    positions.push(position.1);
+                    positions.push(position.1.clone());
                 }
                 let mut bin_arrays_indexes = vec![];
                 for (_pk, position) in position_states.iter() {
-                    for i in position.lower_bin_id..=position.upper_bin_id {
+                    for i in position.lower_bin_id()..=position.upper_bin_id() {
                         let bin_array_index = BinArray::bin_id_to_bin_array_index(i)?;
                         if bin_arrays_indexes.contains(&bin_array_index) {
                             continue;
@@ -202,9 +202,9 @@ impl Core {
         )?;
         let lb_pair_state = state.lb_pair_state;
         for (i, &position) in state.position_pks.iter().enumerate() {
-            let position_state = state.positions[i];
+            let position_state = state.positions[i].clone();
             let lower_bin_array_idx =
-                BinArray::bin_id_to_bin_array_index(position_state.lower_bin_id)?;
+                BinArray::bin_id_to_bin_array_index(position_state.lower_bin_id())?;
             let upper_bin_array_idx = lower_bin_array_idx.checked_add(1).context("MathOverflow")?;
 
             let (bin_array_lower, _bump) =
@@ -253,36 +253,54 @@ impl Core {
                         ],
                     ]
                     .concat(),
-                    data: instruction::RemoveAllLiquidity {}.data(),
+                    data: instruction::RemoveAllLiquidity {
+                        min_bin_id: position_state.lower_bin_id(),
+                        max_bin_id: position_state.upper_bin_id(),
+                    }
+                    .data(),
                 },
                 Instruction {
                     program_id: lb_clmm::ID,
-                    accounts: accounts::ClaimFee {
-                        bin_array_lower,
-                        bin_array_upper,
-                        lb_pair,
-                        sender: payer.pubkey(),
-                        position,
-                        reserve_x: lb_pair_state.reserve_x,
-                        reserve_y: lb_pair_state.reserve_y,
-                        token_program: anchor_spl::token::ID,
-                        token_x_mint: lb_pair_state.token_x_mint,
-                        token_y_mint: lb_pair_state.token_y_mint,
-                        user_token_x,
-                        user_token_y,
-                        event_authority,
-                        program: lb_clmm::ID,
+                    accounts: [
+                        accounts::ClaimFee {
+                            lb_pair,
+                            sender: payer.pubkey(),
+                            position,
+                            reserve_x: lb_pair_state.reserve_x,
+                            reserve_y: lb_pair_state.reserve_y,
+                            token_program: anchor_spl::token::ID,
+                            token_x_mint: lb_pair_state.token_x_mint,
+                            token_y_mint: lb_pair_state.token_y_mint,
+                            user_token_x,
+                            user_token_y,
+                            event_authority,
+                            program: lb_clmm::ID,
+                        }
+                        .to_account_metas(None),
+                        vec![
+                            AccountMeta {
+                                is_signer: false,
+                                is_writable: true,
+                                pubkey: bin_array_lower,
+                            },
+                            AccountMeta {
+                                is_signer: false,
+                                is_writable: true,
+                                pubkey: bin_array_upper,
+                            },
+                        ],
+                    ]
+                    .concat(),
+                    data: instruction::ClaimFee {
+                        min_bin_id: position_state.lower_bin_id(),
+                        max_bin_id: position_state.upper_bin_id(),
                     }
-                    .to_account_metas(None),
-                    data: instruction::ClaimFee {}.data(),
+                    .data(),
                 },
                 Instruction {
                     program_id: lb_clmm::ID,
                     accounts: accounts::ClosePosition {
-                        lb_pair,
                         position,
-                        bin_array_lower,
-                        bin_array_upper,
                         rent_receiver: payer.pubkey(),
                         sender: payer.pubkey(),
                         event_authority,
@@ -509,7 +527,7 @@ impl Core {
             .to_account_metas(None),
             data: instruction::InitializePosition {
                 lower_bin_id,
-                width: MAX_BIN_PER_POSITION as i32,
+                width: DEFAULT_BIN_PER_POSITION as i32,
             }
             .data(),
         });
@@ -535,25 +553,38 @@ impl Core {
 
         instructions.push(Instruction {
             program_id: lb_clmm::ID,
-            accounts: accounts::ModifyLiquidity {
-                lb_pair,
-                position,
-                bin_array_bitmap_extension,
-                bin_array_lower,
-                bin_array_upper,
-                sender: payer.pubkey(),
-                event_authority,
-                program: lb_clmm::ID,
-                reserve_x: lb_pair_state.reserve_x,
-                reserve_y: lb_pair_state.reserve_y,
-                token_x_mint: lb_pair_state.token_x_mint,
-                token_y_mint: lb_pair_state.token_y_mint,
-                user_token_x,
-                user_token_y,
-                token_x_program: anchor_spl::token::ID,
-                token_y_program: anchor_spl::token::ID,
-            }
-            .to_account_metas(None),
+            accounts: [
+                accounts::ModifyLiquidity {
+                    lb_pair,
+                    position,
+                    bin_array_bitmap_extension,
+                    sender: payer.pubkey(),
+                    event_authority,
+                    program: lb_clmm::ID,
+                    reserve_x: lb_pair_state.reserve_x,
+                    reserve_y: lb_pair_state.reserve_y,
+                    token_x_mint: lb_pair_state.token_x_mint,
+                    token_y_mint: lb_pair_state.token_y_mint,
+                    user_token_x,
+                    user_token_y,
+                    token_x_program: anchor_spl::token::ID,
+                    token_y_program: anchor_spl::token::ID,
+                }
+                .to_account_metas(None),
+                vec![
+                    AccountMeta {
+                        is_signer: false,
+                        is_writable: true,
+                        pubkey: bin_array_lower,
+                    },
+                    AccountMeta {
+                        is_signer: false,
+                        is_writable: true,
+                        pubkey: bin_array_upper,
+                    },
+                ],
+            ]
+            .concat(),
             data: instruction::AddLiquidityByStrategy {
                 liquidity_parameter: LiquidityParameterByStrategy {
                     amount_x,

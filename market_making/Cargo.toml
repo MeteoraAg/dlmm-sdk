@@ -19,6 +19,7 @@ clap = { workspace=true, features = ["derive"] }
 shellexpand = {workspace=true}
 anyhow = {workspace=true}
 lb_clmm =  { path = "../programs/lb_clmm", features = ["cpi"] }
+dlmm-common = {path="../dlmm-common"}
 serde_json = {workspace=true}
 serde = { workspace=true, features = ["derive"] }
 spl-associated-token-account = {workspace=true}

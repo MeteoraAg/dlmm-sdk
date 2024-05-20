@@ -1,11 +1,12 @@
 use anyhow::*;
+use dlmm_common::DynamicPosition;
 use lb_clmm::constants::MAX_BIN_PER_ARRAY;
 use lb_clmm::math::safe_math::SafeMath;
 use lb_clmm::math::u128x128_math::Rounding;
 use lb_clmm::math::u64x64_math::SCALE_OFFSET;
 use lb_clmm::math::utils_math::safe_mul_shr_cast;
 use lb_clmm::state::bin::{Bin, BinArray};
-use lb_clmm::state::position::PositionV2;
+use lb_clmm::state::dynamic_position::get_idx;
 pub struct BinArrayManager<'a> {
     pub bin_arrays: &'a Vec<BinArray>,
 }
@@ -41,18 +42,18 @@ impl<'a> BinArrayManager<'a> {
     }
 
     /// Update reward + fee earning
-    pub fn get_total_fee_pending(&self, position: &PositionV2) -> Result<(u64, u64)> {
+    pub fn get_total_fee_pending(&self, position: &DynamicPosition) -> Result<(u64, u64)> {
         let (bin_arrays_lower_bin_id, bin_arrays_upper_bin_id) = self.get_lower_upper_bin_id()?;
 
-        if position.lower_bin_id < bin_arrays_lower_bin_id
-            && position.upper_bin_id > bin_arrays_upper_bin_id
+        if position.lower_bin_id() < bin_arrays_lower_bin_id
+            && position.upper_bin_id() > bin_arrays_upper_bin_id
         {
             return Err(anyhow::Error::msg("Bin array is not correct"));
         }
 
         let mut total_fee_x = 0u64;
         let mut total_fee_y = 0u64;
-        for bin_id in position.lower_bin_id..=position.upper_bin_id {
+        for bin_id in position.lower_bin_id()..=position.upper_bin_id() {
             let bin = self.get_bin(bin_id)?;
             let (fee_x_pending, fee_y_pending) =
                 BinArrayManager::get_fee_pending_for_a_bin(position, bin_id, &bin)?;
@@ -68,18 +69,19 @@ impl<'a> BinArrayManager<'a> {
     }
 
     fn get_fee_pending_for_a_bin(
-        position: &PositionV2,
+        position: &DynamicPosition,
         bin_id: i32,
         bin: &Bin,
     ) -> Result<(u64, u64)> {
-        let idx = position.get_idx(bin_id)?;
+        let idx = get_idx(bin_id, position.lower_bin_id())?;
 
-        let fee_infos = &position.fee_infos[idx];
+        let fee_infos = &position.position_bin_data[idx].fee_info;
 
         let fee_x_per_token_stored = bin.fee_amount_x_per_token_stored;
 
         let new_fee_x: u64 = safe_mul_shr_cast(
-            position.liquidity_shares[idx]
+            position.position_bin_data[idx]
+                .liquidity_share
                 .safe_shr(SCALE_OFFSET.into())
                 .map_err(|_| anyhow::Error::msg("math is overflow"))?
                 .try_into()
@@ -97,7 +99,8 @@ impl<'a> BinArrayManager<'a> {
 
         let fee_y_per_token_stored = bin.fee_amount_y_per_token_stored;
         let new_fee_y: u64 = safe_mul_shr_cast(
-            position.liquidity_shares[idx]
+            position.position_bin_data[idx]
+                .liquidity_share
                 .safe_shr(SCALE_OFFSET.into())
                 .map_err(|_| anyhow::Error::msg("math is overflow"))?
                 .try_into()

@@ -20,6 +20,7 @@ spl-associated-token-account = {workspace=true}
 mpl-token-metadata = {workspace=true}
 rand = {workspace=true}
 tokio = { workspace=true, features = ["full", "parking_lot"] }
+dlmm-common = {path="../dlmm-common"}
 
 [dev-dependencies]
 proptest = "1.2.0"

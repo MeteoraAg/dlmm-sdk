@@ -1,16 +1,16 @@
 use std::ops::Deref;
 
+use crate::instructions::utils::{get_bin_arrays_for_position, get_or_create_ata};
 use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
 use anchor_client::solana_sdk::compute_budget::ComputeBudgetInstruction;
 use anchor_client::{solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, Program};
-
+use anchor_lang::prelude::AccountMeta;
+use anchor_lang::ToAccountMetas;
 use anyhow::*;
 use lb_clmm::accounts;
+use lb_clmm::constants::BASIS_POINT_MAX;
 use lb_clmm::instruction;
 use lb_clmm::instructions::add_liquidity::{BinLiquidityDistribution, LiquidityParameter};
-
-use crate::instructions::utils::{get_bin_arrays_for_position, get_or_create_ata};
-use lb_clmm::constants::BASIS_POINT_MAX;
 use lb_clmm::state::lb_pair::LbPair;
 use lb_clmm::utils::pda::{derive_bin_array_bitmap_extension, derive_event_authority_pda};
 
@@ -47,21 +47,24 @@ pub async fn add_liquidity<C: Deref<Target = impl Signer> + Clone>(
         })
         .collect::<Vec<_>>();
 
-    let [bin_array_lower, bin_array_upper] = get_bin_arrays_for_position(&program, position).await?;
+    let [bin_array_lower, bin_array_upper] =
+        get_bin_arrays_for_position(&program, position).await?;
 
     let user_token_x = get_or_create_ata(
         &program,
         transaction_config,
         lb_pair_state.token_x_mint,
         program.payer(),
-    ).await?;
+    )
+    .await?;
 
     let user_token_y = get_or_create_ata(
         &program,
         transaction_config,
         lb_pair_state.token_y_mint,
         program.payer(),
-    ).await?;
+    )
+    .await?;
 
     // TODO: id and price slippage
     let (bin_array_bitmap_extension, _bump) = derive_bin_array_bitmap_extension(lb_pair);
@@ -77,25 +80,39 @@ pub async fn add_liquidity<C: Deref<Target = impl Signer> + Clone>(
 
     let (event_authority, _bump) = derive_event_authority_pda();
 
-    let accounts = accounts::ModifyLiquidity {
-        bin_array_lower,
-        bin_array_upper,
-        lb_pair,
-        bin_array_bitmap_extension,
-        position,
-        reserve_x: lb_pair_state.reserve_x,
-        reserve_y: lb_pair_state.reserve_y,
-        token_x_mint: lb_pair_state.token_x_mint,
-        token_y_mint: lb_pair_state.token_y_mint,
-        sender: program.payer(),
-        user_token_x,
-        user_token_y,
-        // TODO: token 2022
-        token_x_program: anchor_spl::token::ID,
-        token_y_program: anchor_spl::token::ID,
-        event_authority,
-        program: lb_clmm::ID,
-    };
+    let accounts = [
+        accounts::ModifyLiquidity {
+            lb_pair,
+            bin_array_bitmap_extension,
+            position,
+            reserve_x: lb_pair_state.reserve_x,
+            reserve_y: lb_pair_state.reserve_y,
+            token_x_mint: lb_pair_state.token_x_mint,
+            token_y_mint: lb_pair_state.token_y_mint,
+            sender: program.payer(),
+            user_token_x,
+            user_token_y,
+            // TODO: token 2022
+            token_x_program: anchor_spl::token::ID,
+            token_y_program: anchor_spl::token::ID,
+            event_authority,
+            program: lb_clmm::ID,
+        }
+        .to_account_metas(None),
+        vec![
+            AccountMeta {
+                is_signer: false,
+                is_writable: true,
+                pubkey: bin_array_lower,
+            },
+            AccountMeta {
+                is_signer: false,
+                is_writable: true,
+                pubkey: bin_array_upper,
+            },
+        ],
+    ]
+    .concat();
 
     let ix = instruction::AddLiquidity {
         liquidity_parameter: LiquidityParameter {
@@ -112,7 +129,8 @@ pub async fn add_liquidity<C: Deref<Target = impl Signer> + Clone>(
         .instruction(compute_budget_ix)
         .accounts(accounts)
         .args(ix)
-        .send_with_spinner_and_config(transaction_config).await;
+        .send_with_spinner_and_config(transaction_config)
+        .await;
 
     println!("Add Liquidity. Signature: {:#?}", signature);
 

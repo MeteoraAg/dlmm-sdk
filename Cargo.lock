@@ -889,9 +889,9 @@ dependencies = [
 
 [[package]]
 name = "bytemuck"
-version = "1.13.1"
+version = "1.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17febce684fd15d89027105661fec94afb475cb995fbc59d2865198446ba2eea"
+checksum = "78834c15cb5d5efe3452d58b1e8ba890dd62d21907f867f383358198e56ebca5"
 dependencies = [
  "bytemuck_derive",
 ]
@@ -1087,6 +1087,7 @@ dependencies = [
  "anchor-spl",
  "anyhow",
  "clap 4.4.7",
+ "dlmm-common",
  "lb_clmm",
  "mpl-token-metadata",
  "proptest",
@@ -1115,10 +1116,6 @@ dependencies = [
  "memchr",
  "unreachable",
 ]
-
-[[package]]
-name = "common"
-version = "0.1.0"
 
 [[package]]
 name = "concurrent-queue"
@@ -1469,6 +1466,19 @@ dependencies = [
  "proc-macro2 1.0.63",
  "quote 1.0.29",
  "syn 2.0.23",
+]
+
+[[package]]
+name = "dlmm-common"
+version = "0.1.0"
+dependencies = [
+ "anchor-client",
+ "anchor-lang",
+ "anchor-spl",
+ "anyhow",
+ "bytemuck",
+ "lb_clmm",
+ "num-traits",
 ]
 
 [[package]]
@@ -2384,6 +2394,7 @@ dependencies = [
  "bs58 0.5.0",
  "chrono",
  "clap 4.4.7",
+ "dlmm-common",
  "env_logger",
  "hyper",
  "lb_clmm",

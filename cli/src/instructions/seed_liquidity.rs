@@ -6,21 +6,21 @@ use crate::math::{
 };
 use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
 use anchor_client::solana_sdk::compute_budget::ComputeBudgetInstruction;
-use anchor_client::solana_sdk::instruction::Instruction;
+use anchor_client::solana_sdk::instruction::{AccountMeta, Instruction};
 use anchor_client::solana_sdk::signature::Keypair;
 use anchor_client::{solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, Program};
 use anchor_lang::InstructionData;
 use anchor_lang::ToAccountMetas;
 use anchor_spl::token::{Mint, TokenAccount};
 use anyhow::*;
+use dlmm_common::DynamicPosition;
 use lb_clmm::accounts;
-use lb_clmm::constants::{BASIS_POINT_MAX, MAX_BIN_PER_POSITION};
+use lb_clmm::constants::{BASIS_POINT_MAX, DEFAULT_BIN_PER_POSITION};
 use lb_clmm::instruction;
 use lb_clmm::instructions::add_liquidity::{BinLiquidityDistribution, LiquidityParameter};
 use lb_clmm::math::u128x128_math::Rounding;
 use lb_clmm::state::bin::BinArray;
 use lb_clmm::state::lb_pair::LbPair;
-use lb_clmm::state::position::PositionV2;
 use lb_clmm::utils::pda::*;
 use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
 use rust_decimal::{Decimal, MathematicalOps};
@@ -78,8 +78,8 @@ pub async fn seed_liquidity<C: Deref<Target = impl Signer> + Clone>(
     assert_eq!(min_active_id < max_active_id, true);
 
     let mut position_number =
-        (max_active_id.checked_sub(min_active_id).unwrap()) / MAX_BIN_PER_POSITION as i32;
-    let rem = (max_active_id.checked_sub(min_active_id).unwrap()) % MAX_BIN_PER_POSITION as i32;
+        (max_active_id.checked_sub(min_active_id).unwrap()) / DEFAULT_BIN_PER_POSITION as i32;
+    let rem = (max_active_id.checked_sub(min_active_id).unwrap()) % DEFAULT_BIN_PER_POSITION as i32;
 
     if rem > 0 {
         position_number += 1;
@@ -105,11 +105,11 @@ pub async fn seed_liquidity<C: Deref<Target = impl Signer> + Clone>(
     )
     .await?;
 
-    let width = MAX_BIN_PER_POSITION as i32;
+    let width = DEFAULT_BIN_PER_POSITION as i32;
 
     for i in 0..position_number {
-        let lower_bin_id = min_active_id + (MAX_BIN_PER_POSITION as i32 * i);
-        let upper_bin_id = lower_bin_id + MAX_BIN_PER_POSITION as i32 - 1;
+        let lower_bin_id = min_active_id + (DEFAULT_BIN_PER_POSITION as i32 * i);
+        let upper_bin_id = lower_bin_id + DEFAULT_BIN_PER_POSITION as i32 - 1;
 
         let lower_bin_array_idx = BinArray::bin_id_to_bin_array_index(lower_bin_id)?;
         let upper_bin_array_idx = BinArray::bin_id_to_bin_array_index(upper_bin_id)?;
@@ -139,7 +139,7 @@ pub async fn seed_liquidity<C: Deref<Target = impl Signer> + Clone>(
         }
 
         let upper_bin_id = std::cmp::min(
-            lower_bin_id + MAX_BIN_PER_POSITION as i32 - 1,
+            lower_bin_id + DEFAULT_BIN_PER_POSITION as i32 - 1,
             max_active_id,
         );
 
@@ -178,7 +178,7 @@ pub async fn seed_liquidity<C: Deref<Target = impl Signer> + Clone>(
             signature?;
         }
 
-        let position_state: PositionV2 = program.account(position).await.unwrap();
+        let position_state = program.account::<DynamicPosition>(position).await?;
         if !position_state.is_empty() {
             continue;
         }
@@ -219,25 +219,38 @@ pub async fn seed_liquidity<C: Deref<Target = impl Signer> + Clone>(
 
         instructions.push(Instruction {
             program_id: lb_clmm::ID,
-            accounts: accounts::ModifyLiquidity {
-                lb_pair,
-                position,
-                bin_array_bitmap_extension: None,
-                bin_array_lower,
-                bin_array_upper,
-                sender: program.payer(),
-                event_authority,
-                program: lb_clmm::ID,
-                reserve_x: lb_pair_state.reserve_x,
-                reserve_y: lb_pair_state.reserve_y,
-                token_x_mint: lb_pair_state.token_x_mint,
-                token_y_mint: lb_pair_state.token_y_mint,
-                user_token_x,
-                user_token_y,
-                token_x_program: anchor_spl::token::ID,
-                token_y_program: anchor_spl::token::ID,
-            }
-            .to_account_metas(None),
+            accounts: [
+                accounts::ModifyLiquidity {
+                    lb_pair,
+                    position,
+                    bin_array_bitmap_extension: None,
+                    sender: program.payer(),
+                    event_authority,
+                    program: lb_clmm::ID,
+                    reserve_x: lb_pair_state.reserve_x,
+                    reserve_y: lb_pair_state.reserve_y,
+                    token_x_mint: lb_pair_state.token_x_mint,
+                    token_y_mint: lb_pair_state.token_y_mint,
+                    user_token_x,
+                    user_token_y,
+                    token_x_program: anchor_spl::token::ID,
+                    token_y_program: anchor_spl::token::ID,
+                }
+                .to_account_metas(None),
+                vec![
+                    AccountMeta {
+                        is_signer: false,
+                        is_writable: true,
+                        pubkey: bin_array_lower,
+                    },
+                    AccountMeta {
+                        is_signer: false,
+                        is_writable: true,
+                        pubkey: bin_array_upper,
+                    },
+                ],
+            ]
+            .concat(),
             data: instruction::AddLiquidity {
                 liquidity_parameter: LiquidityParameter {
                     amount_x: position_total_amount,
@@ -267,8 +280,8 @@ pub async fn seed_liquidity<C: Deref<Target = impl Signer> + Clone>(
     let leftover = amount.checked_sub(reserve_x_state.amount).unwrap();
 
     if leftover > 0 {
-        let lower_bin_id = min_active_id + MAX_BIN_PER_POSITION as i32 * (position_number - 1);
-        let upper_bin_id = lower_bin_id + MAX_BIN_PER_POSITION as i32 - 1;
+        let lower_bin_id = min_active_id + DEFAULT_BIN_PER_POSITION as i32 * (position_number - 1);
+        let upper_bin_id = lower_bin_id + DEFAULT_BIN_PER_POSITION as i32 - 1;
 
         let (position, _bump) =
             derive_position_pda(lb_pair, position_base_kp.pubkey(), lower_bin_id, width);
@@ -281,25 +294,38 @@ pub async fn seed_liquidity<C: Deref<Target = impl Signer> + Clone>(
 
         let ix = Instruction {
             program_id: lb_clmm::ID,
-            accounts: accounts::ModifyLiquidity {
-                lb_pair,
-                position,
-                bin_array_bitmap_extension: None,
-                bin_array_lower,
-                bin_array_upper,
-                sender: program.payer(),
-                event_authority,
-                program: lb_clmm::ID,
-                reserve_x: lb_pair_state.reserve_x,
-                reserve_y: lb_pair_state.reserve_y,
-                token_x_mint: lb_pair_state.token_x_mint,
-                token_y_mint: lb_pair_state.token_y_mint,
-                user_token_x,
-                user_token_y,
-                token_x_program: anchor_spl::token::ID,
-                token_y_program: anchor_spl::token::ID,
-            }
-            .to_account_metas(None),
+            accounts: [
+                accounts::ModifyLiquidity {
+                    lb_pair,
+                    position,
+                    bin_array_bitmap_extension: None,
+                    sender: program.payer(),
+                    event_authority,
+                    program: lb_clmm::ID,
+                    reserve_x: lb_pair_state.reserve_x,
+                    reserve_y: lb_pair_state.reserve_y,
+                    token_x_mint: lb_pair_state.token_x_mint,
+                    token_y_mint: lb_pair_state.token_y_mint,
+                    user_token_x,
+                    user_token_y,
+                    token_x_program: anchor_spl::token::ID,
+                    token_y_program: anchor_spl::token::ID,
+                }
+                .to_account_metas(None),
+                vec![
+                    AccountMeta {
+                        is_signer: false,
+                        is_writable: true,
+                        pubkey: bin_array_lower,
+                    },
+                    AccountMeta {
+                        is_signer: false,
+                        is_writable: true,
+                        pubkey: bin_array_upper,
+                    },
+                ],
+            ]
+            .concat(),
             data: instruction::AddLiquidity {
                 liquidity_parameter: LiquidityParameter {
                     amount_x: leftover,
