@@ -35,7 +35,9 @@ pub async fn get_or_create_ata<C: Deref<Target = impl Signer> + Clone>(
                     &spl_token::ID,
                 ));
 
-            builder.send_with_spinner_and_config(transaction_config).await?;
+            builder
+                .send_with_spinner_and_config(transaction_config)
+                .await?;
             Ok(user_ata)
         }
     }

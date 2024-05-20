@@ -41,7 +41,8 @@ pub async fn initialize_bin_array<C: Deref<Target = impl Signer> + Clone>(
     let signature = request_builder
         .accounts(accounts)
         .args(ix)
-        .send_with_spinner_and_config(transaction_config).await;
+        .send_with_spinner_and_config(transaction_config)
+        .await;
 
     println!("Initialize Bin Array {bin_array}. Signature: {signature:#?}");
 

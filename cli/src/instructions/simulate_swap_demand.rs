@@ -38,13 +38,15 @@ pub async fn simulate_swap_demand<C: Deref<Target = impl Signer> + Clone>(
         transaction_config,
         lb_pair_state.token_x_mint,
         program.payer(),
-    ).await?;
+    )
+    .await?;
     get_or_create_ata(
         program,
         transaction_config,
         lb_pair_state.token_y_mint,
         program.payer(),
-    ).await?;
+    )
+    .await?;
 
     // random amount
     let mut rng = rand::thread_rng();

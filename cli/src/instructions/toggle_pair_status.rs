@@ -23,7 +23,8 @@ pub async fn toggle_pool_status<C: Deref<Target = impl Signer> + Clone>(
     let signature = request_builder
         .accounts(accounts)
         .args(ix)
-        .send_with_spinner_and_config(transaction_config).await;
+        .send_with_spinner_and_config(transaction_config)
+        .await;
 
     println!("Toggle pool status. Signature: {:#?}", signature);
 
