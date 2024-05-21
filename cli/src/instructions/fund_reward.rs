@@ -36,7 +36,7 @@ pub async fn fund_reward<C: Deref<Target = impl Signer> + Clone>(
     let reward_mint = reward_info.mint;
 
     let funder_token_account =
-        get_or_create_ata(&program, transaction_config, reward_mint, program.payer()).await?;
+        get_or_create_ata(program, transaction_config, reward_mint, program.payer()).await?;
 
     let active_bin_array_idx = BinArray::bin_id_to_bin_array_index(lb_pair_state.active_id)?;
     let (bin_array, _bump) = derive_bin_array_pda(lb_pair, active_bin_array_idx as i64);
@@ -65,7 +65,8 @@ pub async fn fund_reward<C: Deref<Target = impl Signer> + Clone>(
     let signature = request_builder
         .accounts(accounts)
         .args(ix)
-        .send_with_spinner_and_config(transaction_config).await;
+        .send_with_spinner_and_config(transaction_config)
+        .await;
 
     println!("Fund reward. Signature: {:#?}", signature);
 

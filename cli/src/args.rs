@@ -23,7 +23,7 @@ pub struct ConfigOverride {
 }
 
 fn parse_bin_liquidity_removal(src: &str) -> Result<(i32, f64), Error> {
-    let mut parsed_str: Vec<&str> = src.split(",").collect();
+    let mut parsed_str: Vec<&str> = src.split(',').collect();
 
     let bps_to_remove = parsed_str
         .pop()
@@ -39,7 +39,7 @@ fn parse_bin_liquidity_removal(src: &str) -> Result<(i32, f64), Error> {
 }
 
 fn parse_bin_liquidity_distribution(src: &str) -> Result<(i32, f64, f64), Error> {
-    let mut parsed_str: Vec<&str> = src.split(",").collect();
+    let mut parsed_str: Vec<&str> = src.split(',').collect();
 
     let dist_y = parsed_str
         .pop()
@@ -163,15 +163,6 @@ pub enum Command {
         #[clap(long)]
         swap_for_y: bool,
     },
-    WithdrawProtocolFee {
-        lb_pair: Pubkey,
-        amount_x: u64,
-        amount_y: u64,
-    },
-    UpdateFeeOwner {
-        lb_pair: Pubkey,
-        fee_owner: Pubkey,
-    },
     /// Show information of the given liquidity pair.
     ShowPair {
         lb_pair: Pubkey,
@@ -180,18 +171,7 @@ pub enum Command {
     ShowPosition {
         position: Pubkey,
     },
-    InitializeReward {
-        lb_pair: Pubkey,
-        reward_mint: Pubkey,
-        reward_index: u64,
-        reward_duration: u64,
-        funder: Pubkey,
-    },
-    FundReward {
-        lb_pair: Pubkey,
-        reward_index: u64,
-        funding_amount: u64,
-    },
+
     ClaimReward {
         lb_pair: Pubkey,
         reward_index: u64,
@@ -224,46 +204,10 @@ pub enum Command {
         /// Length to add
         length_to_add: u64,
     },
-    InitializePresetParameter {
-        /// Bin step. Represent the price increment / decrement.
-        bin_step: u16,
-        /// Used for base fee calculation. base_fee_rate = base_factor * bin_step
-        base_factor: u16,
-        /// Filter period determine high frequency trading time window.
-        filter_period: u16,
-        /// Decay period determine when the volatile fee start decay / decrease.
-        decay_period: u16,
-        /// Reduction factor controls the volatile fee rate decrement rate.
-        reduction_factor: u16,
-        /// Used to scale the variable fee component depending on the dynamic of the market
-        variable_fee_control: u32,
-        /// Maximum number of bin crossed can be accumulated. Used to cap volatile fee rate.
-        max_volatility_accumulator: u32,
-        /// Min bin id supported by the pool based on the configured bin step.
-        #[clap(long, allow_negative_numbers = true)]
-        min_bin_id: i32,
-        /// Max bin id supported by the pool based on the configured bin step.
-        max_bin_id: i32,
-        /// Portion of swap fees retained by the protocol by controlling protocol_share parameter. protocol_swap_fee = protocol_share * total_swap_fee
-        protocol_share: u16,
-    },
-    ClosePresetParameter {
-        /// Bin step. Represent the price increment / decrement.
-        bin_step: u16,
-    },
-    ShowPresetParameter {
-        /// Bin step. Represent the price increment / decrement.
-        bin_step: u16,
-    },
 
-    /// Remove whitelisted wallet from a permission pool
-    UpdateWhitelistedWallet {
-        /// Address of the pair
-        lb_pair: Pubkey,
-        /// Address of the wallet
-        wallet_address: Pubkey,
-        /// Index of the wallet to be updated
-        idx: u8,
+    ShowPresetParameter {
+        /// Preset parameter pubkey. Get from ListAllBinStep
+        preset_parameter: Pubkey,
     },
 
     ListAllBinStep,
@@ -362,5 +306,65 @@ pub enum AdminCommand {
         lb_pair: Pubkey,
         swap_cap_amount: u64,
         swap_cap_deactivate_slot: u64,
+    },
+
+    WithdrawProtocolFee {
+        lb_pair: Pubkey,
+        amount_x: u64,
+        amount_y: u64,
+    },
+    UpdateFeeOwner {
+        lb_pair: Pubkey,
+        fee_owner: Pubkey,
+    },
+
+    InitializeReward {
+        lb_pair: Pubkey,
+        reward_mint: Pubkey,
+        reward_index: u64,
+        reward_duration: u64,
+        funder: Pubkey,
+    },
+    FundReward {
+        lb_pair: Pubkey,
+        reward_index: u64,
+        funding_amount: u64,
+    },
+    /// Remove whitelisted wallet from a permission pool
+    UpdateWhitelistedWallet {
+        /// Address of the pair
+        lb_pair: Pubkey,
+        /// Address of the wallet
+        wallet_address: Pubkey,
+        /// Index of the wallet to be updated
+        idx: u8,
+    },
+
+    InitializePresetParameter {
+        /// Bin step. Represent the price increment / decrement.
+        bin_step: u16,
+        /// Used for base fee calculation. base_fee_rate = base_factor * bin_step
+        base_factor: u16,
+        /// Filter period determine high frequency trading time window.
+        filter_period: u16,
+        /// Decay period determine when the volatile fee start decay / decrease.
+        decay_period: u16,
+        /// Reduction factor controls the volatile fee rate decrement rate.
+        reduction_factor: u16,
+        /// Used to scale the variable fee component depending on the dynamic of the market
+        variable_fee_control: u32,
+        /// Maximum number of bin crossed can be accumulated. Used to cap volatile fee rate.
+        max_volatility_accumulator: u32,
+        /// Min bin id supported by the pool based on the configured bin step.
+        #[clap(long, allow_negative_numbers = true)]
+        min_bin_id: i32,
+        /// Max bin id supported by the pool based on the configured bin step.
+        max_bin_id: i32,
+        /// Portion of swap fees retained by the protocol by controlling protocol_share parameter. protocol_swap_fee = protocol_share * total_swap_fee
+        protocol_share: u16,
+    },
+    ClosePresetParameter {
+        /// Preset parameter pubkey. Get from ListAllBinStep
+        preset_parameter: Pubkey,
     },
 }

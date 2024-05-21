@@ -18,7 +18,6 @@ mod math;
 use args::*;
 use instructions::initialize_lb_pair::*;
 use lb_clmm::state::preset_parameters::PresetParameter;
-use lb_clmm::utils::pda::derive_preset_parameter_pda;
 
 use crate::instructions::initialize_bin_array_with_bin_range::{
     initialize_bin_array_with_bin_range, InitBinArrayWithBinRangeParameters,
@@ -211,22 +210,7 @@ async fn main() -> Result<()> {
             };
             swap(params, &amm_program, transaction_config).await?;
         }
-        Command::WithdrawProtocolFee {
-            lb_pair,
-            amount_x,
-            amount_y,
-        } => {
-            let params = WithdrawProtocolFeeParams {
-                lb_pair,
-                amount_x,
-                amount_y,
-            };
-            withdraw_protocol_fee(params, &amm_program, transaction_config).await?;
-        }
-        Command::UpdateFeeOwner { lb_pair, fee_owner } => {
-            let params = UpdateFeeOwnerParam { fee_owner, lb_pair };
-            update_fee_owner(params, &amm_program, transaction_config).await?;
-        }
+
         Command::ShowPair { lb_pair } => {
             show_pair(lb_pair, &amm_program).await?;
         }
@@ -235,34 +219,7 @@ async fn main() -> Result<()> {
                 amm_program.account(position).await?;
             println!("{:#?}", position);
         }
-        Command::InitializeReward {
-            lb_pair,
-            reward_mint,
-            reward_index,
-            reward_duration,
-            funder,
-        } => {
-            let params = InitializeRewardParams {
-                lb_pair,
-                reward_index,
-                reward_mint,
-                reward_duration,
-                funder,
-            };
-            initialize_reward(params, &amm_program, transaction_config).await?;
-        }
-        Command::FundReward {
-            lb_pair,
-            reward_index,
-            funding_amount,
-        } => {
-            let params = FundRewardParams {
-                lb_pair,
-                reward_index,
-                funding_amount,
-            };
-            fund_reward(params, &amm_program, transaction_config).await?;
-        }
+
         Command::ClaimReward {
             lb_pair,
             reward_index,
@@ -315,55 +272,12 @@ async fn main() -> Result<()> {
             };
             increase_length(params, &amm_program, transaction_config).await?;
         }
-        Command::InitializePresetParameter {
-            bin_step,
-            base_factor,
-            filter_period,
-            decay_period,
-            reduction_factor,
-            variable_fee_control,
-            max_volatility_accumulator,
-            min_bin_id,
-            max_bin_id,
-            protocol_share,
-        } => {
-            let params = InitPresetParameters {
-                base_factor,
-                bin_step,
-                decay_period,
-                filter_period,
-                max_bin_id,
-                max_volatility_accumulator,
 
-                min_bin_id,
-                protocol_share,
-                reduction_factor,
-                variable_fee_control,
-            };
-            initialize_preset_parameter(params, &amm_program, transaction_config).await?;
-        }
-        Command::ClosePresetParameter { bin_step } => {
-            close_preset_parameter(bin_step, &amm_program, transaction_config).await?;
-        }
-        Command::ShowPresetParameter { bin_step } => {
-            let (preset_param_pda, _bump) = derive_preset_parameter_pda(bin_step);
-            let preset_param_state: PresetParameter = amm_program.account(preset_param_pda).await?;
+        Command::ShowPresetParameter { preset_parameter } => {
+            let preset_param_state: PresetParameter = amm_program.account(preset_parameter).await?;
             println!("{:#?}", preset_param_state);
         }
-        Command::UpdateWhitelistedWallet {
-            lb_pair,
-            wallet_address,
-            idx,
-        } => {
-            update_whitelisted_wallet(
-                lb_pair,
-                idx,
-                wallet_address,
-                &amm_program,
-                transaction_config,
-            )
-            .await?
-        }
+
         Command::ListAllBinStep => {
             list_all_binstep(&amm_program).await?;
         }
@@ -474,6 +388,94 @@ async fn main() -> Result<()> {
                     swap_cap_deactivate_slot,
                 };
                 set_swap_cap(params, &amm_program, transaction_config).await?;
+            }
+            AdminCommand::ClosePresetParameter { preset_parameter } => {
+                close_preset_parameter(preset_parameter, &amm_program, transaction_config).await?;
+            }
+            AdminCommand::UpdateWhitelistedWallet {
+                lb_pair,
+                wallet_address,
+                idx,
+            } => {
+                update_whitelisted_wallet(
+                    lb_pair,
+                    idx,
+                    wallet_address,
+                    &amm_program,
+                    transaction_config,
+                )
+                .await?
+            }
+            AdminCommand::InitializePresetParameter {
+                bin_step,
+                base_factor,
+                filter_period,
+                decay_period,
+                reduction_factor,
+                variable_fee_control,
+                max_volatility_accumulator,
+                min_bin_id,
+                max_bin_id,
+                protocol_share,
+            } => {
+                let params = InitPresetParameters {
+                    base_factor,
+                    bin_step,
+                    decay_period,
+                    filter_period,
+                    max_bin_id,
+                    max_volatility_accumulator,
+
+                    min_bin_id,
+                    protocol_share,
+                    reduction_factor,
+                    variable_fee_control,
+                };
+                initialize_preset_parameter(params, &amm_program, transaction_config).await?;
+            }
+            AdminCommand::UpdateFeeOwner { lb_pair, fee_owner } => {
+                let params = UpdateFeeOwnerParam { fee_owner, lb_pair };
+                update_fee_owner(params, &amm_program, transaction_config).await?;
+            }
+            AdminCommand::WithdrawProtocolFee {
+                lb_pair,
+                amount_x,
+                amount_y,
+            } => {
+                let params = WithdrawProtocolFeeParams {
+                    lb_pair,
+                    amount_x,
+                    amount_y,
+                };
+                withdraw_protocol_fee(params, &amm_program, transaction_config).await?;
+            }
+            AdminCommand::FundReward {
+                lb_pair,
+                reward_index,
+                funding_amount,
+            } => {
+                let params = FundRewardParams {
+                    lb_pair,
+                    reward_index,
+                    funding_amount,
+                };
+                fund_reward(params, &amm_program, transaction_config).await?;
+            }
+            AdminCommand::InitializeReward {
+                lb_pair,
+                reward_mint,
+                reward_index,
+                reward_duration,
+                funder,
+            } => {
+                let params = InitializeRewardParams {
+                    lb_pair,
+                    reward_index,
+                    reward_mint,
+                    reward_duration,
+                    funder,
+                };
+                initialize_reward(params, &amm_program, transaction_config).await?;
             }
         },
     };

@@ -1,5 +1,5 @@
-use crate::state::position::PositionV2;
 use crate::state::lb_pair::LbPair;
+use crate::state::position::PositionV2;
 use crate::utils::seeds;
 use anchor_lang::prelude::*;
 
@@ -28,7 +28,7 @@ pub struct InitializePositionPda<'info> {
 
     pub lb_pair: AccountLoader<'info, LbPair>,
 
-    /// owner 
+    /// owner
     pub owner: Signer<'info>,
 
     pub system_program: Program<'info, System>,

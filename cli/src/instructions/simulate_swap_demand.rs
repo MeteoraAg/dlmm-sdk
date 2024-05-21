@@ -34,17 +34,19 @@ pub async fn simulate_swap_demand<C: Deref<Target = impl Signer> + Clone>(
     let token_mint_quote: Mint = program.account(lb_pair_state.token_y_mint).await?;
 
     get_or_create_ata(
-        &program,
+        program,
         transaction_config,
         lb_pair_state.token_x_mint,
         program.payer(),
-    ).await?;
+    )
+    .await?;
     get_or_create_ata(
-        &program,
+        program,
         transaction_config,
         lb_pair_state.token_y_mint,
         program.payer(),
-    ).await?;
+    )
+    .await?;
 
     // random amount
     let mut rng = rand::thread_rng();
@@ -59,7 +61,7 @@ pub async fn simulate_swap_demand<C: Deref<Target = impl Signer> + Clone>(
                 lb_pair,
                 swap_for_y: true,
             };
-            match swap(params, &program, transaction_config).await {
+            match swap(params, program, transaction_config).await {
                 Ok(_) => {}
                 Err(err) => {
                     println!("{err}");
@@ -75,7 +77,7 @@ pub async fn simulate_swap_demand<C: Deref<Target = impl Signer> + Clone>(
                 lb_pair,
                 swap_for_y: false,
             };
-            match swap(params, &program, transaction_config).await {
+            match swap(params, program, transaction_config).await {
                 Ok(_) => {}
                 Err(err) => {
                     println!("{err}");

@@ -67,7 +67,8 @@ pub async fn initialize_position<C: Deref<Target = impl Signer> + Clone>(
         .accounts(accounts)
         .args(ix)
         .signer(&position_keypair)
-        .send_with_spinner_and_config(transaction_config).await;
+        .send_with_spinner_and_config(transaction_config)
+        .await;
 
     println!(
         "Initialize position {}. Signature: {signature:#?}",

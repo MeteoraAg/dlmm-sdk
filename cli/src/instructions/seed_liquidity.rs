@@ -75,7 +75,7 @@ pub async fn seed_liquidity<C: Deref<Target = impl Signer> + Clone>(
     let max_active_id = get_id_from_price(bin_step, &max_price_per_lamport, Rounding::Down)
         .context("get_id_from_price overflow")?;
 
-    assert_eq!(min_active_id < max_active_id, true);
+    assert!(min_active_id < max_active_id);
 
     let mut position_number =
         (max_active_id.checked_sub(min_active_id).unwrap()) / MAX_BIN_PER_POSITION as i32;
@@ -90,7 +90,7 @@ pub async fn seed_liquidity<C: Deref<Target = impl Signer> + Clone>(
     let (event_authority, _bump) = derive_event_authority_pda();
 
     let user_token_x = get_or_create_ata(
-        &program,
+        program,
         transaction_config,
         lb_pair_state.token_x_mint,
         program.payer(),
@@ -98,7 +98,7 @@ pub async fn seed_liquidity<C: Deref<Target = impl Signer> + Clone>(
     .await?;
 
     let user_token_y = get_or_create_ata(
-        &program,
+        program,
         transaction_config,
         lb_pair_state.token_y_mint,
         program.payer(),

@@ -117,7 +117,8 @@ pub async fn swap<C: Deref<Target = impl Signer> + Clone>(
         .accounts(accounts)
         .accounts(remaining_accounts)
         .args(ix)
-        .send_with_spinner_and_config(transaction_config).await;
+        .send_with_spinner_and_config(transaction_config)
+        .await;
 
     println!("Swap. Signature: {:#?}", signature);
 

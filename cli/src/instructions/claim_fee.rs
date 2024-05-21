@@ -23,15 +23,17 @@ pub async fn claim_fee<C: Deref<Target = impl Signer> + Clone>(
         transaction_config,
         lb_pair_state.token_x_mint,
         program.payer(),
-    ).await?;
+    )
+    .await?;
     let user_token_y = get_or_create_ata(
         program,
         transaction_config,
         lb_pair_state.token_y_mint,
         program.payer(),
-    ).await?;
+    )
+    .await?;
 
-    let [bin_array_lower, bin_array_upper] = get_bin_arrays_for_position(&program, position).await?;
+    let [bin_array_lower, bin_array_upper] = get_bin_arrays_for_position(program, position).await?;
 
     let (event_authority, _bump) = derive_event_authority_pda();
 
@@ -58,7 +60,8 @@ pub async fn claim_fee<C: Deref<Target = impl Signer> + Clone>(
     let signature = request_builder
         .accounts(accounts)
         .args(ix)
-        .send_with_spinner_and_config(transaction_config).await;
+        .send_with_spinner_and_config(transaction_config)
+        .await;
 
     println!("Claim fee. Signature: {:#?}", signature);
 

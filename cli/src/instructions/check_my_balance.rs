@@ -174,7 +174,7 @@ impl<'a> BinArrayManager<'a> {
         for bin_id in position.lower_bin_id..=position.upper_bin_id {
             let bin = self.get_bin(bin_id)?;
             let (fee_x_pending, fee_y_pending) =
-                BinArrayManager::get_fee_pending_for_a_bin(position, bin_id, &bin)?;
+                BinArrayManager::get_fee_pending_for_a_bin(position, bin_id, bin)?;
             total_fee_x = fee_x_pending
                 .safe_add(total_fee_x)
                 .map_err(|_| anyhow::Error::msg("math is overflow"))?;
@@ -198,7 +198,7 @@ impl<'a> BinArrayManager<'a> {
         let fee_x_per_token_stored = bin.fee_amount_x_per_token_stored;
 
         let new_fee_x: u64 = safe_mul_shr_cast(
-            position.liquidity_shares[idx].into(),
+            position.liquidity_shares[idx],
             fee_x_per_token_stored
                 .safe_sub(fee_infos.fee_x_per_token_complete)
                 .map_err(|_| anyhow::Error::msg("math is overflow"))?,
@@ -212,7 +212,7 @@ impl<'a> BinArrayManager<'a> {
 
         let fee_y_per_token_stored = bin.fee_amount_y_per_token_stored;
         let new_fee_y: u64 = safe_mul_shr_cast(
-            position.liquidity_shares[idx].into(),
+            position.liquidity_shares[idx],
             fee_y_per_token_stored
                 .safe_sub(fee_infos.fee_y_per_token_complete)
                 .map_err(|_| anyhow::Error::msg("math is overflow"))?,

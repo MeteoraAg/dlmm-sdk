@@ -43,7 +43,8 @@ pub async fn update_reward_funder<C: Deref<Target = impl Signer> + Clone>(
     let signature = request_builder
         .accounts(accounts)
         .args(ix)
-        .send_with_spinner_and_config(transaction_config).await;
+        .send_with_spinner_and_config(transaction_config)
+        .await;
 
     println!("Fund reward. Signature: {:#?}", signature);
 

@@ -1,5 +1,5 @@
+use crate::state::lb_pair::LbPair;
 use crate::state::position::PositionV2;
-use crate::state::{lb_pair::LbPair};
 use crate::utils::seeds;
 use anchor_lang::prelude::*;
 
@@ -28,7 +28,7 @@ pub struct InitializePositionByOperator<'info> {
 
     pub lb_pair: AccountLoader<'info, LbPair>,
 
-    /// operator 
+    /// operator
     pub operator: Signer<'info>,
 
     pub system_program: Program<'info, System>,
@@ -36,11 +36,14 @@ pub struct InitializePositionByOperator<'info> {
     pub rent: Sysvar<'info, Rent>,
 }
 
-
-
 /// There is scenario that operator create and deposit position with non-valid owner
 /// Then fund will be lost forever, so only whitelisted operators are able to perform this action
-pub fn handle(ctx: Context<InitializePositionByOperator>, lower_bin_id: i32, width: i32, owner: Pubkey, fee_owner: Pubkey) -> Result<()> {
+pub fn handle(
+    ctx: Context<InitializePositionByOperator>,
+    lower_bin_id: i32,
+    width: i32,
+    owner: Pubkey,
+    fee_owner: Pubkey,
+) -> Result<()> {
     Ok(())
 }
-

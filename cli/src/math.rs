@@ -103,11 +103,9 @@ pub fn price_per_token_to_per_lamport(
     quote_token_decimal: u8,
 ) -> Option<Decimal> {
     let price_per_token = Decimal::from_f64(price_per_token)?;
-    Some(
-        price_per_token
-            .checked_mul(Decimal::TEN.powu(quote_token_decimal.into()))?
-            .checked_div(Decimal::TEN.powu(base_token_decimal.into()))?,
-    )
+    price_per_token
+        .checked_mul(Decimal::TEN.powu(quote_token_decimal.into()))?
+        .checked_div(Decimal::TEN.powu(base_token_decimal.into()))
 }
 
 /// price_per_token = price_per_lamport * 10 ** base_token_decimal / 10 ** quote_token_decimal, Solve for price_per_lamport
@@ -120,11 +118,9 @@ pub fn price_per_lamport_to_price_per_token(
     let one_ui_quote_token_amount = Decimal::TEN.powu(quote_token_decimal.into());
     let price_per_lamport = Decimal::from_f64(price_per_lamport)?;
 
-    Some(
-        one_ui_base_token_amount
-            .checked_mul(price_per_lamport)?
-            .checked_div(one_ui_quote_token_amount)?,
-    )
+    one_ui_base_token_amount
+        .checked_mul(price_per_lamport)?
+        .checked_div(one_ui_quote_token_amount)
 }
 
 #[cfg(test)]
