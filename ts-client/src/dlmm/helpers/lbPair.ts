@@ -31,7 +31,7 @@ export async function getTokensMintFromPoolAddress(
     new PublicKey(poolAddress)
   );
 
-  if (!poolAccount) return;
+  if (!poolAccount) throw new Error("Pool account not found");
 
   return {
     tokenXMint: poolAccount.tokenXMint,
