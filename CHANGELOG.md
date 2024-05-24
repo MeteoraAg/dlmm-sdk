@@ -112,3 +112,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `getTokensMintFromPoolAddress` helper function to get tokenX mint & tokenY mint from lb pair address
+
+## lb_clmm [0.6.0] - PR #75
+
+### Added
+
+- Introduces `pre_activation_swap_address` and pre_activation_slot_duration
+`pre_activation_slot_duration` fields.
+
+### Removed
+
+- `swap_cap_amount` and `swap_cap_deactivate_slot` fields.
+
+### Breaking
+
+- Reduced whitelisted_wallet from the size of 2 to 1. This break the `update_whitelisted_wallet` endpoint.
