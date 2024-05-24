@@ -38,7 +38,8 @@ use instructions::position_authorize::*;
 use instructions::remove_liquidity::*;
 use instructions::set_activation_slot::*;
 use instructions::set_lock_release_slot::*;
-use instructions::set_max_swapped_amount::*;
+use instructions::set_pre_activation_slot_duration::*;
+use instructions::set_pre_activation_swap_address::*;
 use instructions::swap::*;
 use instructions::toggle_pair_status::*;
 use instructions::update_fee_owner::*;
@@ -357,17 +358,6 @@ pub mod lb_clmm {
     ) -> Result<()> {
         instructions::set_activation_slot::handle(ctx, activation_slot)
     }
-    pub fn set_max_swapped_amount(
-        ctx: Context<SetMaxSwappedAmount>,
-        swap_cap_deactivate_slot: u64,
-        max_swapped_amount: u64,
-    ) -> Result<()> {
-        instructions::set_max_swapped_amount::handle(
-            ctx,
-            swap_cap_deactivate_slot,
-            max_swapped_amount,
-        )
-    }
 
     pub fn set_lock_release_slot(
         ctx: Context<SetLockReleaseSlot>,
@@ -381,5 +371,19 @@ pub mod lb_clmm {
         parameter: AddLiquiditySingleSidePreciseParameter,
     ) -> Result<()> {
         instructions::add_liquidity_single_side_precise::handle(ctx, parameter)
+    }
+
+    pub fn set_pre_activation_slot_duration(
+        ctx: Context<SetPreActivationInfo>,
+        pre_activation_slot_duration: u16,
+    ) -> Result<()> {
+        instructions::set_pre_activation_slot_duration::handle(ctx, pre_activation_slot_duration)
+    }
+
+    pub fn set_pre_activation_swap_address(
+        ctx: Context<SetPreActivationInfo>,
+        pre_activation_swap_address: Pubkey,
+    ) -> Result<()> {
+        instructions::set_pre_activation_swap_address::handle(ctx, pre_activation_swap_address)
     }
 }
