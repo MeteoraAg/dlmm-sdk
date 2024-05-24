@@ -302,12 +302,6 @@ pub enum AdminCommand {
         activation_slot: u64,
     },
 
-    SetSwapCapAmount {
-        lb_pair: Pubkey,
-        swap_cap_amount: u64,
-        swap_cap_deactivate_slot: u64,
-    },
-
     WithdrawProtocolFee {
         lb_pair: Pubkey,
         amount_x: u64,
@@ -367,4 +361,18 @@ pub enum AdminCommand {
         /// Preset parameter pubkey. Get from ListAllBinStep
         preset_parameter: Pubkey,
     },
+
+    SetPreActivationSlotDuration {
+        /// Address of the pair
+        lb_pair: Pubkey,
+        /// Preactivation slot duration
+        pre_activation_slot_duration: u16,
+    },
+
+    SetPreActivationSwapAddress {
+        /// Address of the pair
+        lb_pair: Pubkey,
+        /// Preactivation swap address
+        pre_activation_swap_address: Pubkey,
+    }, 
 }

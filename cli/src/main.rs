@@ -54,7 +54,12 @@ use crate::{
         },
         seed_liquidity::{seed_liquidity, SeedLiquidityParameters},
         set_activation_slot::*,
-        set_swap_cap_amount::*,
+        set_pre_activation_slot_duration::{
+            set_pre_activation_slot_duration, SetPreactivationSlotParam,
+        },
+        set_pre_activation_swap_address::{
+            set_pre_activation_swap_address, SetPreactivationSwapAddressParam,
+        },
         show_pair::show_pair,
         simulate_swap_demand::{simulate_swap_demand, SimulateSwapDemandParameters},
         swap::{swap, SwapParameters},
@@ -377,18 +382,6 @@ async fn main() -> Result<()> {
                 };
                 set_activation_slot(params, &amm_program, transaction_config).await?;
             }
-            AdminCommand::SetSwapCapAmount {
-                lb_pair,
-                swap_cap_amount,
-                swap_cap_deactivate_slot,
-            } => {
-                let params = SetSwapCapParam {
-                    lb_pair,
-                    swap_cap_amount,
-                    swap_cap_deactivate_slot,
-                };
-                set_swap_cap(params, &amm_program, transaction_config).await?;
-            }
             AdminCommand::ClosePresetParameter { preset_parameter } => {
                 close_preset_parameter(preset_parameter, &amm_program, transaction_config).await?;
             }
@@ -476,6 +469,26 @@ async fn main() -> Result<()> {
                     funder,
                 };
                 initialize_reward(params, &amm_program, transaction_config).await?;
+            }
+            AdminCommand::SetPreActivationSwapAddress {
+                lb_pair,
+                pre_activation_swap_address,
+            } => {
+                let params = SetPreactivationSwapAddressParam {
+                    lb_pair,
+                    pre_activation_swap_address,
+                };
+                set_pre_activation_swap_address(params, &amm_program, transaction_config).await?;
+            }
+            AdminCommand::SetPreActivationSlotDuration {
+                lb_pair,
+                pre_activation_slot_duration,
+            } => {
+                let params = SetPreactivationSlotParam {
+                    lb_pair,
+                    pre_activation_slot_duration,
+                };
+                set_pre_activation_slot_duration(params, &amm_program, transaction_config).await?;
             }
         },
     };
