@@ -1,5 +1,5 @@
 export type LbClmm = {
-  "version": "0.5.2",
+  "version": "0.6.0",
   "name": "lb_clmm",
   "constants": [
     {
@@ -2091,31 +2091,6 @@ export type LbClmm = {
       ]
     },
     {
-      "name": "setMaxSwappedAmount",
-      "accounts": [
-        {
-          "name": "lbPair",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "admin",
-          "isMut": true,
-          "isSigner": true
-        }
-      ],
-      "args": [
-        {
-          "name": "swapCapDeactivateSlot",
-          "type": "u64"
-        },
-        {
-          "name": "maxSwappedAmount",
-          "type": "u64"
-        }
-      ]
-    },
-    {
       "name": "setLockReleaseSlot",
       "accounts": [
         {
@@ -2222,6 +2197,48 @@ export type LbClmm = {
           "type": {
             "defined": "AddLiquiditySingleSidePreciseParameter"
           }
+        }
+      ]
+    },
+    {
+      "name": "setPreActivationSlotDuration",
+      "accounts": [
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "creator",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "preActivationSlotDuration",
+          "type": "u16"
+        }
+      ]
+    },
+    {
+      "name": "setPreActivationSwapAddress",
+      "accounts": [
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "creator",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "preActivationSwapAddress",
+          "type": "publicKey"
         }
       ]
     }
@@ -2499,12 +2516,14 @@ export type LbClmm = {
             "docs": [
               "Whitelisted wallet"
             ],
-            "type": {
-              "array": [
-                "publicKey",
-                2
-              ]
-            }
+            "type": "publicKey"
+          },
+          {
+            "name": "preActivationSwapAddress",
+            "docs": [
+              "Address allowed to swap when the current slot is greater than or equal to the pre-activation slot. The pre-activation slot is calculated as `activation_slot - pre_activation_slot_duration`."
+            ],
+            "type": "publicKey"
           },
           {
             "name": "baseKey",
@@ -2521,18 +2540,23 @@ export type LbClmm = {
             "type": "u64"
           },
           {
-            "name": "swapCapDeactivateSlot",
+            "name": "preActivationSlotDuration",
             "docs": [
-              "Last slot until pool remove max_swapped_amount for buying"
+              "Number of slot before activation slot. Used to calculate pre-activation slot for pre_activation_swap_address"
             ],
             "type": "u64"
           },
           {
-            "name": "maxSwappedAmount",
+            "name": "padding2",
             "docs": [
-              "Max X swapped amount user can swap from y to x between activation_slot and last_slot"
+              "_padding2 is reclaimed free space from swap_cap_deactivate_slot and swap_cap_amount before, BE CAREFUL FOR TOMBSTONE WHEN REUSE !!"
             ],
-            "type": "u64"
+            "type": {
+              "array": [
+                "u8",
+                8
+              ]
+            }
           },
           {
             "name": "lockDurationsInSlot",
@@ -4669,7 +4693,7 @@ export type LbClmm = {
 };
 
 export const IDL: LbClmm = {
-  "version": "0.5.2",
+  "version": "0.6.0",
   "name": "lb_clmm",
   "constants": [
     {
@@ -6761,31 +6785,6 @@ export const IDL: LbClmm = {
       ]
     },
     {
-      "name": "setMaxSwappedAmount",
-      "accounts": [
-        {
-          "name": "lbPair",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "admin",
-          "isMut": true,
-          "isSigner": true
-        }
-      ],
-      "args": [
-        {
-          "name": "swapCapDeactivateSlot",
-          "type": "u64"
-        },
-        {
-          "name": "maxSwappedAmount",
-          "type": "u64"
-        }
-      ]
-    },
-    {
       "name": "setLockReleaseSlot",
       "accounts": [
         {
@@ -6892,6 +6891,48 @@ export const IDL: LbClmm = {
           "type": {
             "defined": "AddLiquiditySingleSidePreciseParameter"
           }
+        }
+      ]
+    },
+    {
+      "name": "setPreActivationSlotDuration",
+      "accounts": [
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "creator",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "preActivationSlotDuration",
+          "type": "u16"
+        }
+      ]
+    },
+    {
+      "name": "setPreActivationSwapAddress",
+      "accounts": [
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "creator",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "preActivationSwapAddress",
+          "type": "publicKey"
         }
       ]
     }
@@ -7169,12 +7210,14 @@ export const IDL: LbClmm = {
             "docs": [
               "Whitelisted wallet"
             ],
-            "type": {
-              "array": [
-                "publicKey",
-                2
-              ]
-            }
+            "type": "publicKey"
+          },
+          {
+            "name": "preActivationSwapAddress",
+            "docs": [
+              "Address allowed to swap when the current slot is greater than or equal to the pre-activation slot. The pre-activation slot is calculated as `activation_slot - pre_activation_slot_duration`."
+            ],
+            "type": "publicKey"
           },
           {
             "name": "baseKey",
@@ -7191,18 +7234,23 @@ export const IDL: LbClmm = {
             "type": "u64"
           },
           {
-            "name": "swapCapDeactivateSlot",
+            "name": "preActivationSlotDuration",
             "docs": [
-              "Last slot until pool remove max_swapped_amount for buying"
+              "Number of slot before activation slot. Used to calculate pre-activation slot for pre_activation_swap_address"
             ],
             "type": "u64"
           },
           {
-            "name": "maxSwappedAmount",
+            "name": "padding2",
             "docs": [
-              "Max X swapped amount user can swap from y to x between activation_slot and last_slot"
+              "_padding2 is reclaimed free space from swap_cap_deactivate_slot and swap_cap_amount before, BE CAREFUL FOR TOMBSTONE WHEN REUSE !!"
             ],
-            "type": "u64"
+            "type": {
+              "array": [
+                "u8",
+                8
+              ]
+            }
           },
           {
             "name": "lockDurationsInSlot",

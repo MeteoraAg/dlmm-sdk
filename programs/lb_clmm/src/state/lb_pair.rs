@@ -31,8 +31,6 @@ pub enum PairType {
 
 pub struct LaunchPadParams {
     pub activation_slot: u64,
-    pub swap_cap_deactivate_slot: u64,
-    pub max_swapped_amount: u64,
 }
 
 impl PairType {
@@ -41,15 +39,9 @@ impl PairType {
             // The slot is unreachable. Therefore by default, the pair will be disabled until admin update the activation slot.
             Self::Permission => LaunchPadParams {
                 activation_slot: u64::MAX,
-                swap_cap_deactivate_slot: u64::MAX,
-                max_swapped_amount: u64::MAX,
             },
             // Activation slot is not used in permissionless pair. Therefore, default to 0.
-            Self::Permissionless => LaunchPadParams {
-                activation_slot: 0,
-                swap_cap_deactivate_slot: 0,
-                max_swapped_amount: 0,
-            },
+            Self::Permissionless => LaunchPadParams { activation_slot: 0 },
         }
     }
 }
@@ -116,15 +108,17 @@ pub struct LbPair {
     /// Last time the pool fee parameter was updated
     pub last_updated_at: i64,
     /// Whitelisted wallet
-    pub whitelisted_wallet: [Pubkey; 2],
+    pub whitelisted_wallet: Pubkey,
+    /// Address allowed to swap when the current slot is greater than or equal to the pre-activation slot. The pre-activation slot is calculated as `activation_slot - pre_activation_slot_duration`.
+    pub pre_activation_swap_address: Pubkey,
     /// Base keypair. Only required for permission pair
     pub base_key: Pubkey,
     /// Slot to enable the pair. Only applicable for permission pair.
     pub activation_slot: u64,
-    /// Last slot until pool remove max_swapped_amount for buying
-    pub swap_cap_deactivate_slot: u64,
-    /// Max X swapped amount user can swap from y to x between activation_slot and last_slot
-    pub max_swapped_amount: u64,
+    /// Number of slot before activation slot. Used to calculate pre-activation slot for pre_activation_swap_address
+    pub pre_activation_slot_duration: u64,
+    /// _padding2 is reclaimed free space from swap_cap_deactivate_slot and swap_cap_amount before, BE CAREFUL FOR TOMBSTONE WHEN REUSE !!
+    pub _padding2: [u8; 8],
     /// Liquidity lock duration for positions which created before activate. Only applicable for permission pair.
     pub lock_durations_in_slot: u64,
     /// Pool creator
@@ -135,11 +129,8 @@ pub struct LbPair {
 
 impl Default for LbPair {
     fn default() -> Self {
-        let LaunchPadParams {
-            activation_slot,
-            max_swapped_amount,
-            swap_cap_deactivate_slot,
-        } = PairType::Permissionless.get_pair_default_launch_pad_params();
+        let LaunchPadParams { activation_slot } =
+            PairType::Permissionless.get_pair_default_launch_pad_params();
         Self {
             active_id: 0,
             parameters: StaticParameters::default(),
@@ -159,16 +150,17 @@ impl Default for LbPair {
             last_updated_at: 0,
             pair_type: PairType::Permissionless.into(),
             status: 0,
-            whitelisted_wallet: [Pubkey::default(); 2],
+            whitelisted_wallet: Pubkey::default(),
+            pre_activation_slot_duration: 0,
+            pre_activation_swap_address: Pubkey::default(),
             base_key: Pubkey::default(),
             activation_slot,
-            swap_cap_deactivate_slot,
-            max_swapped_amount,
             creator: Pubkey::default(),
             lock_durations_in_slot: 0,
             require_base_factor_seed: 0,
             base_factor_seed: [0u8; 2],
             _padding1: [0u8; 2],
+            _padding2: [0u8; 8],
             _reserved: [0u8; 24],
         }
     }
@@ -329,15 +321,9 @@ impl LbPair {
         self.status = pair_status;
         self.creator = creator;
 
-        let LaunchPadParams {
-            activation_slot,
-            swap_cap_deactivate_slot,
-            max_swapped_amount,
-        } = pair_type.get_pair_default_launch_pad_params();
+        let LaunchPadParams { activation_slot } = pair_type.get_pair_default_launch_pad_params();
 
         self.activation_slot = activation_slot;
-        self.swap_cap_deactivate_slot = swap_cap_deactivate_slot;
-        self.max_swapped_amount = max_swapped_amount;
         self.lock_durations_in_slot = lock_duration_in_slot;
 
         Ok(())
@@ -359,41 +345,15 @@ impl LbPair {
         Ok(release_slot)
     }
 
-    pub fn update_whitelisted_wallet(&mut self, idx: usize, wallet: Pubkey) -> Result<()> {
-        require!(idx < self.whitelisted_wallet.len(), LBError::InvalidIndex);
-        self.whitelisted_wallet[idx] = wallet;
+    pub fn get_pre_activation_start_slot(&self) -> u64 {
+        // pre_activation_slot_duration byte slice was swap_deactivation_slot before for permission pair, swap_deactivation_slot always >= activation_slot, so we need to do saturating_sub
+        self.activation_slot
+            .saturating_sub(self.pre_activation_slot_duration)
+    }
 
+    pub fn update_whitelisted_wallet(&mut self, wallet: Pubkey) -> Result<()> {
+        self.whitelisted_wallet = wallet;
         Ok(())
-    }
-
-    pub fn add_whitelist_wallet(&mut self, wallet: Pubkey) -> Result<()> {
-        let mut index = None;
-
-        for (idx, whitelisted) in self.whitelisted_wallet.iter().enumerate() {
-            if whitelisted.eq(&wallet) {
-                return Ok(()); // Wallet already exists in the whitelist, returning early
-            }
-            if index.is_none() && whitelisted.eq(&Pubkey::default()) {
-                index = Some(idx);
-            }
-        }
-
-        match index {
-            Some(idx) => {
-                self.whitelisted_wallet[idx] = wallet;
-                Ok(())
-            }
-            None => Err(LBError::ExceedMaxWhitelist.into()),
-        }
-    }
-
-    pub fn get_swap_cap_status_and_amount(
-        &self,
-        current_time: u64,
-        swap_for_y: bool,
-    ) -> Result<(bool, u64)> {
-        let pair_type_access_validator = get_lb_pair_type_access_validator(self, current_time)?;
-        Ok(pair_type_access_validator.get_swap_cap_status_and_amount(swap_for_y))
     }
 
     pub fn status(&self) -> Result<PairStatus> {
