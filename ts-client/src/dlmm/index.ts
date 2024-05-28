@@ -117,7 +117,8 @@ import {
 } from "./helpers/math";
 
 type Opt = {
-  cluster: Cluster | "localhost";
+  cluster?: Cluster | "localhost";
+  programId?: PublicKey;
 };
 
 export class DLMM {
@@ -154,7 +155,7 @@ export class DLMM {
     );
     const program = new Program(
       IDL,
-      LBCLMM_PROGRAM_IDS[opt?.cluster ?? "mainnet-beta"],
+      opt?.programId ?? LBCLMM_PROGRAM_IDS[opt?.cluster ?? "mainnet-beta"],
       provider
     );
 
@@ -176,7 +177,11 @@ export class DLMM {
       {} as any,
       AnchorProvider.defaultOptions()
     );
-    const program = new Program(IDL, LBCLMM_PROGRAM_IDS[cluster], provider);
+    const program = new Program(
+      IDL,
+      opt?.programId ?? LBCLMM_PROGRAM_IDS[cluster],
+      provider
+    );
 
     try {
       const [lbPair2Key] = deriveLbPair2(
@@ -228,7 +233,11 @@ export class DLMM {
       {} as any,
       AnchorProvider.defaultOptions()
     );
-    const program = new Program(IDL, LBCLMM_PROGRAM_IDS[cluster], provider);
+    const program = new Program(
+      IDL,
+      opt?.programId ?? LBCLMM_PROGRAM_IDS[cluster],
+      provider
+    );
 
     const binArrayBitMapExtensionPubkey = deriveBinArrayBitmapExtension(
       dlmm,
@@ -325,7 +334,11 @@ export class DLMM {
       {} as any,
       AnchorProvider.defaultOptions()
     );
-    const program = new Program(IDL, LBCLMM_PROGRAM_IDS[cluster], provider);
+    const program = new Program(
+      IDL,
+      opt?.programId ?? LBCLMM_PROGRAM_IDS[cluster],
+      provider
+    );
 
     const binArrayBitMapExtensions = dlmmList.map(
       (lbPair) => deriveBinArrayBitmapExtension(lbPair, program.programId)[0]
@@ -462,7 +475,7 @@ export class DLMM {
     );
     const program = new Program(
       IDL,
-      LBCLMM_PROGRAM_IDS[opt?.cluster ?? "mainnet-beta"],
+      opt?.programId ?? LBCLMM_PROGRAM_IDS[opt?.cluster ?? "mainnet-beta"],
       provider
     );
 
@@ -493,7 +506,11 @@ export class DLMM {
       {} as any,
       AnchorProvider.defaultOptions()
     );
-    const program = new Program(IDL, LBCLMM_PROGRAM_IDS[cluster], provider);
+    const program = new Program(
+      IDL,
+      opt?.programId ?? LBCLMM_PROGRAM_IDS[cluster],
+      provider
+    );
 
     const positions = await program.account.position.all([
       {
@@ -946,7 +963,11 @@ export class DLMM {
       {} as any,
       AnchorProvider.defaultOptions()
     );
-    const program = new Program(IDL, LBCLMM_PROGRAM_IDS[cluster], provider);
+    const program = new Program(
+      IDL,
+      opt?.programId ?? LBCLMM_PROGRAM_IDS[cluster],
+      provider
+    );
 
     const positionsState = await program.account.position.fetchMultiple(
       positions
@@ -1036,7 +1057,11 @@ export class DLMM {
       {} as any,
       AnchorProvider.defaultOptions()
     );
-    const program = new Program(IDL, LBCLMM_PROGRAM_IDS[opt.cluster], provider);
+    const program = new Program(
+      IDL,
+      opt?.programId ?? LBCLMM_PROGRAM_IDS[opt.cluster],
+      provider
+    );
 
     const [lbPair] = derivePermissionLbPair(
       baseKey,
@@ -1102,7 +1127,11 @@ export class DLMM {
       {} as any,
       AnchorProvider.defaultOptions()
     );
-    const program = new Program(IDL, LBCLMM_PROGRAM_IDS[opt.cluster], provider);
+    const program = new Program(
+      IDL,
+      opt?.programId ?? LBCLMM_PROGRAM_IDS[opt.cluster],
+      provider
+    );
 
     const existsPool = await this.getPairPubkeyIfExists(
       connection,
