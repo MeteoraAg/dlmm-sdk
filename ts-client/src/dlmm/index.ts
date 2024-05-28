@@ -4282,7 +4282,7 @@ export class DLMM {
   public async getMaxPrice(
     minPrice: string,
     binArrays?: BinArrayAccount[]
-  ): Promise<number> {
+  ): Promise<string> {
     const _binArrays = binArrays || (await this.getBinArrays());
     const sortedBinArrays = _binArrays.sort(
       ({ account: { index: indexA } }, { account: { index: indexB } }) =>
@@ -4307,7 +4307,9 @@ export class DLMM {
       }
     }
 
-    return Number(binPriceWithLastLiquidity) / (2 ** 64 - 1);
+    return this.fromPricePerLamport(
+      Number(binPriceWithLastLiquidity) / (2 ** 64 - 1)
+    );
   }
 
   /** Private static method */
