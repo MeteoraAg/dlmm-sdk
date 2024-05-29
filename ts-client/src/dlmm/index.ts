@@ -4282,7 +4282,8 @@ export class DLMM {
   public async getMaxPrice(
     binArrayAccounts: BinArrayAccount[]
   ): Promise<string> {
-    const binArrays = binArrayAccounts || (await this.getBinArrays());
+    const binArrays =
+      binArrayAccounts || (await this.getBinArrayForSwap(false));
     const sortedBinArrays = binArrays.sort(
       ({ account: { index: indexA } }, { account: { index: indexB } }) =>
         indexA.toNumber() - indexB.toNumber()
