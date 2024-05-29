@@ -139,3 +139,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - `swapQuote` not working on pool with bitmap extension
+
+## @meteora-ag/dlmm [1.0.42] - PR #78
+
+### Fixed
+
+- `swapQuote` not working on pool with bitmap extension when in token is tokenX

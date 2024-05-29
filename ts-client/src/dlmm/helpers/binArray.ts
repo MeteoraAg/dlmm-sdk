@@ -240,7 +240,7 @@ export function findNextBinArrayIndexWithLiquidity(
             return new BN(binArrayIndex);
           } else {
             // Move to internal bitmap
-            startBinArrayIndex = BIN_ARRAY_BITMAP_SIZE;
+            startBinArrayIndex = BIN_ARRAY_BITMAP_SIZE.sub(new BN(1));
           }
         } else {
           const binArrayIndex = findSetBit(
