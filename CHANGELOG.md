@@ -132,4 +132,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `getMaxPrice` to get the max price of a bin that has liquidity
+- `getMaxPriceInBinArrays` to get the max price of a bin that has liquidity
