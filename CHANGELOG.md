@@ -118,7 +118,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Introduces `pre_activation_swap_address` and pre_activation_slot_duration
-`pre_activation_slot_duration` fields.
+  `pre_activation_slot_duration` fields.
 
 ### Removed
 
@@ -127,3 +127,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Breaking
 
 - Reduced whitelisted_wallet from the size of 2 to 1. This break the `update_whitelisted_wallet` endpoint.
+
+## @meteora-ag/dlmm [1.0.40] - PR #74
+
+### Added
+
+- `getMaxPriceInBinArrays` to get the max price of a bin that has liquidity

@@ -3217,7 +3217,7 @@ export class DLMM {
         swapForY,
         activeId,
         this.lbPair,
-        this.binArrayBitmapExtension?.account,
+        this.binArrayBitmapExtension?.account ?? null,
         binArrays
       );
 
@@ -3504,41 +3504,17 @@ export class DLMM {
    *    - `overrideIndexes`: Index of the whitelisted wallet to be inserted. Check DLMM.lbPair.whitelistedWallet for the index
    * @returns {Promise<Transaction>}
    */
-  public async updateWhitelistedWallet(
-    walletsToWhitelist: PublicKey[],
-    overrideIndexes?: number[]
-  ) {
-    let emptyIndexes = this.lbPair.whitelistedWallet
-      .map((pk, idx) => (pk.equals(PublicKey.default) ? idx : -1))
-      .filter((idx) => idx >= 0);
-
-    if (emptyIndexes.length < walletsToWhitelist.length) {
-      if (!overrideIndexes) {
-        throw new Error(
-          "Whitelist wallets are full. Please manually specify index of the wallet to be replaced"
-        );
-      } else if (overrideIndexes.length != walletsToWhitelist.length) {
-        throw new Error(
-          "Index provided do not match the number of wallets to be whitelist."
-        );
-      } else {
-        emptyIndexes = overrideIndexes;
-      }
-    }
-
+  public async updateWhitelistedWallet(walletsToWhitelist: PublicKey) {
     const instructions = [];
+    const updateWhitelistedWalletIx = await this.program.methods
+      .updateWhitelistedWallet(walletsToWhitelist)
+      .accounts({
+        lbPair: this.pubkey,
+        creator: this.lbPair.creator,
+      })
+      .instruction();
 
-    for (const [idx, wallet] of walletsToWhitelist.entries()) {
-      const updateWhitelistedWalletIx = await this.program.methods
-        .updateWhitelistedWallet(idx, wallet)
-        .accounts({
-          lbPair: this.pubkey,
-          creator: this.lbPair.creator,
-        })
-        .instruction();
-
-      instructions.push(updateWhitelistedWalletIx);
-    }
+    instructions.push(updateWhitelistedWalletIx);
 
     const { blockhash, lastValidBlockHeight } =
       await this.program.provider.connection.getLatestBlockhash("confirmed");
@@ -4301,6 +4277,37 @@ export class DLMM {
       blockhash,
       lastValidBlockHeight,
     }).add(syncWithMarketPriceTx);
+  }
+
+  public async getMaxPriceInBinArrays(
+    binArrayAccounts: BinArrayAccount[]
+  ): Promise<string> {
+    const sortedBinArrays = binArrayAccounts.sort(
+      ({ account: { index: indexA } }, { account: { index: indexB } }) =>
+        indexA.toNumber() - indexB.toNumber()
+    );
+    let count = sortedBinArrays.length - 1;
+    let binPriceWithLastLiquidity;
+    while (count >= 0) {
+      const binArray = sortedBinArrays[count];
+      if (binArray) {
+        const bins = binArray.account.bins.reverse();
+        if (bins.every(({ amountX }) => amountX.isZero())) {
+          count--;
+        } else {
+          const lastBinWithLiquidityIndex = bins.findLastIndex(
+            ({ amountX }) => !amountX.isZero()
+          );
+          binPriceWithLastLiquidity =
+            bins[lastBinWithLiquidityIndex].price.toString();
+          count = -1;
+        }
+      }
+    }
+
+    return this.fromPricePerLamport(
+      Number(binPriceWithLastLiquidity) / (2 ** 64 - 1)
+    );
   }
 
   /** Private static method */

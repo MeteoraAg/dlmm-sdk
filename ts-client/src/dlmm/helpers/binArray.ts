@@ -294,7 +294,7 @@ export function findNextBinArrayWithLiquidity(
   swapForY: boolean,
   activeBinId: BN,
   lbPairState: LbPair,
-  binArrayBitmapExtension: BinArrayBitmapExtension,
+  binArrayBitmapExtension: BinArrayBitmapExtension | null,
   binArrays: BinArrayAccount[]
 ): BinArrayAccount | null {
   const nearestBinArrayIndexWithLiquidity = findNextBinArrayIndexWithLiquidity(
