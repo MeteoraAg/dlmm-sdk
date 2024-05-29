@@ -19,7 +19,7 @@ async function main() {
     new BN(0),
     binArrays
   );
-  console.log("🚀 ~ main ~ swapQuote:", swapQuote);
+  console.log("🚀 ~ main ~ swapQuote:", swapQuote.outAmount.toNumber());
 }
 
 main();
