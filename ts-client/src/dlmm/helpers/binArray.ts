@@ -103,8 +103,6 @@ function findSetBit(
           .sub(new BN(1));
   };
 
-  console.log("here", binArrayBitmapExtension.positiveBinArrayBitmap);
-
   if (startIndex <= endIndex) {
     for (let i = startIndex; i <= endIndex; i++) {
       const binArrayOffset = getBinArrayOffset(new BN(i)).toNumber();
@@ -245,17 +243,6 @@ export function findNextBinArrayIndexWithLiquidity(
             startBinArrayIndex = BIN_ARRAY_BITMAP_SIZE;
           }
         } else {
-          // console.log(
-          //   ">>>> finNext",
-          //   startBinArrayIndex.toNumber(),
-          //   maxBinArrayIndex.toNumber(),
-          //   binArrayBitmapExtension.negativeBinArrayBitmap.map((t) =>
-          //     t.map((b) => b.toString())
-          //   ),
-          //   binArrayBitmapExtension.positiveBinArrayBitmap.map((t) =>
-          //     t.map((b) => b.toString())
-          //   )
-          // );
           const binArrayIndex = findSetBit(
             startBinArrayIndex.toNumber(),
             maxBinArrayIndex.toNumber(),
