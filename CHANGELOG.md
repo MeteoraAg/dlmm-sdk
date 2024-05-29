@@ -133,3 +133,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `getMaxPriceInBinArrays` to get the max price of a bin that has liquidity
+
+## @meteora-ag/dlmm [1.0.41] - PR #77
+
+### Fixed
+
+- `swapQuote` not working on pool with bitmap extension

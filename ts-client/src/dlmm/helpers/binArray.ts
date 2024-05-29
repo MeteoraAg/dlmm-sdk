@@ -87,22 +87,26 @@ function findSetBit(
   endIndex: number,
   binArrayBitmapExtension: BinArrayBitmapExtension
 ): number | null {
-  const getBinArrayOffset = (binArrayIndex: number) => {
-    return binArrayIndex > 0
-      ? (binArrayIndex % BIN_ARRAY_BITMAP_SIZE.toNumber()) - 1
-      : Math.abs(binArrayIndex - 1) % BIN_ARRAY_BITMAP_SIZE.toNumber();
+  const getBinArrayOffset = (binArrayIndex: BN) => {
+    return binArrayIndex.gt(new BN(0))
+      ? binArrayIndex.mod(BIN_ARRAY_BITMAP_SIZE)
+      : binArrayIndex.add(new BN(1)).neg().mod(BIN_ARRAY_BITMAP_SIZE);
   };
 
-  const getBitmapOffset = (binArrayIndex: number) => {
-    return binArrayIndex > 0
-      ? binArrayIndex / BIN_ARRAY_BITMAP_SIZE.toNumber() - 1
-      : -(binArrayIndex + 1) / BIN_ARRAY_BITMAP_SIZE.toNumber() - 1;
+  const getBitmapOffset = (binArrayIndex: BN) => {
+    return binArrayIndex.gt(new BN(0))
+      ? binArrayIndex.div(BIN_ARRAY_BITMAP_SIZE).sub(new BN(1))
+      : binArrayIndex
+          .add(new BN(1))
+          .neg()
+          .div(BIN_ARRAY_BITMAP_SIZE)
+          .sub(new BN(1));
   };
 
   if (startIndex <= endIndex) {
     for (let i = startIndex; i <= endIndex; i++) {
-      const binArrayOffset = getBinArrayOffset(i);
-      const bitmapOffset = getBitmapOffset(i);
+      const binArrayOffset = getBinArrayOffset(new BN(i)).toNumber();
+      const bitmapOffset = getBitmapOffset(new BN(i)).toNumber();
       const bitmapChunks =
         i > 0
           ? binArrayBitmapExtension.positiveBinArrayBitmap[bitmapOffset]
@@ -114,8 +118,8 @@ function findSetBit(
     }
   } else {
     for (let i = startIndex; i >= endIndex; i--) {
-      const binArrayOffset = getBinArrayOffset(i);
-      const bitmapOffset = getBitmapOffset(i);
+      const binArrayOffset = getBinArrayOffset(new BN(i)).toNumber();
+      const bitmapOffset = getBitmapOffset(new BN(i)).toNumber();
       const bitmapChunks =
         i > 0
           ? binArrayBitmapExtension.positiveBinArrayBitmap[bitmapOffset]
