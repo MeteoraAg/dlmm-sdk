@@ -102,11 +102,17 @@ function findSetBit(
   if (startIndex <= endIndex) {
     for (let i = startIndex; i <= endIndex; i++) {
       const binArrayOffset = getBinArrayOffset(i);
+      console.log("🚀 ~ binArrayOffset:", binArrayOffset);
       const bitmapOffset = getBitmapOffset(i);
+      console.log("🚀 ~ bitmapOffset:", bitmapOffset);
       const bitmapChunks =
         i > 0
           ? binArrayBitmapExtension.positiveBinArrayBitmap[bitmapOffset]
           : binArrayBitmapExtension.negativeBinArrayBitmap[bitmapOffset];
+      console.log(
+        "🚀 ~ bitmapChunks:",
+        bitmapChunks?.map((b) => b.toString())
+      );
       const bitmap = buildBitmapFromU64Arrays(bitmapChunks, BitmapType.U512);
       if (bitmap.testn(binArrayOffset)) {
         return i;
@@ -239,6 +245,17 @@ export function findNextBinArrayIndexWithLiquidity(
             startBinArrayIndex = BIN_ARRAY_BITMAP_SIZE;
           }
         } else {
+          console.log(
+            ">>>> finNext",
+            startBinArrayIndex.toNumber(),
+            maxBinArrayIndex.toNumber(),
+            binArrayBitmapExtension.negativeBinArrayBitmap.map((t) =>
+              t.map((b) => b.toString())
+            ),
+            binArrayBitmapExtension.positiveBinArrayBitmap.map((t) =>
+              t.map((b) => b.toString())
+            )
+          );
           const binArrayIndex = findSetBit(
             startBinArrayIndex.toNumber(),
             maxBinArrayIndex.toNumber(),
