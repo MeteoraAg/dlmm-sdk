@@ -145,3 +145,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - `swapQuote` not working on pool with bitmap extension when in token is tokenX
+
+## lb_clmm [0.6.1] - PR #79
+
+### Added
+
+- Staging program id

@@ -1,6 +1,6 @@
 [package]
 name = "lb_clmm"
-version = "0.6.0"
+version = "0.6.1"
 description = "Created with Anchor"
 edition = "2021"
 
@@ -17,6 +17,7 @@ default = []
 localnet = []
 alpha-access = []
 test-bpf = []
+staging = []
 
 [dependencies]
 anchor-lang = { version = "0.28.0", features = ["event-cpi"] }
