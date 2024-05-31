@@ -400,7 +400,7 @@ describe("SDK test", () => {
         await pair.refetchStates();
 
         const pairState = pair.lbPair;
-        expect(pairState.whitelistedWallet[0].toBase58()).toBe(
+        expect(pairState.whitelistedWallet.toBase58()).toBe(
           walletToWhitelist.toBase58()
         );
       } catch (error) {
@@ -835,7 +835,7 @@ describe("SDK test", () => {
       await pair.refetchStates();
 
       pairState = pair.lbPair;
-      expect(pairState.whitelistedWallet[0].toBase58()).toBe(
+      expect(pairState.whitelistedWallet.toBase58()).toBe(
         walletToWhitelist.toBase58()
       );
     });
