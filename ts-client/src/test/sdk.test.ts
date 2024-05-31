@@ -390,7 +390,7 @@ describe("SDK test", () => {
     it("update whitelisted wallet", async () => {
       try {
         const walletToWhitelist = keypair.publicKey;
-        const rawTx = await pair.updateWhitelistedWallet([walletToWhitelist]);
+        const rawTx = await pair.updateWhitelistedWallet(walletToWhitelist);
         const txHash = await sendAndConfirmTransaction(connection, rawTx, [
           keypair,
         ]);
@@ -400,7 +400,7 @@ describe("SDK test", () => {
         await pair.refetchStates();
 
         const pairState = pair.lbPair;
-        expect(pairState.whitelistedWallet[0].toBase58()).toBe(
+        expect(pairState.whitelistedWallet.toBase58()).toBe(
           walletToWhitelist.toBase58()
         );
       } catch (error) {
@@ -409,9 +409,9 @@ describe("SDK test", () => {
     });
 
     it("initialize position by operator and add liquidity", async () => {
-      const updateWhitelistedWalletRawTx = await pair.updateWhitelistedWallet([
-        keypair.publicKey,
-      ]);
+      const updateWhitelistedWalletRawTx = await pair.updateWhitelistedWallet(
+        keypair.publicKey
+      );
       await sendAndConfirmTransaction(
         connection,
         updateWhitelistedWalletRawTx,
@@ -827,7 +827,7 @@ describe("SDK test", () => {
       expect(pairState.pairType).toBe(PairType.Permissioned);
 
       const walletToWhitelist = keypair.publicKey;
-      rawTx = await pair.updateWhitelistedWallet([walletToWhitelist]);
+      rawTx = await pair.updateWhitelistedWallet(walletToWhitelist);
       txHash = await sendAndConfirmTransaction(connection, rawTx, [keypair]);
       console.log("Update whitelisted wallet", txHash);
       expect(txHash).not.toBeNull();
@@ -835,7 +835,7 @@ describe("SDK test", () => {
       await pair.refetchStates();
 
       pairState = pair.lbPair;
-      expect(pairState.whitelistedWallet[0].toBase58()).toBe(
+      expect(pairState.whitelistedWallet.toBase58()).toBe(
         walletToWhitelist.toBase58()
       );
     });

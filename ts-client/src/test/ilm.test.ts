@@ -191,7 +191,7 @@ describe("ILM test", () => {
       });
 
       const walletToWhitelist = keypair.publicKey;
-      rawTx = await pair.updateWhitelistedWallet([walletToWhitelist]);
+      rawTx = await pair.updateWhitelistedWallet(walletToWhitelist);
       txHash = await sendAndConfirmTransaction(connection, rawTx, [keypair]);
       console.log("Update whitelisted wallet", txHash);
       expect(txHash).not.toBeNull();
@@ -453,7 +453,7 @@ describe("ILM test", () => {
       });
 
       const walletToWhitelist = keypair.publicKey;
-      rawTx = await pair.updateWhitelistedWallet([walletToWhitelist]);
+      rawTx = await pair.updateWhitelistedWallet(walletToWhitelist);
       txHash = await sendAndConfirmTransaction(connection, rawTx, [keypair]);
       console.log("Update whitelisted wallet", txHash);
       expect(txHash).not.toBeNull();

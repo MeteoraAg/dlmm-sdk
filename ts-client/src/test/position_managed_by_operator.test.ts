@@ -200,7 +200,7 @@ describe("Position by operator", () => {
         cluster: "localhost",
       });
 
-      rawTx = await pair.updateWhitelistedWallet([operatorKeypair.publicKey]);
+      rawTx = await pair.updateWhitelistedWallet(operatorKeypair.publicKey);
       txHash = await sendAndConfirmTransaction(connection, rawTx, [keypair]);
       console.log("Update whitelisted wallet", txHash);
       expect(txHash).not.toBeNull();
