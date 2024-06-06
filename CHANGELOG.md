@@ -157,3 +157,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - update static function to support param program id
+
+
+## @meteora-ag/dlmm [1.0.44] - PR #81
+
+### Added
+
+- `getEmissionRate` should not return ended reward, which can be read from `rewardDurationEnd`
+
