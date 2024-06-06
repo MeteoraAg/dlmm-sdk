@@ -266,6 +266,7 @@ export interface SeedLiquidityResponse {
   initializeBinArraysAndPositionIxs: TransactionInstruction[][];
   addLiquidityIxs: TransactionInstruction[][];
 }
+
 export type DynamicPosition = {
   lbPair: PublicKey;
   owner: PublicKey;
