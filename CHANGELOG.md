@@ -158,6 +158,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - update static function to support param program id
 
+## commons [0.1.0] - PR #80
+
+### Added
+
+- Swap exact in quote
 
 ## @meteora-ag/dlmm [1.0.44] - PR #81
 
