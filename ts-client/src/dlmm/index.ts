@@ -1414,12 +1414,19 @@ export class DLMM {
    * `rewardTwo`, both of which are of type `Decimal`.
    */
   public getEmissionRate(): EmissionRate {
+    const now = Date.now() / 1000;
     const [rewardOneEmissionRate, rewardTwoEmissionRate] =
-      this.lbPair.rewardInfos.map(({ rewardRate }) => rewardRate);
+      this.lbPair.rewardInfos.map(({ rewardRate, rewardDurationEnd }) =>
+        now > rewardDurationEnd.toNumber() ? undefined : rewardRate
+      );
 
     return {
-      rewardOne: new Decimal(rewardOneEmissionRate.toString()).div(PRECISION),
-      rewardTwo: new Decimal(rewardTwoEmissionRate.toString()).div(PRECISION),
+      rewardOne: rewardOneEmissionRate
+        ? new Decimal(rewardOneEmissionRate.toString()).div(PRECISION)
+        : undefined,
+      rewardTwo: rewardTwoEmissionRate
+        ? new Decimal(rewardTwoEmissionRate.toString()).div(PRECISION)
+        : undefined,
     };
   }
 

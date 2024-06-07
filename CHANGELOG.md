@@ -163,3 +163,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Swap exact in quote
+
+## @meteora-ag/dlmm [1.0.44] - PR #81
+
+### Added
+
+- `getEmissionRate` should not return ended reward, which can be read from `rewardDurationEnd`
+

@@ -93,8 +93,8 @@ export interface FeeInfo {
 }
 
 export interface EmissionRate {
-  rewardOne: Decimal;
-  rewardTwo: Decimal;
+  rewardOne: Decimal | undefined;
+  rewardTwo: Decimal | undefined;
 }
 
 export interface SwapFee {
