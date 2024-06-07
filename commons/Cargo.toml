@@ -12,3 +12,4 @@ anchor-client = { workspace = true, features = ["async"] }
 anyhow = { workspace = true }
 lb_clmm = { path = "../programs/lb_clmm", features = ["cpi"] }
 tokio = { workspace = true, features = ["full", "parking_lot"] }
+bincode = "1.3.3"

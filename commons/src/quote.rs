@@ -8,7 +8,7 @@ use lb_clmm::{
     },
     utils::pda::derive_bin_array_pda,
 };
-use std::{collections::HashMap, time::SystemTime};
+use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct SwapQuote {
@@ -23,11 +23,8 @@ pub fn quote_exact_in(
     swap_for_y: bool,
     bin_arrays: HashMap<Pubkey, BinArray>,
     bitmap_extension: Option<&BinArrayBitmapExtension>,
+    current_timestamp: u64,
 ) -> Result<SwapQuote> {
-    let current_timestamp = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)?
-        .as_secs();
-
     let mut lb_pair = *lb_pair;
     lb_pair.update_references(current_timestamp as i64)?;
 
@@ -155,12 +152,33 @@ pub fn get_bin_array_pubkeys_for_swap(
 mod tests {
     use super::*;
     use anchor_client::anchor_lang::AccountDeserialize;
+    use anchor_client::solana_sdk::clock::Clock;
     use anchor_client::{
         solana_client::nonblocking::rpc_client::RpcClient,
         solana_sdk::{pubkey::Pubkey, signature::Keypair},
         Client, Cluster,
     };
+    use std::time::SystemTime;
     use std::{rc::Rc, str::FromStr};
+
+    /// Get on chain clock, or use current node slot
+    async fn get_current_timestamp(rpc_client: Option<RpcClient>) -> u64 {
+        match rpc_client {
+            Some(rpc_client) => {
+                let clock_account = rpc_client
+                    .get_account(&anchor_client::solana_sdk::sysvar::clock::ID)
+                    .await
+                    .unwrap();
+
+                let clock_state: Clock = bincode::deserialize(clock_account.data.as_ref()).unwrap();
+                clock_state.unix_timestamp as u64
+            }
+            None => SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+        }
+    }
 
     #[tokio::test]
     async fn test_swap_quote_exact_in() {
@@ -212,6 +230,8 @@ mod tests {
         // 1 SOL -> USDC
         let in_sol_amount = 1_000_000_000;
 
+        let current_timestamp = get_current_timestamp(Some(rpc_client)).await;
+
         let quote_result = quote_exact_in(
             SOL_USDC,
             &lb_pair,
@@ -219,6 +239,7 @@ mod tests {
             true,
             bin_arrays.clone(),
             None,
+            current_timestamp,
         )
         .unwrap();
 
@@ -237,6 +258,7 @@ mod tests {
             false,
             bin_arrays.clone(),
             None,
+            current_timestamp,
         )
         .unwrap();
 

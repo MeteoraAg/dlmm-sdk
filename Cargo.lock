@@ -1122,6 +1122,7 @@ version = "0.1.0"
 dependencies = [
  "anchor-client",
  "anyhow",
+ "bincode",
  "lb_clmm",
  "tokio",
 ]
