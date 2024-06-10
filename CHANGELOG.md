@@ -176,7 +176,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - fix `addLiquidityByStrategy` not working when active bin is not within the liquidity
 
-## lb_clmm [0.7.0]
+## lb_clmm [0.7.0] - PR #83
 
 ### Added
 
@@ -192,3 +192,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Breaking
 
 - Program endpoint `initialize_reward`. It require `token_badge` to be passed for the reward mint.
+
+## @meteora-ag/dlmm [1.0.45] - PR #83
+
+### Changed
+
+- Use `claimFee2` instead of `claimFee` to support both token and token 2022 program.
+- Use `initializeLbPair2` instead of `initializeLbPair`to support both token and token 2022 program.
