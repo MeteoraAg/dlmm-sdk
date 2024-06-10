@@ -1271,6 +1271,12 @@ export type LbClmm = {
           "isSigner": false
         },
         {
+          "name": "tokenBadge",
+          "isMut": false,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
           "name": "admin",
           "isMut": true,
           "isSigner": true
@@ -3145,6 +3151,36 @@ export type LbClmm = {
               "Portion of swap fees retained by the protocol by controlling protocol_share parameter. protocol_swap_fee = protocol_share * total_swap_fee"
             ],
             "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "tokenBadge",
+      "docs": [
+        "Parameter that set by the protocol"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "tokenMint",
+            "docs": [
+              "Token mint"
+            ],
+            "type": "publicKey"
+          },
+          {
+            "name": "padding",
+            "docs": [
+              "Reserved space"
+            ],
+            "type": {
+              "array": [
+                "u8",
+                128
+              ]
+            }
           }
         ]
       }
@@ -6211,6 +6247,12 @@ export const IDL: LbClmm = {
           "isSigner": false
         },
         {
+          "name": "tokenBadge",
+          "isMut": false,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
           "name": "admin",
           "isMut": true,
           "isSigner": true
@@ -8085,6 +8127,36 @@ export const IDL: LbClmm = {
               "Portion of swap fees retained by the protocol by controlling protocol_share parameter. protocol_swap_fee = protocol_share * total_swap_fee"
             ],
             "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "tokenBadge",
+      "docs": [
+        "Parameter that set by the protocol"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "tokenMint",
+            "docs": [
+              "Token mint"
+            ],
+            "type": "publicKey"
+          },
+          {
+            "name": "padding",
+            "docs": [
+              "Reserved space"
+            ],
+            "type": {
+              "array": [
+                "u8",
+                128
+              ]
+            }
           }
         ]
       }

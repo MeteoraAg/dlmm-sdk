@@ -18,6 +18,7 @@ use instructions::add_liquidity_by_weight::*;
 use instructions::add_liquidity_by_weight_one_side::*;
 use instructions::add_liquidity_single_side_precise::*;
 use instructions::claim_fee::*;
+use instructions::claim_fee2::*;
 use instructions::claim_reward::*;
 use instructions::close_position::*;
 use instructions::close_preset_parameter::*;
@@ -26,12 +27,14 @@ use instructions::increase_oracle_length::*;
 use instructions::initialize_bin_array::*;
 use instructions::initialize_bin_array_bitmap_extension::*;
 use instructions::initialize_lb_pair::*;
+use instructions::initialize_lb_pair2::*;
 use instructions::initialize_permission_lb_pair::*;
 use instructions::initialize_position::*;
 use instructions::initialize_position_by_operator::*;
 use instructions::initialize_position_pda::*;
 use instructions::initialize_preset_parameters::*;
 use instructions::initialize_reward::*;
+use instructions::initialize_token_badge::*;
 use instructions::migrate_bin_array::*;
 use instructions::migrate_position::*;
 use instructions::position_authorize::*;
@@ -280,6 +283,7 @@ pub mod lb_clmm {
         instructions::claim_reward::handle(ctx, reward_index)
     }
 
+    #[deprecated = "Please use claim_fee2 instead. Which support both token and token 2022 program"]
     pub fn claim_fee(ctx: Context<ClaimFee>) -> Result<()> {
         instructions::claim_fee::handle(ctx)
     }
@@ -405,5 +409,21 @@ pub mod lb_clmm {
             active_id,
             max_price_impact_bps,
         )
+    }
+
+    pub fn claim_fee2(ctx: Context<ClaimFee2>) -> Result<()> {
+        instructions::claim_fee2::handle(ctx)
+    }
+
+    pub fn initialize_token_badge(ctx: Context<InitializeTokenBadge>) -> Result<()> {
+        instructions::initialize_token_badge::handle(ctx)
+    }
+
+    pub fn initialize_lb_pair2(
+        ctx: Context<InitializeLbPair2>,
+        active_id: i32,
+        bin_step: u16,
+    ) -> Result<()> {
+        instructions::initialize_lb_pair2::handle(ctx, active_id, bin_step)
     }
 }

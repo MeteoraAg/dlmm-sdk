@@ -179,4 +179,16 @@ pub enum LBError {
 
     #[msg("Invalid activation type")]
     InvalidActivationType,
+
+    #[msg("Invalid lock release slot")]
+    InvalidLockReleaseSlot,
+
+    #[msg("Bin range is not empty")]
+    BinRangeIsNotEmpty,
+
+    #[msg("Unsupported mint extension")]
+    UnsupportedMintExtension,
+
+    #[msg("Unmatch token mint")]
+    UnmatchTokenMint,
 }

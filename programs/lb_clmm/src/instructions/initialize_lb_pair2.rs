@@ -1,20 +1,23 @@
 use crate::constants::DEFAULT_OBSERVATION_LENGTH;
 use crate::errors::LBError;
+use crate::events::LbPairCreate;
 use crate::state::bin_array_bitmap_extension::BinArrayBitmapExtension;
 use crate::state::lb_pair::LbPair;
+use crate::state::lb_pair::PairType;
 use crate::state::oracle::Oracle;
 use crate::state::preset_parameters::PresetParameter;
+use crate::state::token_badge::TokenBadge;
 use crate::utils::seeds::BIN_ARRAY_BITMAP_SEED;
 use crate::utils::seeds::ORACLE;
 use anchor_lang::prelude::*;
-use anchor_spl::token::Token;
-use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
+use anchor_spl::token_interface::TokenInterface;
+use anchor_spl::token_interface::{Mint, TokenAccount};
 use std::cmp::{max, min};
 
 #[event_cpi]
 #[derive(Accounts)]
 #[instruction(active_id: i32, bin_step: u16)]
-pub struct InitializeLbPair<'info> {
+pub struct InitializeLbPair2<'info> {
     #[account(
         init,
         seeds = [
@@ -41,8 +44,9 @@ pub struct InitializeLbPair<'info> {
     )]
     pub bin_array_bitmap_extension: Option<AccountLoader<'info, BinArrayBitmapExtension>>,
 
-    #[account(constraint = token_mint_x.key() != token_mint_y.key())]
+    #[account(constraint = token_mint_x.key() != token_mint_y.key(), mint::token_program = token_program_x)]
     pub token_mint_x: Box<InterfaceAccount<'info, Mint>>,
+    #[account(mint::token_program = token_program_y)]
     pub token_mint_y: Box<InterfaceAccount<'info, Mint>>,
 
     #[account(
@@ -55,6 +59,7 @@ pub struct InitializeLbPair<'info> {
         payer = funder,
         token::mint = token_mint_x,
         token::authority = lb_pair,
+        token::token_program = token_program_x,
     )]
     pub reserve_x: Box<InterfaceAccount<'info, TokenAccount>>,
     #[account(
@@ -67,6 +72,7 @@ pub struct InitializeLbPair<'info> {
         payer = funder,
         token::mint = token_mint_y,
         token::authority = lb_pair,
+        token::token_program = token_program_y,
     )]
     pub reserve_y: Box<InterfaceAccount<'info, TokenAccount>>,
 
@@ -90,12 +96,15 @@ pub struct InitializeLbPair<'info> {
     #[account(mut)]
     pub funder: Signer<'info>,
 
-    pub token_program: Program<'info, Token>,
+    pub token_badge_x: Option<AccountLoader<'info, TokenBadge>>,
+    pub token_badge_y: Option<AccountLoader<'info, TokenBadge>>,
+
+    pub token_program_x: Interface<'info, TokenInterface>,
+    pub token_program_y: Interface<'info, TokenInterface>,
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
 }
 
-// To support token 2022, please use `InitializeLbPair2`
-pub fn handle(ctx: Context<InitializeLbPair>, active_id: i32, bin_step: u16) -> Result<()> {
+pub fn handle(ctx: Context<InitializeLbPair2>, active_id: i32, bin_step: u16) -> Result<()> {
     Ok(())
 }
