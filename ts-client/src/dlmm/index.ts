@@ -105,6 +105,7 @@ import {
   swapExactOutQuoteAtBin,
   getPriceOfBinByBinId,
   computeFee,
+  deriveTokenBadge,
 } from "./helpers";
 import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import Decimal from "decimal.js";
@@ -1218,8 +1219,20 @@ export class DLMM {
       ? deriveBinArrayBitmapExtension(lbPair, program.programId)[0]
       : null;
 
+    const [tokenXBadge, tokenYBadge] = [tokenX, tokenY].map((token) => {
+      return deriveTokenBadge(token, program.programId)[0];
+    });
+
+    const [mintXAccountInfo, mintYAccountInfo, mintXBadge, mintYBadge] =
+      await program.provider.connection.getMultipleAccountsInfo([
+        tokenX,
+        tokenY,
+        tokenXBadge,
+        tokenYBadge,
+      ]);
+
     return program.methods
-      .initializeLbPair(activeId.toNumber(), binStep.toNumber())
+      .initializeLbPair2(activeId.toNumber(), binStep.toNumber())
       .accounts({
         funder,
         lbPair,
@@ -1229,7 +1242,10 @@ export class DLMM {
         binArrayBitmapExtension,
         tokenMintX: tokenX,
         tokenMintY: tokenY,
-        tokenProgram: TOKEN_PROGRAM_ID,
+        tokenBadgeX: mintXBadge ? tokenXBadge : program.programId,
+        tokenBadgeY: mintYBadge ? tokenYBadge : program.programId,
+        tokenProgramX: mintXAccountInfo.owner,
+        tokenProgramY: mintYAccountInfo.owner,
         oracle,
         presetParameter,
         systemProgram: SystemProgram.programId,
