@@ -1,12 +1,13 @@
 use crate::authorize_claim_fee_position;
+use crate::errors::LBError;
 use crate::state::{bin::BinArray, lb_pair::LbPair, position::PositionV2};
+use crate::PositionLiquidityFlowValidator;
 use anchor_lang::prelude::*;
-use anchor_spl::token::Token;
-use anchor_spl::token_interface::{Mint, TokenAccount};
+use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface, TransferChecked};
 
 #[event_cpi]
 #[derive(Accounts)]
-pub struct ClaimFee<'info> {
+pub struct ClaimFee2<'info> {
     #[account(
         mut,
         has_one = reserve_x,
@@ -49,10 +50,10 @@ pub struct ClaimFee<'info> {
     pub token_x_mint: Box<InterfaceAccount<'info, Mint>>,
     pub token_y_mint: Box<InterfaceAccount<'info, Mint>>,
 
-    pub token_program: Program<'info, Token>,
+    pub token_program_x: Interface<'info, TokenInterface>,
+    pub token_program_y: Interface<'info, TokenInterface>,
 }
 
-// Support only token program. To support both token, and token 2022, please use `ClaimFee2`
-pub fn handle(ctx: Context<ClaimFee>) -> Result<()> {
+pub fn handle(ctx: Context<ClaimFee2>) -> Result<()> {
     Ok(())
 }

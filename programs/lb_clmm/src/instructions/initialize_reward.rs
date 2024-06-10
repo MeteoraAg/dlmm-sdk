@@ -1,6 +1,6 @@
-use crate::assert_eq_admin;
 use crate::errors::LBError;
 use crate::state::lb_pair::LbPair;
+use crate::{assert_eq_admin, state::token_badge::TokenBadge};
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
@@ -25,6 +25,8 @@ pub struct InitializeReward<'info> {
     pub reward_vault: Box<InterfaceAccount<'info, TokenAccount>>,
 
     pub reward_mint: Box<InterfaceAccount<'info, Mint>>,
+
+    pub token_badge: Option<AccountLoader<'info, TokenBadge>>,
 
     #[account(
         mut,
