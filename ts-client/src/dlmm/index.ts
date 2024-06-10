@@ -2014,41 +2014,11 @@ export class DLMM {
       tokenYProgram: TOKEN_PROGRAM_ID,
     };
 
-    const oneSideLiquidityParams: LiquidityParameterByStrategyOneSide = {
-      amount: totalXAmount.isZero() ? totalYAmount : totalXAmount,
-      activeId,
-      maxActiveBinSlippage,
-      strategyParameters,
-    };
-
-    const oneSideAddLiquidityAccounts = {
-      binArrayLower,
-      binArrayUpper,
-      lbPair: this.pubkey,
-      binArrayBitmapExtension: null,
-      sender: user,
-      position: positionPubKey,
-      reserve: totalXAmount.isZero()
-        ? this.lbPair.reserveY
-        : this.lbPair.reserveX,
-      tokenMint: totalXAmount.isZero()
-        ? this.lbPair.tokenYMint
-        : this.lbPair.tokenXMint,
-      tokenProgram: TOKEN_PROGRAM_ID,
-      userToken: totalXAmount.isZero() ? userTokenY : userTokenX,
-    };
-
-    const isOneSideDeposit = totalXAmount.isZero() || totalYAmount.isZero();
-    const programMethod = isOneSideDeposit
-      ? this.program.methods.addLiquidityByStrategyOneSide(
-          oneSideLiquidityParams
-        )
-      : this.program.methods.addLiquidityByStrategy(liquidityParams);
+    const programMethod =
+      this.program.methods.addLiquidityByStrategy(liquidityParams);
 
     const createPositionTx = await programMethod
-      .accounts(
-        isOneSideDeposit ? oneSideAddLiquidityAccounts : addLiquidityAccounts
-      )
+      .accounts(addLiquidityAccounts)
       .preInstructions(preInstructions)
       .postInstructions(postInstructions)
       .transaction();
@@ -2471,41 +2441,11 @@ export class DLMM {
       tokenYProgram: TOKEN_PROGRAM_ID,
     };
 
-    const oneSideLiquidityParams: LiquidityParameterByStrategyOneSide = {
-      amount: totalXAmount.isZero() ? totalYAmount : totalXAmount,
-      activeId,
-      maxActiveBinSlippage,
-      strategyParameters,
-    };
-
-    const oneSideAddLiquidityAccounts = {
-      binArrayLower,
-      binArrayUpper,
-      lbPair: this.pubkey,
-      binArrayBitmapExtension: null,
-      sender: user,
-      position: positionPubKey,
-      reserve: totalXAmount.isZero()
-        ? this.lbPair.reserveY
-        : this.lbPair.reserveX,
-      tokenMint: totalXAmount.isZero()
-        ? this.lbPair.tokenYMint
-        : this.lbPair.tokenXMint,
-      tokenProgram: TOKEN_PROGRAM_ID,
-      userToken: totalXAmount.isZero() ? userTokenY : userTokenX,
-    };
-
-    const isOneSideDeposit = totalXAmount.isZero() || totalYAmount.isZero();
-    const programMethod = isOneSideDeposit
-      ? this.program.methods.addLiquidityByStrategyOneSide(
-          oneSideLiquidityParams
-        )
-      : this.program.methods.addLiquidityByStrategy(liquidityParams);
+    const programMethod =
+      this.program.methods.addLiquidityByStrategy(liquidityParams);
 
     const createPositionTx = await programMethod
-      .accounts(
-        isOneSideDeposit ? oneSideAddLiquidityAccounts : addLiquidityAccounts
-      )
+      .accounts(addLiquidityAccounts)
       .preInstructions(preInstructions)
       .postInstructions(postInstructions)
       .transaction();
