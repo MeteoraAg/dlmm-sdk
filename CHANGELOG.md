@@ -340,6 +340,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fix position liquidity withdraw to position owner, instead of customized fee owner
+### Changed
+
+- Bump to anchor 0.29.0
+
+## @meteora-ag/dlmm [1.0.45] - PR #83
 
 ## @mercurial-finance/dynamic-amm-sdk [1.0.32] - PR #58
 
