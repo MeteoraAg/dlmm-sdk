@@ -232,7 +232,7 @@ pub mod lb_clmm {
         amount_in: u64,
         min_amount_out: u64,
     ) -> Result<()> {
-        instructions::swap::handle(ctx, amount_in, min_amount_out)
+        instructions::swap::handle_exact_in(ctx, amount_in, min_amount_out)
     }
 
     pub fn withdraw_protocol_fee(
@@ -388,5 +388,27 @@ pub mod lb_clmm {
         pre_activation_swap_address: Pubkey,
     ) -> Result<()> {
         instructions::set_pre_activation_swap_address::handle(ctx, pre_activation_swap_address)
+    }
+
+    pub fn swap_exact_out<'a, 'b, 'c, 'info>(
+        ctx: Context<'a, 'b, 'c, 'info, Swap<'info>>,
+        max_in_amount: u64,
+        out_amount: u64,
+    ) -> Result<()> {
+        instructions::swap::handle_exact_out(ctx, max_in_amount, out_amount)
+    }
+
+    pub fn swap_with_price_impact<'a, 'b, 'c, 'info>(
+        ctx: Context<'a, 'b, 'c, 'info, Swap<'info>>,
+        amount_in: u64,
+        active_id: Option<i32>,
+        max_price_impact_bps: u16,
+    ) -> Result<()> {
+        instructions::swap::handle_exact_in_with_price_impact(
+            ctx,
+            amount_in,
+            active_id,
+            max_price_impact_bps,
+        )
     }
 }
