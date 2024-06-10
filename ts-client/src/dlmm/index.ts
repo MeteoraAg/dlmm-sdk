@@ -89,7 +89,6 @@ import {
   deriveOracle,
   computeBudgetIx,
   findNextBinArrayIndexWithLiquidity,
-  swapQuoteAtBinWithCap,
   toStrategyParameters,
   derivePermissionLbPair,
   deriveLbPair2,
