@@ -1,5 +1,5 @@
 export type LbClmm = {
-  "version": "0.6.1",
+  "version": "0.7.0",
   "name": "lb_clmm",
   "constants": [
     {
@@ -4954,7 +4954,7 @@ export type LbClmm = {
 };
 
 export const IDL: LbClmm = {
-  "version": "0.6.1",
+  "version": "0.7.0",
   "name": "lb_clmm",
   "constants": [
     {

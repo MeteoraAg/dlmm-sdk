@@ -102,6 +102,7 @@ import {
   AccountLayout,
   MintLayout,
   NATIVE_MINT,
+  RawMint,
   TOKEN_PROGRAM_ID,
   getAssociatedTokenAddressSync,
 } from "@solana/spl-token";
@@ -284,24 +285,25 @@ export class DLMM {
 
     const reserveXBalance = AccountLayout.decode(reserveAccountsInfo[0].data);
     const reserveYBalance = AccountLayout.decode(reserveAccountsInfo[1].data);
-    const tokenXDecimal = MintLayout.decode(
-      reserveAccountsInfo[2].data
-    ).decimals;
-    const tokenYDecimal = MintLayout.decode(
-      reserveAccountsInfo[3].data
-    ).decimals;
+    const mintXAccountInfo = reserveAccountsInfo[2];
+    const mintYAccountInfo = reserveAccountsInfo[3];
+    const tokenXDecimal = MintLayout.decode(mintXAccountInfo.data).decimals;
+    const tokenYDecimal = MintLayout.decode(mintYAccountInfo.data).decimals;
     const tokenX = {
       publicKey: lbPairAccInfo.tokenXMint,
       reserve: lbPairAccInfo.reserveX,
       amount: reserveXBalance.amount,
       decimal: tokenXDecimal,
+      owner: mintXAccountInfo.owner,
     };
     const tokenY = {
       publicKey: lbPairAccInfo.tokenYMint,
       reserve: lbPairAccInfo.reserveY,
       amount: reserveYBalance.amount,
       decimal: tokenYDecimal,
+      owner: mintYAccountInfo.owner,
     };
+
     return new DLMM(
       dlmm,
       program,
@@ -445,12 +447,14 @@ export class DLMM {
           reserve: lbPairState.reserveX,
           amount: reserveXBalance.amount,
           decimal: tokenXDecimal,
+          owner: tokenXMintAccountInfo.owner,
         };
         const tokenY = {
           publicKey: lbPairState.tokenYMint,
           reserve: lbPairState.reserveY,
           amount: reserveYBalance.amount,
           decimal: tokenYDecimal,
+          owner: tokenYMintAccountInfo.owner,
         };
         return new DLMM(
           lbPair,
@@ -699,13 +703,15 @@ export class DLMM {
       [...reservePublicKeys, ...reservePublicKeysV2]
     );
 
+    type LbPairMintInfo = { mint: RawMint; owner: PublicKey };
+
     const lbPairReserveMap = new Map<
       string,
       { reserveX: bigint; reserveY: bigint }
     >();
     const lbPairMintMap = new Map<
       string,
-      { mintXDecimal: number; mintYDecimal: number }
+      { mintX: LbPairMintInfo; mintY: LbPairMintInfo }
     >();
     lbPairArray.forEach((lbPair, idx) => {
       const index = idx * 4;
@@ -733,8 +739,8 @@ export class DLMM {
       const mintY = MintLayout.decode(mintYBuffer.data);
 
       lbPairMintMap.set(lbPair.toBase58(), {
-        mintXDecimal: mintX.decimals,
-        mintYDecimal: mintY.decimals,
+        mintX: { mint: mintX, owner: mintXBuffer.owner },
+        mintY: { mint: mintY, owner: mintYBuffer.owner },
       });
     });
 
@@ -744,7 +750,7 @@ export class DLMM {
     >();
     const lbPairMintMapV2 = new Map<
       string,
-      { mintXDecimal: number; mintYDecimal: number }
+      { mintX: LbPairMintInfo; mintY: LbPairMintInfo }
     >();
     lbPairArrayV2.forEach((lbPair, idx) => {
       const index = idx * 4;
@@ -774,9 +780,16 @@ export class DLMM {
         );
       const mintX = MintLayout.decode(mintXBufferV2.data);
       const mintY = MintLayout.decode(mintYBufferV2.data);
+
       lbPairMintMapV2.set(lbPair.toBase58(), {
-        mintXDecimal: mintX.decimals,
-        mintYDecimal: mintY.decimals,
+        mintX: {
+          mint: mintX,
+          owner: mintXBufferV2.owner,
+        },
+        mintY: {
+          mint: mintY,
+          owner: mintYBufferV2.owner,
+        },
       });
     });
 
@@ -821,9 +834,7 @@ export class DLMM {
         upperBinArrayPubKey.toBase58()
       );
       const lbPairAcc = lbPairArraysMap.get(lbPair.toBase58());
-      const { mintXDecimal, mintYDecimal } = lbPairMintMap.get(
-        lbPair.toBase58()
-      );
+      const { mintX, mintY } = lbPairMintMap.get(lbPair.toBase58());
       const reserveXBalance =
         lbPairReserveMap.get(lbPair.toBase58())?.reserveX ?? BigInt(0);
       const reserveYBalance =
@@ -832,13 +843,15 @@ export class DLMM {
         publicKey: lbPairAcc.tokenXMint,
         reserve: lbPairAcc.reserveX,
         amount: reserveXBalance,
-        decimal: mintXDecimal,
+        decimal: mintX.mint.decimals,
+        owner: mintX.owner,
       };
       const tokenY = {
         publicKey: lbPairAcc.tokenYMint,
         reserve: lbPairAcc.reserveY,
         amount: reserveYBalance,
-        decimal: mintYDecimal,
+        decimal: mintY.mint.decimals,
+        owner: mintY.owner,
       };
       const positionData = await DLMM.processPosition(
         program,
@@ -846,8 +859,8 @@ export class DLMM {
         lbPairAcc,
         onChainTimestamp,
         account,
-        mintXDecimal,
-        mintYDecimal,
+        mintX.mint.decimals,
+        mintY.mint.decimals,
         lowerBinArray,
         upperBinArray,
         PublicKey.default
@@ -895,10 +908,13 @@ export class DLMM {
         upperBinArrayPubKey.toBase58()
       );
       const lbPairAcc = lbPairArraysMapV2.get(lbPair.toBase58());
-      const [baseTokenDecimal, quoteTokenDecimal] = await Promise.all([
-        getTokenDecimals(program.provider.connection, lbPairAcc.tokenXMint),
-        getTokenDecimals(program.provider.connection, lbPairAcc.tokenYMint),
-      ]);
+      const [baseMintAccountInfo, quoteMintAccountInfo] =
+        await program.provider.connection.getMultipleAccountsInfo([
+          lbPairAcc.tokenXMint,
+          lbPairAcc.tokenYMint,
+        ]);
+      const baseMint = MintLayout.decode(baseMintAccountInfo.data);
+      const quoteMint = MintLayout.decode(quoteMintAccountInfo.data);
       const reserveXBalance =
         lbPairReserveMapV2.get(lbPair.toBase58())?.reserveX ?? BigInt(0);
       const reserveYBalance =
@@ -907,13 +923,15 @@ export class DLMM {
         publicKey: lbPairAcc.tokenXMint,
         reserve: lbPairAcc.reserveX,
         amount: reserveXBalance,
-        decimal: baseTokenDecimal,
+        decimal: baseMint.decimals,
+        owner: baseMintAccountInfo.owner,
       };
       const tokenY = {
         publicKey: lbPairAcc.tokenYMint,
         reserve: lbPairAcc.reserveY,
         amount: reserveYBalance,
-        decimal: quoteTokenDecimal,
+        decimal: quoteMint.decimals,
+        owner: quoteMintAccountInfo.owner,
       };
       const positionData = await DLMM.processPosition(
         program,
@@ -921,8 +939,8 @@ export class DLMM {
         lbPairAcc,
         onChainTimestamp,
         account,
-        baseTokenDecimal,
-        quoteTokenDecimal,
+        baseMint.decimals,
+        quoteMint.decimals,
         lowerBinArray,
         upperBinArray,
         feeOwner
@@ -1239,12 +1257,14 @@ export class DLMM {
       decimal: tokenXDecimal,
       publicKey: lbPairState.tokenXMint,
       reserve: lbPairState.reserveX,
+      owner: this.tokenX.owner,
     };
     this.tokenY = {
       amount: reserveYBalance.amount,
       decimal: tokenYDecimal,
       publicKey: lbPairState.tokenYMint,
       reserve: lbPairState.reserveY,
+      owner: this.tokenY.owner,
     };
 
     this.lbPair = lbPairState;
@@ -2815,7 +2835,7 @@ export class DLMM {
 
     if (shouldClaimAndClose) {
       const claimSwapFeeIx = await this.program.methods
-        .claimFee()
+        .claimFee2()
         .accounts({
           binArrayLower,
           binArrayUpper,
@@ -2824,7 +2844,8 @@ export class DLMM {
           position,
           reserveX,
           reserveY,
-          tokenProgram: TOKEN_PROGRAM_ID,
+          tokenProgramX: this.tokenX.owner,
+          tokenProgramY: this.tokenY.owner,
           tokenXMint: this.tokenX.publicKey,
           tokenYMint: this.tokenY.publicKey,
           userTokenX: feeOwnerTokenX,
@@ -4922,7 +4943,7 @@ export class DLMM {
     }
 
     const claimFeeTx = await this.program.methods
-      .claimFee()
+      .claimFee2()
       .accounts({
         binArrayLower,
         binArrayUpper,
@@ -4931,7 +4952,8 @@ export class DLMM {
         position: position.publicKey,
         reserveX,
         reserveY,
-        tokenProgram: TOKEN_PROGRAM_ID,
+        tokenProgramX: this.tokenX.owner,
+        tokenProgramY: this.tokenY.owner,
         tokenXMint: this.tokenX.publicKey,
         tokenYMint: this.tokenY.publicKey,
         userTokenX,

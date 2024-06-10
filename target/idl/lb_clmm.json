@@ -1,5 +1,5 @@
 {
-  "version": "0.6.1",
+  "version": "0.7.0",
   "name": "lb_clmm",
   "constants": [
     {
@@ -4950,5 +4950,8 @@
       "name": "UnmatchTokenMint",
       "msg": "Unmatch token mint"
     }
-  ]
+  ],
+  "metadata": {
+    "address": "GrAkKfEpTKQuVHG2Y97Y2FF4i7y7Q5AHLK94JBy7Y5yv"
+  }
 }
