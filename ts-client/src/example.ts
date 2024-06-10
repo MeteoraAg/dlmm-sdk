@@ -10,6 +10,7 @@ import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import { DLMM } from "./dlmm";
 import BN from "bn.js";
 import { BinLiquidity, LbPosition, StrategyType } from "./dlmm/types";
+import { BASIS_POINT_MAX } from "./dlmm/constants";
 
 const user = Keypair.fromSecretKey(
   new Uint8Array(bs58.decode(process.env.USER_PRIVATE_KEY))
@@ -221,9 +222,7 @@ async function removePositionLiquidity(dlmmPool: DLMM) {
           position: publicKey,
           user: user.publicKey,
           binIds: binIdsToRemove,
-          liquiditiesBpsToRemove: new Array(binIdsToRemove.length).fill(
-            new BN(100 * 100)
-          ),
+          bps: new BN(BASIS_POINT_MAX),
           shouldClaimAndClose: true, // should claim swap fee and close position together
         });
       })
@@ -254,33 +253,12 @@ async function swap(dlmmPool: DLMM) {
   const swapYtoX = true;
   const binArrays = await dlmmPool.getBinArrayForSwap(swapYtoX);
 
-  // check whether it is permission or permissionless pool
-  let maxSwappedAmount: BN;
-  let throttledStats: boolean;
-  if (!swapYtoX && dlmmPool.lbPair.pairType == 1) {
-    // get current slot
-    const parsedClock = await connection.getParsedAccountInfo(
-      SYSVAR_CLOCK_PUBKEY
-    );
-    const parsedClockAccount = (parsedClock.value!.data as ParsedAccountData)
-      .parsed as ParsedClockState;
-    if (
-      parsedClockAccount.info.slot <=
-      dlmmPool.lbPair.swapCapDeactivateSlot.toNumber()
-    ) {
-      throttledStats = true;
-      maxSwappedAmount = dlmmPool.lbPair.maxSwappedAmount;
-    }
-  }
-  const swapQuote = throttledStats
-    ? await dlmmPool.swapQuoteWithCap(
-        swapAmount,
-        swapYtoX,
-        new BN(10),
-        maxSwappedAmount,
-        binArrays
-      )
-    : await dlmmPool.swapQuote(swapAmount, swapYtoX, new BN(10), binArrays);
+  const swapQuote = await dlmmPool.swapQuote(
+    swapAmount,
+    swapYtoX,
+    new BN(10),
+    binArrays
+  );
 
   console.log("🚀 ~ swapQuote:", swapQuote);
 
