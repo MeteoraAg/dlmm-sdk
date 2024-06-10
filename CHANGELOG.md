@@ -193,6 +193,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Program endpoint `initialize_reward`. It require `token_badge` to be passed for the reward mint.
 
+### Changed
+
+- Bump to anchor 0.29.0
+
 ## @meteora-ag/dlmm [1.0.45] - PR #83
 
 ### Changed
