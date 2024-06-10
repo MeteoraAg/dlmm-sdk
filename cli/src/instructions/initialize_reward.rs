@@ -1,6 +1,6 @@
 use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
 use anchor_client::{solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, Program};
-use lb_clmm::utils::pda::derive_event_authority_pda;
+use lb_clmm::utils::pda::{derive_event_authority_pda, derive_token_badge_pda};
 use std::ops::Deref;
 
 use anyhow::*;
@@ -36,6 +36,16 @@ pub async fn initialize_reward<C: Deref<Target = impl Signer> + Clone>(
 
     let (event_authority, _bump) = derive_event_authority_pda();
 
+    let (reward_token_badge, _bump) = derive_token_badge_pda(reward_mint);
+
+    let reward_token_badge = program
+        .async_rpc()
+        .get_account(&reward_token_badge)
+        .await
+        .map(|_| reward_token_badge)
+        .or_else(|_| Ok(lb_clmm::ID))
+        .ok();
+
     let accounts = accounts::InitializeReward {
         lb_pair,
         reward_vault,
@@ -46,6 +56,7 @@ pub async fn initialize_reward<C: Deref<Target = impl Signer> + Clone>(
         system_program: anchor_client::solana_sdk::system_program::ID,
         event_authority,
         program: lb_clmm::ID,
+        token_badge: reward_token_badge,
     };
 
     let ix: instruction::InitializeReward = instruction::InitializeReward {
