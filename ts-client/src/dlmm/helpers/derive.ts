@@ -82,6 +82,13 @@ export function deriveLbPair(
   );
 }
 
+export function deriveTokenBadge(token: PublicKey, programId: PublicKey) {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("token_badge"), token.toBuffer()],
+    programId
+  );
+}
+
 export function derivePermissionLbPair(
   baseKey: PublicKey,
   tokenX: PublicKey,
