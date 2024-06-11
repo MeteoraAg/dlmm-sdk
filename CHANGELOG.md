@@ -192,6 +192,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Breaking
 
 - Program endpoint `initialize_reward`. It require `token_badge` to be passed for the reward mint.
+- Program endpoint `initialize_permission_pair` It requires token_badge and respective token_program to be passed.
 
 ### Changed
 
@@ -203,3 +204,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Use `claimFee2` instead of `claimFee` to support both token and token 2022 program.
 - Use `initializeLbPair2` instead of `initializeLbPair`to support both token and token 2022 program.
+- `initializePermissionPair` support token 2022 program.
