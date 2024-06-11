@@ -250,7 +250,24 @@ export type LbClmm = {
           isSigner: true;
         },
         {
-          name: "tokenProgram";
+          name: "tokenBadgeX";
+          isMut: false;
+          isSigner: false;
+          isOptional: true;
+        },
+        {
+          name: "tokenBadgeY";
+          isMut: false;
+          isSigner: false;
+          isOptional: true;
+        },
+        {
+          name: "tokenProgramX";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "tokenProgramY";
           isMut: false;
           isSigner: false;
         },
@@ -5153,7 +5170,24 @@ export const IDL: LbClmm = {
           isSigner: true,
         },
         {
-          name: "tokenProgram",
+          name: "tokenBadgeX",
+          isMut: false,
+          isSigner: false,
+          isOptional: true,
+        },
+        {
+          name: "tokenBadgeY",
+          isMut: false,
+          isSigner: false,
+          isOptional: true,
+        },
+        {
+          name: "tokenProgramX",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "tokenProgramY",
           isMut: false,
           isSigner: false,
         },

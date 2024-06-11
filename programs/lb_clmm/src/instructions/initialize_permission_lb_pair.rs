@@ -7,6 +7,7 @@ use crate::state::lb_pair::LbPair;
 use crate::state::lb_pair::PairType;
 use crate::state::oracle::Oracle;
 use crate::state::preset_parameters::PresetParameter;
+use crate::state::token_badge::TokenBadge;
 use crate::utils::seeds::BIN_ARRAY_BITMAP_SEED;
 use crate::utils::seeds::ORACLE;
 use anchor_lang::prelude::*;
@@ -70,6 +71,7 @@ pub struct InitializePermissionLbPair<'info> {
         payer = admin,
         token::mint = token_mint_x,
         token::authority = lb_pair,
+        token::token_program = token_program_x,
     )]
     pub reserve_x: Box<InterfaceAccount<'info, TokenAccount>>,
     #[account(
@@ -82,6 +84,7 @@ pub struct InitializePermissionLbPair<'info> {
         payer = admin,
         token::mint = token_mint_y,
         token::authority = lb_pair,
+        token::token_program = token_program_y,
     )]
     pub reserve_y: Box<InterfaceAccount<'info, TokenAccount>>,
 
@@ -103,7 +106,12 @@ pub struct InitializePermissionLbPair<'info> {
     )]
     pub admin: Signer<'info>,
 
-    pub token_program: Interface<'info, TokenInterface>,
+    pub token_badge_x: Option<AccountLoader<'info, TokenBadge>>,
+    pub token_badge_y: Option<AccountLoader<'info, TokenBadge>>,
+
+    pub token_program_x: Interface<'info, TokenInterface>,
+    pub token_program_y: Interface<'info, TokenInterface>,
+
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
 }
