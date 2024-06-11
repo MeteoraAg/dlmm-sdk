@@ -48,6 +48,40 @@ pub async fn initialize_permission_lb_pair<C: Deref<Target = impl Signer> + Clon
     let token_mint_base: Mint = program.account(token_mint_x).await?;
     let token_mint_quote: Mint = program.account(token_mint_y).await?;
 
+    let token_programs = program
+        .async_rpc()
+        .get_multiple_accounts(&[token_mint_x, token_mint_y])
+        .await?
+        .into_iter()
+        .map(|account| Some(account?.owner))
+        .collect::<Option<Vec<Pubkey>>>()
+        .context("Missing token mint account")?;
+
+    let [token_x_program, token_y_program] = token_programs.as_slice() else {
+        bail!("Missing token program accounts");
+    };
+
+    let token_badge_keys = [token_mint_x, token_mint_y]
+        .into_iter()
+        .map(|key| derive_token_badge_pda(key).0)
+        .collect::<Vec<_>>();
+
+    let token_badge_accounts = program
+        .async_rpc()
+        .get_multiple_accounts(&token_badge_keys)
+        .await?;
+
+    let token_badges = token_badge_accounts
+        .into_iter()
+        .zip(token_badge_keys)
+        .into_iter()
+        .map(|(account, key)| Some(account.map_or(lb_clmm::ID, |_| key)))
+        .collect::<Vec<_>>();
+
+    let [token_x_badge, token_y_badge] = token_badges.as_slice() else {
+        bail!("Invalid derived token badge");
+    };
+
     let price_per_lamport = price_per_token_to_per_lamport(
         initial_price,
         token_mint_base.decimals,
@@ -82,7 +116,10 @@ pub async fn initialize_permission_lb_pair<C: Deref<Target = impl Signer> + Clon
         admin: program.payer(),
         rent: anchor_client::solana_sdk::sysvar::rent::ID,
         system_program: anchor_client::solana_sdk::system_program::ID,
-        token_program: anchor_spl::token::ID,
+        token_badge_x: *token_x_badge,
+        token_badge_y: *token_y_badge,
+        token_program_x: *token_x_program,
+        token_program_y: *token_y_program,
         event_authority,
         program: lb_clmm::ID,
         base: base_keypair.pubkey(),
