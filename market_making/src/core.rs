@@ -21,7 +21,6 @@ use anchor_lang::AccountDeserialize;
 use anchor_lang::InstructionData;
 use anchor_lang::ToAccountMetas;
 use anchor_spl::associated_token::get_associated_token_address;
-use anchor_spl::token::spl_token;
 use anchor_spl::token::Mint;
 use anchor_spl::token::TokenAccount;
 use anyhow::Ok;
@@ -140,10 +139,10 @@ impl Core {
         let accounts = program.rpc().get_multiple_accounts(&token_mints)?;
 
         let mut tokens = HashMap::new();
-        for (i, &token_pk) in token_mints.iter().enumerate() {
-            let account =
-                Mint::try_deserialize(&mut accounts[i].clone().unwrap().data.as_ref()).unwrap();
-            tokens.insert(token_pk, account);
+        for (token_pk, account) in token_mints.into_iter().zip(accounts.into_iter()) {
+            let account = account.unwrap();
+            let mint = Mint::try_deserialize(&mut account.data.as_ref()).unwrap();
+            tokens.insert(token_pk, (mint, account.owner));
         }
         let mut state = self.state.lock().unwrap();
         state.tokens = tokens;
@@ -171,15 +170,25 @@ impl Core {
     pub async fn init_user_ata(&self) -> Result<()> {
         let payer = read_keypair_file(self.wallet.clone().unwrap())
             .map_err(|_| Error::msg("Requires a keypair file"))?;
-        let program: Program<Arc<Keypair>> = create_program(
-            self.provider.to_string(),
-            self.provider.to_string(),
-            spl_token::ID,
-            Arc::new(Keypair::new()),
-        )?;
+
+        let mints = {
+            let state = self.state.lock().unwrap();
+            state.tokens.clone()
+        };
+
         let token_mints = self.get_all_token_mints();
+
         for &token_mint_pk in token_mints.iter() {
-            get_or_create_ata(&program, token_mint_pk, payer.pubkey(), &payer).await?;
+            if let Some(&(_, program_id)) = mints.get(&token_mint_pk) {
+                let program: Program<Arc<Keypair>> = create_program(
+                    self.provider.to_string(),
+                    self.provider.to_string(),
+                    program_id,
+                    Arc::new(Keypair::new()),
+                )?;
+                get_or_create_ata(&program, token_mint_pk, payer.pubkey(), &payer, program_id)
+                    .await?;
+            }
         }
         Ok(())
     }
@@ -635,10 +644,11 @@ impl Core {
         positions
     }
 
-    pub fn get_all_tokens(&self) -> HashMap<Pubkey, Mint> {
+    pub fn get_all_tokens(&self) -> HashMap<Pubkey, (Mint, Pubkey)> {
         let state = self.state.lock().unwrap();
         state.tokens.clone()
     }
+
     pub async fn check_shift_price_range(&self) -> Result<()> {
         let all_positions = self.get_all_positions();
         for position in all_positions.iter() {

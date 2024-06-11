@@ -19,7 +19,7 @@ use std::str::FromStr;
 
 pub struct AllPosition {
     pub all_positions: HashMap<Pubkey, SinglePosition>, // hashmap of pool pubkey and a position
-    pub tokens: HashMap<Pubkey, Mint>,                  // cached token info
+    pub tokens: HashMap<Pubkey, (Mint, Pubkey)>,        // cached token info
 }
 
 impl AllPosition {
@@ -235,7 +235,7 @@ impl SinglePosition {
     }
 }
 
-pub fn get_decimals(token_mint_pk: Pubkey, all_tokens: &HashMap<Pubkey, Mint>) -> u8 {
-    let token = all_tokens.get(&token_mint_pk).unwrap();
-    return token.decimals;
+pub fn get_decimals(token_mint_pk: Pubkey, all_tokens: &HashMap<Pubkey, (Mint, Pubkey)>) -> u8 {
+    let (mint, _) = all_tokens.get(&token_mint_pk).unwrap();
+    mint.decimals
 }
