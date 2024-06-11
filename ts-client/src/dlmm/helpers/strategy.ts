@@ -209,6 +209,10 @@ export function toAmountsBothSideByStrategy(
                 throw "Invalid Strategy Parameters";
             }
         case StrategyType.SpotImBalanced: {
+            if (activeId < minBinId || activeId > maxBinId) {
+                let weights = toWeightSpotBalanced(minBinId, maxBinId);
+                return toAmountBothSide(activeId, binStep, amountX, amountY, amountXInActiveBin, amountYInActiveBin, weights);
+            }
             let amountsInBin = [];
             if (minBinId <= activeId) {
                 let weights = toWeightSpotBalanced(minBinId, activeId);
@@ -238,6 +242,20 @@ export function toAmountsBothSideByStrategy(
             return amountsInBin;
         }
         case StrategyType.CurveImBalanced: {
+            // ask side
+            if (activeId < minBinId) {
+                let weights = toWeightDecendingOrder(minBinId, maxBinId);
+                return toAmountBothSide(
+                    activeId, binStep, amountX, amountY, amountXInActiveBin, amountYInActiveBin, weights
+                );
+            }
+            // bid side
+            if (activeId > maxBinId) {
+                let weights = toWeightAscendingOrder(minBinId, maxBinId);
+                return toAmountBothSide(
+                    activeId, binStep, amountX, amountY, amountXInActiveBin, amountYInActiveBin, weights
+                );
+            }
             let amountsInBin = [];
             if (minBinId <= activeId) {
                 let weights = toWeightAscendingOrder(minBinId, activeId);
@@ -267,6 +285,20 @@ export function toAmountsBothSideByStrategy(
             return amountsInBin;
         }
         case StrategyType.BidAskImBalanced: {
+            // ask side
+            if (activeId < minBinId) {
+                let weights = toWeightAscendingOrder(minBinId, maxBinId);
+                return toAmountBothSide(
+                    activeId, binStep, amountX, amountY, amountXInActiveBin, amountYInActiveBin, weights
+                );
+            }
+            // bid side
+            if (activeId > maxBinId) {
+                let weights = toWeightDecendingOrder(minBinId, maxBinId);
+                return toAmountBothSide(
+                    activeId, binStep, amountX, amountY, amountXInActiveBin, amountYInActiveBin, weights
+                );
+            }
             let amountsInBin = [];
             if (minBinId <= activeId) {
                 let weights = toWeightDecendingOrder(minBinId, activeId);

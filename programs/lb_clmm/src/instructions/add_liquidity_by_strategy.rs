@@ -1,4 +1,6 @@
+use crate::constants::MAX_BIN_PER_POSITION;
 use crate::errors::LBError;
+use crate::manager::bin_array_manager::BinArrayManager;
 use crate::math::safe_math::SafeMath;
 use crate::math::weight_to_amounts::{to_amount_ask_side, to_amount_bid_side, to_amount_both_side};
 use crate::ModifyLiquidity;
@@ -21,6 +23,30 @@ pub struct LiquidityParameterByStrategy {
     pub strategy_parameters: StrategyParameters,
 }
 
+pub fn validate_add_liquidity_by_strategy_params(
+    active_id: i32,
+    current_active_id: i32,
+    max_active_bin_slippage: i32,
+    strategy_parameters: &StrategyParameters,
+) -> Result<()> {
+    let bin_count = strategy_parameters.bin_count()?;
+    require!(bin_count > 0, LBError::InvalidInput);
+
+    require!(bin_count <= MAX_BIN_PER_POSITION, LBError::InvalidInput);
+
+    let bin_shift = if active_id > current_active_id {
+        active_id - current_active_id
+    } else {
+        current_active_id - active_id
+    };
+
+    require!(
+        bin_shift <= max_active_bin_slippage,
+        LBError::ExceededBinSlippageTolerance
+    );
+    Ok(())
+}
+
 impl LiquidityParameterByStrategy {
     pub fn to_amounts_into_bin(
         &self,
@@ -34,6 +60,18 @@ impl LiquidityParameterByStrategy {
 
         match self.strategy_parameters.strategy_type {
             StrategyType::SpotImBalanced => {
+                if active_id < min_bin_id || active_id > max_bin_id {
+                    let weights = to_weight_spot_balanced(min_bin_id, max_bin_id);
+                    return to_amount_both_side(
+                        active_id,
+                        bin_step,
+                        amount_x_in_active_bin,
+                        amount_y_in_active_bin,
+                        self.amount_x,
+                        self.amount_y,
+                        &weights,
+                    );
+                }
                 let mut amounts_in_bin = vec![];
                 if min_bin_id <= active_id {
                     let weights = to_weight_spot_balanced(min_bin_id, active_id);
@@ -55,6 +93,32 @@ impl LiquidityParameterByStrategy {
                 Ok(amounts_in_bin)
             }
             StrategyType::CurveImBalanced => {
+                // ask side
+                if active_id < min_bin_id {
+                    let weights = to_weight_descending_order(min_bin_id, max_bin_id);
+                    return to_amount_both_side(
+                        active_id,
+                        bin_step,
+                        amount_x_in_active_bin,
+                        amount_y_in_active_bin,
+                        self.amount_x,
+                        self.amount_y,
+                        &weights,
+                    );
+                }
+                // bid side
+                if active_id > max_bin_id {
+                    let weights = to_weight_ascending_order(min_bin_id, max_bin_id);
+                    return to_amount_both_side(
+                        active_id,
+                        bin_step,
+                        amount_x_in_active_bin,
+                        amount_y_in_active_bin,
+                        self.amount_x,
+                        self.amount_y,
+                        &weights,
+                    );
+                }
                 let mut amounts_in_bin = vec![];
                 if min_bin_id <= active_id {
                     let weights = to_weight_ascending_order(min_bin_id, active_id);
@@ -76,6 +140,32 @@ impl LiquidityParameterByStrategy {
                 Ok(amounts_in_bin)
             }
             StrategyType::BidAskImBalanced => {
+                // ask side
+                if active_id < min_bin_id {
+                    let weights = to_weight_ascending_order(min_bin_id, max_bin_id);
+                    return to_amount_both_side(
+                        active_id,
+                        bin_step,
+                        amount_x_in_active_bin,
+                        amount_y_in_active_bin,
+                        self.amount_x,
+                        self.amount_y,
+                        &weights,
+                    );
+                }
+                // bid side
+                if active_id > max_bin_id {
+                    let weights = to_weight_descending_order(min_bin_id, max_bin_id);
+                    return to_amount_both_side(
+                        active_id,
+                        bin_step,
+                        amount_x_in_active_bin,
+                        amount_y_in_active_bin,
+                        self.amount_x,
+                        self.amount_y,
+                        &weights,
+                    );
+                }
                 let mut amounts_in_bin = vec![];
                 if min_bin_id <= active_id {
                     let weights = to_weight_descending_order(min_bin_id, active_id);
@@ -170,20 +260,12 @@ pub enum StrategyType {
     CurveBalanced,
     // bid ask both side, balanced deposit
     BidAskBalanced,
-    // spot both side, imbalanced deposit
+    // spot both side, imbalanced deposit, only token y is added in active bin
     SpotImBalanced,
-    // curve both side, imbalanced deposit
+    // curve both side, imbalanced deposit, only token y is added in active bin
     CurveImBalanced,
-    // bid ask both side, imbalanced deposit
+    // bid ask both side, imbalanced deposit, only token y is added in active bin
     BidAskImBalanced,
-}
-
-pub fn to_weight_spot_balanced(min_bin_id: i32, max_bin_id: i32) -> Vec<(i32, u16)> {
-    let mut weights = vec![];
-    for i in min_bin_id..=max_bin_id {
-        weights.push((i, 1));
-    }
-    weights
 }
 
 pub fn to_weight_descending_order(min_bin_id: i32, max_bin_id: i32) -> Vec<(i32, u16)> {
@@ -202,13 +284,26 @@ pub fn to_weight_ascending_order(min_bin_id: i32, max_bin_id: i32) -> Vec<(i32, 
     weights
 }
 
+pub fn to_weight_spot_balanced(min_bin_id: i32, max_bin_id: i32) -> Vec<(i32, u16)> {
+    let mut weights = vec![];
+    for i in min_bin_id..=max_bin_id {
+        weights.push((i, 1));
+    }
+    weights
+}
+
 pub fn to_weight_curve(
     min_bin_id: i32,
     max_bin_id: i32,
     active_id: i32,
 ) -> Result<Vec<(i32, u16)>> {
-    if active_id < min_bin_id || active_id > max_bin_id {
-        return Err(LBError::InvalidStrategyParameters.into());
+    // only bid side
+    if active_id > max_bin_id {
+        return Ok(to_weight_ascending_order(min_bin_id, max_bin_id));
+    }
+    // only ask side
+    if active_id < min_bin_id {
+        return Ok(to_weight_descending_order(min_bin_id, max_bin_id));
     }
     let max_weight = DEFAULT_MAX_WEIGHT;
     let min_weight = DEFAULT_MIN_WEIGHT;
@@ -247,8 +342,13 @@ pub fn to_weight_bid_ask(
     max_bin_id: i32,
     active_id: i32,
 ) -> Result<Vec<(i32, u16)>> {
-    if active_id < min_bin_id || active_id > max_bin_id {
-        return Err(LBError::InvalidStrategyParameters.into());
+    // only bid side
+    if active_id > max_bin_id {
+        return Ok(to_weight_descending_order(min_bin_id, max_bin_id));
+    }
+    // only ask side
+    if active_id < min_bin_id {
+        return Ok(to_weight_ascending_order(min_bin_id, max_bin_id));
     }
 
     let max_weight = DEFAULT_MAX_WEIGHT;
@@ -285,15 +385,8 @@ pub fn to_weight_bid_ask(
 }
 
 impl StrategyParameters {
-    pub fn validate_both_side(&self, active_id: i32) -> Result<()> {
-        if active_id < self.min_bin_id || active_id > self.max_bin_id {
-            Err(LBError::InvalidStrategyParameters.into())
-        } else {
-            Ok(())
-        }
-    }
     pub fn bin_count(&self) -> Result<usize> {
-        let bin_count = self.max_bin_id.safe_sub(self.min_bin_id)?;
+        let bin_count = self.max_bin_id.safe_sub(self.min_bin_id)?.safe_add(1)?;
         Ok(bin_count as usize)
     }
 }

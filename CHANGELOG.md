@@ -170,3 +170,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `getEmissionRate` should not return ended reward, which can be read from `rewardDurationEnd`
 
+## @meteora-ag/dlmm [1.0.45] - PR #76
+
+### Fixed
+
+- fix `addLiquidityByStrategy` not working when active bin is not within the liquidity

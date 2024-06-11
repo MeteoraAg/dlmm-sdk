@@ -87,7 +87,28 @@ export function toAmountBothSide(
         amountX: BN,
         amountY: BN
     }[] {
-
+    // only bid side
+    if (activeId > distributions[distributions.length - 1].binId) {
+        let amounts = toAmountBidSide(activeId, amountY, distributions);
+        return amounts.map((bin) => {
+            return {
+                binId: bin.binId,
+                amountX: new BN(0),
+                amountY: bin.amount,
+            };
+        })
+    }
+    // only ask side
+    if (activeId < distributions[0].binId) {
+        let amounts = toAmountAskSide(activeId, binStep, amountX, distributions);
+        return amounts.map((bin) => {
+            return {
+                binId: bin.binId,
+                amountX: bin.amount,
+                amountY: new BN(0),
+            };
+        })
+    }
     const activeBins = distributions.filter((element) => {
         return element.binId === activeId;
     });
