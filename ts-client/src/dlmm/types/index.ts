@@ -30,6 +30,11 @@ export interface TokenReserve {
   owner: PublicKey;
 }
 
+export interface RewardMintInfo {
+  publicKey: PublicKey;
+  owner: PublicKey;
+}
+
 export type ClmmProgram = Program<LbClmm>;
 
 export type LbPair = IdlAccounts<LbClmm>["lbPair"];
