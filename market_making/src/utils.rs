@@ -14,7 +14,6 @@ use anchor_client::{
 use anchor_lang::event::EVENT_IX_TAG_LE;
 use anchor_lang::{AnchorDeserialize, AnchorSerialize, Discriminator};
 use anchor_spl::associated_token::get_associated_token_address;
-use anchor_spl::token::spl_token;
 use anyhow::*;
 use lb_clmm::events::Swap as SwapEvent;
 use solana_transaction_status::option_serializer::OptionSerializer;
@@ -50,6 +49,7 @@ pub async fn get_or_create_ata<C: Deref<Target = impl Signer> + Clone>(
     token_mint: Pubkey,
     wallet_address: Pubkey,
     payer: &Keypair,
+    program_id: Pubkey,
 ) -> Result<Pubkey> {
     let user_ata = get_associated_token_address(&wallet_address, &token_mint);
 
@@ -65,7 +65,7 @@ pub async fn get_or_create_ata<C: Deref<Target = impl Signer> + Clone>(
                     &payer.pubkey(),
                     &wallet_address,
                     &token_mint,
-                    &spl_token::ID,
+                    &program_id,
                 ));
 
             let signature = send_tx(vec![payer], payer.pubkey(), program, &builder)?;
