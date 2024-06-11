@@ -1219,6 +1219,18 @@ export class DLMM {
       activationType,
     };
 
+    const [tokenXBadge, tokenYBadge] = [tokenX, tokenY].map((token) => {
+      return deriveTokenBadge(token, program.programId)[0];
+    });
+
+    const [mintXAccountInfo, mintYAccountInfo, mintXBadge, mintYBadge] =
+      await program.provider.connection.getMultipleAccountsInfo([
+        tokenX,
+        tokenY,
+        tokenXBadge,
+        tokenYBadge,
+      ]);
+
     return program.methods
       .initializePermissionLbPair(ixData)
       .accounts({
@@ -1229,7 +1241,10 @@ export class DLMM {
         binArrayBitmapExtension,
         tokenMintX: tokenX,
         tokenMintY: tokenY,
-        tokenProgram: TOKEN_PROGRAM_ID,
+        tokenBadgeX: mintXBadge ? tokenXBadge : program.programId,
+        tokenBadgeY: mintYBadge ? tokenYBadge : program.programId,
+        tokenProgramX: mintXAccountInfo.owner,
+        tokenProgramY: mintYAccountInfo.owner,
         oracle,
         systemProgram: SystemProgram.programId,
         admin: creatorKey,
