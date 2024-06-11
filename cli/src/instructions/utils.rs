@@ -9,7 +9,6 @@ use std::ops::Deref;
 use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
 use anchor_client::solana_sdk::pubkey::Pubkey;
 use anchor_spl::associated_token::get_associated_token_address;
-use anchor_spl::token::spl_token;
 use anyhow::*;
 
 pub async fn get_or_create_ata<C: Deref<Target = impl Signer> + Clone>(
@@ -17,6 +16,7 @@ pub async fn get_or_create_ata<C: Deref<Target = impl Signer> + Clone>(
     transaction_config: RpcSendTransactionConfig,
     token_mint: Pubkey,
     wallet_address: Pubkey,
+    token_program: Pubkey,
 ) -> Result<Pubkey> {
     let user_ata = get_associated_token_address(&wallet_address, &token_mint);
 
@@ -32,7 +32,7 @@ pub async fn get_or_create_ata<C: Deref<Target = impl Signer> + Clone>(
                     &program.payer(),
                     &wallet_address,
                     &token_mint,
-                    &spl_token::ID,
+                    &token_program,
                 ));
 
             builder

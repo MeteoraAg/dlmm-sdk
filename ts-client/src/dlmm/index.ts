@@ -8,6 +8,7 @@ import {
   SYSVAR_RENT_PUBKEY,
   SystemProgram,
   SYSVAR_CLOCK_PUBKEY,
+  AccountInfo,
 } from "@solana/web3.js";
 import { IDL } from "./idl";
 import {
@@ -63,6 +64,7 @@ import {
   CompressedBinDepositAmounts,
   PositionV2,
   SeedLiquidityResponse,
+  RewardMintInfo,
 } from "./types";
 import { AnchorProvider, BN, Program } from "@coral-xyz/anchor";
 import {
@@ -95,6 +97,7 @@ import {
   deriveLbPair2,
   derivePosition,
   deriveLbPair,
+  deriveTokenBadge,
 } from "./helpers";
 import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import Decimal from "decimal.js";
@@ -102,6 +105,7 @@ import {
   AccountLayout,
   MintLayout,
   NATIVE_MINT,
+  RawMint,
   TOKEN_PROGRAM_ID,
   getAssociatedTokenAddressSync,
 } from "@solana/spl-token";
@@ -129,6 +133,7 @@ export class DLMM {
     public binArrayBitmapExtension: BinArrayBitmapExtensionAccount | null,
     public tokenX: TokenReserve,
     public tokenY: TokenReserve,
+    public rewardMintInfo: RewardMintInfo[],
     private opt?: Opt
   ) {}
 
@@ -265,6 +270,10 @@ export class DLMM {
       );
     }
 
+    const rewardPubkeys = lbPairAccInfo.rewardInfos
+      .filter((info) => !info.mint.equals(PublicKey.default))
+      .map((info) => info.mint);
+
     const reserveAccountsInfo = await chunkedGetMultipleAccountInfos(
       program.provider.connection,
       [
@@ -272,6 +281,7 @@ export class DLMM {
         lbPairAccInfo.reserveY,
         lbPairAccInfo.tokenXMint,
         lbPairAccInfo.tokenYMint,
+        ...rewardPubkeys,
       ]
     );
     let binArrayBitmapExtension: BinArrayBitmapExtensionAccount | null;
@@ -284,24 +294,45 @@ export class DLMM {
 
     const reserveXBalance = AccountLayout.decode(reserveAccountsInfo[0].data);
     const reserveYBalance = AccountLayout.decode(reserveAccountsInfo[1].data);
-    const tokenXDecimal = MintLayout.decode(
-      reserveAccountsInfo[2].data
-    ).decimals;
-    const tokenYDecimal = MintLayout.decode(
-      reserveAccountsInfo[3].data
-    ).decimals;
+    const mintXAccountInfo = reserveAccountsInfo[2];
+    const mintYAccountInfo = reserveAccountsInfo[3];
+    const tokenXDecimal = MintLayout.decode(mintXAccountInfo.data).decimals;
+    const tokenYDecimal = MintLayout.decode(mintYAccountInfo.data).decimals;
+
+    let rewardInfos: RewardMintInfo[] = [];
+
+    const rewardMintAccountsInfo = reserveAccountsInfo.slice(4);
+
+    for (const reward of lbPairAccInfo.rewardInfos) {
+      if (reward.mint.equals(PublicKey.default)) {
+        rewardInfos.push({
+          publicKey: PublicKey.default,
+          owner: SystemProgram.programId,
+        });
+      } else {
+        rewardInfos.push({
+          publicKey: reward.mint,
+          owner: rewardMintAccountsInfo.shift().owner,
+        });
+      }
+    }
+
     const tokenX = {
       publicKey: lbPairAccInfo.tokenXMint,
       reserve: lbPairAccInfo.reserveX,
       amount: reserveXBalance.amount,
       decimal: tokenXDecimal,
+      owner: mintXAccountInfo.owner,
     };
+
     const tokenY = {
       publicKey: lbPairAccInfo.tokenYMint,
       reserve: lbPairAccInfo.reserveY,
       amount: reserveYBalance.amount,
       decimal: tokenYDecimal,
+      owner: mintYAccountInfo.owner,
     };
+
     return new DLMM(
       dlmm,
       program,
@@ -309,6 +340,7 @@ export class DLMM {
       binArrayBitmapExtension,
       tokenX,
       tokenY,
+      rewardInfos,
       opt
     );
   }
@@ -397,6 +429,27 @@ export class DLMM {
         ...tokenMintPublicKeys,
       ]);
 
+    const rewardMintPublicKeys = Array.from(lbPairArraysMap.values()).flatMap(
+      ({ rewardInfos }) => {
+        return rewardInfos
+          .filter((reward) => !reward.mint.equals(PublicKey.default))
+          .map((reward) => reward.mint);
+      }
+    );
+
+    const rewardMintAccountsInfo = await chunkedGetMultipleAccountInfos(
+      program.provider.connection,
+      rewardMintPublicKeys
+    );
+
+    const rewardMintAccountInfoMap = rewardMintPublicKeys.reduce(
+      (map, key, idx) => {
+        map.set(key, rewardMintAccountsInfo[idx]);
+        return map;
+      },
+      new Map<PublicKey, AccountInfo<Buffer>>()
+    );
+
     const lbClmmImpl = await Promise.all(
       dlmmList.map(async (lbPair, index) => {
         const lbPairState = lbPairArraysMap.get(lbPair.toBase58());
@@ -434,24 +487,46 @@ export class DLMM {
 
         const reserveXBalance = AccountLayout.decode(reserveXAccountInfo.data);
         const reserveYBalance = AccountLayout.decode(reserveYAccountInfo.data);
+
         const tokenXDecimal = MintLayout.decode(
           tokenXMintAccountInfo.data
         ).decimals;
         const tokenYDecimal = MintLayout.decode(
           tokenYMintAccountInfo.data
         ).decimals;
+
         const tokenX = {
           publicKey: lbPairState.tokenXMint,
           reserve: lbPairState.reserveX,
           amount: reserveXBalance.amount,
           decimal: tokenXDecimal,
+          owner: tokenXMintAccountInfo.owner,
         };
+
         const tokenY = {
           publicKey: lbPairState.tokenYMint,
           reserve: lbPairState.reserveY,
           amount: reserveYBalance.amount,
           decimal: tokenYDecimal,
+          owner: tokenYMintAccountInfo.owner,
         };
+
+        let rewardInfos: RewardMintInfo[] = [];
+
+        for (const reward of lbPairState.rewardInfos) {
+          if (reward.mint.equals(PublicKey.default)) {
+            rewardInfos.push({
+              publicKey: PublicKey.default,
+              owner: SystemProgram.programId,
+            });
+          } else {
+            rewardInfos.push({
+              publicKey: reward.mint,
+              owner: rewardMintAccountInfoMap.get(reward.mint).owner,
+            });
+          }
+        }
+
         return new DLMM(
           lbPair,
           program,
@@ -459,6 +534,7 @@ export class DLMM {
           binArrayBitmapExtension,
           tokenX,
           tokenY,
+          rewardInfos,
           opt
         );
       })
@@ -699,13 +775,15 @@ export class DLMM {
       [...reservePublicKeys, ...reservePublicKeysV2]
     );
 
+    type LbPairMintInfo = { mint: RawMint; owner: PublicKey };
+
     const lbPairReserveMap = new Map<
       string,
       { reserveX: bigint; reserveY: bigint }
     >();
     const lbPairMintMap = new Map<
       string,
-      { mintXDecimal: number; mintYDecimal: number }
+      { mintX: LbPairMintInfo; mintY: LbPairMintInfo }
     >();
     lbPairArray.forEach((lbPair, idx) => {
       const index = idx * 4;
@@ -733,8 +811,8 @@ export class DLMM {
       const mintY = MintLayout.decode(mintYBuffer.data);
 
       lbPairMintMap.set(lbPair.toBase58(), {
-        mintXDecimal: mintX.decimals,
-        mintYDecimal: mintY.decimals,
+        mintX: { mint: mintX, owner: mintXBuffer.owner },
+        mintY: { mint: mintY, owner: mintYBuffer.owner },
       });
     });
 
@@ -744,7 +822,7 @@ export class DLMM {
     >();
     const lbPairMintMapV2 = new Map<
       string,
-      { mintXDecimal: number; mintYDecimal: number }
+      { mintX: LbPairMintInfo; mintY: LbPairMintInfo }
     >();
     lbPairArrayV2.forEach((lbPair, idx) => {
       const index = idx * 4;
@@ -774,9 +852,16 @@ export class DLMM {
         );
       const mintX = MintLayout.decode(mintXBufferV2.data);
       const mintY = MintLayout.decode(mintYBufferV2.data);
+
       lbPairMintMapV2.set(lbPair.toBase58(), {
-        mintXDecimal: mintX.decimals,
-        mintYDecimal: mintY.decimals,
+        mintX: {
+          mint: mintX,
+          owner: mintXBufferV2.owner,
+        },
+        mintY: {
+          mint: mintY,
+          owner: mintYBufferV2.owner,
+        },
       });
     });
 
@@ -821,9 +906,7 @@ export class DLMM {
         upperBinArrayPubKey.toBase58()
       );
       const lbPairAcc = lbPairArraysMap.get(lbPair.toBase58());
-      const { mintXDecimal, mintYDecimal } = lbPairMintMap.get(
-        lbPair.toBase58()
-      );
+      const { mintX, mintY } = lbPairMintMap.get(lbPair.toBase58());
       const reserveXBalance =
         lbPairReserveMap.get(lbPair.toBase58())?.reserveX ?? BigInt(0);
       const reserveYBalance =
@@ -832,13 +915,15 @@ export class DLMM {
         publicKey: lbPairAcc.tokenXMint,
         reserve: lbPairAcc.reserveX,
         amount: reserveXBalance,
-        decimal: mintXDecimal,
+        decimal: mintX.mint.decimals,
+        owner: mintX.owner,
       };
       const tokenY = {
         publicKey: lbPairAcc.tokenYMint,
         reserve: lbPairAcc.reserveY,
         amount: reserveYBalance,
-        decimal: mintYDecimal,
+        decimal: mintY.mint.decimals,
+        owner: mintY.owner,
       };
       const positionData = await DLMM.processPosition(
         program,
@@ -846,8 +931,8 @@ export class DLMM {
         lbPairAcc,
         onChainTimestamp,
         account,
-        mintXDecimal,
-        mintYDecimal,
+        mintX.mint.decimals,
+        mintY.mint.decimals,
         lowerBinArray,
         upperBinArray,
         PublicKey.default
@@ -895,10 +980,13 @@ export class DLMM {
         upperBinArrayPubKey.toBase58()
       );
       const lbPairAcc = lbPairArraysMapV2.get(lbPair.toBase58());
-      const [baseTokenDecimal, quoteTokenDecimal] = await Promise.all([
-        getTokenDecimals(program.provider.connection, lbPairAcc.tokenXMint),
-        getTokenDecimals(program.provider.connection, lbPairAcc.tokenYMint),
-      ]);
+      const [baseMintAccountInfo, quoteMintAccountInfo] =
+        await program.provider.connection.getMultipleAccountsInfo([
+          lbPairAcc.tokenXMint,
+          lbPairAcc.tokenYMint,
+        ]);
+      const baseMint = MintLayout.decode(baseMintAccountInfo.data);
+      const quoteMint = MintLayout.decode(quoteMintAccountInfo.data);
       const reserveXBalance =
         lbPairReserveMapV2.get(lbPair.toBase58())?.reserveX ?? BigInt(0);
       const reserveYBalance =
@@ -907,13 +995,15 @@ export class DLMM {
         publicKey: lbPairAcc.tokenXMint,
         reserve: lbPairAcc.reserveX,
         amount: reserveXBalance,
-        decimal: baseTokenDecimal,
+        decimal: baseMint.decimals,
+        owner: baseMintAccountInfo.owner,
       };
       const tokenY = {
         publicKey: lbPairAcc.tokenYMint,
         reserve: lbPairAcc.reserveY,
         amount: reserveYBalance,
-        decimal: quoteTokenDecimal,
+        decimal: quoteMint.decimals,
+        owner: quoteMintAccountInfo.owner,
       };
       const positionData = await DLMM.processPosition(
         program,
@@ -921,8 +1011,8 @@ export class DLMM {
         lbPairAcc,
         onChainTimestamp,
         account,
-        baseTokenDecimal,
-        quoteTokenDecimal,
+        baseMint.decimals,
+        quoteMint.decimals,
         lowerBinArray,
         upperBinArray,
         feeOwner
@@ -1093,6 +1183,18 @@ export class DLMM {
       lockDurationInSlot,
     };
 
+    const [tokenXBadge, tokenYBadge] = [tokenX, tokenY].map((token) => {
+      return deriveTokenBadge(token, program.programId)[0];
+    });
+
+    const [mintXAccountInfo, mintYAccountInfo, mintXBadge, mintYBadge] =
+      await program.provider.connection.getMultipleAccountsInfo([
+        tokenX,
+        tokenY,
+        tokenXBadge,
+        tokenYBadge,
+      ]);
+
     return program.methods
       .initializePermissionLbPair(ixData)
       .accounts({
@@ -1103,7 +1205,10 @@ export class DLMM {
         binArrayBitmapExtension,
         tokenMintX: tokenX,
         tokenMintY: tokenY,
-        tokenProgram: TOKEN_PROGRAM_ID,
+        tokenBadgeX: mintXBadge ? tokenXBadge : program.programId,
+        tokenBadgeY: mintYBadge ? tokenYBadge : program.programId,
+        tokenProgramX: mintXAccountInfo.owner,
+        tokenProgramY: mintYAccountInfo.owner,
         oracle,
         systemProgram: SystemProgram.programId,
         admin: creatorKey,
@@ -1163,8 +1268,20 @@ export class DLMM {
       ? deriveBinArrayBitmapExtension(lbPair, program.programId)[0]
       : null;
 
+    const [tokenXBadge, tokenYBadge] = [tokenX, tokenY].map((token) => {
+      return deriveTokenBadge(token, program.programId)[0];
+    });
+
+    const [mintXAccountInfo, mintYAccountInfo, mintXBadge, mintYBadge] =
+      await program.provider.connection.getMultipleAccountsInfo([
+        tokenX,
+        tokenY,
+        tokenXBadge,
+        tokenYBadge,
+      ]);
+
     return program.methods
-      .initializeLbPair(activeId.toNumber(), binStep.toNumber())
+      .initializeLbPair2(activeId.toNumber(), binStep.toNumber())
       .accounts({
         funder,
         lbPair,
@@ -1174,7 +1291,10 @@ export class DLMM {
         binArrayBitmapExtension,
         tokenMintX: tokenX,
         tokenMintY: tokenY,
-        tokenProgram: TOKEN_PROGRAM_ID,
+        tokenBadgeX: mintXBadge ? tokenXBadge : program.programId,
+        tokenBadgeY: mintYBadge ? tokenYBadge : program.programId,
+        tokenProgramX: mintXAccountInfo.owner,
+        tokenProgramY: mintYAccountInfo.owner,
         oracle,
         presetParameter,
         systemProgram: SystemProgram.programId,
@@ -1239,12 +1359,14 @@ export class DLMM {
       decimal: tokenXDecimal,
       publicKey: lbPairState.tokenXMint,
       reserve: lbPairState.reserveX,
+      owner: this.tokenX.owner,
     };
     this.tokenY = {
       amount: reserveYBalance.amount,
       decimal: tokenYDecimal,
       publicKey: lbPairState.tokenYMint,
       reserve: lbPairState.reserveY,
+      owner: this.tokenY.owner,
     };
 
     this.lbPair = lbPairState;
@@ -2010,8 +2132,8 @@ export class DLMM {
       binArrayUpper,
       binArrayBitmapExtension,
       sender: user,
-      tokenXProgram: TOKEN_PROGRAM_ID,
-      tokenYProgram: TOKEN_PROGRAM_ID,
+      tokenXProgram: this.tokenX.owner,
+      tokenYProgram: this.tokenY.owner,
     };
 
     const programMethod =
@@ -2207,8 +2329,8 @@ export class DLMM {
       binArrayUpper,
       binArrayBitmapExtension,
       sender: user,
-      tokenXProgram: TOKEN_PROGRAM_ID,
-      tokenYProgram: TOKEN_PROGRAM_ID,
+      tokenXProgram: this.tokenX.owner,
+      tokenYProgram: this.tokenY.owner,
     };
 
     const oneSideLiquidityParams: LiquidityOneSideParameter = {
@@ -2218,6 +2340,20 @@ export class DLMM {
       binLiquidityDist,
     };
 
+    const [reserve, tokenMint, tokenProgram, userToken] = totalXAmount.isZero()
+      ? [
+          this.lbPair.reserveY,
+          this.lbPair.tokenYMint,
+          this.tokenY.owner,
+          userTokenY,
+        ]
+      : [
+          this.lbPair.reserveX,
+          this.lbPair.tokenXMint,
+          this.tokenX.owner,
+          userTokenX,
+        ];
+
     const oneSideAddLiquidityAccounts = {
       binArrayLower,
       binArrayUpper,
@@ -2225,14 +2361,10 @@ export class DLMM {
       binArrayBitmapExtension: null,
       sender: user,
       position: positionPubKey,
-      reserve: totalXAmount.isZero()
-        ? this.lbPair.reserveY
-        : this.lbPair.reserveX,
-      tokenMint: totalXAmount.isZero()
-        ? this.lbPair.tokenYMint
-        : this.lbPair.tokenXMint,
-      tokenProgram: TOKEN_PROGRAM_ID,
-      userToken: totalXAmount.isZero() ? userTokenY : userTokenX,
+      reserve,
+      tokenMint,
+      tokenProgram,
+      userToken,
     };
 
     const isOneSideDeposit = totalXAmount.isZero() || totalYAmount.isZero();
@@ -2437,8 +2569,8 @@ export class DLMM {
       binArrayUpper,
       binArrayBitmapExtension,
       sender: user,
-      tokenXProgram: TOKEN_PROGRAM_ID,
-      tokenYProgram: TOKEN_PROGRAM_ID,
+      tokenXProgram: this.tokenX.owner,
+      tokenYProgram: this.tokenY.owner,
     };
 
     const programMethod =
@@ -2631,8 +2763,8 @@ export class DLMM {
       binArrayUpper,
       binArrayBitmapExtension,
       sender: user,
-      tokenXProgram: TOKEN_PROGRAM_ID,
-      tokenYProgram: TOKEN_PROGRAM_ID,
+      tokenXProgram: this.tokenX.owner,
+      tokenYProgram: this.tokenY.owner,
     };
 
     const oneSideLiquidityParams: LiquidityOneSideParameter = {
@@ -2642,6 +2774,20 @@ export class DLMM {
       binLiquidityDist,
     };
 
+    const [reserve, tokenMint, tokenProgram, userToken] = totalXAmount.isZero()
+      ? [
+          this.lbPair.reserveY,
+          this.lbPair.tokenYMint,
+          this.tokenY.owner,
+          userTokenY,
+        ]
+      : [
+          this.lbPair.reserveX,
+          this.lbPair.tokenXMint,
+          this.tokenX.owner,
+          userTokenX,
+        ];
+
     const oneSideAddLiquidityAccounts = {
       binArrayLower,
       binArrayUpper,
@@ -2649,14 +2795,10 @@ export class DLMM {
       binArrayBitmapExtension: null,
       sender: user,
       position: positionPubKey,
-      reserve: totalXAmount.isZero()
-        ? this.lbPair.reserveY
-        : this.lbPair.reserveX,
-      tokenMint: totalXAmount.isZero()
-        ? this.lbPair.tokenYMint
-        : this.lbPair.tokenXMint,
-      tokenProgram: TOKEN_PROGRAM_ID,
-      userToken: totalXAmount.isZero() ? userTokenY : userTokenX,
+      reserve,
+      tokenMint,
+      tokenProgram,
+      userToken,
     };
 
     const isOneSideDeposit = totalXAmount.isZero() || totalYAmount.isZero();
@@ -2815,7 +2957,7 @@ export class DLMM {
 
     if (shouldClaimAndClose) {
       const claimSwapFeeIx = await this.program.methods
-        .claimFee()
+        .claimFee2()
         .accounts({
           binArrayLower,
           binArrayUpper,
@@ -2824,7 +2966,8 @@ export class DLMM {
           position,
           reserveX,
           reserveY,
-          tokenProgram: TOKEN_PROGRAM_ID,
+          tokenProgramX: this.tokenX.owner,
+          tokenProgramY: this.tokenY.owner,
           tokenXMint: this.tokenX.publicKey,
           tokenYMint: this.tokenY.publicKey,
           userTokenX: feeOwnerTokenX,
@@ -2854,7 +2997,7 @@ export class DLMM {
             binArrayUpper,
             rewardVault: rewardInfo.vault,
             rewardMint: rewardInfo.mint,
-            tokenProgram: TOKEN_PROGRAM_ID,
+            tokenProgram: this.rewardMintInfo[i].owner,
             userTokenAccount: ataPubKey,
           })
           .instruction();
@@ -2917,8 +3060,8 @@ export class DLMM {
         binArrayLower,
         binArrayUpper,
         binArrayBitmapExtension,
-        tokenXProgram: TOKEN_PROGRAM_ID,
-        tokenYProgram: TOKEN_PROGRAM_ID,
+        tokenXProgram: this.tokenX.owner,
+        tokenYProgram: this.tokenY.owner,
         sender: user,
       })
       .preInstructions(preInstructions)
@@ -3001,147 +3144,6 @@ export class DLMM {
       lastValidBlockHeight,
       feePayer: owner,
     }).add(closePositionTx);
-  }
-
-  /**
-   * The `swapQuoteWithCap` function returns a quote for a swap in permission pool
-   * @param
-   *    - `inAmount`: Amount of lamport to swap in
-   *    - `swapForY`: Swap token X to Y when it is true, else reversed.
-   *    - `allowedSlipage`: Allowed slippage for the swap. Expressed in BPS. To convert from slippage percentage to BPS unit: SLIPPAGE_PERCENTAGE * 100
-   *    - `maxSwappedAmount`: Max swapped amount
-   * @returns {SwapQuote}
-   *    - `consumedInAmount`: Amount of lamport to swap in
-   *    - `outAmount`: Amount of lamport to swap out
-   *    - `fee`: Fee amount
-   *    - `protocolFee`: Protocol fee amount
-   *    - `minOutAmount`: Minimum amount of lamport to swap out
-   *    - `priceImpact`: Price impact of the swap
-   *    - `binArraysPubkey`: Array of bin arrays involved in the swap
-   */
-  public swapQuoteWithCap(
-    inAmount: BN,
-    swapForY: boolean,
-    allowedSlippage: BN,
-    maxSwappedAmount: BN,
-    binArrays: BinArrayAccount[]
-  ): SwapQuote {
-    // TODO: Should we use onchain clock ? Volatile fee rate is sensitive to time. Caching clock might causes the quoted fee off ...
-    const currentTimestamp = Date.now() / 1000;
-    let inAmountLeft = inAmount;
-
-    let vParameterClone = Object.assign({}, this.lbPair.vParameters);
-    let activeId = new BN(this.lbPair.activeId);
-
-    const binStep = this.lbPair.binStep;
-    const sParameters = this.lbPair.parameters;
-
-    this.updateReference(
-      activeId.toNumber(),
-      vParameterClone,
-      sParameters,
-      currentTimestamp
-    );
-
-    let startBin: Bin | null = null;
-    let binArraysForSwap = new Map();
-    let actualOutAmount: BN = new BN(0);
-    let feeAmount: BN = new BN(0);
-    let protocolFeeAmount: BN = new BN(0);
-
-    while (!inAmountLeft.isZero()) {
-      let binArrayAccountToSwap = findNextBinArrayWithLiquidity(
-        swapForY,
-        activeId,
-        this.lbPair,
-        this.binArrayBitmapExtension?.account,
-        binArrays
-      );
-
-      if (binArrayAccountToSwap == null) {
-        throw new Error("Insufficient liquidity");
-      }
-
-      binArraysForSwap.set(binArrayAccountToSwap.publicKey, true);
-
-      this.updateVolatilityAccumulator(
-        vParameterClone,
-        sParameters,
-        activeId.toNumber()
-      );
-
-      if (
-        isBinIdWithinBinArray(activeId, binArrayAccountToSwap.account.index)
-      ) {
-        const bin = getBinFromBinArray(
-          activeId.toNumber(),
-          binArrayAccountToSwap.account
-        );
-        const { isReachCap, amountIn, amountOut, fee, protocolFee } =
-          swapQuoteAtBinWithCap(
-            bin,
-            binStep,
-            sParameters,
-            vParameterClone,
-            inAmountLeft,
-            swapForY,
-            maxSwappedAmount.sub(actualOutAmount)
-          );
-
-        if (!amountIn.isZero()) {
-          inAmountLeft = inAmountLeft.sub(amountIn);
-          actualOutAmount = actualOutAmount.add(amountOut);
-          feeAmount = feeAmount.add(fee);
-          protocolFeeAmount = protocolFee.add(protocolFee);
-
-          if (!startBin) {
-            startBin = bin;
-          }
-        }
-        if (isReachCap) {
-          break;
-        }
-      }
-
-      if (!inAmountLeft.isZero()) {
-        if (swapForY) {
-          activeId = activeId.sub(new BN(1));
-        } else {
-          activeId = activeId.add(new BN(1));
-        }
-      }
-    }
-
-    if (!startBin) throw new Error("Invalid start bin");
-
-    // deduct inAmountLeft
-    inAmount = inAmount.sub(inAmountLeft);
-    const outAmountWithoutSlippage = getOutAmount(
-      startBin,
-      inAmount.sub(
-        computeFeeFromAmount(binStep, sParameters, vParameterClone, inAmount)
-      ),
-      swapForY
-    );
-
-    const priceImpact = new Decimal(actualOutAmount.toString())
-      .sub(new Decimal(outAmountWithoutSlippage.toString()))
-      .div(new Decimal(outAmountWithoutSlippage.toString()))
-      .mul(new Decimal(100));
-
-    const minOutAmount = actualOutAmount
-      .mul(new BN(BASIS_POINT_MAX).sub(allowedSlippage))
-      .div(new BN(BASIS_POINT_MAX));
-
-    return {
-      consumedInAmount: inAmount,
-      outAmount: actualOutAmount,
-      fee: feeAmount,
-      protocolFee: protocolFeeAmount,
-      minOutAmount,
-      priceImpact,
-      binArraysPubkey: [...binArraysForSwap.keys()],
-    };
   }
 
   /**
@@ -3356,8 +3358,8 @@ export class DLMM {
         reserveY,
         tokenXMint,
         tokenYMint,
-        tokenXProgram: TOKEN_PROGRAM_ID, // dont use 2022 first; lack familiarity
-        tokenYProgram: TOKEN_PROGRAM_ID, // dont use 2022 first; lack familiarity
+        tokenXProgram: this.tokenX.owner,
+        tokenYProgram: this.tokenY.owner,
         user,
         userTokenIn,
         userTokenOut,
@@ -4977,7 +4979,7 @@ export class DLMM {
           binArrayUpper,
           rewardVault: rewardInfo.vault,
           rewardMint: rewardInfo.mint,
-          tokenProgram: TOKEN_PROGRAM_ID,
+          tokenProgram: this.rewardMintInfo[i].owner,
           userTokenAccount: ataPubKey,
         })
         .preInstructions(shouldIncludePreIx ? preInstructions : [])
@@ -5063,7 +5065,7 @@ export class DLMM {
     }
 
     const claimFeeTx = await this.program.methods
-      .claimFee()
+      .claimFee2()
       .accounts({
         binArrayLower,
         binArrayUpper,
@@ -5072,7 +5074,8 @@ export class DLMM {
         position: position.publicKey,
         reserveX,
         reserveY,
-        tokenProgram: TOKEN_PROGRAM_ID,
+        tokenProgramX: this.tokenX.owner,
+        tokenProgramY: this.tokenY.owner,
         tokenXMint: this.tokenX.publicKey,
         tokenYMint: this.tokenY.publicKey,
         userTokenX,

@@ -175,3 +175,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - fix `addLiquidityByStrategy` not working when active bin is not within the liquidity
+
+## lb_clmm [0.7.0] - PR #83
+
+### Added
+
+- Program endpoint `claim_fee2`. It support both token and token 2022 program.
+- Program endpoint `initialize_lb_pair2`. It support both token and token 2022 program. Check [token.rs](./programs/lb_clmm/src/utils/token.rs) for the mint extension requirement.
+- Program endpoint `initialize_token_badge`. Mint with token badge initialized can come along with any type of extension.
+- Account `token_badge`.
+
+### Deprecated
+
+- Program endpoint `claim-fee`. Please use `claim_fee2` which support both token and token 2022 program.
+
+### Breaking
+
+- Program endpoint `initialize_reward`. It require `token_badge` to be passed for the reward mint.
+- Program endpoint `initialize_permission_pair` It requires token_badge and respective token_program to be passed.
+
+### Changed
+
+- Bump to anchor 0.29.0
+
+## @meteora-ag/dlmm [1.0.45] - PR #83
+
+### Changed
+
+- Use `claimFee2` instead of `claimFee` to support both token and token 2022 program.
+- Use `initializeLbPair2` instead of `initializeLbPair`to support both token and token 2022 program.
+- `initializePermissionPair` support token 2022 program.

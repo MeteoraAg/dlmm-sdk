@@ -26,6 +26,12 @@ export interface TokenReserve {
   reserve: PublicKey;
   amount: bigint;
   decimal: number;
+  owner: PublicKey;
+}
+
+export interface RewardMintInfo {
+  publicKey: PublicKey;
+  owner: PublicKey;
 }
 
 export type ClmmProgram = Program<LbClmm>;

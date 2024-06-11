@@ -28,11 +28,20 @@ pub async fn claim_reward<C: Deref<Target = impl Signer> + Clone>(
 
     let (reward_vault, _bump) = derive_reward_vault_pda(lb_pair, reward_index);
     let lb_pair_state: LbPair = program.account(lb_pair).await?;
+
     let reward_info = lb_pair_state.reward_infos[reward_index as usize];
     let reward_mint = reward_info.mint;
 
-    let user_token_account =
-        get_or_create_ata(program, transaction_config, reward_mint, program.payer()).await?;
+    let token_program = program.async_rpc().get_account(&reward_mint).await?.owner;
+
+    let user_token_account = get_or_create_ata(
+        program,
+        transaction_config,
+        reward_mint,
+        program.payer(),
+        token_program,
+    )
+    .await?;
 
     let [bin_array_lower, bin_array_upper] = get_bin_arrays_for_position(program, position).await?;
 
@@ -44,7 +53,7 @@ pub async fn claim_reward<C: Deref<Target = impl Signer> + Clone>(
         lb_pair,
         reward_vault,
         reward_mint,
-        token_program: anchor_spl::token::ID,
+        token_program,
         position,
         user_token_account,
         sender: program.payer(),

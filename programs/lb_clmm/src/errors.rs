@@ -155,4 +155,13 @@ pub enum LBError {
 
     #[msg("Invalid lock release slot")]
     InvalidLockReleaseSlot,
+
+    #[msg("Bin range is not empty")]
+    BinRangeIsNotEmpty,
+
+    #[msg("Unsupported mint extension")]
+    UnsupportedMintExtension,
+
+    #[msg("Unmatch token mint")]
+    UnmatchTokenMint,
 }

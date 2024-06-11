@@ -45,6 +45,19 @@ pub async fn remove_liquidity_by_price_range<C: Deref<Target = impl Signer> + Cl
     let token_mint_base: Mint = program.account(lb_pair_state.token_x_mint).await?;
     let token_mint_quote: Mint = program.account(lb_pair_state.token_y_mint).await?;
 
+    let token_programs = program
+        .async_rpc()
+        .get_multiple_accounts(&[lb_pair_state.token_x_mint, lb_pair_state.token_y_mint])
+        .await?
+        .into_iter()
+        .map(|account| Some(account?.owner))
+        .collect::<Option<Vec<Pubkey>>>()
+        .context("Missing token mint account")?;
+
+    let [token_x_program, token_y_program] = token_programs.as_slice() else {
+        bail!("Missing token program accounts");
+    };
+
     let min_price_per_lamport = price_per_token_to_per_lamport(
         min_price,
         token_mint_base.decimals,
@@ -65,7 +78,6 @@ pub async fn remove_liquidity_by_price_range<C: Deref<Target = impl Signer> + Cl
 
     assert!(min_active_id < max_active_id);
 
-    println!("go here");
     let width = MAX_BIN_PER_POSITION as i32;
     for i in min_active_id..=max_active_id {
         let (position, _bump) = derive_position_pda(lb_pair, base_position_key, i, width);
@@ -92,6 +104,7 @@ pub async fn remove_liquidity_by_price_range<C: Deref<Target = impl Signer> + Cl
                     transaction_config,
                     lb_pair_state.token_x_mint,
                     program.payer(),
+                    *token_x_program,
                 )
                 .await?;
 
@@ -100,6 +113,7 @@ pub async fn remove_liquidity_by_price_range<C: Deref<Target = impl Signer> + Cl
                     transaction_config,
                     lb_pair_state.token_y_mint,
                     program.payer(),
+                    *token_y_program,
                 )
                 .await?;
                 let (event_authority, _bump) = derive_event_authority_pda();
