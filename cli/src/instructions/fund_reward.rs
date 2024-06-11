@@ -32,11 +32,20 @@ pub async fn fund_reward<C: Deref<Target = impl Signer> + Clone>(
         &lb_clmm::ID,
     );
     let lb_pair_state: LbPair = program.account(lb_pair).await?;
+
     let reward_info = lb_pair_state.reward_infos[reward_index as usize];
     let reward_mint = reward_info.mint;
 
-    let funder_token_account =
-        get_or_create_ata(program, transaction_config, reward_mint, program.payer()).await?;
+    let token_program = program.async_rpc().get_account(&reward_mint).await?.owner;
+
+    let funder_token_account = get_or_create_ata(
+        program,
+        transaction_config,
+        reward_mint,
+        program.payer(),
+        reward_mint,
+    )
+    .await?;
 
     let active_bin_array_idx = BinArray::bin_id_to_bin_array_index(lb_pair_state.active_id)?;
     let (bin_array, _bump) = derive_bin_array_pda(lb_pair, active_bin_array_idx as i64);
@@ -50,7 +59,7 @@ pub async fn fund_reward<C: Deref<Target = impl Signer> + Clone>(
         funder: program.payer(),
         funder_token_account,
         bin_array,
-        token_program: anchor_spl::token::ID,
+        token_program,
         event_authority,
         program: lb_clmm::ID,
     };

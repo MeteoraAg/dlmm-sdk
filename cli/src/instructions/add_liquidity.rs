@@ -38,6 +38,19 @@ pub async fn add_liquidity<C: Deref<Target = impl Signer> + Clone>(
 
     let lb_pair_state: LbPair = program.account(lb_pair).await?;
 
+    let token_programs = program
+        .async_rpc()
+        .get_multiple_accounts(&[lb_pair_state.token_x_mint, lb_pair_state.token_y_mint])
+        .await?
+        .into_iter()
+        .map(|account| Some(account?.owner))
+        .collect::<Option<Vec<Pubkey>>>()
+        .context("Missing token mint account")?;
+
+    let [token_x_program, token_y_program] = token_programs.as_slice() else {
+        bail!("Missing token program accounts");
+    };
+
     let bin_liquidity_distribution = bin_liquidity_distribution
         .into_iter()
         .map(|(bin_id, dist_x, dist_y)| BinLiquidityDistribution {
@@ -54,6 +67,7 @@ pub async fn add_liquidity<C: Deref<Target = impl Signer> + Clone>(
         transaction_config,
         lb_pair_state.token_x_mint,
         program.payer(),
+        *token_x_program,
     )
     .await?;
 
@@ -62,6 +76,7 @@ pub async fn add_liquidity<C: Deref<Target = impl Signer> + Clone>(
         transaction_config,
         lb_pair_state.token_y_mint,
         program.payer(),
+        *token_y_program,
     )
     .await?;
 
@@ -92,9 +107,8 @@ pub async fn add_liquidity<C: Deref<Target = impl Signer> + Clone>(
         sender: program.payer(),
         user_token_x,
         user_token_y,
-        // TODO: token 2022
-        token_x_program: anchor_spl::token::ID,
-        token_y_program: anchor_spl::token::ID,
+        token_x_program: *token_x_program,
+        token_y_program: *token_y_program,
         event_authority,
         program: lb_clmm::ID,
     };

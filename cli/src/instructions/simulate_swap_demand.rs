@@ -30,6 +30,20 @@ pub async fn simulate_swap_demand<C: Deref<Target = impl Signer> + Clone>(
     } = params;
 
     let lb_pair_state: LbPair = program.account(lb_pair).await?;
+
+    let token_programs = program
+        .async_rpc()
+        .get_multiple_accounts(&[lb_pair_state.token_x_mint, lb_pair_state.token_y_mint])
+        .await?
+        .into_iter()
+        .map(|account| Some(account?.owner))
+        .collect::<Option<Vec<Pubkey>>>()
+        .context("Missing token mint account")?;
+
+    let [token_x_program, token_y_program] = token_programs.as_slice() else {
+        bail!("Missing token program accounts");
+    };
+
     let token_mint_base: Mint = program.account(lb_pair_state.token_x_mint).await?;
     let token_mint_quote: Mint = program.account(lb_pair_state.token_y_mint).await?;
 
@@ -38,6 +52,7 @@ pub async fn simulate_swap_demand<C: Deref<Target = impl Signer> + Clone>(
         transaction_config,
         lb_pair_state.token_x_mint,
         program.payer(),
+        *token_x_program,
     )
     .await?;
     get_or_create_ata(
@@ -45,6 +60,7 @@ pub async fn simulate_swap_demand<C: Deref<Target = impl Signer> + Clone>(
         transaction_config,
         lb_pair_state.token_y_mint,
         program.payer(),
+        *token_y_program,
     )
     .await?;
 

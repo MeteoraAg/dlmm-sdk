@@ -32,6 +32,19 @@ pub async fn withdraw_protocol_fee<C: Deref<Target = impl Signer> + Clone>(
 
     let lb_pair_state: LbPair = program.account(lb_pair).await?;
 
+    let token_programs = program
+        .async_rpc()
+        .get_multiple_accounts(&[lb_pair_state.token_x_mint, lb_pair_state.token_y_mint])
+        .await?
+        .into_iter()
+        .map(|account| Some(account?.owner))
+        .collect::<Option<Vec<Pubkey>>>()
+        .context("Missing token mint account")?;
+
+    let [token_x_program, token_y_program] = token_programs.as_slice() else {
+        bail!("Missing token program accounts");
+    };
+
     let receiver_token_x =
         get_associated_token_address(&program.payer(), &lb_pair_state.token_x_mint);
 
@@ -44,8 +57,8 @@ pub async fn withdraw_protocol_fee<C: Deref<Target = impl Signer> + Clone>(
         reserve_y: lb_pair_state.reserve_y,
         token_x_mint: lb_pair_state.token_x_mint,
         token_y_mint: lb_pair_state.token_y_mint,
-        token_x_program: anchor_spl::token::ID,
-        token_y_program: anchor_spl::token::ID,
+        token_x_program: *token_x_program,
+        token_y_program: *token_y_program,
         fee_owner: program.payer(),
         receiver_token_x,
         receiver_token_y,
