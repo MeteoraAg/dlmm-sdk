@@ -154,7 +154,7 @@ pub enum Command {
         position: Pubkey,
     },
     /// Trade token X -> Y, or vice versa.
-    Swap {
+    SwapExactIn {
         /// Address of the liquidity pair.
         lb_pair: Pubkey,
         /// Amount of token to be sell.

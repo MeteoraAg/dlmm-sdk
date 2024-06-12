@@ -62,7 +62,7 @@ use crate::{
         },
         show_pair::show_pair,
         simulate_swap_demand::{simulate_swap_demand, SimulateSwapDemandParameters},
-        swap::{swap, SwapParameters},
+        swap_exact_in::{swap, SwapParameters},
         swap_exact_out::{swap_exact_out, SwapExactOutParameters},
         toggle_pair_status::toggle_pool_status,
         update_fee_owner::{update_fee_owner, UpdateFeeOwnerParam},
@@ -204,7 +204,7 @@ async fn main() -> Result<()> {
             };
             remove_liquidity(params, &amm_program, transaction_config).await?;
         }
-        Command::Swap {
+        Command::SwapExactIn {
             lb_pair,
             amount_in,
             swap_for_y,
