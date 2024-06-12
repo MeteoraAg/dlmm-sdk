@@ -63,6 +63,7 @@ use crate::{
         show_pair::show_pair,
         simulate_swap_demand::{simulate_swap_demand, SimulateSwapDemandParameters},
         swap::{swap, SwapParameters},
+        swap_exact_out::{swap_exact_out, SwapExactOutParameters},
         toggle_pair_status::toggle_pool_status,
         update_fee_owner::{update_fee_owner, UpdateFeeOwnerParam},
         update_reward_duration::*,
@@ -299,6 +300,18 @@ async fn main() -> Result<()> {
                 side_ratio,
             };
             simulate_swap_demand(params, &amm_program, transaction_config).await?;
+        }
+        Command::SwapExactOut {
+            lb_pair,
+            amount_out,
+            swap_for_y,
+        } => {
+            let params = SwapExactOutParameters {
+                lb_pair,
+                amount_out,
+                swap_for_y,
+            };
+            swap_exact_out(params, &amm_program, transaction_config).await?;
         }
         Command::Admin(admin_command) => match admin_command {
             AdminCommand::InitializePermissionPair {

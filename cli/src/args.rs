@@ -163,6 +163,15 @@ pub enum Command {
         #[clap(long)]
         swap_for_y: bool,
     },
+    SwapExactOut {
+        /// Address of the liquidity pair.
+        lb_pair: Pubkey,
+        /// Amount of token to be buy.
+        amount_out: u64,
+        /// Buy direction. true = buy token Y, false = buy token X.
+        #[clap(long)]
+        swap_for_y: bool,
+    },
     /// Show information of the given liquidity pair.
     ShowPair {
         lb_pair: Pubkey,
@@ -374,5 +383,5 @@ pub enum AdminCommand {
         lb_pair: Pubkey,
         /// Preactivation swap address
         pre_activation_swap_address: Pubkey,
-    }, 
+    },
 }

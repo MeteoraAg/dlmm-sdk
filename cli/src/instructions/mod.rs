@@ -25,6 +25,7 @@ pub mod set_pre_activation_swap_address;
 pub mod show_pair;
 pub mod simulate_swap_demand;
 pub mod swap;
+pub mod swap_exact_out;
 pub mod toggle_pair_status;
 pub mod update_fee_owner;
 pub mod update_reward_duration;
