@@ -26,6 +26,7 @@ pub mod show_pair;
 pub mod simulate_swap_demand;
 pub mod swap_exact_in;
 pub mod swap_exact_out;
+pub mod swap_with_price_impact;
 pub mod toggle_pair_status;
 pub mod update_fee_owner;
 pub mod update_reward_duration;

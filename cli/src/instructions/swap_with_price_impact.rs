@@ -23,24 +23,24 @@ use lb_clmm::state::lb_pair::LbPair;
 use lb_clmm::utils::pda::*;
 
 #[derive(Debug)]
-pub struct SwapExactInParameters {
+pub struct SwapWithPriceImpactParameters {
     pub lb_pair: Pubkey,
     pub amount_in: u64,
     pub swap_for_y: bool,
+    pub price_impact_bps: u16,
 }
 
-pub async fn swap<C: Deref<Target = impl Signer> + Clone>(
-    params: SwapExactInParameters,
+pub async fn swap_with_price_impact<C: Deref<Target = impl Signer> + Clone>(
+    params: SwapWithPriceImpactParameters,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
 ) -> Result<()> {
-    let SwapExactInParameters {
+    let SwapWithPriceImpactParameters {
         amount_in,
         lb_pair,
         swap_for_y,
+        price_impact_bps,
     } = params;
-
-    let lb_pair_state: LbPair = program.account(lb_pair).await?;
 
     let lb_pair_state: LbPair = program.account(lb_pair).await?;
 
@@ -130,12 +130,10 @@ pub async fn swap<C: Deref<Target = impl Signer> + Clone>(
         program: lb_clmm::ID,
     };
 
-    // 100 bps slippage
-    let min_amount_out = quote.amount_out * 9900 / BASIS_POINT_MAX as u64;
-
-    let ix = instruction::Swap {
+    let ix = instruction::SwapWithPriceImpact {
         amount_in,
-        min_amount_out,
+        active_id: Some(lb_pair_state.active_id),
+        max_price_impact_bps: price_impact_bps,
     };
 
     let remaining_accounts = bin_arrays_for_swap
