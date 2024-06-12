@@ -92,7 +92,7 @@ pub fn quote_exact_out(
 
                     total_fee = total_fee.checked_add(fee).context("MathOverflow")?;
 
-                    amount_out = amount_out.checked_sub(amount_out).context("MathOverflow")?;
+                    amount_out = 0;
                 }
             }
 
