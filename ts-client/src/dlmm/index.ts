@@ -512,22 +512,23 @@ export class DLMM {
       provider
     );
 
-    const positions = await program.account.position.all([
-      {
-        memcmp: {
-          bytes: bs58.encode(userPubKey.toBuffer()),
-          offset: 8 + 32,
+    const [positions, positionsV2] = await Promise.all([
+      program.account.position.all([
+        {
+          memcmp: {
+            bytes: bs58.encode(userPubKey.toBuffer()),
+            offset: 8 + 32,
+          },
         },
-      },
-    ]);
-
-    const positionsV2 = await program.account.positionV2.all([
-      {
-        memcmp: {
-          bytes: bs58.encode(userPubKey.toBuffer()),
-          offset: 8 + 32,
+      ]),
+      program.account.positionV2.all([
+        {
+          memcmp: {
+            bytes: bs58.encode(userPubKey.toBuffer()),
+            offset: 8 + 32,
+          },
         },
-      },
+      ]),
     ]);
 
     const binArrayPubkeySet = new Set<string>();
