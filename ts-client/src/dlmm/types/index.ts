@@ -145,6 +145,7 @@ export interface StrategyParameters {
   maxBinId: number;
   minBinId: number;
   strategyType: StrategyType;
+  singleSidedX?: boolean;
 }
 
 export interface TQuoteCreatePositionParams {
