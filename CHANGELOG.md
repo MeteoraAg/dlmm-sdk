@@ -181,3 +181,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Improvement
 
 - improve `getAllLbPairPositionsByUser` on some promise to run in parallel
+
+## lb_clmm [0.7.0] - PR #84
+
+### Added
+
+- Program endpoint `swap_exact_out`. It will consume the in amount until the exact out amount reached.
+- Program endpoint `swap_with_price_impact`. Similar to minimum amount out (slippage), but in price impact form.
+
+## common [0.1.1] - PR #84
+
+### Added
+
+- `quote_exact_out` for swap quote of program endpoint `swap_exact_out`.
+
+### Breaking
+
+- Renamed return type of `swap_exact_in` function, `SwapQuote` to `SwapExactInQuote`
+
+## @meteora-ag/dlmm [1.0.46] - PR #84
+
+### Added
+
+- `swapQuoteExactOut` for swap quote of program endpoint `swap_exact_out`.
+- `swapExactOut` to create transaction to swap using program endpoint `swap_exact_out`.
+- `swapWithPriceImpact` to create transaction to swap using program endpoint `swap_with_price_impact`.
+
+### Breaking
+
+- Renamed `swapQuoteAtBin` function to `swapExactInQuoteAtBin`

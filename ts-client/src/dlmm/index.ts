@@ -63,6 +63,9 @@ import {
   CompressedBinDepositAmounts,
   PositionV2,
   SeedLiquidityResponse,
+  SwapQuoteExactOut,
+  SwapExactOutParams,
+  SwapWithPriceImpactParams,
 } from "./types";
 import { AnchorProvider, BN, Program } from "@coral-xyz/anchor";
 import {
@@ -79,7 +82,7 @@ import {
   getTokenDecimals,
   isBinIdWithinBinArray,
   isOverflowDefaultBinArrayBitmap,
-  swapQuoteAtBin,
+  swapExactInQuoteAtBin,
   unwrapSOLInstruction,
   wrapSOLInstruction,
   findNextBinArrayWithLiquidity,
@@ -89,12 +92,12 @@ import {
   deriveOracle,
   computeBudgetIx,
   findNextBinArrayIndexWithLiquidity,
-  swapQuoteAtBinWithCap,
   toStrategyParameters,
   derivePermissionLbPair,
   deriveLbPair2,
   derivePosition,
   deriveLbPair,
+  swapExactOutQuoteAtBin,
 } from "./helpers";
 import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import Decimal from "decimal.js";
@@ -3005,31 +3008,28 @@ export class DLMM {
   }
 
   /**
-   * The `swapQuoteWithCap` function returns a quote for a swap in permission pool
+   * The `swapQuoteExactOut` function returns a quote for a swap
    * @param
-   *    - `inAmount`: Amount of lamport to swap in
+   *    - `outAmount`: Amount of lamport to swap out
    *    - `swapForY`: Swap token X to Y when it is true, else reversed.
-   *    - `allowedSlipage`: Allowed slippage for the swap. Expressed in BPS. To convert from slippage percentage to BPS unit: SLIPPAGE_PERCENTAGE * 100
-   *    - `maxSwappedAmount`: Max swapped amount
+   *    - `allowedSlippage`: Allowed slippage for the swap. Expressed in BPS. To convert from slippage percentage to BPS unit: SLIPPAGE_PERCENTAGE * 100
    * @returns {SwapQuote}
-   *    - `consumedInAmount`: Amount of lamport to swap in
+   *    - `inAmount`: Amount of lamport to swap in
    *    - `outAmount`: Amount of lamport to swap out
    *    - `fee`: Fee amount
    *    - `protocolFee`: Protocol fee amount
-   *    - `minOutAmount`: Minimum amount of lamport to swap out
-   *    - `priceImpact`: Price impact of the swap
+   *    - `maxInAmount`: Maximum amount of lamport to swap in
    *    - `binArraysPubkey`: Array of bin arrays involved in the swap
    */
-  public swapQuoteWithCap(
-    inAmount: BN,
+  public swapQuoteExactOut(
+    outAmount: BN,
     swapForY: boolean,
     allowedSlippage: BN,
-    maxSwappedAmount: BN,
     binArrays: BinArrayAccount[]
-  ): SwapQuote {
+  ): SwapQuoteExactOut {
     // TODO: Should we use onchain clock ? Volatile fee rate is sensitive to time. Caching clock might causes the quoted fee off ...
     const currentTimestamp = Date.now() / 1000;
-    let inAmountLeft = inAmount;
+    let outAmountLeft = outAmount;
 
     let vParameterClone = Object.assign({}, this.lbPair.vParameters);
     let activeId = new BN(this.lbPair.activeId);
@@ -3044,18 +3044,18 @@ export class DLMM {
       currentTimestamp
     );
 
-    let startBin: Bin | null = null;
+    let startBinId = activeId;
     let binArraysForSwap = new Map();
-    let actualOutAmount: BN = new BN(0);
+    let actualInAmount: BN = new BN(0);
     let feeAmount: BN = new BN(0);
     let protocolFeeAmount: BN = new BN(0);
 
-    while (!inAmountLeft.isZero()) {
+    while (!outAmountLeft.isZero()) {
       let binArrayAccountToSwap = findNextBinArrayWithLiquidity(
         swapForY,
         activeId,
         this.lbPair,
-        this.binArrayBitmapExtension?.account,
+        this.binArrayBitmapExtension?.account ?? null,
         binArrays
       );
 
@@ -3078,33 +3078,25 @@ export class DLMM {
           activeId.toNumber(),
           binArrayAccountToSwap.account
         );
-        const { isReachCap, amountIn, amountOut, fee, protocolFee } =
-          swapQuoteAtBinWithCap(
+        const { amountIn, amountOut, fee, protocolFee } =
+          swapExactOutQuoteAtBin(
             bin,
             binStep,
             sParameters,
             vParameterClone,
-            inAmountLeft,
-            swapForY,
-            maxSwappedAmount.sub(actualOutAmount)
+            outAmountLeft,
+            swapForY
           );
 
-        if (!amountIn.isZero()) {
-          inAmountLeft = inAmountLeft.sub(amountIn);
-          actualOutAmount = actualOutAmount.add(amountOut);
+        if (!amountOut.isZero()) {
+          outAmountLeft = outAmountLeft.sub(amountOut);
+          actualInAmount = actualInAmount.add(amountIn);
           feeAmount = feeAmount.add(fee);
           protocolFeeAmount = protocolFee.add(protocolFee);
-
-          if (!startBin) {
-            startBin = bin;
-          }
-        }
-        if (isReachCap) {
-          break;
         }
       }
 
-      if (!inAmountLeft.isZero()) {
+      if (!outAmountLeft.isZero()) {
         if (swapForY) {
           activeId = activeId.sub(new BN(1));
         } else {
@@ -3113,34 +3105,26 @@ export class DLMM {
       }
     }
 
-    if (!startBin) throw new Error("Invalid start bin");
+    const startPrice = this.getPriceOfBinByBinId(startBinId.toNumber());
+    const endPrice = this.getPriceOfBinByBinId(activeId.toNumber());
 
-    // deduct inAmountLeft
-    inAmount = inAmount.sub(inAmountLeft);
-    const outAmountWithoutSlippage = getOutAmount(
-      startBin,
-      inAmount.sub(
-        computeFeeFromAmount(binStep, sParameters, vParameterClone, inAmount)
-      ),
-      swapForY
-    );
-
-    const priceImpact = new Decimal(actualOutAmount.toString())
-      .sub(new Decimal(outAmountWithoutSlippage.toString()))
-      .div(new Decimal(outAmountWithoutSlippage.toString()))
+    const priceImpact = new Decimal(startPrice)
+      .sub(new Decimal(endPrice))
+      .abs()
+      .div(new Decimal(startPrice))
       .mul(new Decimal(100));
 
-    const minOutAmount = actualOutAmount
-      .mul(new BN(BASIS_POINT_MAX).sub(allowedSlippage))
+    const maxInAmount = actualInAmount
+      .mul(new BN(BASIS_POINT_MAX).add(allowedSlippage))
       .div(new BN(BASIS_POINT_MAX));
 
     return {
-      consumedInAmount: inAmount,
-      outAmount: actualOutAmount,
+      inAmount: actualInAmount,
+      maxInAmount,
+      outAmount,
+      priceImpact,
       fee: feeAmount,
       protocolFee: protocolFeeAmount,
-      minOutAmount,
-      priceImpact,
       binArraysPubkey: [...binArraysForSwap.keys()],
     };
   }
@@ -3150,7 +3134,7 @@ export class DLMM {
    * @param
    *    - `inAmount`: Amount of lamport to swap in
    *    - `swapForY`: Swap token X to Y when it is true, else reversed.
-   *    - `allowedSlipage`: Allowed slippage for the swap. Expressed in BPS. To convert from slippage percentage to BPS unit: SLIPPAGE_PERCENTAGE * 100
+   *    - `allowedSlippage`: Allowed slippage for the swap. Expressed in BPS. To convert from slippage percentage to BPS unit: SLIPPAGE_PERCENTAGE * 100
    * @returns {SwapQuote}
    *    - `consumedInAmount`: Amount of lamport to swap in
    *    - `outAmount`: Amount of lamport to swap out
@@ -3217,7 +3201,7 @@ export class DLMM {
           activeId.toNumber(),
           binArrayAccountToSwap.account
         );
-        const { amountIn, amountOut, fee, protocolFee } = swapQuoteAtBin(
+        const { amountIn, amountOut, fee, protocolFee } = swapExactInQuoteAtBin(
           bin,
           binStep,
           sParameters,
@@ -3275,6 +3259,207 @@ export class DLMM {
       priceImpact,
       binArraysPubkey: [...binArraysForSwap.keys()],
     };
+  }
+
+  public async swapExactOut({
+    inToken,
+    outToken,
+    outAmount,
+    maxInAmount,
+    lbPair,
+    user,
+    binArraysPubkey,
+  }: SwapExactOutParams): Promise<Transaction> {
+    const { tokenXMint, tokenYMint, reserveX, reserveY, activeId, oracle } =
+      await this.program.account.lbPair.fetch(lbPair);
+
+    const preInstructions: TransactionInstruction[] = [computeBudgetIx()];
+
+    const [
+      { ataPubKey: userTokenIn, ix: createInTokenAccountIx },
+      { ataPubKey: userTokenOut, ix: createOutTokenAccountIx },
+    ] = await Promise.all([
+      getOrCreateATAInstruction(
+        this.program.provider.connection,
+        inToken,
+        user
+      ),
+      getOrCreateATAInstruction(
+        this.program.provider.connection,
+        outToken,
+        user
+      ),
+    ]);
+    createInTokenAccountIx && preInstructions.push(createInTokenAccountIx);
+    createOutTokenAccountIx && preInstructions.push(createOutTokenAccountIx);
+
+    if (inToken.equals(NATIVE_MINT)) {
+      const wrapSOLIx = wrapSOLInstruction(
+        user,
+        userTokenIn,
+        BigInt(maxInAmount.toString())
+      );
+
+      preInstructions.push(...wrapSOLIx);
+    }
+
+    const postInstructions: Array<TransactionInstruction> = [];
+    if (outToken.equals(NATIVE_MINT)) {
+      const closeWrappedSOLIx = await unwrapSOLInstruction(user);
+      closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
+    }
+
+    let swapForY = true;
+    if (outToken.equals(tokenXMint)) swapForY = false;
+
+    const binArrays: AccountMeta[] = binArraysPubkey.map((pubkey) => {
+      return {
+        isSigner: false,
+        isWritable: true,
+        pubkey,
+      };
+    });
+
+    const swapTx = await this.program.methods
+      .swapExactOut(maxInAmount, outAmount)
+      .accounts({
+        lbPair,
+        reserveX,
+        reserveY,
+        tokenXMint,
+        tokenYMint,
+        tokenXProgram: TOKEN_PROGRAM_ID,
+        tokenYProgram: TOKEN_PROGRAM_ID,
+        user,
+        userTokenIn,
+        userTokenOut,
+        binArrayBitmapExtension: this.binArrayBitmapExtension
+          ? this.binArrayBitmapExtension.publicKey
+          : null,
+        oracle,
+        hostFeeIn: null,
+      })
+      .remainingAccounts(binArrays)
+      .preInstructions(preInstructions)
+      .postInstructions(postInstructions)
+      .transaction();
+
+    const { blockhash, lastValidBlockHeight } =
+      await this.program.provider.connection.getLatestBlockhash("confirmed");
+    return new Transaction({
+      blockhash,
+      lastValidBlockHeight,
+      feePayer: user,
+    }).add(swapTx);
+  }
+
+  /**
+   * Returns a transaction to be signed and sent by user performing swap.
+   * @param {SwapWithPriceImpactParams}
+   *    - `inToken`: The public key of the token to be swapped in.
+   *    - `outToken`: The public key of the token to be swapped out.
+   *    - `inAmount`: The amount of token to be swapped in.
+   *    - `priceImpact`: Accepted price impact bps.
+   *    - `lbPair`: The public key of the liquidity pool.
+   *    - `user`: The public key of the user account.
+   *    - `binArraysPubkey`: Array of bin arrays involved in the swap
+   * @returns {Promise<Transaction>}
+   */
+  public async swapWithPriceImpact({
+    inToken,
+    outToken,
+    inAmount,
+    lbPair,
+    user,
+    priceImpact,
+    binArraysPubkey,
+  }: SwapWithPriceImpactParams): Promise<Transaction> {
+    const { tokenXMint, tokenYMint, reserveX, reserveY, activeId, oracle } =
+      await this.program.account.lbPair.fetch(lbPair);
+
+    const preInstructions: TransactionInstruction[] = [computeBudgetIx()];
+
+    const [
+      { ataPubKey: userTokenIn, ix: createInTokenAccountIx },
+      { ataPubKey: userTokenOut, ix: createOutTokenAccountIx },
+    ] = await Promise.all([
+      getOrCreateATAInstruction(
+        this.program.provider.connection,
+        inToken,
+        user
+      ),
+      getOrCreateATAInstruction(
+        this.program.provider.connection,
+        outToken,
+        user
+      ),
+    ]);
+    createInTokenAccountIx && preInstructions.push(createInTokenAccountIx);
+    createOutTokenAccountIx && preInstructions.push(createOutTokenAccountIx);
+
+    if (inToken.equals(NATIVE_MINT)) {
+      const wrapSOLIx = wrapSOLInstruction(
+        user,
+        userTokenIn,
+        BigInt(inAmount.toString())
+      );
+
+      preInstructions.push(...wrapSOLIx);
+    }
+
+    const postInstructions: Array<TransactionInstruction> = [];
+    if (outToken.equals(NATIVE_MINT)) {
+      const closeWrappedSOLIx = await unwrapSOLInstruction(user);
+      closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
+    }
+
+    let swapForY = true;
+    if (outToken.equals(tokenXMint)) swapForY = false;
+
+    // TODO: needs some refinement in case binArray not yet initialized
+    const binArrays: AccountMeta[] = binArraysPubkey.map((pubkey) => {
+      return {
+        isSigner: false,
+        isWritable: true,
+        pubkey,
+      };
+    });
+
+    const swapTx = await this.program.methods
+      .swapWithPriceImpact(
+        inAmount,
+        this.lbPair.activeId,
+        priceImpact.toNumber()
+      )
+      .accounts({
+        lbPair,
+        reserveX,
+        reserveY,
+        tokenXMint,
+        tokenYMint,
+        tokenXProgram: TOKEN_PROGRAM_ID,
+        tokenYProgram: TOKEN_PROGRAM_ID,
+        user,
+        userTokenIn,
+        userTokenOut,
+        binArrayBitmapExtension: this.binArrayBitmapExtension
+          ? this.binArrayBitmapExtension.publicKey
+          : null,
+        oracle,
+        hostFeeIn: null,
+      })
+      .remainingAccounts(binArrays)
+      .preInstructions(preInstructions)
+      .postInstructions(postInstructions)
+      .transaction();
+
+    const { blockhash, lastValidBlockHeight } =
+      await this.program.provider.connection.getLatestBlockhash("confirmed");
+    return new Transaction({
+      blockhash,
+      lastValidBlockHeight,
+      feePayer: user,
+    }).add(swapTx);
   }
 
   /**

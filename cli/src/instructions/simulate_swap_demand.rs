@@ -1,6 +1,6 @@
 use crate::instructions::utils::get_or_create_ata;
 use crate::swap;
-use crate::SwapParameters;
+use crate::SwapExactInParameters;
 use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
 use anchor_client::{solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, Program};
 use anchor_spl::token::Mint;
@@ -56,7 +56,7 @@ pub async fn simulate_swap_demand<C: Deref<Target = impl Signer> + Clone>(
             // sell side
             println!("try to sell {x_amount} jup");
             let amount_x = x_amount * (10u64.pow(token_mint_base.decimals as u32) as f64);
-            let params = SwapParameters {
+            let params = SwapExactInParameters {
                 amount_in: amount_x.round() as u64,
                 lb_pair,
                 swap_for_y: true,
@@ -72,7 +72,7 @@ pub async fn simulate_swap_demand<C: Deref<Target = impl Signer> + Clone>(
             println!("try to buy with {y_amount} usd");
             let amount_y = y_amount * (10u64.pow(token_mint_quote.decimals as u32) as f64);
 
-            let params = SwapParameters {
+            let params = SwapExactInParameters {
                 amount_in: amount_y.round() as u64,
                 lb_pair,
                 swap_for_y: false,

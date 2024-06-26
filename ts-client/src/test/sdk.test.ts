@@ -1749,320 +1749,694 @@ describe("SDK test", () => {
   });
 
   describe("Swap within active bin", () => {
-    let btcInAmount: BN;
-    let usdcInAmount: BN;
-    let quotedOutAmount: BN;
-    let actualOutAmount: BN;
-    let binArraysPubkeyForSwap: PublicKey[];
+    describe("Swap exact in", () => {
+      let btcInAmount: BN;
+      let usdcInAmount: BN;
+      let quotedOutAmount: BN;
+      let actualOutAmount: BN;
+      let binArraysPubkeyForSwap: PublicKey[];
 
-    beforeAll(async () => {
-      await lbClmm.refetchStates();
-    });
-
-    it("quote X -> Y", async () => {
-      const bins = await lbClmm.getBinsBetweenLowerAndUpperBound(
-        lbClmm.lbPair.activeId,
-        lbClmm.lbPair.activeId
-      );
-
-      const activeBin = bins.bins.pop();
-
-      const btcAmountToSwapHalfUsdcOfActiveBin = new BN(
-        activeBin.yAmount.div(new BN(2)).toNumber() /
-          Number.parseFloat(activeBin.price)
-      );
-
-      btcInAmount = btcAmountToSwapHalfUsdcOfActiveBin;
-
-      const binArrays = await lbClmm.getBinArrays();
-      const { fee, outAmount, priceImpact, protocolFee, binArraysPubkey } =
-        lbClmm.swapQuote(btcInAmount, true, new BN(0), binArrays);
-      expect(outAmount.toString()).not.toEqual("0");
-      expect(fee.toString()).not.toEqual("0");
-      // Swap within active bin has no price impact
-      expect(priceImpact.isZero()).toBeTruthy();
-      expect(protocolFee.toString()).toEqual("0");
-      expect(binArraysPubkey.length).toBeGreaterThan(0);
-
-      binArraysPubkeyForSwap = binArraysPubkey;
-      quotedOutAmount = outAmount;
-    });
-
-    it("swap X -> Y", async () => {
-      const [beforeBtc, beforeUsdc] = await Promise.all([
-        connection
-          .getTokenAccountBalance(userBTC)
-          .then((ta) => new BN(ta.value.amount)),
-        connection
-          .getTokenAccountBalance(userUSDC)
-          .then((ta) => new BN(ta.value.amount)),
-      ]);
-
-      const rawTx = await lbClmm.swap({
-        inAmount: btcInAmount,
-        outToken: USDC,
-        minOutAmount: new BN(0),
-        user: keypair.publicKey,
-        inToken: BTC,
-        lbPair: lbPairPubkey,
-        binArraysPubkey: binArraysPubkeyForSwap,
+      beforeEach(async () => {
+        await lbClmm.refetchStates();
       });
-      const txHash = await sendAndConfirmTransaction(connection, rawTx, [
-        keypair,
-      ]);
-      expect(txHash).not.toBeNull();
-      console.log("Swap X -> Y", txHash);
 
-      const [afterBtc, afterUsdc] = await Promise.all([
-        connection
-          .getTokenAccountBalance(userBTC)
-          .then((ta) => new BN(ta.value.amount)),
-        connection
-          .getTokenAccountBalance(userUSDC)
-          .then((ta) => new BN(ta.value.amount)),
-      ]);
+      it("quote X -> Y", async () => {
+        const bins = await lbClmm.getBinsBetweenLowerAndUpperBound(
+          lbClmm.lbPair.activeId,
+          lbClmm.lbPair.activeId
+        );
 
-      expect(afterBtc.lt(beforeBtc)).toBeTruthy();
-      expect(afterUsdc.gt(beforeUsdc)).toBeTruthy();
+        const activeBin = bins.bins.pop();
 
-      actualOutAmount = afterUsdc.sub(beforeUsdc);
-    });
+        const btcAmountToSwapHalfUsdcOfActiveBin = new BN(
+          activeBin.yAmount.div(new BN(2)).toNumber() /
+            Number.parseFloat(activeBin.price)
+        );
 
-    it("quote matches actual swap result (X -> Y)", () => {
-      expect(actualOutAmount.toString()).toBe(quotedOutAmount.toString());
-    });
+        btcInAmount = btcAmountToSwapHalfUsdcOfActiveBin;
 
-    it("quote Y -> X", async () => {
-      const bins = await lbClmm.getBinsBetweenLowerAndUpperBound(
-        lbClmm.lbPair.activeId,
-        lbClmm.lbPair.activeId
-      );
+        const binArrays = await lbClmm.getBinArrays();
+        const { fee, outAmount, priceImpact, protocolFee, binArraysPubkey } =
+          lbClmm.swapQuote(btcInAmount, true, new BN(0), binArrays);
+        expect(outAmount.toString()).not.toEqual("0");
+        expect(fee.toString()).not.toEqual("0");
+        // Swap within active bin has no price impact
+        expect(priceImpact.isZero()).toBeTruthy();
+        expect(protocolFee.toString()).toEqual("0");
+        expect(binArraysPubkey.length).toBeGreaterThan(0);
 
-      const activeBin = bins.bins.pop();
-
-      const usdcAmountToSwapHalfBtcOfActiveBin = new BN(
-        activeBin.xAmount.div(new BN(2)).toNumber() *
-          Number.parseFloat(activeBin.price)
-      );
-
-      usdcInAmount = usdcAmountToSwapHalfBtcOfActiveBin;
-      const binArrays = await lbClmm.getBinArrays();
-      const { fee, outAmount, priceImpact, protocolFee, binArraysPubkey } =
-        lbClmm.swapQuote(usdcInAmount, false, new BN(0), binArrays);
-      expect(outAmount.toString()).not.toEqual("0");
-      expect(fee.toString()).not.toEqual("0");
-      // Swap within active bin has no price impact
-      expect(priceImpact.isZero()).toBeTruthy();
-      // TODO: Now we disable protocol we. Re-enable it back later.
-      expect(protocolFee.toString()).toEqual("0");
-      expect(binArraysPubkey.length).toBeGreaterThan(0);
-
-      binArraysPubkeyForSwap = binArraysPubkey;
-      quotedOutAmount = outAmount;
-    });
-
-    it("swap Y -> X", async () => {
-      const [beforeBtc, beforeUsdc] = await Promise.all([
-        connection
-          .getTokenAccountBalance(userBTC)
-          .then((ta) => new BN(ta.value.amount)),
-        connection
-          .getTokenAccountBalance(userUSDC)
-          .then((ta) => new BN(ta.value.amount)),
-      ]);
-
-      const rawTx = await lbClmm.swap({
-        inAmount: usdcInAmount,
-        outToken: BTC,
-        minOutAmount: new BN(0),
-        user: keypair.publicKey,
-        inToken: USDC,
-        lbPair: lbPairPubkey,
-        binArraysPubkey: binArraysPubkeyForSwap,
+        binArraysPubkeyForSwap = binArraysPubkey;
+        quotedOutAmount = outAmount;
       });
-      const txHash = await sendAndConfirmTransaction(connection, rawTx, [
-        keypair,
-      ]);
-      expect(txHash).not.toBeNull();
-      console.log("Swap Y -> X", txHash);
 
-      const [afterBtc, afterUsdc] = await Promise.all([
-        connection
-          .getTokenAccountBalance(userBTC)
-          .then((ta) => new BN(ta.value.amount)),
-        connection
-          .getTokenAccountBalance(userUSDC)
-          .then((ta) => new BN(ta.value.amount)),
-      ]);
+      it("swap X -> Y", async () => {
+        const [beforeBtc, beforeUsdc] = await Promise.all([
+          connection
+            .getTokenAccountBalance(userBTC)
+            .then((ta) => new BN(ta.value.amount)),
+          connection
+            .getTokenAccountBalance(userUSDC)
+            .then((ta) => new BN(ta.value.amount)),
+        ]);
 
-      expect(afterBtc.gt(beforeBtc)).toBeTruthy();
-      expect(afterUsdc.lt(beforeUsdc)).toBeTruthy();
+        const rawTx = await lbClmm.swap({
+          inAmount: btcInAmount,
+          outToken: USDC,
+          minOutAmount: new BN(0),
+          user: keypair.publicKey,
+          inToken: BTC,
+          lbPair: lbPairPubkey,
+          binArraysPubkey: binArraysPubkeyForSwap,
+        });
+        const txHash = await sendAndConfirmTransaction(connection, rawTx, [
+          keypair,
+        ]);
+        expect(txHash).not.toBeNull();
+        console.log("Swap X -> Y", txHash);
 
-      actualOutAmount = afterBtc.sub(beforeBtc);
+        const [afterBtc, afterUsdc] = await Promise.all([
+          connection
+            .getTokenAccountBalance(userBTC)
+            .then((ta) => new BN(ta.value.amount)),
+          connection
+            .getTokenAccountBalance(userUSDC)
+            .then((ta) => new BN(ta.value.amount)),
+        ]);
+
+        expect(afterBtc.lt(beforeBtc)).toBeTruthy();
+        expect(afterUsdc.gt(beforeUsdc)).toBeTruthy();
+
+        actualOutAmount = afterUsdc.sub(beforeUsdc);
+      });
+
+      it("quote matches actual swap result (X -> Y)", () => {
+        expect(actualOutAmount.toString()).toBe(quotedOutAmount.toString());
+      });
+
+      it("quote Y -> X", async () => {
+        const bins = await lbClmm.getBinsBetweenLowerAndUpperBound(
+          lbClmm.lbPair.activeId,
+          lbClmm.lbPair.activeId
+        );
+
+        const activeBin = bins.bins.pop();
+
+        const usdcAmountToSwapHalfBtcOfActiveBin = new BN(
+          activeBin.xAmount.div(new BN(2)).toNumber() *
+            Number.parseFloat(activeBin.price)
+        );
+
+        usdcInAmount = usdcAmountToSwapHalfBtcOfActiveBin;
+        const binArrays = await lbClmm.getBinArrays();
+        const { fee, outAmount, priceImpact, protocolFee, binArraysPubkey } =
+          lbClmm.swapQuote(usdcInAmount, false, new BN(0), binArrays);
+        expect(outAmount.toString()).not.toEqual("0");
+        expect(fee.toString()).not.toEqual("0");
+        // Swap within active bin has no price impact
+        expect(priceImpact.isZero()).toBeTruthy();
+        // TODO: Now we disable protocol we. Re-enable it back later.
+        expect(protocolFee.toString()).toEqual("0");
+        expect(binArraysPubkey.length).toBeGreaterThan(0);
+
+        binArraysPubkeyForSwap = binArraysPubkey;
+        quotedOutAmount = outAmount;
+      });
+
+      it("swap Y -> X", async () => {
+        const [beforeBtc, beforeUsdc] = await Promise.all([
+          connection
+            .getTokenAccountBalance(userBTC)
+            .then((ta) => new BN(ta.value.amount)),
+          connection
+            .getTokenAccountBalance(userUSDC)
+            .then((ta) => new BN(ta.value.amount)),
+        ]);
+
+        const rawTx = await lbClmm.swap({
+          inAmount: usdcInAmount,
+          outToken: BTC,
+          minOutAmount: new BN(0),
+          user: keypair.publicKey,
+          inToken: USDC,
+          lbPair: lbPairPubkey,
+          binArraysPubkey: binArraysPubkeyForSwap,
+        });
+        const txHash = await sendAndConfirmTransaction(connection, rawTx, [
+          keypair,
+        ]);
+        expect(txHash).not.toBeNull();
+        console.log("Swap Y -> X", txHash);
+
+        const [afterBtc, afterUsdc] = await Promise.all([
+          connection
+            .getTokenAccountBalance(userBTC)
+            .then((ta) => new BN(ta.value.amount)),
+          connection
+            .getTokenAccountBalance(userUSDC)
+            .then((ta) => new BN(ta.value.amount)),
+        ]);
+
+        expect(afterBtc.gt(beforeBtc)).toBeTruthy();
+        expect(afterUsdc.lt(beforeUsdc)).toBeTruthy();
+
+        actualOutAmount = afterBtc.sub(beforeBtc);
+      });
+
+      it("quote matches actual swap result (Y -> X)", () => {
+        expect(actualOutAmount.toString()).toBe(quotedOutAmount.toString());
+      });
     });
 
-    it("quote matches actual swap result (Y -> X)", () => {
-      expect(actualOutAmount.toString()).toBe(quotedOutAmount.toString());
+    describe("Swap exact out", () => {
+      let outAmount: BN;
+      let quotedInAmount: BN;
+      let binArraysPubkeyForSwap: PublicKey[];
+      let quotedMaxInAmount: BN;
+      let quotedInFee: BN;
+      let actualOutAmount: BN;
+      let actualInAmount: BN;
+
+      beforeEach(async () => {
+        await lbClmm.refetchStates();
+      });
+
+      it("quote X -> Y", async () => {
+        outAmount = new BN(0);
+        const bins = await lbClmm.getBinsBetweenLowerAndUpperBound(
+          lbClmm.lbPair.activeId,
+          lbClmm.lbPair.activeId
+        );
+
+        const activeBin = bins.bins.pop();
+        const halfTokenYAmount = new BN(activeBin.yAmount.div(new BN(2)));
+        outAmount = halfTokenYAmount;
+        const binArrays = await lbClmm.getBinArrays();
+
+        const {
+          fee,
+          inAmount,
+          maxInAmount,
+          protocolFee,
+          binArraysPubkey,
+          priceImpact,
+        } = lbClmm.swapQuoteExactOut(outAmount, true, new BN(5), binArrays);
+
+        expect(inAmount.toString()).not.toEqual("0");
+        expect(fee.toString()).not.toEqual("0");
+        expect(protocolFee.toString()).toEqual("0");
+        expect(binArraysPubkey.length).toBeGreaterThan(0);
+        expect(priceImpact.toNumber()).toBe(0);
+
+        binArraysPubkeyForSwap = binArraysPubkey;
+        quotedMaxInAmount = maxInAmount;
+        quotedInFee = fee;
+        quotedInAmount = inAmount;
+      });
+
+      it("swap X -> Y", async () => {
+        const [beforeBtc, beforeUsdc] = await Promise.all([
+          connection
+            .getTokenAccountBalance(userBTC)
+            .then((ta) => new BN(ta.value.amount)),
+          connection
+            .getTokenAccountBalance(userUSDC)
+            .then((ta) => new BN(ta.value.amount)),
+        ]);
+
+        const rawTx = await lbClmm.swapExactOut({
+          maxInAmount: quotedMaxInAmount.add(quotedInFee),
+          inToken: BTC,
+          outToken: USDC,
+          outAmount,
+          user: keypair.publicKey,
+          lbPair: lbPairPubkey,
+          binArraysPubkey: binArraysPubkeyForSwap,
+        });
+
+        const txHash = await sendAndConfirmTransaction(connection, rawTx, [
+          keypair,
+        ]);
+
+        expect(txHash).not.toBeNull();
+        console.log("Swap X -> Y", txHash);
+
+        const [afterBtc, afterUsdc] = await Promise.all([
+          connection
+            .getTokenAccountBalance(userBTC)
+            .then((ta) => new BN(ta.value.amount)),
+          connection
+            .getTokenAccountBalance(userUSDC)
+            .then((ta) => new BN(ta.value.amount)),
+        ]);
+
+        expect(afterBtc.lt(beforeBtc)).toBeTruthy();
+        expect(afterUsdc.gt(beforeUsdc)).toBeTruthy();
+
+        actualOutAmount = afterUsdc.sub(beforeUsdc);
+        actualInAmount = beforeBtc.sub(afterBtc);
+      });
+
+      it("quote matches actual swap result (X -> Y)", () => {
+        expect(actualOutAmount.toString()).toBe(outAmount.toString());
+        expect(actualInAmount.toString()).toBe(
+          quotedInAmount.add(quotedInFee).toString()
+        );
+      });
+
+      it("quote Y -> X", async () => {
+        outAmount = new BN(0);
+        const bins = await lbClmm.getBinsBetweenLowerAndUpperBound(
+          lbClmm.lbPair.activeId,
+          lbClmm.lbPair.activeId
+        );
+
+        const activeBin = bins.bins.pop();
+        const halfTokenXAmount = new BN(activeBin.xAmount.div(new BN(2)));
+        outAmount = halfTokenXAmount;
+        const binArrays = await lbClmm.getBinArrays();
+
+        const {
+          fee,
+          inAmount,
+          maxInAmount,
+          protocolFee,
+          binArraysPubkey,
+          priceImpact,
+        } = lbClmm.swapQuoteExactOut(outAmount, false, new BN(5), binArrays);
+
+        expect(inAmount.toString()).not.toEqual("0");
+        expect(fee.toString()).not.toEqual("0");
+        expect(protocolFee.toString()).toEqual("0");
+        expect(binArraysPubkey.length).toBeGreaterThan(0);
+        expect(priceImpact.toNumber()).toBe(0);
+
+        binArraysPubkeyForSwap = binArraysPubkey;
+        quotedMaxInAmount = maxInAmount;
+        quotedInFee = fee;
+        quotedInAmount = inAmount;
+      });
+
+      it("swap Y -> X", async () => {
+        const [beforeBtc, beforeUsdc] = await Promise.all([
+          connection
+            .getTokenAccountBalance(userBTC)
+            .then((ta) => new BN(ta.value.amount)),
+          connection
+            .getTokenAccountBalance(userUSDC)
+            .then((ta) => new BN(ta.value.amount)),
+        ]);
+
+        const rawTx = await lbClmm.swapExactOut({
+          maxInAmount: quotedMaxInAmount.add(quotedInFee),
+          inToken: USDC,
+          outToken: BTC,
+          outAmount,
+          user: keypair.publicKey,
+          lbPair: lbPairPubkey,
+          binArraysPubkey: binArraysPubkeyForSwap,
+        });
+
+        const txHash = await sendAndConfirmTransaction(connection, rawTx, [
+          keypair,
+        ]).catch((err) => {
+          console.error(err);
+          throw err;
+        });
+
+        expect(txHash).not.toBeNull();
+        console.log("Swap Y -> X", txHash);
+
+        const [afterBtc, afterUsdc] = await Promise.all([
+          connection
+            .getTokenAccountBalance(userBTC)
+            .then((ta) => new BN(ta.value.amount)),
+          connection
+            .getTokenAccountBalance(userUSDC)
+            .then((ta) => new BN(ta.value.amount)),
+        ]);
+
+        expect(afterBtc.gt(beforeBtc)).toBeTruthy();
+        expect(afterUsdc.lt(beforeUsdc)).toBeTruthy();
+
+        actualOutAmount = afterBtc.sub(beforeBtc);
+        actualInAmount = beforeUsdc.sub(afterUsdc);
+      });
+
+      it("quote matches actual swap result (Y -> X)", () => {
+        expect(actualOutAmount.toString()).toBe(outAmount.toString());
+        expect(actualInAmount.toString()).toBe(
+          quotedInAmount.add(quotedInFee).toString()
+        );
+      });
     });
   });
 
   describe("Swap with 2 bin", () => {
-    let btcInAmount: BN;
-    let usdcInAmount: BN;
-    let quotedOutAmount: BN;
-    let actualOutAmount: BN;
-    let binArraysPubkeyForSwap: PublicKey[];
+    describe("Swap exact in", () => {
+      let btcInAmount: BN;
+      let usdcInAmount: BN;
+      let quotedOutAmount: BN;
+      let actualOutAmount: BN;
+      let binArraysPubkeyForSwap: PublicKey[];
 
-    beforeEach(async () => {
-      // console.log(lbClmm);
-      await lbClmm.refetchStates();
-    });
-
-    it("quote X -> Y", async () => {
-      const bins = await lbClmm.getBinsBetweenLowerAndUpperBound(
-        lbClmm.lbPair.activeId - 1,
-        lbClmm.lbPair.activeId
-      );
-
-      const beforeActiveBin = bins.bins.pop();
-      const activeBin = bins.bins.pop();
-
-      const btcAmountToCrossBin =
-        activeBin.yAmount.toNumber() / Number.parseFloat(activeBin.price) +
-        beforeActiveBin.yAmount.div(new BN(2)).toNumber() /
-          Number.parseFloat(activeBin.price);
-
-      btcInAmount = new BN(btcAmountToCrossBin + 1);
-
-      const binArrays = await lbClmm.getBinArrays();
-      const { fee, outAmount, priceImpact, protocolFee, binArraysPubkey } =
-        lbClmm.swapQuote(btcInAmount, true, new BN(0), binArrays);
-      expect(outAmount.toString()).not.toEqual("0");
-      expect(fee.toString()).not.toEqual("0");
-      // Swap with crossing bins has price impact
-      expect(!priceImpact.isZero()).toBeTruthy();
-      expect(protocolFee.toString()).toEqual("0");
-      expect(binArraysPubkey.length).toBeGreaterThan(0);
-
-      binArraysPubkeyForSwap = binArraysPubkey;
-      quotedOutAmount = outAmount;
-    });
-
-    it("swap X -> Y", async () => {
-      const [beforeBtc, beforeUsdc] = await Promise.all([
-        connection
-          .getTokenAccountBalance(userBTC)
-          .then((ta) => new BN(ta.value.amount)),
-        connection
-          .getTokenAccountBalance(userUSDC)
-          .then((ta) => new BN(ta.value.amount)),
-      ]);
-
-      const rawTx = await lbClmm.swap({
-        inAmount: btcInAmount,
-        outToken: USDC,
-        minOutAmount: new BN(0),
-        user: keypair.publicKey,
-        inToken: BTC,
-        lbPair: lbPairPubkey,
-        binArraysPubkey: binArraysPubkeyForSwap,
+      beforeEach(async () => {
+        await lbClmm.refetchStates();
       });
-      const txHash = await sendAndConfirmTransaction(connection, rawTx, [
-        keypair,
-      ]);
-      expect(txHash).not.toBeNull();
-      console.log("Swap X -> Y", txHash);
 
-      const [afterBtc, afterUsdc] = await Promise.all([
-        connection
-          .getTokenAccountBalance(userBTC)
-          .then((ta) => new BN(ta.value.amount)),
-        connection
-          .getTokenAccountBalance(userUSDC)
-          .then((ta) => new BN(ta.value.amount)),
-      ]);
+      it("quote X -> Y", async () => {
+        const bins = await lbClmm.getBinsBetweenLowerAndUpperBound(
+          lbClmm.lbPair.activeId - 1,
+          lbClmm.lbPair.activeId
+        );
 
-      expect(afterBtc.lt(beforeBtc)).toBeTruthy();
-      expect(afterUsdc.gt(beforeUsdc)).toBeTruthy();
+        const beforeActiveBin = bins.bins.pop();
+        const activeBin = bins.bins.pop();
 
-      actualOutAmount = afterUsdc.sub(beforeUsdc);
-    });
+        const btcAmountToCrossBin =
+          activeBin.yAmount.toNumber() / Number.parseFloat(activeBin.price) +
+          beforeActiveBin.yAmount.div(new BN(2)).toNumber() /
+            Number.parseFloat(activeBin.price);
 
-    it("quote matches actual swap result (X -> Y)", () => {
-      expect(actualOutAmount.toString()).toBe(quotedOutAmount.toString());
-    });
+        btcInAmount = new BN(btcAmountToCrossBin + 1);
 
-    it("quote Y -> X", async () => {
-      const bins = await lbClmm.getBinsBetweenLowerAndUpperBound(
-        lbClmm.lbPair.activeId,
-        lbClmm.lbPair.activeId + 1
-      );
+        const binArrays = await lbClmm.getBinArrays();
+        const { fee, outAmount, priceImpact, protocolFee, binArraysPubkey } =
+          lbClmm.swapQuote(btcInAmount, true, new BN(0), binArrays);
+        expect(outAmount.toString()).not.toEqual("0");
+        expect(fee.toString()).not.toEqual("0");
+        // Swap with crossing bins has price impact
+        expect(!priceImpact.isZero()).toBeTruthy();
+        expect(protocolFee.toString()).toEqual("0");
+        expect(binArraysPubkey.length).toBeGreaterThan(0);
 
-      const activeBin = bins.bins.pop();
-      const afterActiveBin = bins.bins.pop();
-
-      const usdcAmountToCrossBin =
-        activeBin.xAmount.toNumber() * Number.parseFloat(activeBin.price) +
-        afterActiveBin.xAmount.div(new BN(2)).toNumber() *
-          Number.parseFloat(afterActiveBin.price);
-      usdcInAmount = new BN(usdcAmountToCrossBin + 1);
-
-      const binArrays = await lbClmm.getBinArrays();
-      const { fee, outAmount, priceImpact, protocolFee, binArraysPubkey } =
-        lbClmm.swapQuote(usdcInAmount, false, new BN(0), binArrays);
-      expect(outAmount.toString()).not.toEqual("0");
-      expect(fee.toString()).not.toEqual("0");
-      // Swap with crossing bins has price impact
-      expect(!priceImpact.isZero()).toBeTruthy();
-      expect(protocolFee.toString()).toEqual("0");
-      expect(binArraysPubkey.length).toBeGreaterThan(0);
-
-      binArraysPubkeyForSwap = binArraysPubkey;
-      quotedOutAmount = outAmount;
-    });
-
-    it("swap Y -> X", async () => {
-      const [beforeBtc, beforeUsdc] = await Promise.all([
-        connection
-          .getTokenAccountBalance(userBTC)
-          .then((ta) => new BN(ta.value.amount)),
-        connection
-          .getTokenAccountBalance(userUSDC)
-          .then((ta) => new BN(ta.value.amount)),
-      ]);
-
-      const rawTx = await lbClmm.swap({
-        inAmount: usdcInAmount,
-        outToken: BTC,
-        minOutAmount: new BN(0),
-        user: keypair.publicKey,
-        inToken: USDC,
-        lbPair: lbPairPubkey,
-        binArraysPubkey: binArraysPubkeyForSwap,
+        binArraysPubkeyForSwap = binArraysPubkey;
+        quotedOutAmount = outAmount;
       });
-      const txHash = await sendAndConfirmTransaction(connection, rawTx, [
-        keypair,
-      ]);
-      expect(txHash).not.toBeNull();
-      console.log("Swap Y -> X", txHash);
 
-      const [afterBtc, afterUsdc] = await Promise.all([
-        connection
-          .getTokenAccountBalance(userBTC)
-          .then((ta) => new BN(ta.value.amount)),
-        connection
-          .getTokenAccountBalance(userUSDC)
-          .then((ta) => new BN(ta.value.amount)),
-      ]);
+      it("swap X -> Y", async () => {
+        const [beforeBtc, beforeUsdc] = await Promise.all([
+          connection
+            .getTokenAccountBalance(userBTC)
+            .then((ta) => new BN(ta.value.amount)),
+          connection
+            .getTokenAccountBalance(userUSDC)
+            .then((ta) => new BN(ta.value.amount)),
+        ]);
 
-      expect(afterBtc.gt(beforeBtc)).toBeTruthy();
-      expect(afterUsdc.lt(beforeUsdc)).toBeTruthy();
+        const rawTx = await lbClmm.swap({
+          inAmount: btcInAmount,
+          outToken: USDC,
+          minOutAmount: new BN(0),
+          user: keypair.publicKey,
+          inToken: BTC,
+          lbPair: lbPairPubkey,
+          binArraysPubkey: binArraysPubkeyForSwap,
+        });
+        const txHash = await sendAndConfirmTransaction(connection, rawTx, [
+          keypair,
+        ]);
+        expect(txHash).not.toBeNull();
+        console.log("Swap X -> Y", txHash);
 
-      actualOutAmount = afterBtc.sub(beforeBtc);
+        const [afterBtc, afterUsdc] = await Promise.all([
+          connection
+            .getTokenAccountBalance(userBTC)
+            .then((ta) => new BN(ta.value.amount)),
+          connection
+            .getTokenAccountBalance(userUSDC)
+            .then((ta) => new BN(ta.value.amount)),
+        ]);
+
+        expect(afterBtc.lt(beforeBtc)).toBeTruthy();
+        expect(afterUsdc.gt(beforeUsdc)).toBeTruthy();
+
+        actualOutAmount = afterUsdc.sub(beforeUsdc);
+      });
+
+      it("quote matches actual swap result (X -> Y)", () => {
+        expect(actualOutAmount.toString()).toBe(quotedOutAmount.toString());
+      });
+
+      it("quote Y -> X", async () => {
+        const bins = await lbClmm.getBinsBetweenLowerAndUpperBound(
+          lbClmm.lbPair.activeId,
+          lbClmm.lbPair.activeId + 1
+        );
+
+        const activeBin = bins.bins.pop();
+        const afterActiveBin = bins.bins.pop();
+
+        const usdcAmountToCrossBin =
+          activeBin.xAmount.toNumber() * Number.parseFloat(activeBin.price) +
+          afterActiveBin.xAmount.div(new BN(2)).toNumber() *
+            Number.parseFloat(afterActiveBin.price);
+        usdcInAmount = new BN(usdcAmountToCrossBin + 1);
+
+        const binArrays = await lbClmm.getBinArrays();
+        const { fee, outAmount, priceImpact, protocolFee, binArraysPubkey } =
+          lbClmm.swapQuote(usdcInAmount, false, new BN(0), binArrays);
+        expect(outAmount.toString()).not.toEqual("0");
+        expect(fee.toString()).not.toEqual("0");
+        // Swap with crossing bins has price impact
+        expect(!priceImpact.isZero()).toBeTruthy();
+        expect(protocolFee.toString()).toEqual("0");
+        expect(binArraysPubkey.length).toBeGreaterThan(0);
+
+        binArraysPubkeyForSwap = binArraysPubkey;
+        quotedOutAmount = outAmount;
+      });
+
+      it("swap Y -> X", async () => {
+        const [beforeBtc, beforeUsdc] = await Promise.all([
+          connection
+            .getTokenAccountBalance(userBTC)
+            .then((ta) => new BN(ta.value.amount)),
+          connection
+            .getTokenAccountBalance(userUSDC)
+            .then((ta) => new BN(ta.value.amount)),
+        ]);
+
+        const rawTx = await lbClmm.swap({
+          inAmount: usdcInAmount,
+          outToken: BTC,
+          minOutAmount: new BN(0),
+          user: keypair.publicKey,
+          inToken: USDC,
+          lbPair: lbPairPubkey,
+          binArraysPubkey: binArraysPubkeyForSwap,
+        });
+        const txHash = await sendAndConfirmTransaction(connection, rawTx, [
+          keypair,
+        ]);
+        expect(txHash).not.toBeNull();
+        console.log("Swap Y -> X", txHash);
+
+        const [afterBtc, afterUsdc] = await Promise.all([
+          connection
+            .getTokenAccountBalance(userBTC)
+            .then((ta) => new BN(ta.value.amount)),
+          connection
+            .getTokenAccountBalance(userUSDC)
+            .then((ta) => new BN(ta.value.amount)),
+        ]);
+
+        expect(afterBtc.gt(beforeBtc)).toBeTruthy();
+        expect(afterUsdc.lt(beforeUsdc)).toBeTruthy();
+
+        actualOutAmount = afterBtc.sub(beforeBtc);
+      });
+
+      it("quote matches actual swap result (Y -> X)", () => {
+        expect(actualOutAmount.toString()).toBe(quotedOutAmount.toString());
+      });
     });
 
-    it("quote matches actual swap result (Y -> X)", () => {
-      expect(actualOutAmount.toString()).toBe(quotedOutAmount.toString());
+    describe("Swap exact out", () => {
+      let outAmount: BN;
+      let quotedInAmount: BN;
+      let binArraysPubkeyForSwap: PublicKey[];
+      let quotedMaxInAmount: BN;
+      let quotedInFee: BN;
+      let actualOutAmount: BN;
+      let actualInAmount: BN;
+
+      beforeEach(async () => {
+        await lbClmm.refetchStates();
+      });
+
+      it("quote X -> Y", async () => {
+        outAmount = new BN(0);
+        const { bins } = await lbClmm.getBinsBetweenLowerAndUpperBound(
+          lbClmm.lbPair.activeId - 1,
+          lbClmm.lbPair.activeId
+        );
+
+        const sortedBins = bins.sort((a, b) => b.binId - a.binId);
+
+        const activeBin = sortedBins.pop();
+        outAmount = outAmount.add(activeBin.yAmount);
+        const beforeActiveBin = sortedBins.pop();
+        outAmount = outAmount.add(beforeActiveBin.yAmount.div(new BN(2)));
+
+        const binArrays = await lbClmm.getBinArrays();
+
+        const {
+          fee,
+          inAmount,
+          maxInAmount,
+          protocolFee,
+          binArraysPubkey,
+          priceImpact,
+        } = lbClmm.swapQuoteExactOut(outAmount, true, new BN(5), binArrays);
+
+        expect(inAmount.toString()).not.toEqual("0");
+        expect(fee.toString()).not.toEqual("0");
+        expect(protocolFee.toString()).toEqual("0");
+        expect(binArraysPubkey.length).toBeGreaterThan(0);
+        expect(priceImpact.toNumber()).toBeGreaterThan(0);
+
+        binArraysPubkeyForSwap = binArraysPubkey;
+        quotedMaxInAmount = maxInAmount;
+        quotedInFee = fee;
+        quotedInAmount = inAmount;
+      });
+
+      it("swap X -> Y", async () => {
+        const [beforeBtc, beforeUsdc] = await Promise.all([
+          connection
+            .getTokenAccountBalance(userBTC)
+            .then((ta) => new BN(ta.value.amount)),
+          connection
+            .getTokenAccountBalance(userUSDC)
+            .then((ta) => new BN(ta.value.amount)),
+        ]);
+
+        const rawTx = await lbClmm.swapExactOut({
+          maxInAmount: quotedMaxInAmount.add(quotedInFee),
+          inToken: BTC,
+          outToken: USDC,
+          outAmount,
+          user: keypair.publicKey,
+          lbPair: lbPairPubkey,
+          binArraysPubkey: binArraysPubkeyForSwap,
+        });
+
+        const txHash = await sendAndConfirmTransaction(connection, rawTx, [
+          keypair,
+        ]);
+
+        expect(txHash).not.toBeNull();
+        console.log("Swap X -> Y", txHash);
+
+        const [afterBtc, afterUsdc] = await Promise.all([
+          connection
+            .getTokenAccountBalance(userBTC)
+            .then((ta) => new BN(ta.value.amount)),
+          connection
+            .getTokenAccountBalance(userUSDC)
+            .then((ta) => new BN(ta.value.amount)),
+        ]);
+
+        expect(afterBtc.lt(beforeBtc)).toBeTruthy();
+        expect(afterUsdc.gt(beforeUsdc)).toBeTruthy();
+
+        actualOutAmount = afterUsdc.sub(beforeUsdc);
+        actualInAmount = beforeBtc.sub(afterBtc);
+      });
+
+      it("quote matches actual swap result (X -> Y)", () => {
+        expect(actualOutAmount.toString()).toBe(outAmount.toString());
+        expect(actualInAmount.toString()).toBe(
+          quotedInAmount.add(quotedInFee).toString()
+        );
+      });
+
+      it("quote Y -> X", async () => {
+        outAmount = new BN(0);
+        const { bins } = await lbClmm.getBinsBetweenLowerAndUpperBound(
+          lbClmm.lbPair.activeId,
+          lbClmm.lbPair.activeId + 1
+        );
+
+        const sortedBins = bins.sort((a, b) => a.binId - b.binId);
+
+        const activeBin = sortedBins.pop();
+        outAmount = outAmount.add(activeBin.xAmount);
+        const afterActiveBin = sortedBins.pop();
+        outAmount = outAmount.add(afterActiveBin.xAmount.div(new BN(2)));
+
+        const binArrays = await lbClmm.getBinArrays();
+
+        const {
+          fee,
+          inAmount,
+          maxInAmount,
+          protocolFee,
+          binArraysPubkey,
+          priceImpact,
+        } = lbClmm.swapQuoteExactOut(outAmount, false, new BN(5), binArrays);
+
+        expect(inAmount.toString()).not.toEqual("0");
+        expect(fee.toString()).not.toEqual("0");
+        expect(protocolFee.toString()).toEqual("0");
+        expect(binArraysPubkey.length).toBeGreaterThan(0);
+        expect(priceImpact.toNumber()).toBeGreaterThan(0);
+
+        binArraysPubkeyForSwap = binArraysPubkey;
+        quotedMaxInAmount = maxInAmount;
+        quotedInFee = fee;
+        quotedInAmount = inAmount;
+      });
+
+      it("swap Y -> X", async () => {
+        const [beforeBtc, beforeUsdc] = await Promise.all([
+          connection
+            .getTokenAccountBalance(userBTC)
+            .then((ta) => new BN(ta.value.amount)),
+          connection
+            .getTokenAccountBalance(userUSDC)
+            .then((ta) => new BN(ta.value.amount)),
+        ]);
+
+        const rawTx = await lbClmm.swapExactOut({
+          maxInAmount: quotedMaxInAmount.add(quotedInFee),
+          inToken: USDC,
+          outToken: BTC,
+          outAmount,
+          user: keypair.publicKey,
+          lbPair: lbPairPubkey,
+          binArraysPubkey: binArraysPubkeyForSwap,
+        });
+
+        const txHash = await sendAndConfirmTransaction(connection, rawTx, [
+          keypair,
+        ]);
+
+        expect(txHash).not.toBeNull();
+        console.log("Swap Y -> X", txHash);
+
+        const [afterBtc, afterUsdc] = await Promise.all([
+          connection
+            .getTokenAccountBalance(userBTC)
+            .then((ta) => new BN(ta.value.amount)),
+          connection
+            .getTokenAccountBalance(userUSDC)
+            .then((ta) => new BN(ta.value.amount)),
+        ]);
+
+        expect(afterBtc.gt(beforeBtc)).toBeTruthy();
+        expect(afterUsdc.lt(beforeUsdc)).toBeTruthy();
+
+        actualOutAmount = afterBtc.sub(beforeBtc);
+        actualInAmount = beforeUsdc.sub(afterUsdc);
+      });
+
+      it("quote matches actual swap result (Y -> X)", () => {
+        expect(actualOutAmount.toString()).toBe(outAmount.toString());
+        expect(actualInAmount.toString()).toBe(
+          quotedInAmount.add(quotedInFee).toString()
+        );
+      });
     });
   });
 });

@@ -54,10 +54,26 @@ pub struct Swap<'info> {
     pub token_y_program: Interface<'info, TokenInterface>,
 }
 
-pub fn handle<'a, 'b, 'c, 'info>(
+pub fn handle_exact_in<'a, 'b, 'c, 'info>(
     ctx: Context<'a, 'b, 'c, 'info, Swap<'info>>,
     amount_in: u64,
     min_amount_out: u64,
+) -> Result<()> {
+    Ok(())
+}
+
+pub fn handle_exact_out<'a, 'b, 'c, 'info>(
+    ctx: Context<'a, 'b, 'c, 'info, Swap<'info>>,
+    max_in_amount: u64,
+    exact_out_amount: u64,
+) -> Result<()> {
+    Ok(())
+}
+pub fn handle_exact_in_with_price_impact<'a, 'b, 'c, 'info>(
+    ctx: Context<'a, 'b, 'c, 'info, Swap<'info>>,
+    amount_in: u64,
+    active_id: Option<i32>,
+    max_price_impact_bps: u16,
 ) -> Result<()> {
     Ok(())
 }
