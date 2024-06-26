@@ -63,7 +63,6 @@ import {
   CompressedBinDepositAmounts,
   PositionV2,
   SeedLiquidityResponse,
-  RewardMintInfo,
   SwapQuoteExactOut,
   SwapExactOutParams,
   SwapWithPriceImpactParams,
