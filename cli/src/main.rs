@@ -62,7 +62,9 @@ use crate::{
         },
         show_pair::show_pair,
         simulate_swap_demand::{simulate_swap_demand, SimulateSwapDemandParameters},
-        swap::{swap, SwapParameters},
+        swap_exact_in::{swap, SwapExactInParameters},
+        swap_exact_out::{swap_exact_out, SwapExactOutParameters},
+        swap_with_price_impact::{swap_with_price_impact, SwapWithPriceImpactParameters},
         toggle_pair_status::toggle_pool_status,
         update_fee_owner::{update_fee_owner, UpdateFeeOwnerParam},
         update_reward_duration::*,
@@ -203,12 +205,12 @@ async fn main() -> Result<()> {
             };
             remove_liquidity(params, &amm_program, transaction_config).await?;
         }
-        Command::Swap {
+        Command::SwapExactIn {
             lb_pair,
             amount_in,
             swap_for_y,
         } => {
-            let params = SwapParameters {
+            let params = SwapExactInParameters {
                 amount_in,
                 lb_pair,
                 swap_for_y,
@@ -299,6 +301,32 @@ async fn main() -> Result<()> {
                 side_ratio,
             };
             simulate_swap_demand(params, &amm_program, transaction_config).await?;
+        }
+        Command::SwapExactOut {
+            lb_pair,
+            amount_out,
+            swap_for_y,
+        } => {
+            let params = SwapExactOutParameters {
+                lb_pair,
+                amount_out,
+                swap_for_y,
+            };
+            swap_exact_out(params, &amm_program, transaction_config).await?;
+        }
+        Command::SwapWithPriceImpact {
+            lb_pair,
+            amount_in,
+            swap_for_y,
+            price_impact_bps,
+        } => {
+            let params = SwapWithPriceImpactParameters {
+                lb_pair,
+                amount_in,
+                swap_for_y,
+                price_impact_bps,
+            };
+            swap_with_price_impact(params, &amm_program, transaction_config).await?;
         }
         Command::Admin(admin_command) => match admin_command {
             AdminCommand::InitializePermissionPair {

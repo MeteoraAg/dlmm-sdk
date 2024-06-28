@@ -154,7 +154,7 @@ pub enum Command {
         position: Pubkey,
     },
     /// Trade token X -> Y, or vice versa.
-    Swap {
+    SwapExactIn {
         /// Address of the liquidity pair.
         lb_pair: Pubkey,
         /// Amount of token to be sell.
@@ -162,6 +162,26 @@ pub enum Command {
         /// Buy direction. true = buy token Y, false = buy token X.
         #[clap(long)]
         swap_for_y: bool,
+    },
+    SwapExactOut {
+        /// Address of the liquidity pair.
+        lb_pair: Pubkey,
+        /// Amount of token to be buy.
+        amount_out: u64,
+        /// Buy direction. true = buy token Y, false = buy token X.
+        #[clap(long)]
+        swap_for_y: bool,
+    },
+    SwapWithPriceImpact {
+        /// Address of the liquidity pair.
+        lb_pair: Pubkey,
+        /// Amount of token to be sell.
+        amount_in: u64,
+        /// Buy direction. true = buy token Y, false = buy token X.
+        #[clap(long)]
+        swap_for_y: bool,
+        /// Allowed price impact in bps.
+        price_impact_bps: u16,
     },
     /// Show information of the given liquidity pair.
     ShowPair {
@@ -374,5 +394,5 @@ pub enum AdminCommand {
         lb_pair: Pubkey,
         /// Preactivation swap address
         pre_activation_swap_address: Pubkey,
-    }, 
+    },
 }

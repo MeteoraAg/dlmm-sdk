@@ -1080,13 +1080,15 @@ checksum = "702fc72eb24e5a1e48ce58027a675bc24edd52096d5397d4aea7c6dd9eca0bd1"
 
 [[package]]
 name = "cli"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anchor-client",
  "anchor-lang",
  "anchor-spl",
  "anyhow",
+ "bincode",
  "clap 4.4.7",
+ "commons",
  "lb_clmm",
  "mpl-token-metadata",
  "proptest",
@@ -1118,7 +1120,7 @@ dependencies = [
 
 [[package]]
 name = "commons"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anchor-client",
  "anyhow",
@@ -2248,7 +2250,7 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
 name = "lb_clmm"
-version = "0.6.1"
+version = "0.7.0"
 dependencies = [
  "anchor-lang",
  "anchor-spl",

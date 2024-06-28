@@ -23,6 +23,8 @@ chrono = "0.4.31"
 hyper = "0.14.17"
 routerify = "3"
 ureq = "2.0.0"
+bincode = "1.3.3"
+commons = { path = "./commons" }
 
 [profile.release]
 overflow-checks = true
