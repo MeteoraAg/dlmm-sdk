@@ -210,3 +210,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Breaking
 
 - Renamed `swapQuoteAtBin` function to `swapExactInQuoteAtBin`
+
+## @meteora-ag/dlmm [1.0.48] - PR #87
+
+### Improvement
+
+- Exclude positions without any fees and/or rewards from reward claims in the `claimAllRewards` method.

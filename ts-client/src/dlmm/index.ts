@@ -4219,6 +4219,10 @@ export class DLMM {
       }
     }
 
+    // Filter only position with fees and/or rewards
+    positions = positions.filter(({ positionData: { feeX, feeY, rewardOne, rewardTwo } }) =>
+      !feeX.isZero() || !feeY.isZero() || !rewardOne.isZero() || !rewardTwo.isZero());
+
     const feeOwners = [
       ...new Set([
         owner.toBase58(),
