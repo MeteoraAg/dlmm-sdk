@@ -187,3 +187,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Improvement
 
 - Exclude positions without any fees and/or rewards from reward claims in the `claimAllRewards` method.
+
+## @meteora-ag/dlmm [1.0.49] - PR #88
+
+### Improvement
+
+- Improve the `claimAllRewards` method with a more distinct filtering for claiming non empty swap fees and lm rewards per each kind.
+- Filter positions with non zero LM rewards in the `claimAllLMRewards` method.
+- Filter positions with non zero swap fees in the `claimAllSwapFee` method.
