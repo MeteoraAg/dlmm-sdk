@@ -62,6 +62,8 @@ pub struct SwapResult {
     pub protocol_fee_after_host_fee: u64,
     /// Part of protocol fee
     pub host_fee: u64,
+    /// Indicate whether reached exact out amount
+    pub is_exact_out_amount: bool,
 }
 
 #[zero_copy]
@@ -211,7 +213,41 @@ impl Bin {
             fee,
             protocol_fee_after_host_fee,
             host_fee,
+            is_exact_out_amount: false,
         })
+    }
+
+    pub fn swap_exact_out(
+        &mut self,
+        amount_in: u64,
+        price: u128,
+        swap_for_y: bool,
+        lb_pair: &LbPair,
+        host_fee_bps: Option<u16>,
+        exact_out_amount: u64,
+    ) -> Result<SwapResult> {
+        // Get maximum out token amount can be swapped out from the bin.
+        let max_amount_out = self.get_max_amount_out(swap_for_y);
+        if exact_out_amount >= max_amount_out {
+            let mut swap_result = self.swap(amount_in, price, swap_for_y, lb_pair, host_fee_bps)?;
+            if exact_out_amount == max_amount_out {
+                swap_result.is_exact_out_amount = true;
+            }
+            return Ok(swap_result);
+        } else {
+            let exact_amount_in = Bin::get_amount_in(exact_out_amount, price, swap_for_y)?;
+            let fee = lb_pair.compute_fee(exact_amount_in)?;
+            let amount_in_with_fees = exact_amount_in.safe_add(fee)?;
+            let mut swap_result = self.swap(
+                amount_in_with_fees,
+                price,
+                swap_for_y,
+                lb_pair,
+                host_fee_bps,
+            )?;
+            swap_result.is_exact_out_amount = true;
+            Ok(swap_result)
+        }
     }
 
     /// Withdraw token X, and Y from the bin based on liquidity share.
@@ -261,6 +297,21 @@ impl Bin {
             self.amount_y
         } else {
             self.amount_x
+        }
+    }
+
+    pub fn get_amount_in(amount_out: u64, price: u128, swap_for_y: bool) -> Result<u64> {
+        if swap_for_y {
+            // (amount_y << SCALE_OFFSET) / price
+            // Convert amount_y into Q64x0, if not the result will always in 0 as price is in Q64x64
+            // Division between same Q number format cancel out, result in integer
+            // amount_y / price = amount_in_token_x (integer [Rounding::Down])
+            safe_shl_div_cast(amount_out.into(), price, SCALE_OFFSET, Rounding::Up)
+        } else {
+            // (Q64x64(price) * Q64x0(amount_x)) >> SCALE_OFFSET
+            // price * amount_x = amount_in_token_y (Q64x64)
+            // amount_in_token_y >> SCALE_OFFSET (convert it back to integer form [Rounding::Down])
+            safe_mul_shr_cast(amount_out.into(), price, SCALE_OFFSET, Rounding::Up)
         }
     }
 
