@@ -5,6 +5,7 @@ import {
   sendAndConfirmTransaction,
   SYSVAR_CLOCK_PUBKEY,
   ParsedAccountData,
+  ComputeBudgetProgram,
 } from "@solana/web3.js";
 import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import { DLMM } from "./dlmm";
@@ -74,6 +75,11 @@ async function createBalancePosition(dlmmPool: DLMM) {
       },
     });
 
+    // createPositionTx.add(ComputeBudgetProgram.setComputeUnitPrice({
+    //   microLamports: 100000,
+    // }))
+    // Add this line if you are on producton or mainnet or your tx will fail.
+
   try {
     const createBalancePositionTxHash = await sendAndConfirmTransaction(
       connection,
@@ -111,6 +117,11 @@ async function createImbalancePosition(dlmmPool: DLMM) {
       },
     });
 
+    // createPositionTx.add(ComputeBudgetProgram.setComputeUnitPrice({
+    //   microLamports: 100000,
+    // }))
+    // Add this line if you are on producton or mainnet or your tx will fail.
+
   try {
     const createImbalancePositionTxHash = await sendAndConfirmTransaction(
       connection,
@@ -147,6 +158,11 @@ async function createOneSidePosition(dlmmPool: DLMM) {
         strategyType: StrategyType.SpotOneSide,
       },
     });
+
+    // createPositionTx.add(ComputeBudgetProgram.setComputeUnitPrice({
+    //   microLamports: 100000,
+    // }))
+    // Add this line if you are on producton or mainnet or your tx will fail.
 
   try {
     const createOneSidePositionTxHash = await sendAndConfirmTransaction(
@@ -221,8 +237,7 @@ async function removePositionLiquidity(dlmmPool: DLMM) {
           position: publicKey,
           user: user.publicKey,
           binIds: binIdsToRemove,
-          liquiditiesBpsToRemove: new Array(binIdsToRemove.length).fill(
-            new BN(100 * 100)
+          bps: new BN(100 * 100)
           ),
           shouldClaimAndClose: true, // should claim swap fee and close position together
         });
@@ -232,6 +247,8 @@ async function removePositionLiquidity(dlmmPool: DLMM) {
 
   try {
     for (let tx of removeLiquidityTxs) {
+      // tx.add(ComputeBudgetProgram.setComputeUnitPrice({microLamports: 100000 * 5 ,})) 
+      // Add this line if you are on producton or mainnet or your tx will fail.
       const removeBalanceLiquidityTxHash = await sendAndConfirmTransaction(
         connection,
         tx,
@@ -294,6 +311,11 @@ async function swap(dlmmPool: DLMM) {
     minOutAmount: swapQuote.minOutAmount,
     outToken: dlmmPool.tokenY.publicKey,
   });
+
+    // swapTx.add(ComputeBudgetProgram.setComputeUnitPrice({
+    //   microLamports: 100000,
+    // }))
+    // Add this line if you are on producton or mainnet or your tx will fail.
 
   try {
     const swapTxHash = await sendAndConfirmTransaction(connection, swapTx, [
