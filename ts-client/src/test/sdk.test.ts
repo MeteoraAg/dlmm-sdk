@@ -849,13 +849,14 @@ describe("SDK test", () => {
       );
 
       const minPrice = new Decimal(
-        pair.getPriceOfBinByBinId(pair.lbPair.activeId) + 1
-      ).mul(priceMultiplier);
+        getPriceOfBinByBinId(pair.lbPair.activeId, pair.lbPair.binStep)
+      )
+        .add(1)
+        .mul(priceMultiplier);
 
-      const maxPrice = new Decimal(
-        pair.getPriceOfBinByBinId(
-          pair.lbPair.activeId + 1 + MAX_BIN_PER_POSITION.toNumber() * 3
-        )
+      const maxPrice = getPriceOfBinByBinId(
+        pair.lbPair.activeId + 1 + MAX_BIN_PER_POSITION.toNumber() * 3,
+        pair.lbPair.binStep
       ).mul(priceMultiplier);
 
       let { initializeBinArraysAndPositionIxs, addLiquidityIxs } =
@@ -1020,14 +1021,16 @@ describe("SDK test", () => {
         10 ** (pair.tokenX.decimal - pair.tokenY.decimal)
       );
 
-      const minPrice = new Decimal(
-        pair.getPriceOfBinByBinId(pair.lbPair.activeId) + 1
-      ).mul(priceMultiplier);
+      const minPrice = getPriceOfBinByBinId(
+        pair.lbPair.activeId,
+        pair.lbPair.binStep
+      )
+        .add(1)
+        .mul(priceMultiplier);
 
-      const maxPrice = new Decimal(
-        pair.getPriceOfBinByBinId(
-          pair.lbPair.activeId + 1 + MAX_BIN_PER_POSITION.toNumber() * 3
-        )
+      const maxPrice = getPriceOfBinByBinId(
+        pair.lbPair.activeId + 1 + MAX_BIN_PER_POSITION.toNumber() * 3,
+        pair.lbPair.binStep
       ).mul(priceMultiplier);
 
       let { initializeBinArraysAndPositionIxs, addLiquidityIxs } =
@@ -1191,14 +1194,16 @@ describe("SDK test", () => {
         10 ** (pair.tokenX.decimal - pair.tokenY.decimal)
       );
 
-      const minPrice = new Decimal(
-        pair.getPriceOfBinByBinId(pair.lbPair.activeId) + 1
-      ).mul(priceMultiplier);
+      const minPrice = getPriceOfBinByBinId(
+        pair.lbPair.activeId,
+        pair.lbPair.binStep
+      )
+        .add(1)
+        .mul(priceMultiplier);
 
-      const maxPrice = new Decimal(
-        pair.getPriceOfBinByBinId(
-          pair.lbPair.activeId + 1 + MAX_BIN_PER_POSITION.toNumber() * 3
-        )
+      const maxPrice = getPriceOfBinByBinId(
+        pair.lbPair.activeId + 1 + MAX_BIN_PER_POSITION.toNumber() * 3,
+        pair.lbPair.binStep
       ).mul(priceMultiplier);
 
       let { initializeBinArraysAndPositionIxs, addLiquidityIxs } =
@@ -1367,16 +1372,18 @@ describe("SDK test", () => {
 
       const positionNeeded = Math.floor(Math.random() * 11 + 1);
 
-      const minPrice = new Decimal(
-        pair.getPriceOfBinByBinId(pair.lbPair.activeId) + 1
-      ).mul(priceMultiplier);
+      const minPrice = getPriceOfBinByBinId(
+        pair.lbPair.activeId,
+        pair.lbPair.binStep
+      )
+        .add(1)
+        .mul(priceMultiplier);
 
-      const maxPrice = new Decimal(
-        pair.getPriceOfBinByBinId(
-          pair.lbPair.activeId +
-            1 +
-            MAX_BIN_PER_POSITION.toNumber() * positionNeeded
-        )
+      const maxPrice = getPriceOfBinByBinId(
+        pair.lbPair.activeId +
+          1 +
+          MAX_BIN_PER_POSITION.toNumber() * positionNeeded,
+        pair.lbPair.binStep
       ).mul(priceMultiplier);
 
       console.log("SeedAmount", seedAmount.toString());
