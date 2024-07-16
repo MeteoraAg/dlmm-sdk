@@ -188,6 +188,7 @@ export interface SwapQuote {
   minOutAmount: BN;
   priceImpact: Decimal;
   binArraysPubkey: any[];
+  endPrice: Decimal;
 }
 
 export interface SwapQuoteExactOut {
