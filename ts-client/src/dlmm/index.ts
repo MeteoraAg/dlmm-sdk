@@ -4220,8 +4220,13 @@ export class DLMM {
     }
 
     // Filter only position with fees and/or rewards
-    positions = positions.filter(({ positionData: { feeX, feeY, rewardOne, rewardTwo } }) =>
-      !feeX.isZero() || !feeY.isZero() || !rewardOne.isZero() || !rewardTwo.isZero());
+    positions = positions.filter(
+      ({ positionData: { feeX, feeY, rewardOne, rewardTwo } }) =>
+        !feeX.isZero() ||
+        !feeY.isZero() ||
+        !rewardOne.isZero() ||
+        !rewardTwo.isZero()
+    );
 
     const feeOwners = [
       ...new Set([
@@ -4448,7 +4453,8 @@ export class DLMM {
   public async getMaxPriceInBinArrays(
     binArrayAccounts: BinArrayAccount[]
   ): Promise<string> {
-    const sortedBinArrays = binArrayAccounts.sort(
+    // Don't mutate
+    const sortedBinArrays = [...binArrayAccounts].sort(
       ({ account: { index: indexA } }, { account: { index: indexB } }) =>
         indexA.toNumber() - indexB.toNumber()
     );
@@ -4457,7 +4463,7 @@ export class DLMM {
     while (count >= 0) {
       const binArray = sortedBinArrays[count];
       if (binArray) {
-        const bins = binArray.account.bins.reverse();
+        const bins = binArray.account.bins;
         if (bins.every(({ amountX }) => amountX.isZero())) {
           count--;
         } else {
