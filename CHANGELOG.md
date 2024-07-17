@@ -19,6 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.0.49] - PR #88
+
+### Improvement
+
+- Improve the `claimAllRewards` method with a more distinct filtering for claiming non empty swap fees and lm rewards per each kind.
+- Filter positions with non zero LM rewards in the `claimAllLMRewards` method.
+- Filter positions with non zero swap fees in the `claimAllSwapFee` method.
 
 ## @meteora-ag/dlmm [1.0.48] - PR #87
 
@@ -226,7 +233,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## @mercurial-finance/dlmm-sdk [1.0.30] - PR #65
 
 - Fix create permission lb pair browser compatibility
-
 
 ## @mercurial-finance/dlmm-sdk [1.0.29] - PR #59
 

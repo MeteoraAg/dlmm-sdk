@@ -3622,13 +3622,16 @@ export class DLMM {
   }): Promise<Transaction[]> {
     const claimAllTxs = (
       await Promise.all(
-        positions.map(async (position, idx) => {
-          return await this.createClaimBuildMethod({
-            owner,
-            position,
-            shouldIncludePreIx: idx === 0,
-          });
-        })
+        positions
+          .filter(({ positionData: { rewardOne, rewardTwo } }) =>
+            !rewardOne.isZero() || !rewardTwo.isZero())
+          .map(async (position, idx) => {
+            return await this.createClaimBuildMethod({
+              owner,
+              position,
+              shouldIncludePreIx: idx === 0,
+            });
+          })
       )
     ).flat();
 
@@ -3738,14 +3741,17 @@ export class DLMM {
   }): Promise<Transaction[]> {
     const claimAllTxs = (
       await Promise.all(
-        positions.map(async (position, idx) => {
-          return await this.createClaimSwapFeeMethod({
-            owner,
-            position,
-            shouldIncludePretIx: idx === 0,
-            shouldIncludePostIx: idx === positions.length - 1,
-          });
-        })
+        positions
+          .filter(({ positionData: { feeX, feeY } }) =>
+            !feeX.isZero() || !feeY.isZero())
+          .map(async (position, idx, positions) => {
+            return await this.createClaimSwapFeeMethod({
+              owner,
+              position,
+              shouldIncludePretIx: idx === 0,
+              shouldIncludePostIx: idx === positions.length - 1,
+            });
+          })
       )
     ).flat();
 
@@ -4276,26 +4282,32 @@ export class DLMM {
 
     const claimAllSwapFeeTxs = (
       await Promise.all(
-        positions.map(async (position) => {
-          return await this.createClaimSwapFeeMethod({
-            owner,
-            position,
-            shouldIncludePretIx: false,
-            shouldIncludePostIx: false,
-          });
-        })
+        positions
+          .filter(({ positionData: { feeX, feeY } }) =>
+            !feeX.isZero() || !feeY.isZero())
+          .map(async (position) => {
+            return await this.createClaimSwapFeeMethod({
+              owner,
+              position,
+              shouldIncludePretIx: false,
+              shouldIncludePostIx: false,
+            });
+          })
       )
     ).flat();
 
     const claimAllLMTxs = (
       await Promise.all(
-        positions.map(async (position) => {
-          return await this.createClaimBuildMethod({
-            owner,
-            position,
-            shouldIncludePreIx: false,
-          });
-        })
+        positions
+          .filter(({ positionData: { rewardOne, rewardTwo } }) =>
+            !rewardOne.isZero() || !rewardTwo.isZero())
+          .map(async (position) => {
+            return await this.createClaimBuildMethod({
+              owner,
+              position,
+              shouldIncludePreIx: false,
+            });
+          })
       )
     ).flat();
 
