@@ -133,7 +133,7 @@ export class DLMM {
     public tokenX: TokenReserve,
     public tokenY: TokenReserve,
     private opt?: Opt
-  ) {}
+  ) { }
 
   /** Static public method */
 
@@ -427,7 +427,7 @@ export class DLMM {
           reserveAndTokenMintAccountsInfo[reservePublicKeys.length + index * 2];
         const tokenYMintAccountInfo =
           reserveAndTokenMintAccountsInfo[
-            reservePublicKeys.length + index * 2 + 1
+          reservePublicKeys.length + index * 2 + 1
           ];
 
         if (!reserveXAccountInfo || !reserveYAccountInfo)
@@ -643,13 +643,13 @@ export class DLMM {
       let i = binArrayPubkeyArray.length + lbPairArray.length;
       i <
       binArrayPubkeyArray.length +
-        lbPairArray.length +
-        binArrayPubkeyArrayV2.length;
+      lbPairArray.length +
+      binArrayPubkeyArrayV2.length;
       i++
     ) {
       const binArrayPubkey =
         binArrayPubkeyArrayV2[
-          i - (binArrayPubkeyArray.length + lbPairArray.length)
+        i - (binArrayPubkeyArray.length + lbPairArray.length)
         ];
       const binArrayAccInfoBufferV2 = binArraysAccInfo[i];
       if (!binArrayAccInfoBufferV2)
@@ -674,10 +674,10 @@ export class DLMM {
     ) {
       const lbPairPubkey =
         lbPairArrayV2[
-          i -
-            (binArrayPubkeyArray.length +
-              lbPairArray.length +
-              binArrayPubkeyArrayV2.length)
+        i -
+        (binArrayPubkeyArray.length +
+          lbPairArray.length +
+          binArrayPubkeyArrayV2.length)
         ];
       const lbPairAccInfoBufferV2 = binArraysAccInfo[i];
       if (!lbPairAccInfoBufferV2)
@@ -1614,35 +1614,35 @@ export class DLMM {
     const promiseResults = await Promise.all([
       this.getActiveBin(),
       userPubKey &&
-        this.program.account.position.all([
-          {
-            memcmp: {
-              bytes: bs58.encode(userPubKey.toBuffer()),
-              offset: 8 + 32,
-            },
+      this.program.account.position.all([
+        {
+          memcmp: {
+            bytes: bs58.encode(userPubKey.toBuffer()),
+            offset: 8 + 32,
           },
-          {
-            memcmp: {
-              bytes: bs58.encode(this.pubkey.toBuffer()),
-              offset: 8,
-            },
+        },
+        {
+          memcmp: {
+            bytes: bs58.encode(this.pubkey.toBuffer()),
+            offset: 8,
           },
-        ]),
+        },
+      ]),
       userPubKey &&
-        this.program.account.positionV2.all([
-          {
-            memcmp: {
-              bytes: bs58.encode(userPubKey.toBuffer()),
-              offset: 8 + 32,
-            },
+      this.program.account.positionV2.all([
+        {
+          memcmp: {
+            bytes: bs58.encode(userPubKey.toBuffer()),
+            offset: 8 + 32,
           },
-          {
-            memcmp: {
-              bytes: bs58.encode(this.pubkey.toBuffer()),
-              offset: 8,
-            },
+        },
+        {
+          memcmp: {
+            bytes: bs58.encode(this.pubkey.toBuffer()),
+            offset: 8,
           },
-        ]),
+        },
+      ]),
     ]);
 
     const [activeBin, positions, positionsV2] = promiseResults;
@@ -3135,6 +3135,8 @@ export class DLMM {
    *    - `inAmount`: Amount of lamport to swap in
    *    - `swapForY`: Swap token X to Y when it is true, else reversed.
    *    - `allowedSlippage`: Allowed slippage for the swap. Expressed in BPS. To convert from slippage percentage to BPS unit: SLIPPAGE_PERCENTAGE * 100
+   *    - `binArrays`: binArrays for swapQuote.
+   *    - `isPartialFill`: Flag to check whether the the swapQuote is partial fill, default = false.
    * @returns {SwapQuote}
    *    - `consumedInAmount`: Amount of lamport to swap in
    *    - `outAmount`: Amount of lamport to swap out
@@ -3148,7 +3150,8 @@ export class DLMM {
     inAmount: BN,
     swapForY: boolean,
     allowedSlippage: BN,
-    binArrays: BinArrayAccount[]
+    binArrays: BinArrayAccount[],
+    isPartialFill?: boolean,
   ): SwapQuote {
     // TODO: Should we use onchain clock ? Volatile fee rate is sensitive to time. Caching clock might causes the quoted fee off ...
     const currentTimestamp = Date.now() / 1000;
@@ -3183,7 +3186,11 @@ export class DLMM {
       );
 
       if (binArrayAccountToSwap == null) {
-        throw new Error("Insufficient liquidity");
+        if (isPartialFill) {
+          break;
+        } else {
+          throw new Error("Insufficient liquidity");
+        }
       }
 
       binArraysForSwap.set(binArrayAccountToSwap.publicKey, true);
@@ -3232,6 +3239,8 @@ export class DLMM {
     }
 
     if (!startBin) throw new Error("Invalid start bin");
+
+    inAmount = inAmount.sub(inAmountLeft);
 
     const outAmountWithoutSlippage = getOutAmount(
       startBin,
@@ -5117,7 +5126,7 @@ export class DLMM {
       if (elapsed < sParameter.decayPeriod) {
         const decayedVolatilityReference = Math.floor(
           (vParameter.volatilityAccumulator * sParameter.reductionFactor) /
-            BASIS_POINT_MAX
+          BASIS_POINT_MAX
         );
         vParameter.volatilityReference = decayedVolatilityReference;
       } else {
