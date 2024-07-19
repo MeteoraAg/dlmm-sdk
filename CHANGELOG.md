@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.0.50] - PR #91
+
+### Changed
+
+- Support partial fill in `swapQuote` function
+
 ## @meteora-ag/dlmm [1.0.49] - PR #88
 
 ### Improvement
