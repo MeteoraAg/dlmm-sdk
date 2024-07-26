@@ -4151,7 +4151,7 @@ export class DLMM {
   }
 
   /**
-   * Initializes bin arrays for the given bin array indexes if it was initialized.
+   * Initializes bin arrays for the given bin array indexes if it wasn't initialized.
    *
    * @param {BN[]} binArrayIndexes - An array of bin array indexes to initialize.
    * @param {PublicKey} funder - The public key of the funder.

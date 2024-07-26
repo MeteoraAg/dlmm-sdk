@@ -1,6 +1,6 @@
 {
   "name": "@meteora-ag/dlmm",
-  "version": "1.0.50",
+  "version": "1.0.51",
   "description": "",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
