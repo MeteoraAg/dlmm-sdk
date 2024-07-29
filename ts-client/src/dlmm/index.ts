@@ -133,7 +133,7 @@ export class DLMM {
     public tokenX: TokenReserve,
     public tokenY: TokenReserve,
     private opt?: Opt
-  ) { }
+  ) {}
 
   /** Static public method */
 
@@ -427,7 +427,7 @@ export class DLMM {
           reserveAndTokenMintAccountsInfo[reservePublicKeys.length + index * 2];
         const tokenYMintAccountInfo =
           reserveAndTokenMintAccountsInfo[
-          reservePublicKeys.length + index * 2 + 1
+            reservePublicKeys.length + index * 2 + 1
           ];
 
         if (!reserveXAccountInfo || !reserveYAccountInfo)
@@ -643,13 +643,13 @@ export class DLMM {
       let i = binArrayPubkeyArray.length + lbPairArray.length;
       i <
       binArrayPubkeyArray.length +
-      lbPairArray.length +
-      binArrayPubkeyArrayV2.length;
+        lbPairArray.length +
+        binArrayPubkeyArrayV2.length;
       i++
     ) {
       const binArrayPubkey =
         binArrayPubkeyArrayV2[
-        i - (binArrayPubkeyArray.length + lbPairArray.length)
+          i - (binArrayPubkeyArray.length + lbPairArray.length)
         ];
       const binArrayAccInfoBufferV2 = binArraysAccInfo[i];
       if (!binArrayAccInfoBufferV2)
@@ -674,10 +674,10 @@ export class DLMM {
     ) {
       const lbPairPubkey =
         lbPairArrayV2[
-        i -
-        (binArrayPubkeyArray.length +
-          lbPairArray.length +
-          binArrayPubkeyArrayV2.length)
+          i -
+            (binArrayPubkeyArray.length +
+              lbPairArray.length +
+              binArrayPubkeyArrayV2.length)
         ];
       const lbPairAccInfoBufferV2 = binArraysAccInfo[i];
       if (!lbPairAccInfoBufferV2)
@@ -1614,35 +1614,35 @@ export class DLMM {
     const promiseResults = await Promise.all([
       this.getActiveBin(),
       userPubKey &&
-      this.program.account.position.all([
-        {
-          memcmp: {
-            bytes: bs58.encode(userPubKey.toBuffer()),
-            offset: 8 + 32,
+        this.program.account.position.all([
+          {
+            memcmp: {
+              bytes: bs58.encode(userPubKey.toBuffer()),
+              offset: 8 + 32,
+            },
           },
-        },
-        {
-          memcmp: {
-            bytes: bs58.encode(this.pubkey.toBuffer()),
-            offset: 8,
+          {
+            memcmp: {
+              bytes: bs58.encode(this.pubkey.toBuffer()),
+              offset: 8,
+            },
           },
-        },
-      ]),
+        ]),
       userPubKey &&
-      this.program.account.positionV2.all([
-        {
-          memcmp: {
-            bytes: bs58.encode(userPubKey.toBuffer()),
-            offset: 8 + 32,
+        this.program.account.positionV2.all([
+          {
+            memcmp: {
+              bytes: bs58.encode(userPubKey.toBuffer()),
+              offset: 8 + 32,
+            },
           },
-        },
-        {
-          memcmp: {
-            bytes: bs58.encode(this.pubkey.toBuffer()),
-            offset: 8,
+          {
+            memcmp: {
+              bytes: bs58.encode(this.pubkey.toBuffer()),
+              offset: 8,
+            },
           },
-        },
-      ]),
+        ]),
     ]);
 
     const [activeBin, positions, positionsV2] = promiseResults;
@@ -3151,7 +3151,7 @@ export class DLMM {
     swapForY: boolean,
     allowedSlippage: BN,
     binArrays: BinArrayAccount[],
-    isPartialFill?: boolean,
+    isPartialFill?: boolean
   ): SwapQuote {
     // TODO: Should we use onchain clock ? Volatile fee rate is sensitive to time. Caching clock might causes the quoted fee off ...
     const currentTimestamp = Date.now() / 1000;
@@ -3623,8 +3623,10 @@ export class DLMM {
     const claimAllTxs = (
       await Promise.all(
         positions
-          .filter(({ positionData: { rewardOne, rewardTwo } }) =>
-            !rewardOne.isZero() || !rewardTwo.isZero())
+          .filter(
+            ({ positionData: { rewardOne, rewardTwo } }) =>
+              !rewardOne.isZero() || !rewardTwo.isZero()
+          )
           .map(async (position, idx) => {
             return await this.createClaimBuildMethod({
               owner,
@@ -3742,8 +3744,10 @@ export class DLMM {
     const claimAllTxs = (
       await Promise.all(
         positions
-          .filter(({ positionData: { feeX, feeY } }) =>
-            !feeX.isZero() || !feeY.isZero())
+          .filter(
+            ({ positionData: { feeX, feeY } }) =>
+              !feeX.isZero() || !feeY.isZero()
+          )
           .map(async (position, idx, positions) => {
             return await this.createClaimSwapFeeMethod({
               owner,
@@ -4147,6 +4151,43 @@ export class DLMM {
   }
 
   /**
+   * Initializes bin arrays for the given bin array indexes if it wasn't initialized.
+   *
+   * @param {BN[]} binArrayIndexes - An array of bin array indexes to initialize.
+   * @param {PublicKey} funder - The public key of the funder.
+   * @return {Promise<TransactionInstruction[]>} An array of transaction instructions to initialize the bin arrays.
+   */
+  public async initializeBinArrays(binArrayIndexes: BN[], funder: PublicKey) {
+    const ixs: TransactionInstruction[] = [];
+
+    for (const idx of binArrayIndexes) {
+      const [binArray] = deriveBinArray(
+        this.pubkey,
+        idx,
+        this.program.programId
+      );
+
+      const binArrayAccount =
+        await this.program.provider.connection.getAccountInfo(binArray);
+
+      if (binArrayAccount === null) {
+        ixs.push(
+          await this.program.methods
+            .initializeBinArray(idx)
+            .accounts({
+              binArray,
+              funder,
+              lbPair: this.pubkey,
+            })
+            .instruction()
+        );
+      }
+    }
+
+    return ixs;
+  }
+
+  /**
    *
    * @param
    *    - `lowerBinId`: Lower bin ID of the position. This represent the lowest price of the position
@@ -4283,8 +4324,10 @@ export class DLMM {
     const claimAllSwapFeeTxs = (
       await Promise.all(
         positions
-          .filter(({ positionData: { feeX, feeY } }) =>
-            !feeX.isZero() || !feeY.isZero())
+          .filter(
+            ({ positionData: { feeX, feeY } }) =>
+              !feeX.isZero() || !feeY.isZero()
+          )
           .map(async (position) => {
             return await this.createClaimSwapFeeMethod({
               owner,
@@ -4299,8 +4342,10 @@ export class DLMM {
     const claimAllLMTxs = (
       await Promise.all(
         positions
-          .filter(({ positionData: { rewardOne, rewardTwo } }) =>
-            !rewardOne.isZero() || !rewardTwo.isZero())
+          .filter(
+            ({ positionData: { rewardOne, rewardTwo } }) =>
+              !rewardOne.isZero() || !rewardTwo.isZero()
+          )
           .map(async (position) => {
             return await this.createClaimBuildMethod({
               owner,
@@ -5138,7 +5183,7 @@ export class DLMM {
       if (elapsed < sParameter.decayPeriod) {
         const decayedVolatilityReference = Math.floor(
           (vParameter.volatilityAccumulator * sParameter.reductionFactor) /
-          BASIS_POINT_MAX
+            BASIS_POINT_MAX
         );
         vParameter.volatilityReference = decayedVolatilityReference;
       } else {

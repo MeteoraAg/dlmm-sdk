@@ -1,6 +1,6 @@
 import { BN } from "@coral-xyz/anchor";
 import { PublicKey } from "@solana/web3.js";
-import { MAX_BIN_ARRAY_SIZE } from "../constants";
+import { MAX_BIN_ARRAY_SIZE, MAX_BIN_PER_POSITION } from "../constants";
 import {
   Bin,
   BinArray,
@@ -13,6 +13,8 @@ import {
   EXTENSION_BINARRAY_BITMAP_SIZE,
   BIN_ARRAY_BITMAP_SIZE,
 } from "../constants";
+import { getPositionCount } from "./math";
+import { deriveBinArray } from "./derive";
 
 /** private */
 function internalBitmapRange() {
@@ -321,4 +323,44 @@ export function findNextBinArrayWithLiquidity(
   }
 
   return binArrayAccount;
+}
+
+/**
+ * Retrieves the bin arrays required to initialize multiple positions in continuous range.
+ *
+ * @param {PublicKey} pair - The public key of the pair.
+ * @param {BN} fromBinId - The starting bin ID.
+ * @param {BN} toBinId - The ending bin ID.
+ * @return {[{key: PublicKey, index: BN }]} An array of bin arrays required for the given position range.
+ */
+export function getBinArraysRequiredByPositionRange(
+  pair: PublicKey,
+  fromBinId: BN,
+  toBinId: BN,
+  programId: PublicKey
+): { key: PublicKey; index: BN }[] {
+  const [minBinId, maxBinId] = fromBinId.lt(toBinId)
+    ? [fromBinId, toBinId]
+    : [toBinId, fromBinId];
+
+  const positionCount = getPositionCount(minBinId, maxBinId);
+  const binArrays = new Map<String, BN>();
+
+  for (let i = 0; i < positionCount.toNumber(); i++) {
+    const lowerBinId = minBinId.add(MAX_BIN_PER_POSITION.mul(new BN(i)));
+
+    const lowerBinArrayIndex = binIdToBinArrayIndex(lowerBinId);
+    const upperBinArrayIndex = lowerBinArrayIndex.add(new BN(1));
+
+    const [lowerBinArray] = deriveBinArray(pair, lowerBinArrayIndex, programId);
+    const [upperBinArray] = deriveBinArray(pair, upperBinArrayIndex, programId);
+
+    binArrays.set(lowerBinArray.toBase58(), lowerBinArrayIndex);
+    binArrays.set(upperBinArray.toBase58(), upperBinArrayIndex);
+  }
+
+  return Array.from(binArrays, ([key, index]) => ({
+    key: new PublicKey(key),
+    index,
+  }));
 }
