@@ -197,8 +197,22 @@ export async function chunkedGetMultipleAccountInfos(
   return accountInfos;
 }
 
-export const computeBudgetIx = () => {
+export const MAX_COMPUTE_UNIT = 1_400_00;
+
+export const computeBudgetIx = (computeUnit: number) => {
   return ComputeBudgetProgram.setComputeUnitLimit({
-    units: 1_400_000,
+    units: computeUnit,
   });
 };
+
+
+// 1 bin consumes 130k compute unit
+// https://explorer.solana.com/tx/5JfpsAoS8K5JY6b47ucRX7ZYsmfp8cvBf3MafZkvF1eRGquHdQHvrtXkBsx225VTvMqLomZf1CdgHa9ChPytXvPr
+// 69 bins consumes 1M compute unit
+// https://explorer.solana.com/tx/25WqsQPquPvU1xe7fEjb8RS79zDhAe5SjQpefK5d17msARJ2Kky7VFUUjGif6MJnaSRYh5KAH33gnPX2i2h2rbkA
+// Remove liquidity consumes less compute unit (850k)
+// https://explorer.solana.com/tx/4WYBxYvPoYKMeeXbJXsQGvvscA9Ne9MoKtZ3tURp89kZcC4mC34pJJ8PXV2LwHEJeLs4BhqiERkPAc5JJhSg2wtk
+// we come with the formula: 200 + 15 * binNumber
+export const getComputeInitForModifyingLiquidity = (binNumber: number) => {
+  return Math.min(200 + 15 * binNumber, MAX_COMPUTE_UNIT);
+}
