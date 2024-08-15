@@ -29,7 +29,7 @@ import {
   MAX_BIN_PER_POSITION,
 } from "../dlmm/constants";
 import { IDL, LbClmm } from "../dlmm/idl";
-import { PairType } from "../dlmm/types";
+import { ActivationType, PairType } from "../dlmm/types";
 import Decimal from "decimal.js";
 import babar from "babar";
 import {
@@ -53,7 +53,7 @@ describe("ILM test", () => {
     const wenDecimal = 5;
     const usdcDecimal = 6;
     const feeBps = new BN(500);
-    const lockDurationInSlot = new BN(0);
+    const lockDuration = new BN(0);
 
     let WEN: web3.PublicKey;
     let USDC: web3.PublicKey;
@@ -166,7 +166,8 @@ describe("ILM test", () => {
         baseKeypair.publicKey,
         keypair.publicKey,
         feeBps,
-        lockDurationInSlot,
+        lockDuration,
+        ActivationType.Slot,
         { cluster: "localhost" }
       );
       let txHash = await sendAndConfirmTransaction(connection, rawTx, [
@@ -313,7 +314,7 @@ describe("ILM test", () => {
     const sharkyDecimal = 6;
     const usdcDecimal = 6;
     const feeBps = new BN(250);
-    const lockDurationInSlot = new BN(0);
+    const lockDuration = new BN(0);
 
     let SHARKY: web3.PublicKey;
     let USDC: web3.PublicKey;
@@ -428,7 +429,8 @@ describe("ILM test", () => {
         baseKeypair.publicKey,
         keypair.publicKey,
         feeBps,
-        lockDurationInSlot,
+        lockDuration,
+        ActivationType.Slot,
         { cluster: "localhost" }
       );
       let txHash = await sendAndConfirmTransaction(connection, rawTx, [

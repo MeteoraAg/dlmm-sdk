@@ -1,5 +1,5 @@
 export type LbClmm = {
-  "version": "0.7.0",
+  "version": "0.8.0",
   "name": "lb_clmm",
   "constants": [
     {
@@ -2297,7 +2297,7 @@ export type LbClmm = {
       ]
     },
     {
-      "name": "setActivationSlot",
+      "name": "setActivationPoint",
       "accounts": [
         {
           "name": "lbPair",
@@ -2312,13 +2312,13 @@ export type LbClmm = {
       ],
       "args": [
         {
-          "name": "activationSlot",
+          "name": "activationPoint",
           "type": "u64"
         }
       ]
     },
     {
-      "name": "setLockReleaseSlot",
+      "name": "setLockReleasePoint",
       "accounts": [
         {
           "name": "position",
@@ -2348,7 +2348,7 @@ export type LbClmm = {
       ],
       "args": [
         {
-          "name": "newLockReleaseSlot",
+          "name": "newLockReleasePoint",
           "type": "u64"
         }
       ]
@@ -2572,7 +2572,7 @@ export type LbClmm = {
       ]
     },
     {
-      "name": "setPreActivationSlotDuration",
+      "name": "setPreActivationDuration",
       "accounts": [
         {
           "name": "lbPair",
@@ -2587,7 +2587,7 @@ export type LbClmm = {
       ],
       "args": [
         {
-          "name": "preActivationSlotDuration",
+          "name": "preActivationDuration",
           "type": "u16"
         }
       ]
@@ -2778,10 +2778,16 @@ export type LbClmm = {
           },
           {
             "name": "requireBaseFactorSeed",
+            "docs": [
+              "Require base factor seed"
+            ],
             "type": "u8"
           },
           {
             "name": "baseFactorSeed",
+            "docs": [
+              "Base factor seed"
+            ],
             "type": {
               "array": [
                 "u8",
@@ -2790,13 +2796,18 @@ export type LbClmm = {
             }
           },
           {
-            "name": "padding1",
-            "type": {
-              "array": [
-                "u8",
-                2
-              ]
-            }
+            "name": "activationType",
+            "docs": [
+              "Activation type"
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "padding0",
+            "docs": [
+              "padding 0"
+            ],
+            "type": "u8"
           },
           {
             "name": "tokenXMint",
@@ -2836,11 +2847,16 @@ export type LbClmm = {
             }
           },
           {
-            "name": "feeOwner",
+            "name": "padding1",
             "docs": [
-              "Fee owner. Deprecated. Can be used as buffer in the future."
+              "_padding_1, previous Fee owner, BE CAREFUL FOR TOMBSTONE WHEN REUSE !!"
             ],
-            "type": "publicKey"
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
           },
           {
             "name": "rewardInfos",
@@ -2892,7 +2908,7 @@ export type LbClmm = {
           {
             "name": "preActivationSwapAddress",
             "docs": [
-              "Address allowed to swap when the current slot is greater than or equal to the pre-activation slot. The pre-activation slot is calculated as `activation_slot - pre_activation_slot_duration`."
+              "Address allowed to swap when the current point is greater than or equal to the pre-activation point. The pre-activation point is calculated as `activation_point - pre_activation_duration`."
             ],
             "type": "publicKey"
           },
@@ -2904,23 +2920,23 @@ export type LbClmm = {
             "type": "publicKey"
           },
           {
-            "name": "activationSlot",
+            "name": "activationPoint",
             "docs": [
-              "Slot to enable the pair. Only applicable for permission pair."
+              "Time point to enable the pair. Only applicable for permission pair."
             ],
             "type": "u64"
           },
           {
-            "name": "preActivationSlotDuration",
+            "name": "preActivationDuration",
             "docs": [
-              "Number of slot before activation slot. Used to calculate pre-activation slot for pre_activation_swap_address"
+              "Duration before activation activation_point. Used to calculate pre-activation time point for pre_activation_swap_address"
             ],
             "type": "u64"
           },
           {
             "name": "padding2",
             "docs": [
-              "_padding2 is reclaimed free space from swap_cap_deactivate_slot and swap_cap_amount before, BE CAREFUL FOR TOMBSTONE WHEN REUSE !!"
+              "_padding 2 is reclaimed free space from swap_cap_deactivate_point and swap_cap_amount before, BE CAREFUL FOR TOMBSTONE WHEN REUSE !!"
             ],
             "type": {
               "array": [
@@ -2930,7 +2946,7 @@ export type LbClmm = {
             }
           },
           {
-            "name": "lockDurationsInSlot",
+            "name": "lockDuration",
             "docs": [
               "Liquidity lock duration for positions which created before activate. Only applicable for permission pair."
             ],
@@ -2966,7 +2982,7 @@ export type LbClmm = {
           {
             "name": "idx",
             "docs": [
-              "Index of latest observation slot"
+              "Index of latest observation"
             ],
             "type": "u64"
           },
@@ -3222,9 +3238,9 @@ export type LbClmm = {
             "type": "publicKey"
           },
           {
-            "name": "lockReleaseSlot",
+            "name": "lockReleasePoint",
             "docs": [
-              "Slot which the locked liquidity can be withdraw"
+              "Time point which the locked liquidity can be withdraw"
             ],
             "type": "u64"
           },
@@ -3696,8 +3712,12 @@ export type LbClmm = {
             "type": "i32"
           },
           {
-            "name": "lockDurationInSlot",
+            "name": "lockDuration",
             "type": "u64"
+          },
+          {
+            "name": "activationType",
+            "type": "u8"
           }
         ]
       }
@@ -4273,6 +4293,23 @@ export type LbClmm = {
       }
     },
     {
+      "name": "ActivationType",
+      "docs": [
+        "Type of the activation"
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Slot"
+          },
+          {
+            "name": "Timestamp"
+          }
+        ]
+      }
+    },
+    {
       "name": "PairType",
       "docs": [
         "Type of the Pair. 0 = Permissionless, 1 = Permission. Putting 0 as permissionless for backward compatibility."
@@ -4774,7 +4811,7 @@ export type LbClmm = {
       ]
     },
     {
-      "name": "UpdatePositionLockReleaseSlot",
+      "name": "UpdatePositionLockReleasePoint",
       "fields": [
         {
           "name": "position",
@@ -4782,17 +4819,17 @@ export type LbClmm = {
           "index": false
         },
         {
-          "name": "currentSlot",
+          "name": "currentPoint",
           "type": "u64",
           "index": false
         },
         {
-          "name": "newLockReleaseSlot",
+          "name": "newLockReleasePoint",
           "type": "u64",
           "index": false
         },
         {
-          "name": "oldLockReleaseSlot",
+          "name": "oldLockReleasePoint",
           "type": "u64",
           "index": false
         },
@@ -5087,49 +5124,44 @@ export type LbClmm = {
     },
     {
       "code": 6052,
-      "name": "AlreadyPassActivationSlot",
+      "name": "AlreadyPassActivationPoint",
       "msg": "Already activated"
     },
     {
       "code": 6053,
-      "name": "LastSlotCannotBeSmallerThanActivateSlot",
-      "msg": "Last slot cannot be smaller than activate slot"
-    },
-    {
-      "code": 6054,
       "name": "ExceedMaxSwappedAmount",
       "msg": "Swapped amount is exceeded max swapped amount"
     },
     {
-      "code": 6055,
+      "code": 6054,
       "name": "InvalidStrategyParameters",
       "msg": "Invalid strategy parameters"
     },
     {
-      "code": 6056,
+      "code": 6055,
       "name": "LiquidityLocked",
       "msg": "Liquidity locked"
     },
     {
-      "code": 6057,
-      "name": "InvalidLockReleaseSlot",
-      "msg": "Invalid lock release slot"
-    },
-    {
-      "code": 6058,
+      "code": 6056,
       "name": "BinRangeIsNotEmpty",
       "msg": "Bin range is not empty"
     },
     {
-      "code": 6059,
+      "code": 6057,
       "name": "NotExactAmountOut",
       "msg": "Amount out is not matched with exact amount out"
+    },
+    {
+      "code": 6058,
+      "name": "InvalidActivationType",
+      "msg": "Invalid activation type"
     }
   ]
 };
 
 export const IDL: LbClmm = {
-  "version": "0.7.0",
+  "version": "0.8.0",
   "name": "lb_clmm",
   "constants": [
     {
@@ -7427,7 +7459,7 @@ export const IDL: LbClmm = {
       ]
     },
     {
-      "name": "setActivationSlot",
+      "name": "setActivationPoint",
       "accounts": [
         {
           "name": "lbPair",
@@ -7442,13 +7474,13 @@ export const IDL: LbClmm = {
       ],
       "args": [
         {
-          "name": "activationSlot",
+          "name": "activationPoint",
           "type": "u64"
         }
       ]
     },
     {
-      "name": "setLockReleaseSlot",
+      "name": "setLockReleasePoint",
       "accounts": [
         {
           "name": "position",
@@ -7478,7 +7510,7 @@ export const IDL: LbClmm = {
       ],
       "args": [
         {
-          "name": "newLockReleaseSlot",
+          "name": "newLockReleasePoint",
           "type": "u64"
         }
       ]
@@ -7702,7 +7734,7 @@ export const IDL: LbClmm = {
       ]
     },
     {
-      "name": "setPreActivationSlotDuration",
+      "name": "setPreActivationDuration",
       "accounts": [
         {
           "name": "lbPair",
@@ -7717,7 +7749,7 @@ export const IDL: LbClmm = {
       ],
       "args": [
         {
-          "name": "preActivationSlotDuration",
+          "name": "preActivationDuration",
           "type": "u16"
         }
       ]
@@ -7908,10 +7940,16 @@ export const IDL: LbClmm = {
           },
           {
             "name": "requireBaseFactorSeed",
+            "docs": [
+              "Require base factor seed"
+            ],
             "type": "u8"
           },
           {
             "name": "baseFactorSeed",
+            "docs": [
+              "Base factor seed"
+            ],
             "type": {
               "array": [
                 "u8",
@@ -7920,13 +7958,18 @@ export const IDL: LbClmm = {
             }
           },
           {
-            "name": "padding1",
-            "type": {
-              "array": [
-                "u8",
-                2
-              ]
-            }
+            "name": "activationType",
+            "docs": [
+              "Activation type"
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "padding0",
+            "docs": [
+              "padding 0"
+            ],
+            "type": "u8"
           },
           {
             "name": "tokenXMint",
@@ -7966,11 +8009,16 @@ export const IDL: LbClmm = {
             }
           },
           {
-            "name": "feeOwner",
+            "name": "padding1",
             "docs": [
-              "Fee owner. Deprecated. Can be used as buffer in the future."
+              "_padding_1, previous Fee owner, BE CAREFUL FOR TOMBSTONE WHEN REUSE !!"
             ],
-            "type": "publicKey"
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
           },
           {
             "name": "rewardInfos",
@@ -8022,7 +8070,7 @@ export const IDL: LbClmm = {
           {
             "name": "preActivationSwapAddress",
             "docs": [
-              "Address allowed to swap when the current slot is greater than or equal to the pre-activation slot. The pre-activation slot is calculated as `activation_slot - pre_activation_slot_duration`."
+              "Address allowed to swap when the current point is greater than or equal to the pre-activation point. The pre-activation point is calculated as `activation_point - pre_activation_duration`."
             ],
             "type": "publicKey"
           },
@@ -8034,23 +8082,23 @@ export const IDL: LbClmm = {
             "type": "publicKey"
           },
           {
-            "name": "activationSlot",
+            "name": "activationPoint",
             "docs": [
-              "Slot to enable the pair. Only applicable for permission pair."
+              "Time point to enable the pair. Only applicable for permission pair."
             ],
             "type": "u64"
           },
           {
-            "name": "preActivationSlotDuration",
+            "name": "preActivationDuration",
             "docs": [
-              "Number of slot before activation slot. Used to calculate pre-activation slot for pre_activation_swap_address"
+              "Duration before activation activation_point. Used to calculate pre-activation time point for pre_activation_swap_address"
             ],
             "type": "u64"
           },
           {
             "name": "padding2",
             "docs": [
-              "_padding2 is reclaimed free space from swap_cap_deactivate_slot and swap_cap_amount before, BE CAREFUL FOR TOMBSTONE WHEN REUSE !!"
+              "_padding 2 is reclaimed free space from swap_cap_deactivate_point and swap_cap_amount before, BE CAREFUL FOR TOMBSTONE WHEN REUSE !!"
             ],
             "type": {
               "array": [
@@ -8060,7 +8108,7 @@ export const IDL: LbClmm = {
             }
           },
           {
-            "name": "lockDurationsInSlot",
+            "name": "lockDuration",
             "docs": [
               "Liquidity lock duration for positions which created before activate. Only applicable for permission pair."
             ],
@@ -8096,7 +8144,7 @@ export const IDL: LbClmm = {
           {
             "name": "idx",
             "docs": [
-              "Index of latest observation slot"
+              "Index of latest observation"
             ],
             "type": "u64"
           },
@@ -8352,9 +8400,9 @@ export const IDL: LbClmm = {
             "type": "publicKey"
           },
           {
-            "name": "lockReleaseSlot",
+            "name": "lockReleasePoint",
             "docs": [
-              "Slot which the locked liquidity can be withdraw"
+              "Time point which the locked liquidity can be withdraw"
             ],
             "type": "u64"
           },
@@ -8826,8 +8874,12 @@ export const IDL: LbClmm = {
             "type": "i32"
           },
           {
-            "name": "lockDurationInSlot",
+            "name": "lockDuration",
             "type": "u64"
+          },
+          {
+            "name": "activationType",
+            "type": "u8"
           }
         ]
       }
@@ -9403,6 +9455,23 @@ export const IDL: LbClmm = {
       }
     },
     {
+      "name": "ActivationType",
+      "docs": [
+        "Type of the activation"
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Slot"
+          },
+          {
+            "name": "Timestamp"
+          }
+        ]
+      }
+    },
+    {
       "name": "PairType",
       "docs": [
         "Type of the Pair. 0 = Permissionless, 1 = Permission. Putting 0 as permissionless for backward compatibility."
@@ -9904,7 +9973,7 @@ export const IDL: LbClmm = {
       ]
     },
     {
-      "name": "UpdatePositionLockReleaseSlot",
+      "name": "UpdatePositionLockReleasePoint",
       "fields": [
         {
           "name": "position",
@@ -9912,17 +9981,17 @@ export const IDL: LbClmm = {
           "index": false
         },
         {
-          "name": "currentSlot",
+          "name": "currentPoint",
           "type": "u64",
           "index": false
         },
         {
-          "name": "newLockReleaseSlot",
+          "name": "newLockReleasePoint",
           "type": "u64",
           "index": false
         },
         {
-          "name": "oldLockReleaseSlot",
+          "name": "oldLockReleasePoint",
           "type": "u64",
           "index": false
         },
@@ -10217,43 +10286,38 @@ export const IDL: LbClmm = {
     },
     {
       "code": 6052,
-      "name": "AlreadyPassActivationSlot",
+      "name": "AlreadyPassActivationPoint",
       "msg": "Already activated"
     },
     {
       "code": 6053,
-      "name": "LastSlotCannotBeSmallerThanActivateSlot",
-      "msg": "Last slot cannot be smaller than activate slot"
-    },
-    {
-      "code": 6054,
       "name": "ExceedMaxSwappedAmount",
       "msg": "Swapped amount is exceeded max swapped amount"
     },
     {
-      "code": 6055,
+      "code": 6054,
       "name": "InvalidStrategyParameters",
       "msg": "Invalid strategy parameters"
     },
     {
-      "code": 6056,
+      "code": 6055,
       "name": "LiquidityLocked",
       "msg": "Liquidity locked"
     },
     {
-      "code": 6057,
-      "name": "InvalidLockReleaseSlot",
-      "msg": "Invalid lock release slot"
-    },
-    {
-      "code": 6058,
+      "code": 6056,
       "name": "BinRangeIsNotEmpty",
       "msg": "Bin range is not empty"
     },
     {
-      "code": 6059,
+      "code": 6057,
       "name": "NotExactAmountOut",
       "msg": "Amount out is not matched with exact amount out"
+    },
+    {
+      "code": 6058,
+      "name": "InvalidActivationType",
+      "msg": "Invalid activation type"
     }
   ]
 };
