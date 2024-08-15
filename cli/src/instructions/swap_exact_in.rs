@@ -85,15 +85,14 @@ pub async fn swap<C: Deref<Target = impl Signer> + Clone>(
         .collect::<Option<HashMap<Pubkey, BinArray>>>()
         .context("Failed to fetch bin arrays")?;
 
-    let current_timestamp =
-        program
-            .async_rpc()
-            .get_account(&Clock::id())
-            .await
-            .map(|account| {
-                let clock: Clock = bincode::deserialize(account.data.as_ref())?;
-                Ok(clock.unix_timestamp)
-            })??;
+    let clock = program
+        .async_rpc()
+        .get_account(&Clock::id())
+        .await
+        .map(|account| {
+            let clock: Clock = bincode::deserialize(account.data.as_ref())?;
+            Ok(clock)
+        })??;
 
     let quote = quote_exact_in(
         lb_pair,
@@ -102,7 +101,8 @@ pub async fn swap<C: Deref<Target = impl Signer> + Clone>(
         swap_for_y,
         bin_arrays,
         bitmap_extension.as_ref(),
-        current_timestamp as u64,
+        clock.unix_timestamp as u64,
+        clock.slot,
     )?;
 
     let (event_authority, _bump) =

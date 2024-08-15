@@ -46,6 +46,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `update_fee_owner` endpoint is removed
 
+## common [0.3.0] - PR #96
+
+### Changed
+
+- `quote_exact_out` and `quote_exact_in` throw error when pool is disabled, or not activated for swap yet.
+
+### Breaking Changes
+
+- `quote_exact_out` and `quote_exact_in` require a new field `current_slot` in input parameters
+
 ## cli [0.3.0] - PR #96
 
 ### Removed

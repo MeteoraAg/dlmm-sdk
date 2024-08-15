@@ -1,10 +1,11 @@
 use anchor_client::solana_sdk::pubkey::Pubkey;
-use anyhow::{Context, Result};
+use anyhow::{ensure, Context, Result};
 use lb_clmm::{
     state::{
+        action_access::ActivationType,
         bin::{Bin, BinArray, SwapResult},
         bin_array_bitmap_extension::BinArrayBitmapExtension,
-        lb_pair::LbPair,
+        lb_pair::{LbPair, PairStatus, PairType},
     },
     utils::pda::derive_bin_array_pda,
 };
@@ -22,6 +23,33 @@ pub struct SwapExactOutQuote {
     pub fee: u64,
 }
 
+fn validate_swap_activation(
+    lb_pair: &LbPair,
+    current_timestamp: u64,
+    current_slot: u64,
+) -> Result<()> {
+    ensure!(
+        lb_pair.status()?.eq(&PairStatus::Enabled),
+        "Pair is disabled"
+    );
+
+    let pair_type = lb_pair.pair_type()?;
+    if pair_type.eq(&PairType::Permission) {
+        let activation_type = ActivationType::try_from(lb_pair.activation_type)?;
+        let current_point = match activation_type {
+            ActivationType::Slot => current_slot,
+            ActivationType::Timestamp => current_timestamp,
+        };
+
+        ensure!(
+            current_point >= lb_pair.activation_point,
+            "Pair is disabled"
+        );
+    }
+
+    Ok(())
+}
+
 pub fn quote_exact_out(
     lb_pair_pubkey: Pubkey,
     lb_pair: &LbPair,
@@ -30,7 +58,10 @@ pub fn quote_exact_out(
     bin_arrays: HashMap<Pubkey, BinArray>,
     bitmap_extension: Option<&BinArrayBitmapExtension>,
     current_timestamp: u64,
+    current_slot: u64,
 ) -> Result<SwapExactOutQuote> {
+    validate_swap_activation(lb_pair, current_timestamp, current_slot)?;
+
     let mut lb_pair = *lb_pair;
     lb_pair.update_references(current_timestamp as i64)?;
 
@@ -116,7 +147,10 @@ pub fn quote_exact_in(
     bin_arrays: HashMap<Pubkey, BinArray>,
     bitmap_extension: Option<&BinArrayBitmapExtension>,
     current_timestamp: u64,
+    current_slot: u64,
 ) -> Result<SwapExactInQuote> {
+    validate_swap_activation(lb_pair, current_timestamp, current_slot)?;
+
     let mut lb_pair = *lb_pair;
     lb_pair.update_references(current_timestamp as i64)?;
 
@@ -250,26 +284,17 @@ mod tests {
         solana_sdk::{pubkey::Pubkey, signature::Keypair},
         Client, Cluster,
     };
-    use std::time::SystemTime;
     use std::{rc::Rc, str::FromStr};
 
-    /// Get on chain clock, or use current node slot
-    async fn get_current_timestamp(rpc_client: Option<RpcClient>) -> u64 {
-        match rpc_client {
-            Some(rpc_client) => {
-                let clock_account = rpc_client
-                    .get_account(&anchor_client::solana_sdk::sysvar::clock::ID)
-                    .await
-                    .unwrap();
+    /// Get on chain clock
+    async fn get_clock(rpc_client: RpcClient) -> Result<Clock> {
+        let clock_account = rpc_client
+            .get_account(&anchor_client::solana_sdk::sysvar::clock::ID)
+            .await?;
 
-                let clock_state: Clock = bincode::deserialize(clock_account.data.as_ref()).unwrap();
-                clock_state.unix_timestamp as u64
-            }
-            None => SystemTime::now()
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .unwrap()
-                .as_secs(),
-        }
+        let clock_state: Clock = bincode::deserialize(clock_account.data.as_ref())?;
+
+        Ok(clock_state)
     }
 
     #[tokio::test]
@@ -323,7 +348,7 @@ mod tests {
         let sol_token_multiplier = 1_000_000_000.0;
 
         let out_sol_amount = 1_000_000_000;
-        let current_timestamp = get_current_timestamp(Some(rpc_client)).await;
+        let clock = get_clock(rpc_client).await.unwrap();
 
         let quote_result = quote_exact_out(
             SOL_USDC,
@@ -332,7 +357,8 @@ mod tests {
             false,
             bin_arrays.clone(),
             None,
-            current_timestamp,
+            clock.unix_timestamp as u64,
+            clock.slot,
         )
         .unwrap();
 
@@ -350,7 +376,8 @@ mod tests {
             false,
             bin_arrays.clone(),
             None,
-            current_timestamp,
+            clock.unix_timestamp as u64,
+            clock.slot,
         )
         .unwrap();
 
@@ -369,7 +396,8 @@ mod tests {
             true,
             bin_arrays.clone(),
             None,
-            current_timestamp,
+            clock.unix_timestamp as u64,
+            clock.slot,
         )
         .unwrap();
 
@@ -387,7 +415,8 @@ mod tests {
             true,
             bin_arrays,
             None,
-            current_timestamp,
+            clock.unix_timestamp as u64,
+            clock.slot,
         )
         .unwrap();
 
@@ -448,7 +477,7 @@ mod tests {
         // 1 SOL -> USDC
         let in_sol_amount = 1_000_000_000;
 
-        let current_timestamp = get_current_timestamp(Some(rpc_client)).await;
+        let clock = get_clock(rpc_client).await.unwrap();
 
         let quote_result = quote_exact_in(
             SOL_USDC,
@@ -457,7 +486,8 @@ mod tests {
             true,
             bin_arrays.clone(),
             None,
-            current_timestamp,
+            clock.unix_timestamp as u64,
+            clock.slot,
         )
         .unwrap();
 
@@ -476,7 +506,8 @@ mod tests {
             false,
             bin_arrays.clone(),
             None,
-            current_timestamp,
+            clock.unix_timestamp as u64,
+            clock.slot,
         )
         .unwrap();
 
