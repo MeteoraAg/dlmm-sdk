@@ -103,7 +103,7 @@ function assertAmountWithPrecision(
   expect(diff).toBeLessThan(precisionPercent);
 }
 
-describe("SDK test", () => {
+describe.only("SDK test", () => {
   beforeAll(async () => {
     BTC = await createMint(
       connection,

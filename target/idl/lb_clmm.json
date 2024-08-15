@@ -1,5 +1,5 @@
 {
-  "version": "0.7.0",
+  "version": "0.8.0",
   "name": "lb_clmm",
   "constants": [
     {
@@ -5162,5 +5162,8 @@
       "name": "NotExactAmountOut",
       "msg": "Amount out is not matched with exact amount out"
     }
-  ]
+  ],
+  "metadata": {
+    "address": "GrAkKfEpTKQuVHG2Y97Y2FF4i7y7Q5AHLK94JBy7Y5yv"
+  }
 }

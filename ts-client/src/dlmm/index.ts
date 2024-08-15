@@ -302,7 +302,7 @@ export class DLMM {
 
     const clockAccountInfoBuffer = accountsInfo[2]?.data;
     if (!clockAccountInfoBuffer) throw new Error(`Clock account not found`);
-    const clock = ClockLayout.decode(clockAccountInfoBuffer.buffer) as Clock;
+    const clock = ClockLayout.decode(clockAccountInfoBuffer) as Clock;
 
     const reserveAccountsInfo = await chunkedGetMultipleAccountInfos(
       program.provider.connection,
@@ -397,7 +397,7 @@ export class DLMM {
     const clockAccount = accountsInfo.pop();
     const clockAccountInfoBuffer = clockAccount?.data;
     if (!clockAccountInfoBuffer) throw new Error(`Clock account not found`);
-    const clock = ClockLayout.decode(clockAccountInfoBuffer.buffer) as Clock;
+    const clock = ClockLayout.decode(clockAccountInfoBuffer) as Clock;
 
     const lbPairArraysMap = new Map<string, LbPair>();
     for (let i = 0; i < dlmmList.length; i++) {
