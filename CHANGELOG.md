@@ -19,6 +19,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## lb_clmm [0.8.0] - PR #96
+
+### Added
+
+- Pool supports 2 modes now defined by `activation_type`. If `activation_type == 0`, activation is calculated based on slot. If `activation_type == 1`, activation is calculated based on timestamp.
+
+### Changed
+
+- Pool state added a new field `activation_type`
+- Rename `pool.activation_slot` to `pool.activation_point`
+- Rename `pool.pre_activation_slot_duration` to `pool.pre_activation_duration`
+- Rename `pool.lock_duration_in_slot` to `pool.lock_duration`
+- Rename `position.lock_release_slot` to `position.lock_release_point`
+
+### Breaking Changes
+
+- The activation condition for all endpoints will by validated by slot or timestamp based on `activation_type` in pool state
+- All program endpoints to modify permissioned pool will migrate parameters with post_fix `_slot` to `_point`
+- Rename endpoint `set_activation_slot` to `set_activation_point`
+- Rename endpoint `set_pre_activation_slot_duration` to `set_pre_activation_duration`
+- Rename endpoint `set_lock_release_slot` to `set_lock_release_point`
+- Endpoint `initialize_permission_lb_pair` requires a new field `activation_type` in input parameters
+
+### Removed
+
+- `update_fee_owner` endpoint is removed
+
+## cli [0.3.0] - PR #96
+
+### Removed
+
+- `update_fee_owner` command is removed
+
+### Breaking Changes
+
+- Rename command `set_activation_slot` to `set_activation_point`
+- Rename command `set_pre_activation_slot_duration` to `set_pre_activation_duration`
+- Command `initialize_permission_lb_pair` require new `activation_type` parameter
+
+## @meteora-ag/dlmm [1.0.55] - PR #96
+
+### Changed
+
+- `swapQuoteExactOut` and `swapQuote` throw error when pool is disabled, or not activated for swap yet.
+
+### Breaking Changes
+
+- Renamed `setActivationSlot` to `setActivationPoint`
+- `createPermissionLbPair` require new `ActivationType` parameter
+
 ## @mercurial-finance/dynamic-amm-sdk [1.0.54] - PR #99
 
 ### Fixed
