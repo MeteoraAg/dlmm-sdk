@@ -197,7 +197,7 @@ export async function chunkedGetMultipleAccountInfos(
   return accountInfos;
 }
 
-export const MAX_COMPUTE_UNIT = 1_400_00;
+export const MAX_COMPUTE_UNIT = 1_400_000;
 
 export const computeBudgetIx = (computeUnit: number) => {
   return ComputeBudgetProgram.setComputeUnitLimit({
