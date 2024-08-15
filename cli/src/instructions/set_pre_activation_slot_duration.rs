@@ -29,7 +29,7 @@ pub async fn set_pre_activation_slot_duration<C: Deref<Target = impl Signer> + C
     }
     .to_account_metas(None);
 
-    let ix_data = lb_clmm::instruction::SetPreActivationSlotDuration {
+    let ix_data = lb_clmm::instruction::set_pre_activation_duration {
         pre_activation_slot_duration,
     }
     .data();

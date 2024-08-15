@@ -81,7 +81,7 @@ impl Observation {
 #[account(zero_copy)]
 #[derive(Default, Debug)]
 pub struct Oracle {
-    /// Index of latest observation slot
+    /// Index of latest observation
     pub idx: u64,
     /// Size of active sample. Active sample is initialized observation.
     pub active_size: u64,

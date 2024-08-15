@@ -29,7 +29,7 @@ pub async fn set_activation_slot<C: Deref<Target = impl Signer> + Clone>(
     }
     .to_account_metas(None);
 
-    let ix_data = lb_clmm::instruction::SetActivationSlot { activation_slot }.data();
+    let ix_data = lb_clmm::instruction::set_activation_point { activation_slot }.data();
 
     let set_activation_slot_ix = Instruction {
         accounts,

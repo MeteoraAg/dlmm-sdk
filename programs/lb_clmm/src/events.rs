@@ -218,15 +218,15 @@ pub struct UpdatePositionOperator {
 }
 
 #[event]
-pub struct UpdatePositionLockReleaseSlot {
+pub struct UpdatePositionLockReleasePoint {
     // Position public key
     pub position: Pubkey,
-    // Current slot
-    pub current_slot: u64,
-    // New lock release slot
-    pub new_lock_release_slot: u64,
-    // Old lock release slot
-    pub old_lock_release_slot: u64,
+    // Current point
+    pub current_point: u64,
+    // New lock release point
+    pub new_lock_release_point: u64,
+    // Old lock release point
+    pub old_lock_release_point: u64,
     // Sender public key
     pub sender: Pubkey,
 }

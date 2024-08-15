@@ -95,7 +95,7 @@ pub async fn initialize_permission_lb_pair<C: Deref<Target = impl Signer> + Clon
             base_factor: compute_base_factor_from_fee_bps(bin_step, base_fee_bps)?,
             max_bin_id,
             min_bin_id,
-            lock_duration_in_slot,
+            lock_duration: lock_duration_in_slot,
         },
     };
 

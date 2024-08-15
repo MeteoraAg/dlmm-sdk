@@ -30,18 +30,20 @@ pub enum PairType {
 }
 
 pub struct LaunchPadParams {
-    pub activation_slot: u64,
+    pub activation_point: u64,
 }
 
 impl PairType {
     pub fn get_pair_default_launch_pad_params(&self) -> LaunchPadParams {
         match self {
-            // The slot is unreachable. Therefore by default, the pair will be disabled until admin update the activation slot.
+            // The point is unreachable. Therefore by default, the pair will be disabled until admin update the activation point.
             Self::Permission => LaunchPadParams {
-                activation_slot: u64::MAX,
+                activation_point: u64::MAX,
             },
-            // Activation slot is not used in permissionless pair. Therefore, default to 0.
-            Self::Permissionless => LaunchPadParams { activation_slot: 0 },
+            // Activation point is not used in permissionless pair. Therefore, default to 0.
+            Self::Permissionless => LaunchPadParams {
+                activation_point: 0,
+            },
         }
     }
 }
@@ -55,7 +57,7 @@ pub enum PairStatus {
     // Fully enabled.
     // Condition:
     // Permissionless: PairStatus::Enabled
-    // Permission: PairStatus::Enabled and clock.slot > activation_slot
+    // Permission: PairStatus::Enabled and current_point > activation_point
     Enabled,
     // Similar as emergency mode. User can only withdraw (Only outflow). Except whitelisted wallet still have full privileges.
     Disabled,
@@ -84,9 +86,14 @@ pub struct LbPair {
     pub bin_step: u16,
     /// Status of the pair. Check PairStatus enum.
     pub status: u8,
+    /// Require base factor seed
     pub require_base_factor_seed: u8,
+    /// Base factor seed
     pub base_factor_seed: [u8; 2],
-    pub _padding1: [u8; 2],
+    /// Activation type
+    pub activation_type: u8,
+    /// padding 0
+    pub _padding_0: u8,
     /// Token X mint
     pub token_x_mint: Pubkey,
     /// Token Y mint
@@ -97,8 +104,8 @@ pub struct LbPair {
     pub reserve_y: Pubkey,
     /// Uncollected protocol fee
     pub protocol_fee: ProtocolFee,
-    /// Protocol fee owner,
-    pub fee_owner: Pubkey,
+    /// _padding_1, previous Fee owner, BE CAREFUL FOR TOMBSTONE WHEN REUSE !!
+    pub _padding_1: [u8; 32],
     /// Farming reward information
     pub reward_infos: [RewardInfo; 2], // TODO: Bug in anchor IDL parser when using InitSpace macro. Temp hardcode it. https://github.com/coral-xyz/anchor/issues/2556
     /// Oracle pubkey
@@ -109,18 +116,18 @@ pub struct LbPair {
     pub last_updated_at: i64,
     /// Whitelisted wallet
     pub whitelisted_wallet: Pubkey,
-    /// Address allowed to swap when the current slot is greater than or equal to the pre-activation slot. The pre-activation slot is calculated as `activation_slot - pre_activation_slot_duration`.
+    /// Address allowed to swap when the current point is greater than or equal to the pre-activation point. The pre-activation point is calculated as `activation_point - pre_activation_duration`.
     pub pre_activation_swap_address: Pubkey,
     /// Base keypair. Only required for permission pair
     pub base_key: Pubkey,
-    /// Slot to enable the pair. Only applicable for permission pair.
-    pub activation_slot: u64,
-    /// Number of slot before activation slot. Used to calculate pre-activation slot for pre_activation_swap_address
-    pub pre_activation_slot_duration: u64,
-    /// _padding2 is reclaimed free space from swap_cap_deactivate_slot and swap_cap_amount before, BE CAREFUL FOR TOMBSTONE WHEN REUSE !!
-    pub _padding2: [u8; 8],
+    /// Time point to enable the pair. Only applicable for permission pair.
+    pub activation_point: u64,
+    /// Duration before activation point. Used to calculate pre-activation point for pre_activation_swap_address
+    pub pre_activation_duration: u64,
+    /// _padding 2 is reclaimed free space from swap_cap_deactivate_point and swap_cap_amount before, BE CAREFUL FOR TOMBSTONE WHEN REUSE !!
+    pub _padding_2: [u8; 8],
     /// Liquidity lock duration for positions which created before activate. Only applicable for permission pair.
-    pub lock_durations_in_slot: u64,
+    pub lock_duration: u64,
     /// Pool creator
     pub creator: Pubkey,
     /// Reserved space for future use
@@ -129,18 +136,19 @@ pub struct LbPair {
 
 impl Default for LbPair {
     fn default() -> Self {
-        let LaunchPadParams { activation_slot } =
-            PairType::Permissionless.get_pair_default_launch_pad_params();
+        let LaunchPadParams {
+            activation_point: activation_point,
+        } = PairType::Permissionless.get_pair_default_launch_pad_params();
         Self {
             active_id: 0,
             parameters: StaticParameters::default(),
             v_parameters: VariableParameters::default(),
             bump_seed: [0u8; 1],
+            activation_type: 0,
             bin_step: 0,
             token_x_mint: Pubkey::default(),
             token_y_mint: Pubkey::default(),
             bin_step_seed: [0u8; 2],
-            fee_owner: Pubkey::default(),
             protocol_fee: ProtocolFee::default(),
             reserve_x: Pubkey::default(),
             reserve_y: Pubkey::default(),
@@ -151,16 +159,17 @@ impl Default for LbPair {
             pair_type: PairType::Permissionless.into(),
             status: 0,
             whitelisted_wallet: Pubkey::default(),
-            pre_activation_slot_duration: 0,
             pre_activation_swap_address: Pubkey::default(),
             base_key: Pubkey::default(),
-            activation_slot,
+            activation_point,
             creator: Pubkey::default(),
-            lock_durations_in_slot: 0,
+            lock_duration: 0,
             require_base_factor_seed: 0,
             base_factor_seed: [0u8; 2],
-            _padding1: [0u8; 2],
-            _padding2: [0u8; 8],
+            pre_activation_duration: 0,
+            _padding_0: 0u8,
+            _padding_1: [0u8; 32],
+            _padding_2: [0u8; 8],
             _reserved: [0u8; 24],
         }
     }
@@ -302,8 +311,9 @@ impl LbPair {
         pair_type: PairType,
         pair_status: u8,
         base_key: Pubkey,
-        lock_duration_in_slot: u64,
+        lock_duration: u64,
         creator: Pubkey,
+        activation_type: u8,
     ) -> Result<()> {
         self.parameters = static_parameter;
         self.active_id = active_id;
@@ -312,7 +322,6 @@ impl LbPair {
         self.token_y_mint = token_mint_y;
         self.reserve_x = reserve_x;
         self.reserve_y = reserve_y;
-        self.fee_owner = crate::fee_owner::ID;
         self.bump_seed = [bump];
         self.bin_step_seed = bin_step.to_le_bytes();
         self.oracle = oracle;
@@ -321,34 +330,22 @@ impl LbPair {
         self.status = pair_status;
         self.creator = creator;
 
-        let LaunchPadParams { activation_slot } = pair_type.get_pair_default_launch_pad_params();
+        let LaunchPadParams { activation_point } = pair_type.get_pair_default_launch_pad_params();
 
-        self.activation_slot = activation_slot;
-        self.lock_durations_in_slot = lock_duration_in_slot;
+        self.activation_point = activation_point;
+        self.lock_duration = lock_duration;
 
-        Ok(())
-    }
-
-    pub fn get_release_slot(&self, current_slot: u64) -> Result<u64> {
-        let release_slot = match self.pair_type()? {
-            PairType::Permission => {
-                if self.lock_durations_in_slot > 0 && current_slot < self.activation_slot {
-                    self.activation_slot
-                        .saturating_add(self.lock_durations_in_slot)
-                } else {
-                    0
-                }
-            }
-            _ => 0,
+        // Old permissionless pools before added base factor as signer seed by default will be false. All the new pools after the patch will be having bse factor as signer seed.
+        self.require_base_factor_seed = match pair_type {
+            PairType::Permissionless => true.into(),
+            // Permissioned pool doesn't have base factor as signer seed
+            _ => false.into(),
         };
 
-        Ok(release_slot)
-    }
+        self.base_factor_seed = self.parameters.base_factor.to_le_bytes();
+        self.activation_type = activation_type;
 
-    pub fn get_pre_activation_start_slot(&self) -> u64 {
-        // pre_activation_slot_duration byte slice was swap_deactivation_slot before for permission pair, swap_deactivation_slot always >= activation_slot, so we need to do saturating_sub
-        self.activation_slot
-            .saturating_sub(self.pre_activation_slot_duration)
+        Ok(())
     }
 
     pub fn update_whitelisted_wallet(&mut self, wallet: Pubkey) -> Result<()> {
@@ -592,10 +589,6 @@ impl LbPair {
         self.protocol_fee.amount_y = self.protocol_fee.amount_y.safe_sub(amount_y)?;
 
         Ok(())
-    }
-
-    pub fn set_fee_owner(&mut self, fee_owner: Pubkey) {
-        self.fee_owner = fee_owner;
     }
 
     pub fn oracle_initialized(&self) -> bool {
