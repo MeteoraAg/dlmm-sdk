@@ -98,6 +98,8 @@ import {
   derivePosition,
   deriveLbPair,
   swapExactOutQuoteAtBin,
+  getComputeInitForModifyingLiquidity,
+  MAX_COMPUTE_UNIT,
 } from "./helpers";
 import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import Decimal from "decimal.js";
@@ -133,7 +135,7 @@ export class DLMM {
     public tokenX: TokenReserve,
     public tokenY: TokenReserve,
     private opt?: Opt
-  ) {}
+  ) { }
 
   /** Static public method */
 
@@ -427,7 +429,7 @@ export class DLMM {
           reserveAndTokenMintAccountsInfo[reservePublicKeys.length + index * 2];
         const tokenYMintAccountInfo =
           reserveAndTokenMintAccountsInfo[
-            reservePublicKeys.length + index * 2 + 1
+          reservePublicKeys.length + index * 2 + 1
           ];
 
         if (!reserveXAccountInfo || !reserveYAccountInfo)
@@ -643,13 +645,13 @@ export class DLMM {
       let i = binArrayPubkeyArray.length + lbPairArray.length;
       i <
       binArrayPubkeyArray.length +
-        lbPairArray.length +
-        binArrayPubkeyArrayV2.length;
+      lbPairArray.length +
+      binArrayPubkeyArrayV2.length;
       i++
     ) {
       const binArrayPubkey =
         binArrayPubkeyArrayV2[
-          i - (binArrayPubkeyArray.length + lbPairArray.length)
+        i - (binArrayPubkeyArray.length + lbPairArray.length)
         ];
       const binArrayAccInfoBufferV2 = binArraysAccInfo[i];
       if (!binArrayAccInfoBufferV2)
@@ -674,10 +676,10 @@ export class DLMM {
     ) {
       const lbPairPubkey =
         lbPairArrayV2[
-          i -
-            (binArrayPubkeyArray.length +
-              lbPairArray.length +
-              binArrayPubkeyArrayV2.length)
+        i -
+        (binArrayPubkeyArray.length +
+          lbPairArray.length +
+          binArrayPubkeyArrayV2.length)
         ];
       const lbPairAccInfoBufferV2 = binArraysAccInfo[i];
       if (!lbPairAccInfoBufferV2)
@@ -1614,35 +1616,35 @@ export class DLMM {
     const promiseResults = await Promise.all([
       this.getActiveBin(),
       userPubKey &&
-        this.program.account.position.all([
-          {
-            memcmp: {
-              bytes: bs58.encode(userPubKey.toBuffer()),
-              offset: 8 + 32,
-            },
+      this.program.account.position.all([
+        {
+          memcmp: {
+            bytes: bs58.encode(userPubKey.toBuffer()),
+            offset: 8 + 32,
           },
-          {
-            memcmp: {
-              bytes: bs58.encode(this.pubkey.toBuffer()),
-              offset: 8,
-            },
+        },
+        {
+          memcmp: {
+            bytes: bs58.encode(this.pubkey.toBuffer()),
+            offset: 8,
           },
-        ]),
+        },
+      ]),
       userPubKey &&
-        this.program.account.positionV2.all([
-          {
-            memcmp: {
-              bytes: bs58.encode(userPubKey.toBuffer()),
-              offset: 8 + 32,
-            },
+      this.program.account.positionV2.all([
+        {
+          memcmp: {
+            bytes: bs58.encode(userPubKey.toBuffer()),
+            offset: 8 + 32,
           },
-          {
-            memcmp: {
-              bytes: bs58.encode(this.pubkey.toBuffer()),
-              offset: 8,
-            },
+        },
+        {
+          memcmp: {
+            bytes: bs58.encode(this.pubkey.toBuffer()),
+            offset: 8,
           },
-        ]),
+        },
+      ]),
     ]);
 
     const [activeBin, positions, positionsV2] = promiseResults;
@@ -1891,7 +1893,7 @@ export class DLMM {
       ? Math.ceil(slippage / (this.lbPair.binStep / 100))
       : MAX_ACTIVE_BIN_SLIPPAGE;
 
-    const setComputeUnitLimitIx = computeBudgetIx();
+    const setComputeUnitLimitIx = computeBudgetIx(getComputeInitForModifyingLiquidity(maxBinId - minBinId + 1));
     const preInstructions = [setComputeUnitLimitIx];
     const initializePositionIx = await this.program.methods
       .initializePosition(minBinId, maxBinId - minBinId + 1)
@@ -2156,7 +2158,7 @@ export class DLMM {
       closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
     }
 
-    const setComputeUnitLimitIx = computeBudgetIx();
+    const setComputeUnitLimitIx = computeBudgetIx(getComputeInitForModifyingLiquidity(xYAmountDistribution.length));
 
     const minBinId = Math.min(...binIds);
     const maxBinId = Math.max(...binIds);
@@ -2328,7 +2330,7 @@ export class DLMM {
 
     const preInstructions: TransactionInstruction[] = [];
 
-    const setComputeUnitLimitIx = computeBudgetIx();
+    const setComputeUnitLimitIx = computeBudgetIx(getComputeInitForModifyingLiquidity(maxBinId - minBinId + 1));
     preInstructions.push(setComputeUnitLimitIx);
 
     const minBinArrayIndex = binIdToBinArrayIndex(new BN(minBinId));
@@ -2612,7 +2614,7 @@ export class DLMM {
       closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
     }
 
-    const setComputeUnitLimitIx = computeBudgetIx();
+    const setComputeUnitLimitIx = computeBudgetIx(getComputeInitForModifyingLiquidity(xYAmountDistribution.length));
 
     const liquidityParams: LiquidityParameterByWeight = {
       amountX: totalXAmount,
@@ -2766,8 +2768,11 @@ export class DLMM {
       this.program.programId
     );
 
+    const minBinId = Math.min(...binIds);
+    const maxBinId = Math.max(...binIds);
+
     const preInstructions: Array<TransactionInstruction> = [];
-    const setComputeUnitLimitIx = computeBudgetIx();
+    const setComputeUnitLimitIx = computeBudgetIx(getComputeInitForModifyingLiquidity(maxBinId - minBinId + 1));
     preInstructions.push(setComputeUnitLimitIx);
 
     const walletToReceiveFee = feeOwner.equals(PublicKey.default)
@@ -2893,8 +2898,7 @@ export class DLMM {
       closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
     }
 
-    const minBinId = Math.min(...binIds);
-    const maxBinId = Math.max(...binIds);
+
 
     const minBinArrayIndex = binIdToBinArrayIndex(new BN(minBinId));
     const maxBinArrayIndex = binIdToBinArrayIndex(new BN(maxBinId));
@@ -3282,7 +3286,7 @@ export class DLMM {
     const { tokenXMint, tokenYMint, reserveX, reserveY, activeId, oracle } =
       await this.program.account.lbPair.fetch(lbPair);
 
-    const preInstructions: TransactionInstruction[] = [computeBudgetIx()];
+    const preInstructions: TransactionInstruction[] = [computeBudgetIx(MAX_COMPUTE_UNIT)];
 
     const [
       { ataPubKey: userTokenIn, ix: createInTokenAccountIx },
@@ -3386,7 +3390,7 @@ export class DLMM {
     const { tokenXMint, tokenYMint, reserveX, reserveY, activeId, oracle } =
       await this.program.account.lbPair.fetch(lbPair);
 
-    const preInstructions: TransactionInstruction[] = [computeBudgetIx()];
+    const preInstructions: TransactionInstruction[] = [computeBudgetIx(MAX_COMPUTE_UNIT)];
 
     const [
       { ataPubKey: userTokenIn, ix: createInTokenAccountIx },
@@ -3495,7 +3499,7 @@ export class DLMM {
     const { tokenXMint, tokenYMint, reserveX, reserveY, activeId, oracle } =
       await this.program.account.lbPair.fetch(lbPair);
 
-    const preInstructions: TransactionInstruction[] = [computeBudgetIx()];
+    const preInstructions: TransactionInstruction[] = [computeBudgetIx(MAX_COMPUTE_UNIT)];
 
     const [
       { ataPubKey: userTokenIn, ix: createInTokenAccountIx },
@@ -3648,7 +3652,7 @@ export class DLMM {
           blockhash,
           lastValidBlockHeight,
         })
-          .add(computeBudgetIx())
+          .add(computeBudgetIx(MAX_COMPUTE_UNIT))
           .add(...claimAllTx);
       })
     );
@@ -3769,7 +3773,7 @@ export class DLMM {
           blockhash: recentBlockhash,
           lastValidBlockHeight,
         })
-          .add(computeBudgetIx())
+          .add(computeBudgetIx(MAX_COMPUTE_UNIT))
           .add(...claimAllTx);
       })
     );
@@ -3863,7 +3867,7 @@ export class DLMM {
           feePayer: owner,
           blockhash,
           lastValidBlockHeight,
-        }).add(computeBudgetIx());
+        }).add(computeBudgetIx(MAX_COMPUTE_UNIT));
 
         if (preInstructions.length) tx.add(...preInstructions);
         tx.add(...claimAllTx);
@@ -3997,7 +4001,7 @@ export class DLMM {
           positionPda,
         ]);
 
-      let instructions = [computeBudgetIx()];
+      let instructions = [computeBudgetIx(MAX_COMPUTE_UNIT)];
 
       const lowerBinArrayAccount = accounts[0];
       if (
@@ -4061,7 +4065,7 @@ export class DLMM {
       // Initialize bin arrays and initialize position account in 1 tx
       if (instructions.length > 1) {
         initializeBinArraysAndPositionIxs.push(instructions);
-        instructions = [computeBudgetIx()];
+        instructions = [computeBudgetIx(MAX_COMPUTE_UNIT)];
       }
 
       const positionDeposited =
@@ -4375,7 +4379,7 @@ export class DLMM {
           feePayer: owner,
           blockhash,
           lastValidBlockHeight,
-        }).add(computeBudgetIx());
+        }).add(computeBudgetIx(MAX_COMPUTE_UNIT));
 
         if (preInstructions.length) tx.add(...preInstructions);
         tx.add(...claimAllTx);
@@ -5183,7 +5187,7 @@ export class DLMM {
       if (elapsed < sParameter.decayPeriod) {
         const decayedVolatilityReference = Math.floor(
           (vParameter.volatilityAccumulator * sParameter.reductionFactor) /
-            BASIS_POINT_MAX
+          BASIS_POINT_MAX
         );
         vParameter.volatilityReference = decayedVolatilityReference;
       } else {
