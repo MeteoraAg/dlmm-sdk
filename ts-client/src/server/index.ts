@@ -2,6 +2,7 @@ import { Connection, PublicKey } from '@solana/web3.js';
 import express from 'express';
 import { DLMM } from '../dlmm';
 import { StrategyType } from '../dlmm/types';
+import { BN } from 'bn.js';
 
 const RPC = "https://api.devnet.solana.com";
 const connection = new Connection(RPC, 'finalized');
@@ -9,6 +10,11 @@ const connection = new Connection(RPC, 'finalized');
 const app = express();
 app.use(express.urlencoded());
 app.use(express.json());
+app.use(function(req, res, next) {
+  console.log(req.method, req.url);
+  console.log(req.body);
+  next();
+})
 
 app.get('/', (req, res) => {
   res.send('Hello World!');
@@ -86,10 +92,10 @@ app.post("/dlmm/initialize-position-and-add-liquidity-by-strategy", async (req, 
   try {
     const publicKey = req.body.publicKey;
 
-    const positionPublicKey = req.body.positionPublicKey;
+    const positionPublicKey = req.body.positionPubKey;
     const userPublicKey = req.body.userPublicKey;
-    const totalXAmount = req.body.totalXAmount;
-    const totalYAmount = req.body.totalYAmount;
+    const totalXAmount = new BN(req.body.totalXAmount);
+    const totalYAmount = new BN(req.body.totalYAmount);
     const maxBinId = req.body.maxBinId;
     const minBinId = req.body.minBinId;
     const strategyType = req.body.strategyType as StrategyType;
@@ -118,10 +124,10 @@ app.post("/dlmm/initialize-position-and-add-liquidity-by-strategy", async (req, 
 app.post("/dlmm/add-liquidity-by-strategy", async (req, res) => {
   try {
     const publicKey = req.body.publicKey;
-    const positionPublicKey = req.body.positionPublicKey;
+    const positionPublicKey = req.body.positionPubKey;
     const userPublicKey = req.body.userPublicKey;
-    const totalXAmount = req.body.totalXAmount;
-    const totalYAmount = req.body.totalYAmount;
+    const totalXAmount = new BN(req.body.totalXAmount);
+    const totalYAmount = new BN(req.body.totalYAmount);
     const maxBinId = req.body.maxBinId;
     const minBinId = req.body.minBinId;
     const strategyType = req.body.strategyType as StrategyType;

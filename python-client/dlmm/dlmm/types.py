@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
+from solders.pubkey import Pubkey
 from typing import Any, List, TypedDict
 
 class StrategyType(Enum):
@@ -28,7 +29,7 @@ class ActiveBin():
     x_amount: str
     y_amount: str
     supply: str
-    price: str
+    price: float
     version: int
     price_per_token: str
 
@@ -37,7 +38,7 @@ class ActiveBin():
         self.x_amount = data["xAmount"]
         self.y_amount = data["yAmount"]
         self.supply = data["supply"]
-        self.price = data["price"]
+        self.price = float(data["price"])
         self.version = data["version"]
         self.price_per_token = data["pricePerToken"]
 
@@ -133,3 +134,49 @@ class SwapQuote():
         self.min_out_amount = data["minOutAmount"]
         self.price_impact = data["priceImpact"]
         self.bin_arrays_pubkey = data["binArraysPubkey"]
+
+
+class LBPair:
+    bump_seed: List[int]
+    bin_step_seed: List[int]
+    pair_type: int
+    active_id: int
+    bin_step: int
+    status: int
+    require_base_factor_seed: int
+    base_factor_seed: List[int]
+    token_x_mint: str
+    token_y_mint: str
+    padding1: List[int]
+    padding2: List[int]
+    fee_owner: Pubkey
+    base_key: str
+
+    def __init__(self, data: dict) -> None:
+        self.bump_seed = data["bumpSeed"]
+        self.bin_step_seed = data["binStepSeed"]
+        self.pair_type = data["pairType"]
+        self.active_id = data["activeId"]
+        self.bin_step = data["binStep"]
+        self.status = data["status"]
+        self.require_base_factor_seed = data["requireBaseFactorSeed"]
+        self.base_factor_seed = data["baseFactorSeed"]
+        self.token_x_mint = data["tokenXMint"]
+        self.token_y_mint = data["tokenYMint"]
+        self.padding1 = data["padding1"]
+        self.padding2 = data["padding2"]
+        self.fee_owner = Pubkey.from_string(data["feeOwner"])
+        self.base_key = data["baseKey"]
+        
+@dataclass
+class TokenReserve():
+    public_key: Pubkey
+    reserve: Pubkey
+    amount: str
+    decimal: int
+
+    def __init__(self, data: dict) -> None:
+        self.public_key = Pubkey.from_string(data["publicKey"])
+        self.reserve = Pubkey.from_string(data["reserve"])
+        self.amount = data["amount"]
+        self.decimal = data["decimal"]

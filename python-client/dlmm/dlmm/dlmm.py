@@ -1,93 +1,100 @@
-from typing import List, Optional, Union
-from solana.rpc.api import Client, Transaction
 import requests
-from .types import ActiveBin, GetPositionByUser, StrategyParameters, SwapQuote
+from typing import List, Optional, Union
+from solana.transaction import Transaction
+from solders.pubkey import Pubkey
+from .utils import convert_to_transaction
+from .types import ActiveBin, GetPositionByUser, StrategyParameters, SwapQuote, LBPair, TokenReserve
 
-API_URL = "localhost:3000"
+API_URL = "http://localhost:3000"
 
 class DLMM_CLIENT:
+    pool_address: Union[str, List[str]]
+    rpc: str
+    lb_pair: LBPair
+    token_X: TokenReserve
+    token_Y: TokenReserve
 
-    def __init__(self, public_keys: Union[str, List[str]], client: Client):
-        self.public_key = public_keys
-        self.client = client
+    def __init__(self, public_keys: Union[str, List[str]], rpc: str) -> None:
+        self.pool_address = public_keys
+        self.rpc = rpc
 
         if isinstance(public_keys, str):
             try:
-                result = requests.post(f"{API_URL}/dlmm/create", data={"publicKey": public_keys, "rpc": client.endpoint})
-                return result.json()
+                result = requests.post(f"{API_URL}/dlmm/create", data={"publicKey": public_keys, "rpc": rpc}).json()
+                self.lb_pair = LBPair(result["lbPair"])
+                self.token_X = TokenReserve(result["tokenX"])
+                self.token_Y = TokenReserve(result["tokenY"])
             except Exception as e:
                 raise Exception(f"Error creating DLMM: {e}")
         elif isinstance(public_keys, list):
             try:
-                result = requests.post(f"{API_URL}/dlmm/create-multiple", data={"publicKeys": public_keys, "rpc": client.endpoint})
-                return result.json()
+                result = requests.post(f"{API_URL}/dlmm/create-multiple", data={"publicKeys": public_keys, "rpc": rpc}).json()
+                self.lb_pair = LBPair(result["lbPair"])
+                self.token_X = TokenReserve(result["tokenX"])
+                self.token_Y = TokenReserve(result["tokenY"])
             except Exception as e:
                 raise Exception(f"Error creating DLMM: {e}")
     
-    def get_active_bins(self) -> ActiveBin:
+    def get_active_bin(self) -> ActiveBin:
         try:
-            result = requests.post(f"{API_URL}/dlmm/get-active-bin", data={"publicKey": self.public_key}).json()
+            result = requests.post(f"{API_URL}/dlmm/get-active-bin", data={"publicKey": self.pool_address}).json()
             active_bin = ActiveBin(result)
             return active_bin
         except Exception as e:
             raise Exception(f"Error getting active bins: {e}")
 
-    def from_price_per_lamports(self, price: int) -> int:
+    def from_price_per_lamport(self, price: float) -> float:
         try:
             data = {
                 "price": price,
-                "publicKey": self.public_key
+                "publicKey": self.pool_address
             }
             result = requests.post(f"{API_URL}/dlmm/from-price-per-lamport", data=data).json()
-            return result["price"]
+            return float(result["price"])
         except Exception as e:
             raise Exception(f"Error converting price per lamports: {e}")
 
-    # TODO: Add result to transaction object
-    def initialize_position_and_add_liquidity_by_strategy(self, position_pub_key: str, user: str, x_amount: int, y_amount: int, strategy: StrategyParameters) -> Transaction:
+    def initialize_position_and_add_liquidity_by_strategy(self, position_pub_key: Pubkey, user: Pubkey, x_amount: int, y_amount: int, strategy: StrategyParameters) -> Transaction:
         try:
             data = {
                 "positionPubKey": position_pub_key,
                 "userPublicKey": user,
                 "totalXAmount": x_amount,
                 "totalYAmount": y_amount,
-                "strategy": {
-                    "maxBinId": strategy["max_bin_id"],
-                    "minBinId": strategy["min_bin_id"],
-                    "strategyType": strategy["strategy_type"]
-                },
-                "publicKey": self.public_key
+                "maxBinId": strategy["max_bin_id"],
+                "minBinId": strategy["min_bin_id"],
+                "strategyType": strategy["strategy_type"],
+                "publicKey": self.pool_address
             }
             result = requests.post(f"{API_URL}/dlmm/initialize-position-and-add-liquidity-by-strategy", data=data).json()
-            return result
+            transaction = convert_to_transaction(result)
+            return transaction
         except Exception as e:
             raise Exception(f"Error initializing position and adding liquidity by strategy: {e}")
     
-    # TODO: Add result to transaction object
-    def add_liquidity_by_strategy(self, position_pub_key: str, user: str, x_amount: int, y_amount: int, strategy: StrategyParameters) -> Transaction:
+    def add_liquidity_by_strategy(self, position_pub_key: Pubkey, user: Pubkey, x_amount: int, y_amount: int, strategy: StrategyParameters) -> Transaction:
         try:
             data = {
                 "positionPubKey": position_pub_key,
                 "userPublicKey": user,
                 "totalXAmount": x_amount,
                 "totalYAmount": y_amount,
-                "strategy": {
-                    "maxBinId": strategy["max_bin_id"],
-                    "minBinId": strategy["min_bin_id"],
-                    "strategyType": strategy["strategy_type"]
-                },
-                "publicKey": self.public_key
+                "maxBinId": strategy["max_bin_id"],
+                "minBinId": strategy["min_bin_id"],
+                "strategyType": strategy["strategy_type"],
+                "publicKey": self.pool_address
             }
             result = requests.post(f"{API_URL}/dlmm/add-liquidity-by-strategy", data=data).json()
-            return result
+            transaction = convert_to_transaction(result)
+            return transaction
         except Exception as e:
             raise Exception(f"Error adding liquidity by strategy: {e}")
 
-    def get_positions_by_user_and_lb_pair(self, user: str):
+    def get_positions_by_user_and_lb_pair(self, user: str) -> GetPositionByUser:
         try:
             data = {
                 "userPublicKey": user,
-                "publicKey": self.public_key
+                "publicKey": self.pool_address
             }
             result = requests.post(f"{API_URL}/dlmm/get-positions-by-user-and-lb-pair", data=data).json()
             clean_result = GetPositionByUser(result)
@@ -104,7 +111,7 @@ class DLMM_CLIENT:
                 "binIds": bin_ids,
                 "bps": bps,
                 "shouldClaimAndClose": should_claim_and_close,
-                "publicKey": self.public_key
+                "publicKey": self.pool_address
             }
             result = requests.post(f"{API_URL}/dlmm/remove-liquidity", data=data).json()
             return result
@@ -117,7 +124,7 @@ class DLMM_CLIENT:
             data = {
                 "swapYToX": swap_Y_to_X,
                 "count": count,
-                "publicKey": self.public_key
+                "publicKey": self.pool_address
             }
             result = requests.post(f"{API_URL}/dlmm/get-bin-array-for-swap", data=data).json()
             return result
@@ -132,7 +139,7 @@ class DLMM_CLIENT:
                 "allowedSlippage": allowed_slippage,
                 "binArrays": binArrays,
                 "isPartialFilled": is_partial_filled,
-                "publicKey": self.public_key
+                "publicKey": self.pool_address
             }
             result = requests.post(f"{API_URL}/dlmm/swap-quote", data=data).json()
             return SwapQuote(result)
@@ -149,7 +156,7 @@ class DLMM_CLIENT:
                 "lbPair": lb_pair,
                 "userPublicKey": user,
                 "binArrays": binArrays,
-                "publicKey": self.public_key
+                "publicKey": self.pool_address
             }
             result = requests.post(f"{API_URL}/dlmm/swap", data=data).json()
             return result

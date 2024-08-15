@@ -12,6 +12,9 @@ solana = "^0.34.3"
 requests = "^2.32.3"
 
 
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.2"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
