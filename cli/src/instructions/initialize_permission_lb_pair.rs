@@ -25,7 +25,8 @@ pub struct InitPermissionLbPairParameters {
     pub initial_price: f64,
     pub base_fee_bps: u16,
     pub base_keypair: Keypair,
-    pub lock_duration_in_slot: u64,
+    pub lock_duration: u64,
+    pub activation_type: u8,
 }
 
 pub async fn initialize_permission_lb_pair<C: Deref<Target = impl Signer> + Clone>(
@@ -40,7 +41,8 @@ pub async fn initialize_permission_lb_pair<C: Deref<Target = impl Signer> + Clon
         initial_price,
         base_fee_bps,
         base_keypair,
-        lock_duration_in_slot,
+        lock_duration,
+        activation_type,
     } = params;
 
     let token_mint_base: Mint = program.account(token_mint_x).await?;
@@ -95,7 +97,8 @@ pub async fn initialize_permission_lb_pair<C: Deref<Target = impl Signer> + Clon
             base_factor: compute_base_factor_from_fee_bps(bin_step, base_fee_bps)?,
             max_bin_id,
             min_bin_id,
-            lock_duration: lock_duration_in_slot,
+            lock_duration,
+            activation_type,
         },
     };
 

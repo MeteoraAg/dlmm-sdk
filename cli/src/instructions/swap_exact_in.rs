@@ -42,8 +42,6 @@ pub async fn swap<C: Deref<Target = impl Signer> + Clone>(
 
     let lb_pair_state: LbPair = program.account(lb_pair).await?;
 
-    let lb_pair_state: LbPair = program.account(lb_pair).await?;
-
     let (user_token_in, user_token_out) = if swap_for_y {
         (
             get_associated_token_address(&program.payer(), &lb_pair_state.token_x_mint),

@@ -14,7 +14,6 @@ use anchor_spl::associated_token::get_associated_token_address;
 use anyhow::*;
 use commons::quote::{get_bin_array_pubkeys_for_swap, quote_exact_in};
 use lb_clmm::accounts;
-use lb_clmm::constants::BASIS_POINT_MAX;
 use lb_clmm::instruction;
 
 use lb_clmm::state::bin::BinArray;
