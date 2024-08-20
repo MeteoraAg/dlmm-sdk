@@ -1,16 +1,18 @@
 import pytest
 from dlmm import DLMM_CLIENT
-from dlmm.types import GetPositionByUser, StrategyType
+from dlmm.dlmm import DLMM
+from dlmm.types import GetPositionByUser, StrategyType, SwapQuote
 from solders.keypair import Keypair
 from solana.rpc.api import Client
 from solana.transaction import Transaction
+
 
 def test_flow():
     RPC = "https://api.devnet.solana.com"
     pool_address = "3W2HKgUa96Z69zzG3LK1g8KdcRAWzAttiLiHfYnKuPw5"
     client = Client(RPC)
-    dlmm = DLMM_CLIENT(pool_address, RPC)
-    assert isinstance(dlmm, DLMM_CLIENT)
+    dlmm = DLMM_CLIENT.create(pool_address, RPC)
+    assert isinstance(dlmm, DLMM)
 
     active_bin = dlmm.get_active_bin()
     print(active_bin.price)
@@ -34,11 +36,11 @@ def test_flow():
         {
             "max_bin_id": max_bin_id, 
             "min_bin_id": min_bin_id, 
-            "strategy_type": StrategyType.SpotBalanced.value
+            "strategy_type": StrategyType.SpotBalanced
         })
     assert isinstance(position_tx, Transaction)
 
-    # client.send_transaction(position_tx, user)
+    # client.send_transaction(position_tx, user, new_balance_position)
     print("Transaction sent")
 
     positions = dlmm.get_positions_by_user_and_lb_pair(user.pubkey())
@@ -52,15 +54,44 @@ def test_flow():
         {
             "max_bin_id": max_bin_id, 
             "min_bin_id": min_bin_id, 
-            "strategy_type": StrategyType.SpotBalanced.value
+            "strategy_type": StrategyType.SpotBalanced
         })
     assert isinstance(add_liquidity_tx, Transaction)
 
     # client.send_transaction(add_liquidity_tx, user)
-    
+    print("Transaction sent")
 
+    user_positions = next(filter(lambda x: x.public_key == new_balance_position.pubkey() ,positions.user_positions), None)
+    # user_positions = positions.user_positions[0]
+    if user_positions:
+        bin_ids_to_remove = list(map(lambda x: x.bin_id, user_positions.position_data.position_bin_data))
+        remove_liquidity = dlmm.remove_liqidity(
+            new_balance_position.pubkey(), 
+            user.pubkey(), 
+            bin_ids_to_remove,
+            [100*100 for _ in bin_ids_to_remove],
+            True
+        )
+        print(remove_liquidity)
+        assert isinstance(remove_liquidity, list)
+        # client.send_transaction(remove_liquidity, user)
 
+    swap_amount = 100
+    swap_y_to_x = True
+    bin_arrays = dlmm.get_bin_array_for_swap(swap_y_to_x)
+    swap_quote = dlmm.swap_quote(swap_amount, swap_y_to_x, 10, bin_arrays)
+    assert isinstance(swap_quote, SwapQuote)
 
+    swap_tx = dlmm.swap(
+        dlmm.token_X.public_key,
+        dlmm.token_Y.public_key,
+        swap_amount,
+        swap_quote.min_out_amount,
+        dlmm.pool_address,
+        user.pubkey(),
+        swap_quote.bin_arrays_pubkey
+        )
+    print(swap_tx)
 
 if __name__ == "__main__":
     test_flow()

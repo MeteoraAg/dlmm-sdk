@@ -14,6 +14,12 @@ class StrategyType(Enum):
     CurveBalanced="CurveBalanced",
     BidAskBalanced="BidAskBalanced"
 
+    def __str__(self) -> str:
+        return self.name
+    
+    def __repr__(self) -> str:
+        return self.name
+
 class PositionVersion(Enum):
     V1="V1",
     V2="V2"
@@ -98,14 +104,14 @@ class PositionData():
 
 @dataclass
 class Position():
-    public_key: str
+    public_key: Pubkey
     position_data: PositionData
     position_version: PositionVersion
 
     def __init__(self, data: dict):
-        self.public_key = data["publicKey"]
+        self.public_key = Pubkey.from_string(data["publicKey"])
         self.position_data = PositionData(data["positionData"])
-        self.position_version = data["positionVersion"]
+        self.position_version = data["version"]
 
 @dataclass
 class GetPositionByUser():
@@ -124,7 +130,7 @@ class SwapQuote():
     protocol_fee: int
     min_out_amount: int
     price_impact: float
-    bin_arrays_pubkey: List[Any]
+    bin_arrays_pubkey: List[Pubkey]
 
     def __init__(self, data: dict):
         self.consumed_in_amount = data["consumedInAmount"]
@@ -133,7 +139,7 @@ class SwapQuote():
         self.protocol_fee = data["protocolFee"]
         self.min_out_amount = data["minOutAmount"]
         self.price_impact = data["priceImpact"]
-        self.bin_arrays_pubkey = data["binArraysPubkey"]
+        self.bin_arrays_pubkey = list(map(lambda x: Pubkey.from_string(x), data["binArraysPubkey"]))
 
 
 class LBPair:
