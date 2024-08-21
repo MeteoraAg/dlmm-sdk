@@ -4715,7 +4715,7 @@ export class DLMM {
       : shlDiv(amount0AfterFee, price, SCALE_OFFSET, Rounding.Down);
 
     return {
-      withdrawAmount: amount1.add(amountOut > maxAmountOut ? maxAmountOut : amountOut),
+      withdrawAmount: amount1.add(amountOut.gt(maxAmountOut) ? maxAmountOut : amountOut),
     };
   }
 
