@@ -3127,6 +3127,8 @@ export class DLMM {
    *    - `inAmount`: Amount of lamport to swap in
    *    - `swapForY`: Swap token X to Y when it is true, else reversed.
    *    - `allowedSlippage`: Allowed slippage for the swap. Expressed in BPS. To convert from slippage percentage to BPS unit: SLIPPAGE_PERCENTAGE * 100
+   *    - `binArrays`: binArrays for swapQuote.
+   *    - `isPartialFill`: Flag to check whether the the swapQuote is partial fill, default = false.
    * @returns {SwapQuote}
    *    - `consumedInAmount`: Amount of lamport to swap in
    *    - `outAmount`: Amount of lamport to swap out
@@ -3140,7 +3142,8 @@ export class DLMM {
     inAmount: BN,
     swapForY: boolean,
     allowedSlippage: BN,
-    binArrays: BinArrayAccount[]
+    binArrays: BinArrayAccount[],
+    isPartialFill?: boolean
   ): SwapQuote {
     // TODO: Should we use onchain clock ? Volatile fee rate is sensitive to time. Caching clock might causes the quoted fee off ...
     const currentTimestamp = Date.now() / 1000;
@@ -3175,7 +3178,11 @@ export class DLMM {
       );
 
       if (binArrayAccountToSwap == null) {
-        throw new Error("Insufficient liquidity");
+        if (isPartialFill) {
+          break;
+        } else {
+          throw new Error("Insufficient liquidity");
+        }
       }
 
       binArraysForSwap.set(binArrayAccountToSwap.publicKey, true);
@@ -3224,6 +3231,8 @@ export class DLMM {
     }
 
     if (!startBin) throw new Error("Invalid start bin");
+
+    inAmount = inAmount.sub(inAmountLeft);
 
     const outAmountWithoutSlippage = getOutAmount(
       startBin,
@@ -3610,13 +3619,18 @@ export class DLMM {
   }): Promise<Transaction[]> {
     const claimAllTxs = (
       await Promise.all(
-        positions.map(async (position, idx) => {
-          return await this.createClaimBuildMethod({
-            owner,
-            position,
-            shouldIncludePreIx: idx === 0,
-          });
-        })
+        positions
+          .filter(
+            ({ positionData: { rewardOne, rewardTwo } }) =>
+              !rewardOne.isZero() || !rewardTwo.isZero()
+          )
+          .map(async (position, idx) => {
+            return await this.createClaimBuildMethod({
+              owner,
+              position,
+              shouldIncludePreIx: idx === 0,
+            });
+          })
       )
     ).flat();
 
@@ -3726,14 +3740,19 @@ export class DLMM {
   }): Promise<Transaction[]> {
     const claimAllTxs = (
       await Promise.all(
-        positions.map(async (position, idx) => {
-          return await this.createClaimSwapFeeMethod({
-            owner,
-            position,
-            shouldIncludePretIx: idx === 0,
-            shouldIncludePostIx: idx === positions.length - 1,
-          });
-        })
+        positions
+          .filter(
+            ({ positionData: { feeX, feeY } }) =>
+              !feeX.isZero() || !feeY.isZero()
+          )
+          .map(async (position, idx, positions) => {
+            return await this.createClaimSwapFeeMethod({
+              owner,
+              position,
+              shouldIncludePretIx: idx === 0,
+              shouldIncludePostIx: idx === positions.length - 1,
+            });
+          })
       )
     ).flat();
 
@@ -4129,6 +4148,43 @@ export class DLMM {
   }
 
   /**
+   * Initializes bin arrays for the given bin array indexes if it wasn't initialized.
+   *
+   * @param {BN[]} binArrayIndexes - An array of bin array indexes to initialize.
+   * @param {PublicKey} funder - The public key of the funder.
+   * @return {Promise<TransactionInstruction[]>} An array of transaction instructions to initialize the bin arrays.
+   */
+  public async initializeBinArrays(binArrayIndexes: BN[], funder: PublicKey) {
+    const ixs: TransactionInstruction[] = [];
+
+    for (const idx of binArrayIndexes) {
+      const [binArray] = deriveBinArray(
+        this.pubkey,
+        idx,
+        this.program.programId
+      );
+
+      const binArrayAccount =
+        await this.program.provider.connection.getAccountInfo(binArray);
+
+      if (binArrayAccount === null) {
+        ixs.push(
+          await this.program.methods
+            .initializeBinArray(idx)
+            .accounts({
+              binArray,
+              funder,
+              lbPair: this.pubkey,
+            })
+            .instruction()
+        );
+      }
+    }
+
+    return ixs;
+  }
+
+  /**
    *
    * @param
    *    - `lowerBinId`: Lower bin ID of the position. This represent the lowest price of the position
@@ -4264,26 +4320,36 @@ export class DLMM {
 
     const claimAllSwapFeeTxs = (
       await Promise.all(
-        positions.map(async (position) => {
-          return await this.createClaimSwapFeeMethod({
-            owner,
-            position,
-            shouldIncludePretIx: false,
-            shouldIncludePostIx: false,
-          });
-        })
+        positions
+          .filter(
+            ({ positionData: { feeX, feeY } }) =>
+              !feeX.isZero() || !feeY.isZero()
+          )
+          .map(async (position) => {
+            return await this.createClaimSwapFeeMethod({
+              owner,
+              position,
+              shouldIncludePretIx: false,
+              shouldIncludePostIx: false,
+            });
+          })
       )
     ).flat();
 
     const claimAllLMTxs = (
       await Promise.all(
-        positions.map(async (position) => {
-          return await this.createClaimBuildMethod({
-            owner,
-            position,
-            shouldIncludePreIx: false,
-          });
-        })
+        positions
+          .filter(
+            ({ positionData: { rewardOne, rewardTwo } }) =>
+              !rewardOne.isZero() || !rewardTwo.isZero()
+          )
+          .map(async (position) => {
+            return await this.createClaimBuildMethod({
+              owner,
+              position,
+              shouldIncludePreIx: false,
+            });
+          })
       )
     ).flat();
 
