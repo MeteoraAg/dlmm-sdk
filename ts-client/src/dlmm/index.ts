@@ -99,6 +99,7 @@ import {
   deriveLbPair,
   swapExactOutQuoteAtBin,
   getPriceOfBinByBinId,
+  computeFee,
 } from "./helpers";
 import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import Decimal from "decimal.js";
@@ -117,7 +118,10 @@ import {
   findSwappableMinMaxBinId,
   generateAmountForBinRange,
   getPositionCount,
+  getQPriceFromId,
+  mulDiv,
   mulShr,
+  shlDiv,
 } from "./helpers/math";
 
 type Opt = {
@@ -2940,6 +2944,111 @@ export class DLMM {
     }
   }
 
+  public async removeLiquiditySingleSide({
+    user,
+    position,
+    binIds,
+    removeLiquidityForY = false,
+  }: {
+    user: PublicKey;
+    position: PublicKey;
+    binIds: number[];
+    removeLiquidityForY?: boolean;
+  }): Promise<Transaction | Transaction[]> {
+    const { lbPair, lowerBinId, owner, feeOwner } =
+      await this.program.account.positionV2.fetch(position);
+
+    const { reserveX, reserveY, tokenXMint, tokenYMint } =
+      await this.program.account.lbPair.fetch(lbPair);
+
+    const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(lowerBinId));
+    const upperBinArrayIndex = lowerBinArrayIndex.add(new BN(1));
+    const [binArrayLower] = deriveBinArray(
+      lbPair,
+      lowerBinArrayIndex,
+      this.program.programId
+    );
+    const [binArrayUpper] = deriveBinArray(
+      lbPair,
+      upperBinArrayIndex,
+      this.program.programId
+    );
+
+    const preInstructions: Array<TransactionInstruction> = [];
+    const setComputeUnitLimitIx = computeBudgetIx();
+    preInstructions.push(setComputeUnitLimitIx);
+
+    const { ataPubKey: userToken, ix: createPayerTokenIx } = removeLiquidityForY
+      ? await getOrCreateATAInstruction(
+          this.program.provider.connection,
+          this.tokenY.publicKey,
+          owner,
+          user
+        )
+      : await getOrCreateATAInstruction(
+          this.program.provider.connection,
+          this.tokenX.publicKey,
+          owner,
+          user
+        );
+
+    createPayerTokenIx && preInstructions.push(createPayerTokenIx);
+
+    const postInstructions: Array<TransactionInstruction> = [];
+    if (
+      [
+        this.tokenX.publicKey.toBase58(),
+        this.tokenY.publicKey.toBase58(),
+      ].includes(NATIVE_MINT.toBase58())
+    ) {
+      const closeWrappedSOLIx = await unwrapSOLInstruction(user);
+      closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
+    }
+
+    const minBinId = Math.min(...binIds);
+    const maxBinId = Math.max(...binIds);
+
+    const minBinArrayIndex = binIdToBinArrayIndex(new BN(minBinId));
+    const maxBinArrayIndex = binIdToBinArrayIndex(new BN(maxBinId));
+
+    const useExtension =
+      isOverflowDefaultBinArrayBitmap(minBinArrayIndex) ||
+      isOverflowDefaultBinArrayBitmap(maxBinArrayIndex);
+
+    const binArrayBitmapExtension = useExtension
+      ? deriveBinArrayBitmapExtension(this.pubkey, this.program.programId)[0]
+      : null;
+
+    const reserve = removeLiquidityForY ? reserveY : reserveX;
+    const tokenMint = removeLiquidityForY ? tokenYMint : tokenXMint;
+
+    const removeLiquiditySingleSideTx = await this.program.methods
+      .removeLiquiditySingleSide()
+      .accounts({
+        position,
+        lbPair,
+        binArrayBitmapExtension,
+        userToken,
+        reserve,
+        tokenMint,
+        binArrayLower,
+        binArrayUpper,
+        sender: user,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      })
+      .preInstructions(preInstructions)
+      .transaction();
+
+    const { blockhash, lastValidBlockHeight } =
+      await this.program.provider.connection.getLatestBlockhash("confirmed");
+
+    return new Transaction({
+      blockhash,
+      lastValidBlockHeight,
+      feePayer: user,
+    }).add(removeLiquiditySingleSideTx);
+  }
+
   /**
    * The `closePosition` function closes a position
    * @param
@@ -4543,6 +4652,141 @@ export class DLMM {
     return this.fromPricePerLamport(
       Number(binPriceWithLastLiquidity) / (2 ** 64 - 1)
     );
+  }
+
+  public getAmountOutWithdrawSingleSide(
+    maxLiquidityShare: BN,
+    price: BN,
+    bin: Bin,
+    isWithdrawForY: boolean
+  ) {
+    const amountX = mulDiv(
+      maxLiquidityShare,
+      bin.amountX,
+      bin.liquiditySupply,
+      Rounding.Down
+    );
+    const amountY = mulDiv(
+      maxLiquidityShare,
+      bin.amountY,
+      bin.liquiditySupply,
+      Rounding.Down
+    );
+
+    const amount0 = isWithdrawForY ? amountX : amountY;
+    const amount1 = isWithdrawForY ? amountY : amountX;
+    const remainAmountX = bin.amountX.sub(amountX);
+    const remainAmountY = bin.amountY.sub(amountY);
+
+    if (amount0.eq(new BN(0))) {
+      return {
+        withdrawAmount: amount1,
+      };
+    }
+
+    let maxAmountOut = isWithdrawForY ? remainAmountY : remainAmountX;
+    let maxAmountIn = isWithdrawForY
+      ? shlDiv(remainAmountY, price, SCALE_OFFSET, Rounding.Up)
+      : mulShr(remainAmountX, price, SCALE_OFFSET, Rounding.Up);
+
+    let maxFee = computeFee(
+      this.lbPair.binStep,
+      this.lbPair.parameters,
+      this.lbPair.vParameters,
+      maxAmountIn
+    );
+
+    maxAmountIn = maxAmountIn.add(maxFee);
+
+    if (amount0.gt(maxAmountIn)) {
+      return {
+        withdrawAmount: maxAmountOut,
+      };
+    }
+    const fee = computeFeeFromAmount(
+      this.lbPair.binStep,
+      this.lbPair.parameters,
+      this.lbPair.vParameters,
+      amount0
+    );
+    const amount0AfterFee = amount0.sub(fee);
+    const amountOut = isWithdrawForY
+      ? mulShr(price, amount0AfterFee, SCALE_OFFSET, Rounding.Down)
+      : shlDiv(amount0AfterFee, price, SCALE_OFFSET, Rounding.Down);
+
+    return {
+      withdrawAmount: amount1.add(amountOut > maxAmountOut ? maxAmountOut : amountOut),
+    };
+  }
+
+  public async getWithdrawSingleSideAmount(
+    positionPubkey: PublicKey,
+    isWithdrawForY: boolean
+  ) {
+    let totalWithdrawAmount = new BN(0);
+    let _lowerBinArray: BinArray | undefined | null;
+    let _upperBinArray: BinArray | undefined | null;
+
+    const position = await this.program.account.positionV2.fetch(
+      positionPubkey
+    );  
+    const lowerBinArrayIdx = binIdToBinArrayIndex(new BN(position.lowerBinId));
+    const [lowerBinArray] = deriveBinArray(
+      position.lbPair,
+      lowerBinArrayIdx,
+      this.program.programId
+    );
+    const upperBinArrayIdx = lowerBinArrayIdx.add(new BN(1));
+    const [upperBinArray] = deriveBinArray(
+      position.lbPair,
+      upperBinArrayIdx,
+      this.program.programId
+    );
+
+    [_lowerBinArray, _upperBinArray] =
+      await this.program.account.binArray.fetchMultiple([
+        lowerBinArray,
+        upperBinArray,
+      ]);
+
+    if (!_lowerBinArray || !_upperBinArray)
+      throw new Error("BinArray not found");
+
+    for (let idx = 0; idx < position.liquidityShares.length; idx++) {
+      const shareToRemove = position.liquidityShares[idx];
+
+      if (shareToRemove.eq(new BN(0))) {
+        continue;
+      }
+
+      const binId = new BN(position.lowerBinId).add(new BN(idx));
+      const binArrayIndex = binIdToBinArrayIndex(binId);
+      const binArray = binArrayIndex.eq(lowerBinArrayIdx)
+      ? _lowerBinArray
+      : _upperBinArray;
+      const bin = getBinFromBinArray(binId.toNumber(), binArray);
+
+      if (isWithdrawForY) {
+        if (binId.gt(new BN(this.lbPair.activeId))) {
+          break;
+        }
+      } else {
+        if (binId.lt(new BN(this.lbPair.activeId))) {
+          continue;
+        }
+      }
+
+      const price = getQPriceFromId(binId, new BN(this.lbPair.binStep));
+      const { withdrawAmount } = this.getAmountOutWithdrawSingleSide(
+        shareToRemove,
+        price,
+        bin,
+        isWithdrawForY
+      );
+
+      totalWithdrawAmount = totalWithdrawAmount.add(withdrawAmount);
+    }
+    return totalWithdrawAmount;
   }
 
   /** Private static method */
