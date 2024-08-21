@@ -4724,32 +4724,32 @@ export class DLMM {
     isWithdrawForY: boolean
   ) {
     let totalWithdrawAmount = new BN(0);
-    let _lowerBinArray: BinArray | undefined | null;
-    let _upperBinArray: BinArray | undefined | null;
+    let lowerBinArray: BinArray | undefined | null;
+    let upperBinArray: BinArray | undefined | null;
 
     const position = await this.program.account.positionV2.fetch(
       positionPubkey
     );  
     const lowerBinArrayIdx = binIdToBinArrayIndex(new BN(position.lowerBinId));
-    const [lowerBinArray] = deriveBinArray(
+    const [lowerBinArrayPubKey] = deriveBinArray(
       position.lbPair,
       lowerBinArrayIdx,
       this.program.programId
     );
     const upperBinArrayIdx = lowerBinArrayIdx.add(new BN(1));
-    const [upperBinArray] = deriveBinArray(
+    const [upperBinArrayPubKey] = deriveBinArray(
       position.lbPair,
       upperBinArrayIdx,
       this.program.programId
     );
 
-    [_lowerBinArray, _upperBinArray] =
+    [lowerBinArray, upperBinArray] =
       await this.program.account.binArray.fetchMultiple([
-        lowerBinArray,
-        upperBinArray,
+        lowerBinArrayPubKey,
+        upperBinArrayPubKey,
       ]);
 
-    if (!_lowerBinArray || !_upperBinArray)
+    if (!lowerBinArray || !upperBinArray)
       throw new Error("BinArray not found");
 
     for (let idx = 0; idx < position.liquidityShares.length; idx++) {
@@ -4762,10 +4762,10 @@ export class DLMM {
       const binId = new BN(position.lowerBinId).add(new BN(idx));
       const binArrayIndex = binIdToBinArrayIndex(binId);
       const binArray = binArrayIndex.eq(lowerBinArrayIdx)
-      ? _lowerBinArray
-      : _upperBinArray;
+      ? lowerBinArray
+      : upperBinArray;
       const bin = getBinFromBinArray(binId.toNumber(), binArray);
-
+      
       if (isWithdrawForY) {
         if (binId.gt(new BN(this.lbPair.activeId))) {
           break;
