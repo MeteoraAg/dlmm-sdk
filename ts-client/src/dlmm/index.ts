@@ -98,6 +98,7 @@ import {
   derivePosition,
   deriveLbPair,
   swapExactOutQuoteAtBin,
+  getPriceOfBinByBinId,
 } from "./helpers";
 import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import Decimal from "decimal.js";
@@ -1563,21 +1564,6 @@ export class DLMM {
       this.tokenY.decimal
     );
     return activeBinState;
-  }
-
-  /**
-   * The function get the price of a bin based on its bin ID.
-   * @param {number} binId - The `binId` parameter is a number that represents the ID of a bin.
-   * @returns {number} the calculated price of a bin based on the provided binId.
-   */
-  public getPriceOfBinByBinId(binId: number): string {
-    const binStepNum = new Decimal(this.lbPair.binStep).div(
-      new Decimal(BASIS_POINT_MAX)
-    );
-    return new Decimal(1)
-      .add(new Decimal(binStepNum))
-      .pow(new Decimal(binId))
-      .toString();
   }
 
   /**
@@ -3105,13 +3091,19 @@ export class DLMM {
       }
     }
 
-    const startPrice = this.getPriceOfBinByBinId(startBinId.toNumber());
-    const endPrice = this.getPriceOfBinByBinId(activeId.toNumber());
+    const startPrice = getPriceOfBinByBinId(
+      startBinId.toNumber(),
+      this.lbPair.binStep
+    );
+    const endPrice = getPriceOfBinByBinId(
+      activeId.toNumber(),
+      this.lbPair.binStep
+    );
 
-    const priceImpact = new Decimal(startPrice)
-      .sub(new Decimal(endPrice))
+    const priceImpact = startPrice
+      .sub(endPrice)
       .abs()
-      .div(new Decimal(startPrice))
+      .div(startPrice)
       .mul(new Decimal(100));
 
     const maxInAmount = actualInAmount
@@ -3258,6 +3250,10 @@ export class DLMM {
     const minOutAmount = actualOutAmount
       .mul(new BN(BASIS_POINT_MAX).sub(allowedSlippage))
       .div(new BN(BASIS_POINT_MAX));
+    const endPrice = getPriceOfBinByBinId(
+      activeId.toNumber(),
+      this.lbPair.binStep
+    );
 
     return {
       consumedInAmount: inAmount,
@@ -3267,6 +3263,7 @@ export class DLMM {
       minOutAmount,
       priceImpact,
       binArraysPubkey: [...binArraysForSwap.keys()],
+      endPrice,
     };
   }
 
@@ -4879,10 +4876,10 @@ export class DLMM {
         const binId = lowerBinIdForBinArray.toNumber() + idx;
 
         if (binId >= lowerBinId && binId <= upperBinId) {
-          const pricePerLamport = this.getPriceOfBinByBinId(
-            lbPair.binStep,
-            binId
-          );
+          const pricePerLamport = getPriceOfBinByBinId(
+            binId,
+            lbPair.binStep
+          ).toString();
           bins.push({
             binId,
             xAmount: bin.amountX,
@@ -4906,10 +4903,10 @@ export class DLMM {
         binArray.bins.forEach((bin, idx) => {
           const binId = lowerBinIdForBinArray.toNumber() + idx;
           if (binId >= lowerBinId && binId <= upperBinId) {
-            const pricePerLamport = this.getPriceOfBinByBinId(
-              lbPair.binStep,
-              binId
-            );
+            const pricePerLamport = getPriceOfBinByBinId(
+              binId,
+              lbPair.binStep
+            ).toString();
             bins.push({
               binId,
               xAmount: bin.amountX,
@@ -4927,14 +4924,6 @@ export class DLMM {
     }
 
     return bins;
-  }
-
-  private static getPriceOfBinByBinId(binStep: number, binId: number): string {
-    const binStepNum = new Decimal(binStep).div(new Decimal(BASIS_POINT_MAX));
-    return new Decimal(1)
-      .add(new Decimal(binStepNum))
-      .pow(new Decimal(binId))
-      .toString();
   }
 
   /** Private method */
@@ -4993,8 +4982,6 @@ export class DLMM {
 
           const binArrayBins: Bin[] = [];
           for (let i = lowerBinId.toNumber(); i <= upperBinId.toNumber(); i++) {
-            const binId = new BN(i);
-            const pricePerLamport = this.getPriceOfBinByBinId(binId.toNumber());
             binArrayBins.push({
               amountX: new BN(0),
               amountY: new BN(0),
@@ -5023,7 +5010,10 @@ export class DLMM {
         const binId = lowerBinIdForBinArray.toNumber() + idx;
 
         if (binId >= lowerBinId && binId <= upperBinId) {
-          const pricePerLamport = this.getPriceOfBinByBinId(binId);
+          const pricePerLamport = getPriceOfBinByBinId(
+            binId,
+            this.lbPair.binStep
+          ).toString();
           bins.push({
             binId,
             xAmount: bin.amountX,
@@ -5070,7 +5060,10 @@ export class DLMM {
         binArray.bins.forEach((bin, idx) => {
           const binId = lowerBinIdForBinArray.toNumber() + idx;
           if (binId >= lowerBinId && binId <= upperBinId) {
-            const pricePerLamport = this.getPriceOfBinByBinId(binId);
+            const pricePerLamport = getPriceOfBinByBinId(
+              binId,
+              this.lbPair.binStep
+            ).toString();
             bins.push({
               binId,
               xAmount: bin.amountX,
