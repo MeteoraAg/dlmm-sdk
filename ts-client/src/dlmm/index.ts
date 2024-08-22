@@ -4700,7 +4700,7 @@ export class DLMM {
 
     if (amount0.gt(maxAmountIn)) {
       return {
-        withdrawAmount: maxAmountOut,
+        withdrawAmount: amount1.add(maxAmountOut),
       };
     }
     const fee = computeFeeFromAmount(
@@ -4715,7 +4715,7 @@ export class DLMM {
       : shlDiv(amount0AfterFee, price, SCALE_OFFSET, Rounding.Down);
 
     return {
-      withdrawAmount: amount1.add(amountOut.gt(maxAmountOut) ? maxAmountOut : amountOut),
+      withdrawAmount: amount1.add(amountOut),
     };
   }
 
@@ -4749,9 +4749,6 @@ export class DLMM {
         upperBinArrayPubKey,
       ]);
 
-    if (!lowerBinArray || !upperBinArray)
-      throw new Error("BinArray not found");
-
     for (let idx = 0; idx < position.liquidityShares.length; idx++) {
       const shareToRemove = position.liquidityShares[idx];
 
@@ -4762,8 +4759,13 @@ export class DLMM {
       const binId = new BN(position.lowerBinId).add(new BN(idx));
       const binArrayIndex = binIdToBinArrayIndex(binId);
       const binArray = binArrayIndex.eq(lowerBinArrayIdx)
-      ? lowerBinArray
-      : upperBinArray;
+        ? lowerBinArray
+        : upperBinArray;
+
+      if (!binArray) {
+        throw new Error("BinArray not found");
+      }
+
       const bin = getBinFromBinArray(binId.toNumber(), binArray);
       
       if (isWithdrawForY) {

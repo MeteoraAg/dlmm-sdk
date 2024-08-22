@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @mercurial-finance/dynamic-amm-sdk [1.0.54] - PR #99
+
+### Fixed
+
+- `getAmountOutWithdrawSingleSide`. Ensured the correct withdrawal amount is returned
+
 ## @meteora-ag/dlmm [1.0.53] - PR #98
 
 ### Added
