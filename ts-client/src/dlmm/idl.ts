@@ -2039,6 +2039,73 @@ export type LbClmm = {
       "args": []
     },
     {
+      "name": "removeLiquiditySingleSide",
+      "accounts": [
+        {
+          "name": "position",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayBitmapExtension",
+          "isMut": true,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
+          "name": "userToken",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "reserve",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayLower",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayUpper",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "sender",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "togglePairStatus",
       "accounts": [
         {
@@ -3714,22 +3781,6 @@ export type LbClmm = {
       }
     },
     {
-      "name": "BinLiquidityReduction",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "binId",
-            "type": "i32"
-          },
-          {
-            "name": "bpsToRemove",
-            "type": "u16"
-          }
-        ]
-      }
-    },
-    {
       "name": "FeeParameter",
       "type": {
         "kind": "struct",
@@ -3746,6 +3797,22 @@ export type LbClmm = {
             "docs": [
               "Base factor for base fee rate"
             ],
+            "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "BinLiquidityReduction",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "binId",
+            "type": "i32"
+          },
+          {
+            "name": "bpsToRemove",
             "type": "u16"
           }
         ]
@@ -7102,6 +7169,73 @@ export const IDL: LbClmm = {
       "args": []
     },
     {
+      "name": "removeLiquiditySingleSide",
+      "accounts": [
+        {
+          "name": "position",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayBitmapExtension",
+          "isMut": true,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
+          "name": "userToken",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "reserve",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayLower",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayUpper",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "sender",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "togglePairStatus",
       "accounts": [
         {
@@ -8777,22 +8911,6 @@ export const IDL: LbClmm = {
       }
     },
     {
-      "name": "BinLiquidityReduction",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "binId",
-            "type": "i32"
-          },
-          {
-            "name": "bpsToRemove",
-            "type": "u16"
-          }
-        ]
-      }
-    },
-    {
       "name": "FeeParameter",
       "type": {
         "kind": "struct",
@@ -8809,6 +8927,22 @@ export const IDL: LbClmm = {
             "docs": [
               "Base factor for base fee rate"
             ],
+            "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "BinLiquidityReduction",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "binId",
+            "type": "i32"
+          },
+          {
+            "name": "bpsToRemove",
             "type": "u16"
           }
         ]

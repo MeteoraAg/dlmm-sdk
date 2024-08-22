@@ -19,6 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.0.53] - PR #98
+
+### Added
+
+- `removeLiquiditySingleSide`. Withdraw only 1 token in the pair for the position
+- `getWithdrawSingleSideAmount`. Calculates the total single-sided withdrawable amount
+
 ## @meteora-ag/dlmm [1.0.52] - PR #90
 
 ### Added
