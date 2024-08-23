@@ -3,6 +3,10 @@ from enum import Enum
 from solders.pubkey import Pubkey
 from typing import Any, List, TypedDict
 
+class DlmmHttpError(Exception):
+    def __init__(self, message):
+        super().__init__(message)
+
 class StrategyType(Enum):
     SpotOneSide="SpotOneSide",
     CurveOneSide="CurveOneSide",
@@ -67,6 +71,25 @@ class PositionBinData():
     position_y_amount: str
 
     def __init__(self, data: dict):
+        if data.get("binId") is None:
+            raise AttributeError("binId is required")
+        if data.get("price") is None:
+            raise AttributeError("price is required")
+        if data.get("pricePerToken") is None:
+            raise AttributeError("pricePerToken is required")
+        if data.get("binXAmount") is None:
+            raise AttributeError("binXAmount is required")
+        if data.get("binYAmount") is None:
+            raise AttributeError("binYAmount is required")
+        if data.get("binLiquidity") is None:
+            raise AttributeError("binLiquidity is required")
+        if data.get("positionLiquidity") is None:
+            raise AttributeError("positionLiquidity is required")
+        if data.get("positionXAmount") is None:
+            raise AttributeError("positionXAmount is required")
+        if data.get("positionYAmount") is None:
+            raise AttributeError("positionYAmount is required")
+
         self.bin_id = data["binId"]
         self.price = data["price"]
         self.price_per_token = data["pricePerToken"]
@@ -107,6 +130,33 @@ class PositionData():
     total_claimed_fee_Y_amount: int
 
     def __init__(self, data: dict):
+        if data.get("totalXAmount") is None:
+            raise AttributeError("totalXAmount is required")
+        if data.get("totalYAmount") is None:
+            raise AttributeError("totalYAmount is required")
+        if data.get("positionBinData") is None:
+            raise AttributeError("positionBinData is required")
+        if data.get("lastUpdatedAt") is None:
+            raise AttributeError("lastUpdatedAt is required")
+        if data.get("upperBinId") is None:
+            raise AttributeError("upperBinId is required")
+        if data.get("lowerBinId") is None:
+            raise AttributeError("lowerBinId is required")
+        if data.get("feeX") is None:
+            raise AttributeError("feeX is required")
+        if data.get("feeY") is None:
+            raise AttributeError("feeY is required")
+        if data.get("rewardOne") is None:
+            raise AttributeError("rewardOne is required")
+        if data.get("rewardTwo") is None:
+            raise AttributeError("rewardTwo is required")
+        if data.get("feeOwner") is None:
+            raise AttributeError("feeOwner is required")
+        if data.get("totalClaimedFeeXAmount") is None:
+            raise AttributeError("totalClaimedFeeXAmount is required")
+        if data.get("totalClaimedFeeYAmount") is None:
+            raise AttributeError("totalClaimedFeeYAmount is required")
+
         self.total_x_amount = data["totalXAmount"]
         self.total_y_amount = data["totalYAmount"]
         self.position_bin_data = [PositionBinData(bin_data) for bin_data in data["positionBinData"]]
@@ -139,12 +189,19 @@ class PositionData():
         }
 
 @dataclass
-class Position():
+class  Position():
     public_key: Pubkey
     position_data: PositionData
     position_version: PositionVersion
 
     def __init__(self, data: dict):
+        if data.get("publicKey") is None:
+            raise AttributeError("publicKey is required")
+        if data.get("positionData") is None:
+            raise AttributeError("positionData is required")
+        if data.get("version") is None:
+            raise AttributeError("version is required")
+
         self.public_key = Pubkey.from_string(data["publicKey"])
         self.position_data = PositionData(data["positionData"])
         self.position_version = data["version"]
