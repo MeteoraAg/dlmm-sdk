@@ -1,21 +1,19 @@
 import { Connection, PublicKey } from '@solana/web3.js';
+import { IdlAccounts } from '@coral-xyz/anchor';
 import express from 'express';
 import { DLMM } from '../dlmm';
-import { StrategyType } from '../dlmm/types';
+import { LbPosition, StrategyType } from '../dlmm/types';
 import { BN } from 'bn.js';
 
 declare global {
   namespace Express {
     export interface Request {
-      pool: PublicKey[];
+      pool: PublicKey;
       rpc: string;
-      isMultiple: boolean;
+      connect: Connection;
     }
   }
 }
-
-const RPC = "https://api.devnet.solana.com";
-const connection = new Connection(RPC, 'finalized');
 
 const app = express();
 app.use(express.urlencoded());
@@ -24,9 +22,9 @@ app.use(function (req, res, next) {
   console.log(req.method, req.url);
   console.log(req.body);
 
-  req.pool = [new PublicKey(req.headers.pool as string)];
-  req.isMultiple = req.headers.pool.length > 1;
+  req.pool = new PublicKey(req.headers.pool as string);
   req.rpc = req.headers.rpc as string;
+  req.connect = new Connection(req.rpc, 'finalized');
   next();
 })
 
@@ -52,8 +50,8 @@ function safeStringify(obj: Record<string, any>): string {
 
 app.get('/dlmm/create', async (req, res) => {
   try {
-    const poolAddress = req.pool[0];
-    const dlmm = await DLMM.create(connection, poolAddress);
+    const poolAddress = req.pool;
+    const dlmm = await DLMM.create(req.connect, poolAddress);
     return res.status(200).send(safeStringify(dlmm));
   }
   catch (error) {
@@ -61,21 +59,34 @@ app.get('/dlmm/create', async (req, res) => {
   }
 })
 
-app.get('/dlmm/create-multiple', async (req, res) => {
+// app.get('/dlmm/create-multiple', async (req, res) => {
+//   try {
+//     const poolAddresses = req.pool;
+//     const dlmm = await DLMM.createMultiple(req.connect, poolAddresses);
+//     return res.status(200).send(safeStringify(dlmm));
+//   }
+//   catch (error) {
+//     return res.status(400).send(error)
+//   }
+// })
+
+app.get('/dlmm/get-all-lb-pair-positions-by-user', async (req, res) => {
   try {
-    const poolAddresses = req.pool;
-    const dlmm = await DLMM.createMultiple(connection, poolAddresses);
-    return res.status(200).send(safeStringify(dlmm));
+    const userPublicKey = new PublicKey(req.body.user);
+    const positions = await DLMM.getAllLbPairPositionsByUser(req.connect, userPublicKey);
+    return res.status(200).send(safeStringify(positions));
   }
   catch (error) {
+    console.log(error)
     return res.status(400).send(error)
   }
+
 })
 
 app.get("/dlmm/get-active-bin", async (req, res) => {
   try {
-    const poolAddress = req.pool[0];
-    const dlmm = await DLMM.create(connection, poolAddress);
+    const poolAddress = req.pool;
+    const dlmm = await DLMM.create(req.connect, poolAddress);
     const activeBin = await dlmm.getActiveBin();
     return res.status(200).send(safeStringify(activeBin));
   }
@@ -88,9 +99,9 @@ app.get("/dlmm/get-active-bin", async (req, res) => {
 app.post("/dlmm/from-price-per-lamport", async (req, res) => {
   try {
     const pricePerLamport = req.body.price;
-    
-    const poolAddress = req.pool[0];
-    const dlmm = await DLMM.create(connection, poolAddress);
+
+    const poolAddress = req.pool;
+    const dlmm = await DLMM.create(req.connect, poolAddress);
     const from = dlmm.fromPricePerLamport(pricePerLamport);
     return res.status(200).send({ price: from });
   }
@@ -100,8 +111,23 @@ app.post("/dlmm/from-price-per-lamport", async (req, res) => {
   }
 })
 
+app.post("/dlmm/to-price-per-lamport", async (req, res) => {
+  try {
+    const price = req.body.price;
+
+    const poolAddress = req.pool;
+    const dlmm = await DLMM.create(req.connect, poolAddress);
+    const to = dlmm.toPricePerLamport(price);
+    return res.status(200).send({ price: to });
+  }
+  catch (error) {
+    console.log(error)
+    return res.status(400).send(error)
+  }
+})
+
 app.post("/dlmm/initialize-position-and-add-liquidity-by-strategy", async (req, res) => {
-  try {    
+  try {
     const positionPublicKey = req.body.positionPubKey;
     const userPublicKey = req.body.userPublicKey;
     const totalXAmount = new BN(req.body.totalXAmount);
@@ -121,8 +147,8 @@ app.post("/dlmm/initialize-position-and-add-liquidity-by-strategy", async (req, 
       }
     }
 
-    const poolAddress = req.pool[0];
-    const dlmm = await DLMM.create(connection, poolAddress);
+    const poolAddress = req.pool;
+    const dlmm = await DLMM.create(req.connect, poolAddress);
     const position = await dlmm.initializePositionAndAddLiquidityByStrategy(data);
     return res.status(200).send(safeStringify(position));
   }
@@ -153,8 +179,8 @@ app.post("/dlmm/add-liquidity-by-strategy", async (req, res) => {
       }
     }
 
-    const poolAddress = req.pool[0];
-    const dlmm = await DLMM.create(connection, poolAddress);
+    const poolAddress = req.pool;
+    const dlmm = await DLMM.create(req.connect, poolAddress);
     const position = await dlmm.addLiquidityByStrategy(data);
     return res.status(200).send(safeStringify(position));
   }
@@ -168,8 +194,8 @@ app.post("/dlmm/get-positions-by-user-and-lb-pair", async (req, res) => {
   try {
     const userPublicKey = req.body.userPublicKey;
 
-    const poolAddress = req.pool[0];
-    const dlmm = await DLMM.create(connection, poolAddress);
+    const poolAddress = req.pool;
+    const dlmm = await DLMM.create(req.connect, poolAddress);
     const positions = await dlmm.getPositionsByUserAndLbPair(new PublicKey(userPublicKey));
     return res.status(200).send(safeStringify(positions));
   }
@@ -187,8 +213,8 @@ app.post("/dlmm/remove-liquidity", async (req, res) => {
     const bps = req.body.bps.map((bp: string) => new BN(bp));
     const shouldClaimAndClose = req.body.shouldClaimAndClose;
 
-    const poolAddress = req.pool[0];
-    const dlmm = await DLMM.create(connection, poolAddress);
+    const poolAddress = req.pool;
+    const dlmm = await DLMM.create(req.connect, poolAddress);
     const removeTxs = await dlmm.removeLiquidity({
       position: new PublicKey(positionPublicKey),
       user: new PublicKey(userPublicKey),
@@ -204,13 +230,29 @@ app.post("/dlmm/remove-liquidity", async (req, res) => {
   }
 })
 
+app.post("/dlmm/close-position", async (req, res) => {
+  try {
+    const owner = new PublicKey(req.body.owner);
+    const position = req.body.position as LbPosition;
+
+    const poolAddress = req.pool;
+    const dlmm = await DLMM.create(req.connect, poolAddress);
+    const closeTx = await dlmm.closePosition({ owner, position });
+    return res.status(200).send(safeStringify(closeTx));
+  }
+  catch (error) {
+    console.log(error)
+    return res.status(400).send(error)
+  }
+})
+
 app.post("/dlmm/get-bin-array-for-swap", async (req, res) => {
   try {
     const swapYtoX = Boolean(req.body.swapYtoX);
     const count = parseInt(req.body.count);
-
-    const poolAddress = req.pool[0];
-    const dlmm = await DLMM.create(connection, poolAddress);
+  
+    const poolAddress = req.pool;
+    const dlmm = await DLMM.create(req.connect, poolAddress);
     const binArray = await dlmm.getBinArrayForSwap(swapYtoX, count);
     return res.status(200).send(safeStringify(binArray));
   }
@@ -225,11 +267,17 @@ app.post("/dlmm/swap-quote", async (req, res) => {
     const swapYtoX = req.body.swapYToX;
     const swapAmount = new BN(req.body.amount);
     const allowedSlippage = new BN(req.body.allowedSlippage);
-    const binArrays = req.body.binArrays;
+    const binArrays = req.body.binArrays.map(bin => ({
+      publicKey: new PublicKey(bin['publicKey']),
+      account: {
+        index: new BN(bin['account']['index'], 16),
+        ...bin['account']
+      },
+    }));
     const isPartialFill = req.body.isPartialFilled;
-    
-    const poolAddress = req.pool[0];
-    const dlmm = await DLMM.create(connection, poolAddress);
+
+    const poolAddress = req.pool;
+    const dlmm = await DLMM.create(req.connect, poolAddress);
     // const binArrays = await dlmm.getBinArrayForSwap(swapYtoX, 10); // TEMP SOLUTION
     const quote = dlmm.swapQuote(swapAmount, swapYtoX, allowedSlippage, binArrays, isPartialFill);
     return res.status(200).send(safeStringify(quote));
@@ -244,14 +292,14 @@ app.post("/dlmm/swap", async (req, res) => {
   try {
     const inToken = new PublicKey(req.body.inToken);
     const outToken = new PublicKey(req.body.outToken);
-    const inAmount = req.body.inAmount;
-    const minOutAmount = req.body.minOutAmount;
+    const inAmount = new BN(req.body.inAmount);
+    const minOutAmount = new BN(req.body.minOutAmount);
     const lbPair = new PublicKey(req.body.lbPair);
     const user = new PublicKey(req.body.userPublicKey);
     const binArraysPubkey = req.body.binArrays.map((bin: string) => new PublicKey(bin));
 
-    const poolAddress = req.pool[0];
-    const dlmm = await DLMM.create(connection, poolAddress);
+    const poolAddress = req.pool;
+    const dlmm = await DLMM.create(req.connect, poolAddress);
     const swap = await dlmm.swap({
       inToken,
       outToken,
@@ -261,7 +309,6 @@ app.post("/dlmm/swap", async (req, res) => {
       user,
       binArraysPubkey
     });
-    console.log(swap)
     return res.status(200).send(safeStringify(swap));
   }
   catch (error) {
@@ -269,6 +316,60 @@ app.post("/dlmm/swap", async (req, res) => {
     return res.status(400).send(error)
   }
 })
+
+app.get("/dlmm/refetch-states", async (req, res) => {
+  try {
+    const poolAddress = req.pool;
+    const dlmm = await DLMM.create(req.connect, poolAddress);
+    await dlmm.refetchStates();
+    return res.status(200).send("Refetched states successfully");
+  }
+  catch (error) {
+    console.log(error)
+    return res.status(400).send(error)
+  }
+})
+
+app.get("/dlmm/get-bin-arrays", async (req, res) => {
+  try {
+    const poolAddress = req.pool;
+    const dlmm = await DLMM.create(req.connect, poolAddress);
+    const binArrays = await dlmm.getBinArrays();
+    return res.status(200).send(safeStringify(binArrays));
+  }
+  catch (error) {
+    console.log(error)
+    return res.status(400).send(error)
+  }
+})
+
+app.get("/dlmm/get-fee-info", async (req, res) => {
+  try {
+    const poolAddress = req.pool;
+    const dlmm = await DLMM.create(req.connect, poolAddress);
+    const feeInfo = dlmm.getFeeInfo();
+    return res.status(200).send(safeStringify(feeInfo));
+  }
+  catch (error) {
+    console.log(error)
+    return res.status(400).send(error)
+  }
+})
+
+app.get("/dlmm/get-dynamic-fee", async (req, res) => {
+  try {
+    const poolAddress = req.pool;
+    const dlmm = await DLMM.create(req.connect, poolAddress);
+    const dynamicFee = dlmm.getDynamicFee();
+    return res.status(200).send(safeStringify(dynamicFee));
+  }
+  catch (error) {
+    console.log(error)
+    return res.status(400).send(error)
+  }
+})
+
+
 
 app.listen(3000, () => {
   console.log('Server is running on http://localhost:3000');
