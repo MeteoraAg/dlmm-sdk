@@ -29,7 +29,7 @@ class DLMM:
         session.headers.update({
             'Content-type': 'application/json', 
             'Accept': 'text/plain',
-            'pool': public_key,
+            'pool': str(public_key),
             'rpc': rpc
         })
         self.__session = session
@@ -41,6 +41,8 @@ class DLMM:
             self.token_Y = TokenReserve(result["tokenY"])
         except requests.exceptions.HTTPError as e:
             raise HTTPError(f"Error creating DLMM: {e}")
+        except requests.exceptions.ConnectionError as e:
+            raise HTTPError(f"Error connecting to DLMM: {e}")
     
     def get_active_bin(self) -> ActiveBin:
         try:
@@ -49,6 +51,8 @@ class DLMM:
             return active_bin
         except requests.exceptions.HTTPError as e:
             raise HTTPError(f"Error getting active bins: {e}")
+        except requests.exceptions.ConnectionError as e:
+            raise HTTPError(f"Error connecting to DLMM: {e}")
 
     def from_price_per_lamport(self, price: float) -> float:
         if type(price) != float:
@@ -62,6 +66,8 @@ class DLMM:
             return float(result["price"])
         except requests.exceptions.HTTPError as e:
             raise HTTPError(f"Error converting price per lamports: {e}")
+        except requests.exceptions.ConnectionError as e:
+            raise HTTPError(f"Error connecting to DLMM: {e}")
     
     def to_price_per_lamport(self, price: float) -> float:
         if type(price) != float:
@@ -75,6 +81,8 @@ class DLMM:
             return float(result["price"])
         except requests.exceptions.HTTPError as e:
             raise HTTPError(f"Error converting price per lamports: {e}")
+        except requests.exceptions.ConnectionError as e:
+            raise HTTPError(f"Error connecting to DLMM: {e}")
 
     def initialize_position_and_add_liquidity_by_strategy(self, position_pub_key: Pubkey, user: Pubkey, x_amount: int, y_amount: int, strategy: StrategyParameters) -> Transaction:
         if type(position_pub_key) != Pubkey:
@@ -89,7 +97,7 @@ class DLMM:
         if type(y_amount) != int:
             raise TypeError("y_amount must be of type `int`")
         
-        if type(strategy) != StrategyParameters:
+        if isinstance(strategy, dict) == False:
             raise TypeError("strategy must be of type `dict`")
         else:
             if strategy.get("max_bin_id") is None:
@@ -116,6 +124,8 @@ class DLMM:
             return transaction
         except requests.exceptions.HTTPError as e:
             raise HTTPError(f"Error initializing position and adding liquidity by strategy: {e}")
+        except requests.exceptions.ConnectionError as e:
+            raise HTTPError(f"Error connecting to DLMM: {e}")
     
     def add_liquidity_by_strategy(self, position_pub_key: Pubkey, user: Pubkey, x_amount: int, y_amount: int, strategy: StrategyParameters) -> Transaction:
         if type(position_pub_key) != Pubkey:
@@ -130,7 +140,7 @@ class DLMM:
         if type(y_amount) != int:
             raise TypeError("y_amount must be of type `int`")
         
-        if type(strategy) != StrategyParameters:
+        if isinstance(strategy, dict) == False:
             raise TypeError("strategy must be of type `dict`")
         else:
             if strategy.get("max_bin_id") is None:
@@ -157,6 +167,8 @@ class DLMM:
             return transaction
         except requests.exceptions.HTTPError as e:
             raise HTTPError(f"Error adding liquidity by strategy: {e}")
+        except requests.exceptions.ConnectionError as e:
+            raise HTTPError(f"Error connecting to DLMM: {e}")
 
     def get_positions_by_user_and_lb_pair(self, user: Pubkey) -> GetPositionByUser:
         if type(user) != Pubkey:
@@ -170,6 +182,8 @@ class DLMM:
             return GetPositionByUser(result)
         except requests.exceptions.HTTPError as e:
             raise HTTPError(f"Error getting positions by user and lb pair: {e}")
+        except requests.exceptions.ConnectionError as e:
+            raise HTTPError(f"Error connecting to DLMM: {e}")
 
     # TODO: Add result to transaction object
     def remove_liqidity(self, position_pub_key: Pubkey, user: Pubkey, bin_ids: List[int], bps: List[int], should_claim_and_close: bool) -> List[Transaction]:
@@ -200,6 +214,8 @@ class DLMM:
             return [Transaction(tx_data) for tx_data in result]if type(result) == list else [Transaction(result)]
         except requests.exceptions.HTTPError as e:
             raise HTTPError(f"Error removing liquidity: {e}")
+        except requests.exceptions.ConnectionError as e:
+            raise HTTPError(f"Error connecting to DLMM: {e}")
     
     def close_position(self, owner: Pubkey, position: Position) -> Transaction:
         if type(owner) != Pubkey:
@@ -217,10 +233,12 @@ class DLMM:
             return convert_to_transaction(result)
         except requests.exceptions.HTTPError as e:
             raise HTTPError(f"Error closing position: {e}")
+        except requests.exceptions.ConnectionError as e:
+            raise HTTPError(f"Error connecting to DLMM: {e}")
 
     
     # TODO: Add type for result
-    def get_bin_array_for_swap(self, swap_Y_to_X: bool, count: Optional[int]=4) -> dict:
+    def get_bin_array_for_swap(self, swap_Y_to_X: bool, count: Optional[int]=4) -> List[dict]:
         if isinstance(swap_Y_to_X, bool) == False:
             raise TypeError("swap_Y_to_X must be of type `bool`")
         
@@ -236,8 +254,10 @@ class DLMM:
             return result
         except requests.exceptions.HTTPError as e:
             raise HTTPError(f"Error getting bin array for swap: {e}")
+        except requests.exceptions.ConnectionError as e:
+            raise HTTPError(f"Error connecting to DLMM: {e}")
 
-    def swap_quote(self, amount: int, swap_Y_to_X: bool, allowed_slippage: int, binArrays: dict, is_partial_filled: Optional[bool]=False) -> int:
+    def swap_quote(self, amount: int, swap_Y_to_X: bool, allowed_slippage: int, binArrays: List[dict], is_partial_filled: Optional[bool]=False) -> SwapQuote:
         if type(amount) != int:
             raise TypeError("amount must be of type `int`")
         
@@ -247,7 +267,7 @@ class DLMM:
         if type(allowed_slippage) != int:
             raise TypeError("allowed_slippage must be of type `int`")
         
-        if type(binArrays) != dict:
+        if type(binArrays) != list:
             raise TypeError("binArrays must be of type `dict`")
         
         if is_partial_filled is not None and isinstance(is_partial_filled, bool) == False:
@@ -265,6 +285,8 @@ class DLMM:
             return SwapQuote(result)
         except requests.exceptions.HTTPError as e:
             raise HTTPError(f"Error swapping quote: {e}")
+        except requests.exceptions.ConnectionError as e:
+            raise HTTPError(f"Error connecting to DLMM: {e}")
     
     # TODO: Add type for result
     def swap(self, in_token: Pubkey, out_token: Pubkey, in_amount: int, min_out_amount: int, lb_pair: Pubkey,  user: Pubkey, binArrays: List[Pubkey]) -> Transaction:
@@ -304,6 +326,8 @@ class DLMM:
             return tx
         except requests.exceptions.HTTPError as e:
             raise HTTPError(f"Error swapping: {e}")
+        except requests.exceptions.ConnectionError as e:
+            raise HTTPError(f"Error connecting to DLMM: {e}")
 
     def refetch_states(self) -> None:
         try:
@@ -311,6 +335,8 @@ class DLMM:
             return None
         except requests.exceptions.HTTPError as e:
             raise HTTPError(f"Error refetching states: {e}")
+        except requests.exceptions.ConnectionError as e:
+            raise HTTPError(f"Error connecting to DLMM: {e}")
     
     def get_bin_arrays(self) -> dict:
         try:
@@ -318,6 +344,8 @@ class DLMM:
             return result
         except requests.exceptions.HTTPError as e:
             raise HTTPError(f"Error getting bin arrays: {e}")
+        except requests.exceptions.ConnectionError as e:
+            raise HTTPError(f"Error connecting to DLMM: {e}")
     
     def get_fee_info(self) -> FeeInfo:
         try:
@@ -325,6 +353,8 @@ class DLMM:
             return result
         except requests.exceptions.HTTPError as e:
             raise HTTPError(f"Error getting fee info: {e}")
+        except requests.exceptions.ConnectionError as e:
+            raise HTTPError(f"Error connecting to DLMM: {e}")
     
     def get_dynamic_fee(self) -> float:
         try:
@@ -332,6 +362,8 @@ class DLMM:
             return result
         except requests.exceptions.HTTPError as e:
             raise HTTPError(f"Error getting dynamic fee: {e}")
+        except requests.exceptions.ConnectionError as e:
+            raise HTTPError(f"Error connecting to DLMM: {e}")
     
 
 class DLMM_CLIENT:
@@ -369,3 +401,5 @@ class DLMM_CLIENT:
             return {key: PositionInfo(value) for key, value in result.items()}
         except requests.exceptions.HTTPError as e:
             raise HTTPError(f"Error getting all lb pair positions by user: {e}")
+        except requests.exceptions.ConnectionError as e:
+            raise HTTPError(f"Error connecting to DLMM: {e}")

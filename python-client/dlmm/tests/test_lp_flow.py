@@ -3,13 +3,13 @@ from dlmm import DLMM_CLIENT
 from dlmm.dlmm import DLMM
 from dlmm.types import GetPositionByUser, StrategyType, SwapQuote
 from solders.keypair import Keypair
+from solders.pubkey import Pubkey
 from solana.rpc.api import Client
 from solana.transaction import Transaction
 
-
 def test_flow():
     RPC = "https://api.devnet.solana.com"
-    pool_address = "3W2HKgUa96Z69zzG3LK1g8KdcRAWzAttiLiHfYnKuPw5"
+    pool_address = Pubkey.from_string("3W2HKgUa96Z69zzG3LK1g8KdcRAWzAttiLiHfYnKuPw5")
     client = Client(RPC)
     dlmm = DLMM_CLIENT.create(pool_address, RPC)
     assert isinstance(dlmm, DLMM)
@@ -62,7 +62,6 @@ def test_flow():
     print("Transaction sent")
 
     user_positions = next(filter(lambda x: x.public_key == new_balance_position.pubkey() ,positions.user_positions), None)
-    # user_positions = positions.user_positions[0]
     if user_positions:
         bin_ids_to_remove = list(map(lambda x: x.bin_id, user_positions.position_data.position_bin_data))
         remove_liquidity = dlmm.remove_liqidity(
@@ -95,6 +94,3 @@ def test_flow():
 
     # client.send_transaction(swap_tx, user)
     
-
-if __name__ == "__main__":
-    test_flow()
