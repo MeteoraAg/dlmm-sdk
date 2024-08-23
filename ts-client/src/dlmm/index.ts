@@ -66,6 +66,11 @@ import {
   SwapQuoteExactOut,
   SwapExactOutParams,
   SwapWithPriceImpactParams,
+  ActivationType,
+  Clock,
+  ClockLayout,
+  PairStatus,
+  PairType,
 } from "./types";
 import { AnchorProvider, BN, Program } from "@coral-xyz/anchor";
 import {
@@ -137,8 +142,26 @@ export class DLMM {
     public binArrayBitmapExtension: BinArrayBitmapExtensionAccount | null,
     public tokenX: TokenReserve,
     public tokenY: TokenReserve,
+    public clock: Clock,
     private opt?: Opt
   ) {}
+
+  private validateSwapActivation() {
+    if (this.lbPair.status == PairStatus.Disabled) {
+      throw new Error("Pair is disabled");
+    }
+
+    if (this.lbPair.pairType == PairType.Permissioned) {
+      const currentPoint =
+        this.lbPair.activationType == ActivationType.Slot
+          ? this.clock.slot
+          : this.clock.unixTimestamp;
+
+      if (currentPoint < this.lbPair.activationPoint) {
+        throw new Error("Pair is disabled");
+      }
+    }
+  }
 
   /** Static public method */
 
@@ -251,7 +274,11 @@ export class DLMM {
       dlmm,
       program.programId
     )[0];
-    const accountsToFetch = [dlmm, binArrayBitMapExtensionPubkey];
+    const accountsToFetch = [
+      dlmm,
+      binArrayBitMapExtensionPubkey,
+      SYSVAR_CLOCK_PUBKEY,
+    ];
 
     const accountsInfo = await chunkedGetMultipleAccountInfos(
       connection,
@@ -272,6 +299,10 @@ export class DLMM {
         binArrayBitMapAccountInfoBuffer
       );
     }
+
+    const clockAccountInfoBuffer = accountsInfo[2]?.data;
+    if (!clockAccountInfoBuffer) throw new Error(`Clock account not found`);
+    const clock = ClockLayout.decode(clockAccountInfoBuffer) as Clock;
 
     const reserveAccountsInfo = await chunkedGetMultipleAccountInfos(
       program.provider.connection,
@@ -317,6 +348,7 @@ export class DLMM {
       binArrayBitmapExtension,
       tokenX,
       tokenY,
+      clock,
       opt
     );
   }
@@ -351,12 +383,21 @@ export class DLMM {
     const binArrayBitMapExtensions = dlmmList.map(
       (lbPair) => deriveBinArrayBitmapExtension(lbPair, program.programId)[0]
     );
-    const accountsToFetch = [...dlmmList, ...binArrayBitMapExtensions];
+    const accountsToFetch = [
+      ...dlmmList,
+      ...binArrayBitMapExtensions,
+      SYSVAR_CLOCK_PUBKEY,
+    ];
 
     const accountsInfo = await chunkedGetMultipleAccountInfos(
       connection,
       accountsToFetch
     );
+
+    const clockAccount = accountsInfo.pop();
+    const clockAccountInfoBuffer = clockAccount?.data;
+    if (!clockAccountInfoBuffer) throw new Error(`Clock account not found`);
+    const clock = ClockLayout.decode(clockAccountInfoBuffer) as Clock;
 
     const lbPairArraysMap = new Map<string, LbPair>();
     for (let i = 0; i < dlmmList.length; i++) {
@@ -467,6 +508,7 @@ export class DLMM {
           binArrayBitmapExtension,
           tokenX,
           tokenY,
+          clock,
           opt
         );
       })
@@ -1058,7 +1100,8 @@ export class DLMM {
     baseKey: PublicKey,
     creatorKey: PublicKey,
     feeBps: BN,
-    lockDurationInSlot: BN,
+    lockDuration: BN,
+    activationType: ActivationType,
     opt?: Opt
   ) {
     const provider = new AnchorProvider(
@@ -1099,7 +1142,8 @@ export class DLMM {
       baseFactor: computeBaseFactorFromFeeBps(binStep, feeBps).toNumber(),
       minBinId: minBinId.toNumber(),
       maxBinId: maxBinId.toNumber(),
-      lockDurationInSlot,
+      lockDuration,
+      activationType,
     };
 
     return program.methods
@@ -3126,6 +3170,8 @@ export class DLMM {
     const currentTimestamp = Date.now() / 1000;
     let outAmountLeft = outAmount;
 
+    this.validateSwapActivation();
+
     let vParameterClone = Object.assign({}, this.lbPair.vParameters);
     let activeId = new BN(this.lbPair.activeId);
 
@@ -3257,6 +3303,8 @@ export class DLMM {
     // TODO: Should we use onchain clock ? Volatile fee rate is sensitive to time. Caching clock might causes the quoted fee off ...
     const currentTimestamp = Date.now() / 1000;
     let inAmountLeft = inAmount;
+
+    this.validateSwapActivation();
 
     let vParameterClone = Object.assign({}, this.lbPair.vParameters);
     let activeId = new BN(this.lbPair.activeId);
@@ -3760,9 +3808,9 @@ export class DLMM {
     );
   }
 
-  public async setActivationSlot(activationSlot: BN) {
-    const setActivationSlotTx = await this.program.methods
-      .setActivationSlot(activationSlot)
+  public async setActivationPoint(activationPoint: BN) {
+    const setActivationPointTx = await this.program.methods
+      .setActivationPoint(activationPoint)
       .accounts({
         lbPair: this.pubkey,
         admin: this.lbPair.creator,
@@ -3776,11 +3824,11 @@ export class DLMM {
       feePayer: this.lbPair.creator,
       blockhash,
       lastValidBlockHeight,
-    }).add(setActivationSlotTx);
+    }).add(setActivationPointTx);
   }
 
   /**
-   * The function `updateWhitelistedWallet` is used to whitelist a wallet, enabling it to deposit into a permissioned pool before the activation slot.
+   * The function `updateWhitelistedWallet` is used to whitelist a wallet, enabling it to deposit into a permissioned pool before the activation point.
    * @param
    *    - `walletsToWhitelist`: The public key of the wallet.
    *    - `overrideIndexes`: Index of the whitelisted wallet to be inserted. Check DLMM.lbPair.whitelistedWallet for the index

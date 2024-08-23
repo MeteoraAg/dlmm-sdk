@@ -32,7 +32,7 @@ import {
   MAX_BIN_PER_POSITION,
 } from "../dlmm/constants";
 import { IDL, LbClmm } from "../dlmm/idl";
-import { PairType, StrategyType } from "../dlmm/types";
+import { ActivationType, PairType, StrategyType } from "../dlmm/types";
 import Decimal from "decimal.js";
 import babar from "babar";
 import {
@@ -56,7 +56,7 @@ describe("Position by operator", () => {
     const wenDecimal = 5;
     const usdcDecimal = 6;
     const feeBps = new BN(500);
-    const lockDurationInSlot = new BN(0);
+    const lockDuration = new BN(0);
 
     let WEN: web3.PublicKey;
     let USDC: web3.PublicKey;
@@ -176,7 +176,8 @@ describe("Position by operator", () => {
         baseKeypair.publicKey,
         keypair.publicKey,
         feeBps,
-        lockDurationInSlot,
+        lockDuration,
+        ActivationType.Slot,
         { cluster: "localhost" }
       );
       let txHash = await sendAndConfirmTransaction(connection, rawTx, [

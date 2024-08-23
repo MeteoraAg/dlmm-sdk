@@ -38,7 +38,8 @@ jobs:
       # Install rust + toolchain
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: 1.76.0
+          override: true
           components: clippy
       # Cache rust, cargo
       - uses: Swatinem/rust-cache@v1

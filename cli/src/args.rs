@@ -269,7 +269,9 @@ pub enum AdminCommand {
         /// Base fee bps
         base_fee_bps: u16,
         /// Lock duration for bootstrap liquidity position
-        lock_duration_in_slot: u64,
+        lock_duration: u64,
+        /// Activation type
+        activation_type: u8,
     },
 
     /// Toggle pool status
@@ -315,21 +317,17 @@ pub enum AdminCommand {
         max_price: f64,
     },
 
-    SetActivationSlot {
+    SetActivationPoint {
         /// Address of the pair
         lb_pair: Pubkey,
-        /// Activation slot
-        activation_slot: u64,
+        /// Activation point
+        activation_point: u64,
     },
 
     WithdrawProtocolFee {
         lb_pair: Pubkey,
         amount_x: u64,
         amount_y: u64,
-    },
-    UpdateFeeOwner {
-        lb_pair: Pubkey,
-        fee_owner: Pubkey,
     },
 
     InitializeReward {
@@ -382,11 +380,11 @@ pub enum AdminCommand {
         preset_parameter: Pubkey,
     },
 
-    SetPreActivationSlotDuration {
+    SetPreActivationDuration {
         /// Address of the pair
         lb_pair: Pubkey,
-        /// Preactivation slot duration
-        pre_activation_slot_duration: u16,
+        /// Preactivation duration
+        pre_activation_duration: u16,
     },
 
     SetPreActivationSwapAddress {

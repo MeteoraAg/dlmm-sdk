@@ -5,8 +5,7 @@ use anchor_lang::prelude::*;
 
 #[event_cpi]
 #[derive(Accounts)]
-#[instruction(lock_release_slot: u64)]
-pub struct SetLockReleaseSlot<'info> {
+pub struct SetLockReleasePoint<'info> {
     #[account(
         mut,
         has_one = lb_pair
@@ -21,6 +20,6 @@ pub struct SetLockReleaseSlot<'info> {
     pub sender: Signer<'info>,
 }
 
-pub fn handle(ctx: Context<SetLockReleaseSlot>, lock_release_slot: u64) -> Result<()> {
+pub fn handle(ctx: Context<SetLockReleasePoint>, lock_release_point: u64) -> Result<()> {
     Ok(())
 }

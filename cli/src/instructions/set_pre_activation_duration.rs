@@ -8,42 +8,46 @@ use anchor_lang::{InstructionData, ToAccountMetas};
 use anyhow::*;
 
 #[derive(Debug)]
-pub struct SetActivationSlotParam {
+pub struct SetPreactivationDurationParam {
     pub lb_pair: Pubkey,
-    pub activation_slot: u64,
+    pub pre_activation_duration: u16,
 }
 
-pub async fn set_activation_slot<C: Deref<Target = impl Signer> + Clone>(
-    params: SetActivationSlotParam,
+pub async fn set_pre_activation_duration<C: Deref<Target = impl Signer> + Clone>(
+    params: SetPreactivationDurationParam,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
 ) -> Result<()> {
-    let SetActivationSlotParam {
+    let SetPreactivationDurationParam {
         lb_pair,
-        activation_slot,
+        pre_activation_duration,
     } = params;
 
-    let accounts = lb_clmm::accounts::SetActivationSlot {
-        admin: program.payer(),
+    let accounts = lb_clmm::accounts::SetPreActivationInfo {
+        creator: program.payer(),
         lb_pair,
     }
     .to_account_metas(None);
 
-    let ix_data = lb_clmm::instruction::SetActivationSlot { activation_slot }.data();
+    let ix_data = lb_clmm::instruction::SetPreActivationDuration {
+        pre_activation_duration,
+    }
+    .data();
 
-    let set_activation_slot_ix = Instruction {
+    let set_pre_activation_slot_duration_ix = Instruction {
         accounts,
         data: ix_data,
         program_id: lb_clmm::ID,
     };
 
     let request_builder = program.request();
+
     let signature = request_builder
-        .instruction(set_activation_slot_ix)
+        .instruction(set_pre_activation_slot_duration_ix)
         .send_with_spinner_and_config(transaction_config)
         .await;
 
-    println!("Set activation slot. Signature: {:#?}", signature);
+    println!("Set pre activation duration. Signature: {:#?}", signature);
 
     signature?;
 

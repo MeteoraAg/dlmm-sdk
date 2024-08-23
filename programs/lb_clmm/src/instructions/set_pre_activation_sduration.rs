@@ -14,9 +14,6 @@ pub struct SetPreActivationInfo<'info> {
     pub creator: Signer<'info>,
 }
 
-pub fn handle(
-    ctx: Context<SetPreActivationInfo>,
-    pre_activation_slot_duration: u16, // Around 9 hours buffer
-) -> Result<()> {
+pub fn handle(ctx: Context<SetPreActivationInfo>, pre_activation_duration: u16) -> Result<()> {
     Ok(())
 }
