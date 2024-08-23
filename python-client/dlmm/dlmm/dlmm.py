@@ -1,15 +1,15 @@
 import json
 import requests
-from typing import List, Optional
+from typing import Dict, List, Optional
 from solana.transaction import Transaction
 from solders.pubkey import Pubkey
 from .utils import convert_to_transaction
-from .types import ActiveBin, GetPositionByUser, StrategyParameters, SwapQuote, LBPair, TokenReserve
+from .types import ActiveBin, FeeInfo, GetPositionByUser, Position, PositionInfo, StrategyParameters, SwapQuote, LBPair, TokenReserve
 
 API_URL = "http://localhost:3000"
 
 class DLMM:
-    session: requests.Session
+    __session: requests.Session
     pool_address: Pubkey
     rpc: str
     lb_pair: LBPair
@@ -26,7 +26,7 @@ class DLMM:
             'pool': public_key,
             'rpc': rpc
         })
-        self.session = session
+        self.__session = session
 
         try:
             result = session.get(f"{API_URL}/dlmm/create").json()
@@ -38,7 +38,7 @@ class DLMM:
     
     def get_active_bin(self) -> ActiveBin:
         try:
-            result = self.session.get(f"{API_URL}/dlmm/get-active-bin").json()
+            result = self.__session.get(f"{API_URL}/dlmm/get-active-bin").json()
             active_bin = ActiveBin(result)
             return active_bin
         except Exception as e:
@@ -49,7 +49,17 @@ class DLMM:
             data = json.dumps({
                 "price": price
             })
-            result = self.session.post(f"{API_URL}/dlmm/from-price-per-lamport", data=data).json()
+            result = self.__session.post(f"{API_URL}/dlmm/from-price-per-lamport", data=data).json()
+            return float(result["price"])
+        except Exception as e:
+            raise Exception(f"Error converting price per lamports: {e}")
+    
+    def to_price_per_lamport(self, price: float) -> float:
+        try:
+            data = json.dumps({
+                "price": price
+            })
+            result = self.__session.post(f"{API_URL}/dlmm/to-price-per-lamport", data=data).json()
             return float(result["price"])
         except Exception as e:
             raise Exception(f"Error converting price per lamports: {e}")
@@ -65,7 +75,7 @@ class DLMM:
                 "minBinId": strategy["min_bin_id"],
                 "strategyType": str(strategy["strategy_type"])
             })
-            result = self.session.post(f"{API_URL}/dlmm/initialize-position-and-add-liquidity-by-strategy", data=data).json()
+            result = self.__session.post(f"{API_URL}/dlmm/initialize-position-and-add-liquidity-by-strategy", data=data).json()
             transaction = convert_to_transaction(result)
             return transaction
         except Exception as e:
@@ -82,7 +92,7 @@ class DLMM:
                 "minBinId": strategy["min_bin_id"],
                 "strategyType": str(strategy["strategy_type"])
             })
-            result = self.session.post(f"{API_URL}/dlmm/add-liquidity-by-strategy", data=data).json()
+            result = self.__session.post(f"{API_URL}/dlmm/add-liquidity-by-strategy", data=data).json()
             transaction = convert_to_transaction(result)
             return transaction
         except Exception as e:
@@ -93,7 +103,7 @@ class DLMM:
             data = json.dumps({
                 "userPublicKey": str(user)
             })
-            result = self.session.post(f"{API_URL}/dlmm/get-positions-by-user-and-lb-pair", data=data).json()
+            result = self.__session.post(f"{API_URL}/dlmm/get-positions-by-user-and-lb-pair", data=data).json()
             return GetPositionByUser(result)
         except Exception as e:
             raise Exception(f"Error getting positions by user and lb pair: {e}")
@@ -108,10 +118,22 @@ class DLMM:
                 "bps": bps,
                 "shouldClaimAndClose": should_claim_and_close
             })
-            result = self.session.post(f"{API_URL}/dlmm/remove-liquidity", data=data).json()
+            result = self.__session.post(f"{API_URL}/dlmm/remove-liquidity", data=data).json()
             return [Transaction(tx_data) for tx_data in result]if type(result) == list else [Transaction(result)]
         except Exception as e:
             raise Exception(f"Error removing liquidity: {e}")
+    
+    def close_position(self, owner: Pubkey, position: Position) -> Transaction:
+        try:
+            data = json.dumps({
+                "owner": str(owner),
+                "position": position.to_json()
+            })
+            result = self.__session.post(f"{API_URL}/dlmm/close-position", data=data).json()
+            return convert_to_transaction(result)
+        except Exception as e:
+            raise Exception(f"Error closing position: {e}")
+
     
     # TODO: Add type for result
     def get_bin_array_for_swap(self, swap_Y_to_X: bool, count: Optional[int]=4) -> dict:
@@ -120,7 +142,7 @@ class DLMM:
                 "swapYToX": swap_Y_to_X,
                 "count": count
             })
-            result = self.session.post(f"{API_URL}/dlmm/get-bin-array-for-swap", data=data).json()
+            result = self.__session.post(f"{API_URL}/dlmm/get-bin-array-for-swap", data=data).json()
             return result
         except Exception as e:
             raise Exception(f"Error getting bin array for swap: {e}")
@@ -134,7 +156,7 @@ class DLMM:
                 "binArrays": binArrays,
                 "isPartialFilled": is_partial_filled
             })
-            result = self.session.post(f"{API_URL}/dlmm/swap-quote", data=data).json()
+            result = self.__session.post(f"{API_URL}/dlmm/swap-quote", data=data).json()
             return SwapQuote(result)
         except Exception as e:
             raise Exception(f"Error swapping quote: {e}")
@@ -151,12 +173,40 @@ class DLMM:
                 "userPublicKey": str(user),
                 "binArrays": list(map(lambda x: str(x), binArrays))
             })
-            result = self.session.post(f"{API_URL}/dlmm/swap", data=data).json()
+            result = self.__session.post(f"{API_URL}/dlmm/swap", data=data).json()
             tx = convert_to_transaction(result)
             return tx
         except Exception as e:
             raise Exception(f"Error swapping: {e}")
 
+    def refetch_states(self) -> None:
+        try:
+            result = self.__session.get(f"{API_URL}/dlmm/refetch-states")
+            return None
+        except Exception as e:
+            raise Exception(f"Error refetching states: {e}")
+    
+    def get_bin_arrays(self) -> dict:
+        try:
+            result = self.__session.get(f"{API_URL}/dlmm/get-bin-arrays").json()
+            return result
+        except Exception as e:
+            raise Exception(f"Error getting bin arrays: {e}")
+    
+    def get_fee_info(self) -> FeeInfo:
+        try:
+            result = self.__session.get(f"{API_URL}/dlmm/get-fee-info").json()
+            return result
+        except Exception as e:
+            raise Exception(f"Error getting fee info: {e}")
+    
+    def get_dynamic_fee(self) -> float:
+        try:
+            result = self.__session.get(f"{API_URL}/dlmm/get-dynamic-fee").json()
+            return result
+        except Exception as e:
+            raise Exception(f"Error getting dynamic fee: {e}")
+    
 
 class DLMM_CLIENT:
 
@@ -167,3 +217,20 @@ class DLMM_CLIENT:
     @staticmethod
     def create_multiple(public_keys: List[Pubkey], rpc: str) -> List[DLMM]:
         return [DLMM(public_keys, rpc) for public_keys in public_keys]
+    
+    @staticmethod
+    def get_all_lb_pair_positions_by_user(user: Pubkey, rpc: str) -> Dict[str, PositionInfo]:
+        try:
+            session = requests.Session()
+            session.headers.update({
+                'Content-type': 'application/json', 
+                'Accept': 'text/plain',
+                'rpc': rpc
+            })
+            data = json.dumps({
+                "user": str(user)
+            })
+            result = session.post(f"{API_URL}/dlmm/get-all-lb-pair-positions-by-user", data=data).json()
+            return {key: PositionInfo(value) for key, value in result.items()}
+        except Exception as e:
+            raise Exception(f"Error getting all lb pair positions by user: {e}")

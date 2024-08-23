@@ -91,7 +91,10 @@ def test_flow():
         user.pubkey(),
         swap_quote.bin_arrays_pubkey
         )
-    print(swap_tx)
+    assert isinstance(swap_tx, Transaction)
+
+    # client.send_transaction(swap_tx, user)
+    
 
 if __name__ == "__main__":
     test_flow()

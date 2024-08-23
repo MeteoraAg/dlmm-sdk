@@ -24,6 +24,12 @@ class PositionVersion(Enum):
     V1="V1",
     V2="V2"
 
+    def __str__(self) -> str:
+        return self.name
+    
+    def __repr__(self) -> str:
+        return self.name
+
 class StrategyParameters(TypedDict):
     max_bin_id: int
     min_bin_id: int
@@ -71,6 +77,19 @@ class PositionBinData():
         self.position_x_amount = data["positionXAmount"]
         self.position_y_amount = data["positionYAmount"]
 
+    def to_json(self) -> dict:
+        return {
+            "binId": self.bin_id,
+            "price": self.price,
+            "pricePerToken": self.price_per_token,
+            "binXAmount": self.bin_x_Amount,
+            "binYAmount": self.bin_y_Amount,
+            "binLiquidity": self.bin_liquidity,
+            "positionLiquidity": self.position_liquidity,
+            "positionXAmount": self.position_x_amount,
+            "positionYAmount": self.position_y_amount
+        }
+
 @dataclass
 class PositionData():
     total_x_amount: str
@@ -101,6 +120,23 @@ class PositionData():
         self.fee_owner = data["feeOwner"]
         self.total_claimed_fee_X_amount = data["totalClaimedFeeXAmount"]
         self.total_claimed_fee_Y_amount = data["totalClaimedFeeYAmount"]
+    
+    def to_json(self) -> dict:
+        return {
+            "totalXAmount": self.total_x_amount,
+            "totalYAmount": self.total_y_amount,
+            "positionBinData": [bin_data.to_json() for bin_data in self.position_bin_data],
+            "lastUpdatedAt": self.last_updated_at,
+            "upperBinId": self.upper_bin_id,
+            "lowerBinId": self.lower_bin_id,
+            "feeX": self.fee_X,
+            "feeY": self.fee_Y,
+            "rewardOne": self.reward_one,
+            "rewardTwo": self.reward_two,
+            "feeOwner": self.fee_owner,
+            "totalClaimedFeeXAmount": self.total_claimed_fee_X_amount,
+            "totalClaimedFeeYAmount": self.total_claimed_fee_Y_amount
+        }
 
 @dataclass
 class Position():
@@ -112,6 +148,13 @@ class Position():
         self.public_key = Pubkey.from_string(data["publicKey"])
         self.position_data = PositionData(data["positionData"])
         self.position_version = data["version"]
+    
+    def to_json(self):
+        return {
+            "publicKey": str(self.public_key),
+            "positionData": self.position_data.to_json(),
+            "version": str(self.position_version)
+        }
 
 @dataclass
 class GetPositionByUser():
@@ -133,14 +176,13 @@ class SwapQuote():
     bin_arrays_pubkey: List[Pubkey]
 
     def __init__(self, data: dict):
-        self.consumed_in_amount = data["consumedInAmount"]
-        self.out_amount = data["outAmount"]
-        self.fee = data["fee"]
-        self.protocol_fee = data["protocolFee"]
-        self.min_out_amount = data["minOutAmount"]
-        self.price_impact = data["priceImpact"]
+        self.consumed_in_amount = int(data["consumedInAmount"])
+        self.out_amount = int(data["outAmount"])
+        self.fee = int(data["fee"])
+        self.protocol_fee = int(data["protocolFee"])
+        self.min_out_amount = int(data["minOutAmount"])
+        self.price_impact = float(data["priceImpact"])
         self.bin_arrays_pubkey = list(map(lambda x: Pubkey.from_string(x), data["binArraysPubkey"]))
-
 
 class LBPair:
     bump_seed: List[int]
@@ -186,3 +228,29 @@ class TokenReserve():
         self.reserve = Pubkey.from_string(data["reserve"])
         self.amount = data["amount"]
         self.decimal = data["decimal"]
+
+@dataclass
+class PositionInfo():
+    public_key: Pubkey
+    lb_pair: Any
+    token_x: TokenReserve
+    token_y: TokenReserve
+    lb_pair_positions_data: List[Position]
+
+    def __init__(self, data: dict) -> None:
+        self.public_key = Pubkey.from_string(data["publicKey"])
+        self.lb_pair = data["lbPair"]
+        self.token_x = TokenReserve(data["tokenX"])
+        self.token_y = TokenReserve(data["tokenY"])
+        self.lb_pair_positions_data = [Position(position) for position in data["lbPairPositionsData"]]
+
+@dataclass
+class FeeInfo():
+    base_fee_rate_percentage: float
+    max_fee_rate_percentage: float
+    protocol_fee_percentage: float
+
+    def __init__(self, data: dict) -> None:
+        self.base_fee_rate_percentage = float(data["baseFeeRatePercentage"])
+        self.max_fee_rate_percentage = float(data["maxFeeRatePercentage"])
+        self.protocol_fee_percentage = float(data["protocolFeePercentage"])
