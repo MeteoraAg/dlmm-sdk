@@ -19,7 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-## @meteora-ag/dlmm [1.1.0]
+## @meteora-ag/dlmm [1.1.0] - PR #101
+
+### Changed
+
+- `swapQuoteExactOut` and `swapQuote` require an additional `swapInitiator` parameter. `swapInitiator` is the address of the user who will initiate the swap transaction.
 
 ## lb_clmm [0.8.0] - PR #96
 
