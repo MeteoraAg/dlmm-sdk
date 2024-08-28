@@ -146,33 +146,6 @@ export class DLMM {
     private opt?: Opt
   ) {}
 
-  private validateSwapActivation(swapInitiator: PublicKey) {
-    if (this.lbPair.status == PairStatus.Disabled) {
-      throw new Error("Pair is disabled");
-    }
-
-    if (this.lbPair.pairType == PairType.Permissioned) {
-      const currentPoint =
-        this.lbPair.activationType == ActivationType.Slot
-          ? this.clock.slot
-          : this.clock.unixTimestamp;
-
-      const preActivationSwapPoint = this.lbPair.activationPoint.sub(
-        this.lbPair.preActivationDuration
-      );
-
-      const activationPoint =
-        !this.lbPair.whitelistedWallet.equals(PublicKey.default) &&
-        this.lbPair.whitelistedWallet.equals(swapInitiator)
-          ? preActivationSwapPoint
-          : this.lbPair.activationPoint;
-
-      if (currentPoint < activationPoint) {
-        throw new Error("Pair is disabled");
-      }
-    }
-  }
-
   /** Static public method */
 
   /**
@@ -3174,14 +3147,11 @@ export class DLMM {
     outAmount: BN,
     swapForY: boolean,
     allowedSlippage: BN,
-    binArrays: BinArrayAccount[],
-    swapInitiator?: PublicKey
+    binArrays: BinArrayAccount[]
   ): SwapQuoteExactOut {
     // TODO: Should we use onchain clock ? Volatile fee rate is sensitive to time. Caching clock might causes the quoted fee off ...
     const currentTimestamp = Date.now() / 1000;
     let outAmountLeft = outAmount;
-
-    this.validateSwapActivation(swapInitiator ?? PublicKey.default);
 
     let vParameterClone = Object.assign({}, this.lbPair.vParameters);
     let activeId = new BN(this.lbPair.activeId);
@@ -3309,14 +3279,11 @@ export class DLMM {
     swapForY: boolean,
     allowedSlippage: BN,
     binArrays: BinArrayAccount[],
-    isPartialFill?: boolean,
-    swapInitiator?: PublicKey
+    isPartialFill?: boolean
   ): SwapQuote {
     // TODO: Should we use onchain clock ? Volatile fee rate is sensitive to time. Caching clock might causes the quoted fee off ...
     const currentTimestamp = Date.now() / 1000;
     let inAmountLeft = inAmount;
-
-    this.validateSwapActivation(swapInitiator ?? PublicKey.default);
 
     let vParameterClone = Object.assign({}, this.lbPair.vParameters);
     let activeId = new BN(this.lbPair.activeId);
@@ -4849,6 +4816,40 @@ export class DLMM {
       totalWithdrawAmount = totalWithdrawAmount.add(withdrawAmount);
     }
     return totalWithdrawAmount;
+  }
+
+  /**
+   *
+   * @param swapInitiator Address of the swap initiator
+   * @returns
+   */
+  public isSwapDisabled(swapInitiator: PublicKey) {
+    if (this.lbPair.status == PairStatus.Disabled) {
+      return true;
+    }
+
+    if (this.lbPair.pairType == PairType.Permissioned) {
+      const currentPoint =
+        this.lbPair.activationType == ActivationType.Slot
+          ? this.clock.slot
+          : this.clock.unixTimestamp;
+
+      const preActivationSwapPoint = this.lbPair.activationPoint.sub(
+        this.lbPair.preActivationDuration
+      );
+
+      const activationPoint =
+        !this.lbPair.whitelistedWallet.equals(PublicKey.default) &&
+        this.lbPair.whitelistedWallet.equals(swapInitiator)
+          ? preActivationSwapPoint
+          : this.lbPair.activationPoint;
+
+      if (currentPoint < activationPoint) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   /** Private static method */
