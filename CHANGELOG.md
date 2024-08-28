@@ -19,6 +19,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.1.1] - PR #103
+
+### Removed
+
+- Removed `swapInitiator` parameter from `swapQuoteExactOut` and `swapQuote`.
+
+### Added
+
+- `isSwapDisabled` to check whether the pool allow swap
+
 ## @meteora-ag/dlmm [1.1.0] - PR #101
 
 ### Changed
