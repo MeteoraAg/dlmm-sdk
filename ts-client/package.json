@@ -34,8 +34,8 @@
     "@coral-xyz/anchor": "^0.28.0",
     "@coral-xyz/borsh": "^0.28.0",
     "@solana/buffer-layout": "^4.0.1",
-    "@solana/spl-token": "0.3.5",
-    "@solana/web3.js": "~1.78.3",
+    "@solana/spl-token": "^0.4.6",
+    "@solana/web3.js": "^1.91.6",
     "decimal.js": "^10.4.2",
     "gaussian": "^1.3.0"
   },
