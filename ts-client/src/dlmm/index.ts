@@ -4839,8 +4839,8 @@ export class DLMM {
       );
 
       const activationPoint =
-        !this.lbPair.whitelistedWallet.equals(PublicKey.default) &&
-        this.lbPair.whitelistedWallet.equals(swapInitiator)
+        !this.lbPair.preActivationSwapAddress.equals(PublicKey.default) &&
+        this.lbPair.preActivationSwapAddress.equals(swapInitiator)
           ? preActivationSwapPoint
           : this.lbPair.activationPoint;
 
