@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.1.2] - PR #104
+
+### Fixed
+
+- `isSwapDisabled` checked against wrong field
+
 ## @meteora-ag/dlmm [1.1.1] - PR #103
 
 ### Removed
