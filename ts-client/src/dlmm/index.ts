@@ -146,7 +146,7 @@ export class DLMM {
     private opt?: Opt
   ) {}
 
-  private validateSwapActivation() {
+  private validateSwapActivation(swapInitiator: PublicKey) {
     if (this.lbPair.status == PairStatus.Disabled) {
       throw new Error("Pair is disabled");
     }
@@ -157,7 +157,17 @@ export class DLMM {
           ? this.clock.slot
           : this.clock.unixTimestamp;
 
-      if (currentPoint < this.lbPair.activationPoint) {
+      const preActivationSwapPoint = this.lbPair.activationPoint.sub(
+        this.lbPair.preActivationDuration
+      );
+
+      const activationPoint =
+        !this.lbPair.whitelistedWallet.equals(PublicKey.default) &&
+        this.lbPair.whitelistedWallet.equals(swapInitiator)
+          ? preActivationSwapPoint
+          : this.lbPair.activationPoint;
+
+      if (currentPoint < activationPoint) {
         throw new Error("Pair is disabled");
       }
     }
@@ -3164,13 +3174,14 @@ export class DLMM {
     outAmount: BN,
     swapForY: boolean,
     allowedSlippage: BN,
-    binArrays: BinArrayAccount[]
+    binArrays: BinArrayAccount[],
+    swapInitiator?: PublicKey
   ): SwapQuoteExactOut {
     // TODO: Should we use onchain clock ? Volatile fee rate is sensitive to time. Caching clock might causes the quoted fee off ...
     const currentTimestamp = Date.now() / 1000;
     let outAmountLeft = outAmount;
 
-    this.validateSwapActivation();
+    this.validateSwapActivation(swapInitiator ?? PublicKey.default);
 
     let vParameterClone = Object.assign({}, this.lbPair.vParameters);
     let activeId = new BN(this.lbPair.activeId);
@@ -3298,13 +3309,14 @@ export class DLMM {
     swapForY: boolean,
     allowedSlippage: BN,
     binArrays: BinArrayAccount[],
-    isPartialFill?: boolean
+    isPartialFill?: boolean,
+    swapInitiator?: PublicKey
   ): SwapQuote {
     // TODO: Should we use onchain clock ? Volatile fee rate is sensitive to time. Caching clock might causes the quoted fee off ...
     const currentTimestamp = Date.now() / 1000;
     let inAmountLeft = inAmount;
 
-    this.validateSwapActivation();
+    this.validateSwapActivation(swapInitiator ?? PublicKey.default);
 
     let vParameterClone = Object.assign({}, this.lbPair.vParameters);
     let activeId = new BN(this.lbPair.activeId);
@@ -4777,7 +4789,7 @@ export class DLMM {
 
     const position = await this.program.account.positionV2.fetch(
       positionPubkey
-    );  
+    );
     const lowerBinArrayIdx = binIdToBinArrayIndex(new BN(position.lowerBinId));
     const [lowerBinArrayPubKey] = deriveBinArray(
       position.lbPair,
@@ -4815,7 +4827,7 @@ export class DLMM {
       }
 
       const bin = getBinFromBinArray(binId.toNumber(), binArray);
-      
+
       if (isWithdrawForY) {
         if (binId.gt(new BN(this.lbPair.activeId))) {
           break;
