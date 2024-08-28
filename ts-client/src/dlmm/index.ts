@@ -3366,7 +3366,26 @@ export class DLMM {
       }
     }
 
-    if (!startBin) throw new Error("Invalid start bin");
+    if (!startBin) {
+      if (isPartialFill) {
+        // Nothing consumed due to no liquidity
+        return {
+          consumedInAmount: new BN(0),
+          outAmount: new BN(0),
+          fee: new BN(0),
+          protocolFee: new BN(0),
+          minOutAmount: new BN(0),
+          priceImpact: new Decimal(0),
+          binArraysPubkey: [],
+          endPrice: getPriceOfBinByBinId(
+            activeId.toNumber(),
+            this.lbPair.binStep
+          ),
+        };
+      } else {
+        throw new Error("Insufficient liquidity");
+      }
+    }
 
     inAmount = inAmount.sub(inAmountLeft);
 
