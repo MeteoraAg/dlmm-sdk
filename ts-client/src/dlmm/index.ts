@@ -3162,6 +3162,9 @@ export class DLMM {
    *    - `outAmount`: Amount of lamport to swap out
    *    - `swapForY`: Swap token X to Y when it is true, else reversed.
    *    - `allowedSlippage`: Allowed slippage for the swap. Expressed in BPS. To convert from slippage percentage to BPS unit: SLIPPAGE_PERCENTAGE * 100
+   *    - `binArrays`: Bin arrays for swap quote
+   *    - `bypassSwapActivationCheck`: Flag to bypass the swap activation check. Only useful for launch pool. default = false.
+   *    - `swapInitiator`: Address that initiated the swap. Only useful for launch pool.
    * @returns {SwapQuote}
    *    - `inAmount`: Amount of lamport to swap in
    *    - `outAmount`: Amount of lamport to swap out
@@ -3175,13 +3178,16 @@ export class DLMM {
     swapForY: boolean,
     allowedSlippage: BN,
     binArrays: BinArrayAccount[],
+    bypassSwapActivationCheck?: boolean,
     swapInitiator?: PublicKey
   ): SwapQuoteExactOut {
     // TODO: Should we use onchain clock ? Volatile fee rate is sensitive to time. Caching clock might causes the quoted fee off ...
     const currentTimestamp = Date.now() / 1000;
     let outAmountLeft = outAmount;
 
-    this.validateSwapActivation(swapInitiator ?? PublicKey.default);
+    if (!bypassSwapActivationCheck) {
+      this.validateSwapActivation(swapInitiator ?? PublicKey.default);
+    }
 
     let vParameterClone = Object.assign({}, this.lbPair.vParameters);
     let activeId = new BN(this.lbPair.activeId);
@@ -3295,6 +3301,8 @@ export class DLMM {
    *    - `allowedSlippage`: Allowed slippage for the swap. Expressed in BPS. To convert from slippage percentage to BPS unit: SLIPPAGE_PERCENTAGE * 100
    *    - `binArrays`: binArrays for swapQuote.
    *    - `isPartialFill`: Flag to check whether the the swapQuote is partial fill, default = false.
+   *    - `bypassSwapActivationCheck`: Flag to bypass the swap activation check. Only useful for launch pool. default = false.
+   *    - `swapInitiator`: Address that initiated the swap. Only useful for launch pool.
    * @returns {SwapQuote}
    *    - `consumedInAmount`: Amount of lamport to swap in
    *    - `outAmount`: Amount of lamport to swap out
@@ -3310,13 +3318,16 @@ export class DLMM {
     allowedSlippage: BN,
     binArrays: BinArrayAccount[],
     isPartialFill?: boolean,
+    bypassSwapActivationCheck?: boolean,
     swapInitiator?: PublicKey
   ): SwapQuote {
     // TODO: Should we use onchain clock ? Volatile fee rate is sensitive to time. Caching clock might causes the quoted fee off ...
     const currentTimestamp = Date.now() / 1000;
     let inAmountLeft = inAmount;
 
-    this.validateSwapActivation(swapInitiator ?? PublicKey.default);
+    if (!bypassSwapActivationCheck) {
+      this.validateSwapActivation(swapInitiator ?? PublicKey.default);
+    }
 
     let vParameterClone = Object.assign({}, this.lbPair.vParameters);
     let activeId = new BN(this.lbPair.activeId);
