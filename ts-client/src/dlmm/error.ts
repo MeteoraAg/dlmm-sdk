@@ -4,6 +4,7 @@ import { LBCLMM_PROGRAM_IDS } from "./constants";
 
 type Codes = (typeof IDL.errors)[number]["code"];
 
+// ProgramError error parser
 export class DLMMError extends Error {
   public errorCode: number;
   public errorName: string;
@@ -41,5 +42,19 @@ export class DLMMError extends Error {
     this.errorCode = _errorCode;
     this.errorName = _errorName;
     this.errorMessage = _errorMessage;
+  }
+}
+
+// SDK error
+type ErrorName = "SWAP_QUOTE_INSUFFICIENT_LIQUIDITY";
+
+export class DlmmSdkError extends Error {
+  name: ErrorName;
+  message: string;
+
+  constructor(name: ErrorName, message: string) {
+    super();
+    this.name = name;
+    this.message = message;
   }
 }
