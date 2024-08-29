@@ -3023,12 +3023,12 @@ export class DLMM {
     createPayerTokenIx && preInstructions.push(createPayerTokenIx);
 
     const postInstructions: Array<TransactionInstruction> = [];
-    if (
-      [
-        this.tokenX.publicKey.toBase58(),
-        this.tokenY.publicKey.toBase58(),
-      ].includes(NATIVE_MINT.toBase58())
-    ) {
+
+    const shouldUnwrapSOL =
+      (removeLiquidityForY && this.tokenY.publicKey.equals(NATIVE_MINT)) ||
+      (!removeLiquidityForY && this.tokenX.publicKey.equals(NATIVE_MINT));
+
+    if (shouldUnwrapSOL) {
       const closeWrappedSOLIx = await unwrapSOLInstruction(user);
       closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
     }
@@ -3065,6 +3065,7 @@ export class DLMM {
         tokenProgram: TOKEN_PROGRAM_ID,
       })
       .preInstructions(preInstructions)
+      .postInstructions(postInstructions)
       .transaction();
 
     const { blockhash, lastValidBlockHeight } =
