@@ -128,6 +128,7 @@ import {
   mulShr,
   shlDiv,
 } from "./helpers/math";
+import { DlmmSdkError } from "./error";
 
 type Opt = {
   cluster?: Cluster | "localhost";
@@ -3142,6 +3143,8 @@ export class DLMM {
    *    - `protocolFee`: Protocol fee amount
    *    - `maxInAmount`: Maximum amount of lamport to swap in
    *    - `binArraysPubkey`: Array of bin arrays involved in the swap
+   * @throws {DlmmSdkError}
+   *
    */
   public swapQuoteExactOut(
     outAmount: BN,
@@ -3182,7 +3185,10 @@ export class DLMM {
       );
 
       if (binArrayAccountToSwap == null) {
-        throw new Error("Insufficient liquidity");
+        throw new DlmmSdkError(
+          "SWAP_QUOTE_INSUFFICIENT_LIQUIDITY",
+          "Insufficient liquidity in binArrays"
+        );
       }
 
       binArraysForSwap.set(binArrayAccountToSwap.publicKey, true);
@@ -3273,6 +3279,7 @@ export class DLMM {
    *    - `minOutAmount`: Minimum amount of lamport to swap out
    *    - `priceImpact`: Price impact of the swap
    *    - `binArraysPubkey`: Array of bin arrays involved in the swap
+   * @throws {DlmmSdkError}
    */
   public swapQuote(
     inAmount: BN,
@@ -3317,7 +3324,10 @@ export class DLMM {
         if (isPartialFill) {
           break;
         } else {
-          throw new Error("Insufficient liquidity");
+          throw new DlmmSdkError(
+            "SWAP_QUOTE_INSUFFICIENT_LIQUIDITY",
+            "Insufficient liquidity in binArrays for swapQuote"
+          );
         }
       }
 
@@ -3366,7 +3376,13 @@ export class DLMM {
       }
     }
 
-    if (!startBin) throw new Error("Invalid start bin");
+    if (!startBin) {
+      // The pool insufficient liquidity
+      throw new DlmmSdkError(
+        "SWAP_QUOTE_INSUFFICIENT_LIQUIDITY",
+        "Insufficient liquidity"
+      );
+    }
 
     inAmount = inAmount.sub(inAmountLeft);
 

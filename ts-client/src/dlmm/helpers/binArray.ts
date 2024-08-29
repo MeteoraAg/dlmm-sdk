@@ -318,8 +318,8 @@ export function findNextBinArrayWithLiquidity(
     ba.account.index.eq(nearestBinArrayIndexWithLiquidity)
   );
   if (!binArrayAccount) {
-    // Critical bug
-    throw new Error("Bin array not found based on indexing");
+    // Cached bin array couldn't cover more bins, partial quoted.
+    return null;
   }
 
   return binArrayAccount;
