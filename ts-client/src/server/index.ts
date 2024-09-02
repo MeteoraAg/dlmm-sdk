@@ -2,7 +2,7 @@ import { Connection, PublicKey } from '@solana/web3.js';
 import { IdlAccounts } from '@coral-xyz/anchor';
 import express from 'express';
 import { DLMM } from '../dlmm';
-import { LbPosition, StrategyType } from '../dlmm/types';
+import { BinArrayAccount, LbPosition, StrategyType } from '../dlmm/types';
 import { BN } from 'bn.js';
 
 declare global {
@@ -250,10 +250,28 @@ app.post("/dlmm/get-bin-array-for-swap", async (req, res) => {
   try {
     const swapYtoX = Boolean(req.body.swapYtoX);
     const count = parseInt(req.body.count);
-  
+
     const poolAddress = req.pool;
     const dlmm = await DLMM.create(req.connect, poolAddress);
-    const binArray = await dlmm.getBinArrayForSwap(swapYtoX, count);
+    const binArray = (await dlmm.getBinArrayForSwap(swapYtoX, count)).map(bin => ({
+      publicKey: bin.publicKey,
+      account: {
+        index: bin.account.index.toString('hex'),
+        bins: bin.account.bins.map(b => ({
+          amountX: b.amountX.toString('hex'),
+          amountXIn: b.amountXIn.toString('hex'),
+          amountY: b.amountY.toString('hex'),
+          amountYIn: b.amountYIn.toString('hex'),
+          feeAmountXPerTokenStored: b.feeAmountXPerTokenStored.toString('hex'),
+          feeAmountYPerTokenStored: b.feeAmountYPerTokenStored.toString('hex'),
+          liquiditySupply: b.liquiditySupply.toString('hex'),
+          price: b.price.toString('hex'),
+          rewardPerTokenStored: b.rewardPerTokenStored.map(r => r.toString('hex')),
+        })),
+        ...bin.account
+      }
+    }));
+
     return res.status(200).send(safeStringify(binArray));
   }
   catch (error) {
@@ -267,10 +285,22 @@ app.post("/dlmm/swap-quote", async (req, res) => {
     const swapYtoX = req.body.swapYToX;
     const swapAmount = new BN(req.body.amount);
     const allowedSlippage = new BN(req.body.allowedSlippage);
-    const binArrays = req.body.binArrays.map(bin => ({
+    const binArrays: BinArrayAccount[] = req.body.binArrays.map(bin => ({
       publicKey: new PublicKey(bin['publicKey']),
       account: {
         index: new BN(bin['account']['index'], 16),
+        lbPair: new PublicKey(bin['account']['lbPair']),
+        bins: bin['account']['bins'].map(b => ({
+          amountX: new BN(b['amountX'], 16),
+          amountXIn: new BN(b['amountXIn'], 16),
+          amountY: new BN(b['amountY'], 16),
+          amountYIn: new BN(b['amountYIn'], 16),
+          feeAmountXPerTokenStored: new BN(b['feeAmountXPerTokenStored'], 16),
+          feeAmountYPerTokenStored: new BN(b['feeAmountYPerTokenStored'], 16),
+          liquiditySupply: new BN(b['liquiditySupply'], 16),
+          price: new BN(b['price'], 16),
+          rewardPerTokenStored: b['rewardPerTokenStored'].map(r => new BN(r, 16)),
+        })),
         ...bin['account']
       },
     }));
