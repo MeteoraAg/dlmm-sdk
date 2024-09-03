@@ -184,7 +184,7 @@ export class DLMM {
     binStep: BN,
     baseFactor: BN,
     opt?: Opt
-  ) {
+  ): Promise<PublicKey | null> {
     const cluster = opt?.cluster || "mainnet-beta";
 
     const provider = new AnchorProvider(
