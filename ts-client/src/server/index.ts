@@ -256,6 +256,7 @@ app.post("/dlmm/get-bin-array-for-swap", async (req, res) => {
     const binArray = (await dlmm.getBinArrayForSwap(swapYtoX, count)).map(bin => ({
       publicKey: bin.publicKey,
       account: {
+        ...bin.account,
         index: bin.account.index.toString('hex'),
         bins: bin.account.bins.map(b => ({
           amountX: b.amountX.toString('hex'),
@@ -268,7 +269,6 @@ app.post("/dlmm/get-bin-array-for-swap", async (req, res) => {
           price: b.price.toString('hex'),
           rewardPerTokenStored: b.rewardPerTokenStored.map(r => r.toString('hex')),
         })),
-        ...bin.account
       }
     }));
 
@@ -288,6 +288,7 @@ app.post("/dlmm/swap-quote", async (req, res) => {
     const binArrays: BinArrayAccount[] = req.body.binArrays.map(bin => ({
       publicKey: new PublicKey(bin['publicKey']),
       account: {
+        ...bin['account'],
         index: new BN(bin['account']['index'], 16),
         lbPair: new PublicKey(bin['account']['lbPair']),
         bins: bin['account']['bins'].map(b => ({
@@ -301,7 +302,6 @@ app.post("/dlmm/swap-quote", async (req, res) => {
           price: new BN(b['price'], 16),
           rewardPerTokenStored: b['rewardPerTokenStored'].map(r => new BN(r, 16)),
         })),
-        ...bin['account']
       },
     }));
     const isPartialFill = req.body.isPartialFilled;
