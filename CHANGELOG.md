@@ -19,7 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-## @meteora-ag/dlmm [1.1.4] - PR #106
+## @meteora-ag/dlmm [1.1.5] - PR #107
+
+### Fixed
+
+- fix `getPairPubkeyIfExists` return type
+
+## @meteora-ag/dlmm [1.1.4] - PR #107
 
 ### Fixed
 
