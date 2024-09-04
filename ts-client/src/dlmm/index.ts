@@ -1884,6 +1884,53 @@ export class DLMM {
   }
 
   /**
+ * Creates an empty position and initializes the corresponding bin arrays if needed.
+ * @param param0 The settings of the requested new position.
+ * @returns A promise that resolves into a transaction for creating the requested position.
+ */
+  public async createEmptyPosition({
+    positionPubKey,
+    minBinId,
+    maxBinId,
+    user,
+  }: {
+    positionPubKey: PublicKey,
+    minBinId: number,
+    maxBinId: number,
+    user: PublicKey,
+  }) {
+    const setComputeUnitLimitIx = computeBudgetIx();
+    const createPositionIx = await this.program.methods
+      .initializePosition(minBinId, maxBinId - minBinId + 1)
+      .accounts({
+        payer: user,
+        position: positionPubKey,
+        lbPair: this.pubkey,
+        owner: user,
+      })
+      .instruction();
+
+    const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(minBinId));
+    const upperBinArrayIndex = BN.max(
+      lowerBinArrayIndex.add(new BN(1)),
+      binIdToBinArrayIndex(new BN(maxBinId))
+    );
+    const createBinArrayIxs = await this.createBinArraysIfNeeded(
+      upperBinArrayIndex,
+      lowerBinArrayIndex,
+      user
+    );
+
+    const { blockhash, lastValidBlockHeight } =
+      await this.program.provider.connection.getLatestBlockhash("confirmed");
+    return new Transaction({
+      blockhash,
+      lastValidBlockHeight,
+      feePayer: user,
+    }).add(setComputeUnitLimitIx, createPositionIx, ...createBinArrayIxs);
+  }
+
+  /**
    * The function `initializePositionAndAddLiquidityByStrategy` function is used to initializes a position and adds liquidity
    * @param {TInitializePositionAndAddLiquidityParamsByStrategy}
    *    - `positionPubKey`: The public key of the position account. (usually use `new Keypair()`)

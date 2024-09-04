@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.1.51] - PR #108
+
+### Added
+
+- new method `createEmptyPosition` allows to create an empty position with the corresponding bin arrays.
+
 ## @meteora-ag/dlmm [1.1.5] - PR #107
 
 ### Fixed
