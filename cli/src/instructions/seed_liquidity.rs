@@ -1,6 +1,9 @@
 use std::ops::Deref;
 
-use crate::instructions::utils::get_or_create_ata;
+use crate::instructions::utils::{
+    get_bin_array_account_meta_by_bin_range, get_extra_account_metas_for_transfer_hook,
+    get_or_create_ata,
+};
 use crate::math::{
     get_id_from_price, price_per_lamport_to_price_per_token, price_per_token_to_per_lamport,
 };
@@ -11,7 +14,8 @@ use anchor_client::solana_sdk::signature::Keypair;
 use anchor_client::{solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, Program};
 use anchor_lang::InstructionData;
 use anchor_lang::ToAccountMetas;
-use anchor_spl::token::{Mint, TokenAccount};
+use anchor_spl::memo;
+use anchor_spl::token_interface::{Mint, TokenAccount};
 use anyhow::*;
 use lb_clmm::accounts;
 use lb_clmm::constants::{BASIS_POINT_MAX, MAX_BIN_PER_POSITION};
@@ -22,6 +26,9 @@ use lb_clmm::state::bin::BinArray;
 use lb_clmm::state::lb_pair::LbPair;
 use lb_clmm::state::position::PositionV2;
 use lb_clmm::utils::pda::*;
+use lb_clmm::utils::remaining_accounts_util::{
+    AccountsType, RemainingAccountsInfo, RemainingAccountsSlice,
+};
 use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
 use rust_decimal::{Decimal, MathematicalOps};
 
@@ -64,6 +71,14 @@ pub async fn seed_liquidity<C: Deref<Target = impl Signer> + Clone>(
 
     let token_mint_base: Mint = program.account(lb_pair_state.token_x_mint).await?;
     let token_mint_quote: Mint = program.account(lb_pair_state.token_y_mint).await?;
+
+    let transfer_hook_x_accounts =
+        get_extra_account_metas_for_transfer_hook(lb_pair_state.token_x_mint, program.async_rpc())
+            .await?;
+
+    let transfer_hook_y_accounts =
+        get_extra_account_metas_for_transfer_hook(lb_pair_state.token_y_mint, program.async_rpc())
+            .await?;
 
     // convert to wei amount
     let amount = amount
@@ -200,9 +215,6 @@ pub async fn seed_liquidity<C: Deref<Target = impl Signer> + Clone>(
 
         let mut instructions = vec![ComputeBudgetInstruction::set_compute_unit_limit(1_400_000)];
 
-        let (bin_array_lower, _bump) = derive_bin_array_pda(lb_pair, lower_bin_array_idx.into());
-        let (bin_array_upper, _bump) = derive_bin_array_pda(lb_pair, upper_bin_array_idx.into());
-
         let mut bin_amounts = vec![];
         let mut position_total_amount = 0;
 
@@ -232,35 +244,58 @@ pub async fn seed_liquidity<C: Deref<Target = impl Signer> + Clone>(
             });
         }
 
+        let mut accounts = accounts::ModifyLiquidity2 {
+            lb_pair,
+            position,
+            bin_array_bitmap_extension: None,
+            sender: program.payer(),
+            event_authority,
+            program: lb_clmm::ID,
+            reserve_x: lb_pair_state.reserve_x,
+            reserve_y: lb_pair_state.reserve_y,
+            token_x_mint: lb_pair_state.token_x_mint,
+            token_y_mint: lb_pair_state.token_y_mint,
+            user_token_x,
+            user_token_y,
+            token_x_program: *token_x_program,
+            token_y_program: *token_y_program,
+            memo_program: memo::ID,
+        }
+        .to_account_metas(None);
+
+        let mut remaining_accounts_info = RemainingAccountsInfo { slices: vec![] };
+
+        remaining_accounts_info.slices.push(RemainingAccountsSlice {
+            accounts_type: AccountsType::TransferHookX,
+            length: transfer_hook_x_accounts.len() as u8,
+        });
+
+        remaining_accounts_info.slices.push(RemainingAccountsSlice {
+            accounts_type: AccountsType::TransferHookY,
+            length: transfer_hook_y_accounts.len() as u8,
+        });
+
+        let bin_arrays =
+            get_bin_array_account_meta_by_bin_range(lb_pair, lower_bin_id, upper_bin_id)?;
+
+        accounts.extend(transfer_hook_x_accounts.clone());
+        accounts.extend(transfer_hook_y_accounts.clone());
+        accounts.extend(bin_arrays);
+
+        let data = instruction::AddLiquidity2 {
+            liquidity_parameter: LiquidityParameter {
+                amount_x: position_total_amount,
+                amount_y: 0,
+                bin_liquidity_dist,
+            },
+            remaining_accounts_info,
+        }
+        .data();
+
         instructions.push(Instruction {
             program_id: lb_clmm::ID,
-            accounts: accounts::ModifyLiquidity {
-                lb_pair,
-                position,
-                bin_array_bitmap_extension: None,
-                bin_array_lower,
-                bin_array_upper,
-                sender: program.payer(),
-                event_authority,
-                program: lb_clmm::ID,
-                reserve_x: lb_pair_state.reserve_x,
-                reserve_y: lb_pair_state.reserve_y,
-                token_x_mint: lb_pair_state.token_x_mint,
-                token_y_mint: lb_pair_state.token_y_mint,
-                user_token_x,
-                user_token_y,
-                token_x_program: anchor_spl::token::ID,
-                token_y_program: anchor_spl::token::ID,
-            }
-            .to_account_metas(None),
-            data: instruction::AddLiquidity {
-                liquidity_parameter: LiquidityParameter {
-                    amount_x: position_total_amount,
-                    amount_y: 0,
-                    bin_liquidity_dist,
-                },
-            }
-            .data(),
+            accounts,
+            data,
         });
 
         let builder = program.request();
@@ -288,45 +323,62 @@ pub async fn seed_liquidity<C: Deref<Target = impl Signer> + Clone>(
         let (position, _bump) =
             derive_position_pda(lb_pair, position_base_kp.pubkey(), lower_bin_id, width);
 
-        let lower_bin_array_idx = BinArray::bin_id_to_bin_array_index(lower_bin_id)?;
-        let upper_bin_array_idx = BinArray::bin_id_to_bin_array_index(upper_bin_id)?;
+        let mut accounts = accounts::ModifyLiquidity2 {
+            lb_pair,
+            position,
+            bin_array_bitmap_extension: None,
+            sender: program.payer(),
+            event_authority,
+            program: lb_clmm::ID,
+            reserve_x: lb_pair_state.reserve_x,
+            reserve_y: lb_pair_state.reserve_y,
+            token_x_mint: lb_pair_state.token_x_mint,
+            token_y_mint: lb_pair_state.token_y_mint,
+            user_token_x,
+            user_token_y,
+            token_x_program: *token_x_program,
+            token_y_program: *token_y_program,
+            memo_program: memo::ID,
+        }
+        .to_account_metas(None);
 
-        let (bin_array_lower, _bump) = derive_bin_array_pda(lb_pair, lower_bin_array_idx.into());
-        let (bin_array_upper, _bump) = derive_bin_array_pda(lb_pair, upper_bin_array_idx.into());
+        let mut remaining_accounts_info = RemainingAccountsInfo { slices: vec![] };
+
+        remaining_accounts_info.slices.push(RemainingAccountsSlice {
+            accounts_type: AccountsType::TransferHookX,
+            length: transfer_hook_x_accounts.len() as u8,
+        });
+
+        remaining_accounts_info.slices.push(RemainingAccountsSlice {
+            accounts_type: AccountsType::TransferHookY,
+            length: transfer_hook_y_accounts.len() as u8,
+        });
+
+        let bin_arrays =
+            get_bin_array_account_meta_by_bin_range(lb_pair, lower_bin_id, upper_bin_id)?;
+
+        accounts.extend(transfer_hook_x_accounts.clone());
+        accounts.extend(transfer_hook_y_accounts.clone());
+        accounts.extend(bin_arrays);
+
+        let data = instruction::AddLiquidity2 {
+            liquidity_parameter: LiquidityParameter {
+                amount_x: leftover,
+                amount_y: 0,
+                bin_liquidity_dist: vec![BinLiquidityDistribution {
+                    bin_id: max_active_id,
+                    distribution_x: 10000,
+                    distribution_y: 0,
+                }],
+            },
+            remaining_accounts_info,
+        }
+        .data();
 
         let ix = Instruction {
             program_id: lb_clmm::ID,
-            accounts: accounts::ModifyLiquidity {
-                lb_pair,
-                position,
-                bin_array_bitmap_extension: None,
-                bin_array_lower,
-                bin_array_upper,
-                sender: program.payer(),
-                event_authority,
-                program: lb_clmm::ID,
-                reserve_x: lb_pair_state.reserve_x,
-                reserve_y: lb_pair_state.reserve_y,
-                token_x_mint: lb_pair_state.token_x_mint,
-                token_y_mint: lb_pair_state.token_y_mint,
-                user_token_x,
-                user_token_y,
-                token_x_program: anchor_spl::token::ID,
-                token_y_program: anchor_spl::token::ID,
-            }
-            .to_account_metas(None),
-            data: instruction::AddLiquidity {
-                liquidity_parameter: LiquidityParameter {
-                    amount_x: leftover,
-                    amount_y: 0,
-                    bin_liquidity_dist: vec![BinLiquidityDistribution {
-                        bin_id: max_active_id,
-                        distribution_x: 10000,
-                        distribution_y: 0,
-                    }],
-                },
-            }
-            .data(),
+            accounts,
+            data,
         };
 
         let builder = program

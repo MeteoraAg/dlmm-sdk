@@ -1,16 +1,18 @@
-use crate::errors::LBError;
-use crate::state::bin_array_bitmap_extension::BinArrayBitmapExtension;
-use crate::state::lb_pair::*;
-use crate::state::oracle::Oracle;
 use anchor_lang::prelude::*;
 use anchor_spl::{
-    token::Token,
-    token_interface::{Mint, TokenAccount},
+    memo::Memo,
+    token_interface::{Mint, TokenAccount, TokenInterface},
+};
+
+use crate::{
+    errors::LBError,
+    state::{bin_array_bitmap_extension::BinArrayBitmapExtension, lb_pair::LbPair, oracle::Oracle},
+    utils::remaining_accounts_util::RemainingAccountsInfo,
 };
 
 #[event_cpi]
 #[derive(Accounts)]
-pub struct Swap<'info> {
+pub struct Swap2<'info> {
     #[account(
         mut,
         has_one = reserve_x,
@@ -53,30 +55,27 @@ pub struct Swap<'info> {
     pub host_fee_in: Option<Box<InterfaceAccount<'info, TokenAccount>>>,
 
     pub user: Signer<'info>,
-    pub token_x_program: Program<'info, Token>,
-    pub token_y_program: Program<'info, Token>,
+    pub token_x_program: Interface<'info, TokenInterface>,
+    pub token_y_program: Interface<'info, TokenInterface>,
+
+    pub memo_program: Program<'info, Memo>,
 }
 
-pub fn handle_exact_in<'a, 'b, 'c, 'info>(
-    ctx: Context<'a, 'b, 'c, 'info, Swap<'info>>,
+pub fn handle_exact_in2(
+    ctx: Context<Swap2>,
     amount_in: u64,
     min_amount_out: u64,
+    remaining_account_info: RemainingAccountsInfo,
 ) -> Result<()> {
     Ok(())
 }
 
-pub fn handle_exact_out<'a, 'b, 'c, 'info>(
-    ctx: Context<'a, 'b, 'c, 'info, Swap<'info>>,
-    max_in_amount: u64,
-    exact_out_amount: u64,
-) -> Result<()> {
-    Ok(())
-}
-pub fn handle_exact_in_with_price_impact<'a, 'b, 'c, 'info>(
-    ctx: Context<'a, 'b, 'c, 'info, Swap<'info>>,
+pub fn handle_exact_in_with_price_impact2(
+    ctx: Context<Swap2>,
     amount_in: u64,
     active_id: Option<i32>,
     max_price_impact_bps: u16,
+    remaining_account_info: RemainingAccountsInfo,
 ) -> Result<()> {
     Ok(())
 }

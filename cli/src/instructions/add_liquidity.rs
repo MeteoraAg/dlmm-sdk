@@ -2,14 +2,23 @@ use std::ops::Deref;
 
 use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
 use anchor_client::solana_sdk::compute_budget::ComputeBudgetInstruction;
+use anchor_client::solana_sdk::instruction::Instruction;
 use anchor_client::{solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, Program};
+use anchor_lang::{InstructionData, ToAccountMetas};
 
 use anyhow::*;
 use lb_clmm::accounts;
 use lb_clmm::instruction;
 use lb_clmm::instructions::add_liquidity::{BinLiquidityDistribution, LiquidityParameter};
+use lb_clmm::state::position::PositionV2;
+use lb_clmm::utils::remaining_accounts_util::{
+    AccountsType, RemainingAccountsInfo, RemainingAccountsSlice,
+};
 
-use crate::instructions::utils::{get_bin_arrays_for_position, get_or_create_ata};
+use crate::instructions::utils::{
+    get_bin_array_account_meta_by_bin_range, get_extra_account_metas_for_transfer_hook,
+    get_or_create_ata,
+};
 use lb_clmm::constants::BASIS_POINT_MAX;
 use lb_clmm::state::lb_pair::LbPair;
 use lb_clmm::utils::pda::{derive_bin_array_bitmap_extension, derive_event_authority_pda};
@@ -37,19 +46,19 @@ pub async fn add_liquidity<C: Deref<Target = impl Signer> + Clone>(
     } = params;
 
     let lb_pair_state: LbPair = program.account(lb_pair).await?;
+    let position_state: PositionV2 = program.account(position).await?;
 
-    let token_programs = program
+    let mint_x_owner = program
         .async_rpc()
-        .get_multiple_accounts(&[lb_pair_state.token_x_mint, lb_pair_state.token_y_mint])
-        .await?
-        .into_iter()
-        .map(|account| Some(account?.owner))
-        .collect::<Option<Vec<Pubkey>>>()
-        .context("Missing token mint account")?;
+        .get_account(&lb_pair_state.token_x_mint)
+        .await
+        .map(|acc| acc.owner)?;
 
-    let [token_x_program, token_y_program] = token_programs.as_slice() else {
-        bail!("Missing token program accounts");
-    };
+    let mint_y_owner = program
+        .async_rpc()
+        .get_account(&lb_pair_state.token_y_mint)
+        .await
+        .map(|acc| acc.owner)?;
 
     let bin_liquidity_distribution = bin_liquidity_distribution
         .into_iter()
@@ -60,14 +69,12 @@ pub async fn add_liquidity<C: Deref<Target = impl Signer> + Clone>(
         })
         .collect::<Vec<_>>();
 
-    let [bin_array_lower, bin_array_upper] = get_bin_arrays_for_position(program, position).await?;
-
     let user_token_x = get_or_create_ata(
         program,
         transaction_config,
         lb_pair_state.token_x_mint,
         program.payer(),
-        *token_x_program,
+        mint_x_owner,
     )
     .await?;
 
@@ -76,11 +83,10 @@ pub async fn add_liquidity<C: Deref<Target = impl Signer> + Clone>(
         transaction_config,
         lb_pair_state.token_y_mint,
         program.payer(),
-        *token_y_program,
+        mint_y_owner,
     )
     .await?;
 
-    // TODO: id and price slippage
     let (bin_array_bitmap_extension, _bump) = derive_bin_array_bitmap_extension(lb_pair);
     let bin_array_bitmap_extension = if program
         .rpc()
@@ -94,9 +100,7 @@ pub async fn add_liquidity<C: Deref<Target = impl Signer> + Clone>(
 
     let (event_authority, _bump) = derive_event_authority_pda();
 
-    let accounts = accounts::ModifyLiquidity {
-        bin_array_lower,
-        bin_array_upper,
+    let mut ix_accounts = accounts::ModifyLiquidity2 {
         lb_pair,
         bin_array_bitmap_extension,
         position,
@@ -107,27 +111,66 @@ pub async fn add_liquidity<C: Deref<Target = impl Signer> + Clone>(
         sender: program.payer(),
         user_token_x,
         user_token_y,
-        token_x_program: *token_x_program,
-        token_y_program: *token_y_program,
+        token_x_program: mint_x_owner,
+        token_y_program: mint_y_owner,
         event_authority,
         program: lb_clmm::ID,
-    };
+        memo_program: anchor_spl::memo::ID,
+    }
+    .to_account_metas(None);
 
-    let ix = instruction::AddLiquidity {
+    let mut remaining_accounts_info = RemainingAccountsInfo { slices: vec![] };
+
+    let transfer_hook_x_accounts =
+        get_extra_account_metas_for_transfer_hook(lb_pair_state.token_x_mint, program.async_rpc())
+            .await?;
+
+    remaining_accounts_info.slices.push(RemainingAccountsSlice {
+        accounts_type: AccountsType::TransferHookX,
+        length: transfer_hook_x_accounts.len() as u8,
+    });
+
+    let transfer_hook_y_accounts =
+        get_extra_account_metas_for_transfer_hook(lb_pair_state.token_y_mint, program.async_rpc())
+            .await?;
+
+    remaining_accounts_info.slices.push(RemainingAccountsSlice {
+        accounts_type: AccountsType::TransferHookY,
+        length: transfer_hook_y_accounts.len() as u8,
+    });
+
+    let bin_arrays = get_bin_array_account_meta_by_bin_range(
+        lb_pair,
+        position_state.lower_bin_id,
+        position_state.upper_bin_id,
+    )?;
+
+    ix_accounts.extend(transfer_hook_x_accounts);
+    ix_accounts.extend(transfer_hook_y_accounts);
+    ix_accounts.extend(bin_arrays);
+
+    let ix_data = instruction::AddLiquidity2 {
         liquidity_parameter: LiquidityParameter {
             amount_x,
             amount_y,
             bin_liquidity_dist: bin_liquidity_distribution,
         },
-    };
+        remaining_accounts_info,
+    }
+    .data();
 
     let compute_budget_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
+
+    let ix = Instruction {
+        program_id: lb_clmm::ID,
+        accounts: ix_accounts,
+        data: ix_data,
+    };
 
     let request_builder = program.request();
     let signature = request_builder
         .instruction(compute_budget_ix)
-        .accounts(accounts)
-        .args(ix)
+        .instruction(ix)
         .send_with_spinner_and_config(transaction_config)
         .await;
 

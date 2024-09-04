@@ -1,0 +1,9 @@
+pub mod add_liquidity2;
+pub mod add_liquidity_by_strategy2;
+pub mod claim_fee2;
+pub mod claim_reward2;
+pub mod initialize_lb_pair2;
+pub mod initialize_token_badge;
+pub mod remove_liquidity2;
+pub mod remove_liquidity_by_range2;
+pub mod swap2;

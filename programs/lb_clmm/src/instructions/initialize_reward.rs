@@ -2,7 +2,8 @@ use crate::errors::LBError;
 use crate::state::lb_pair::LbPair;
 use crate::{assert_eq_admin, state::token_badge::TokenBadge};
 use anchor_lang::prelude::*;
-use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
+use anchor_spl::token::Token;
+use anchor_spl::token_interface::{Mint, TokenAccount};
 
 #[event_cpi]
 #[derive(Accounts)]
@@ -34,7 +35,7 @@ pub struct InitializeReward<'info> {
     )]
     pub admin: Signer<'info>,
 
-    pub token_program: Interface<'info, TokenInterface>,
+    pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
 }

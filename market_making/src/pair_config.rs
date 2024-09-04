@@ -41,22 +41,3 @@ pub fn get_config_from_file(path: &str) -> Result<Vec<PairConfig>> {
     let config: Vec<PairConfig> = serde_json::from_str(&data)?;
     Ok(config)
 }
-
-#[cfg(test)]
-mod config_test {
-    use super::*;
-    use std::env;
-    #[test]
-    fn test_get_get_config_from_file() {
-        let mut owned_string: String = env::current_dir()
-            .unwrap()
-            .into_os_string()
-            .into_string()
-            .unwrap();
-        let borrowed_string: &str = "/src/pair_config.json";
-        owned_string.push_str(borrowed_string);
-
-        let config = get_config_from_file(&owned_string).unwrap();
-        println!("{:?}", config);
-    }
-}

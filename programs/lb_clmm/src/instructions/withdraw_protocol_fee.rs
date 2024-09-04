@@ -1,6 +1,9 @@
-use crate::state::lb_pair::LbPair;
+use crate::{state::lb_pair::LbPair, utils::remaining_accounts_util::RemainingAccountsInfo};
 use anchor_lang::prelude::*;
-use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
+use anchor_spl::{
+    memo::Memo,
+    token_interface::{Mint, TokenAccount, TokenInterface},
+};
 
 #[derive(Accounts)]
 pub struct WithdrawProtocolFee<'info> {
@@ -30,8 +33,15 @@ pub struct WithdrawProtocolFee<'info> {
 
     pub token_x_program: Interface<'info, TokenInterface>,
     pub token_y_program: Interface<'info, TokenInterface>,
+
+    pub memo_program: Program<'info, Memo>,
 }
 
-pub fn handle(ctx: Context<WithdrawProtocolFee>, amount_x: u64, amount_y: u64) -> Result<()> {
+pub fn handle(
+    ctx: Context<WithdrawProtocolFee>,
+    amount_x: u64,
+    amount_y: u64,
+    remaining_accounts_info: RemainingAccountsInfo,
+) -> Result<()> {
     Ok(())
 }

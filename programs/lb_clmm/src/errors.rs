@@ -180,15 +180,36 @@ pub enum LBError {
     #[msg("Invalid activation type")]
     InvalidActivationType,
 
-    #[msg("Invalid lock release slot")]
-    InvalidLockReleaseSlot,
-
-    #[msg("Bin range is not empty")]
-    BinRangeIsNotEmpty,
+    #[msg("Not support token_2022 mint extension")]
+    NotSupportMint,
 
     #[msg("Unsupported mint extension")]
     UnsupportedMintExtension,
 
+    #[msg("Unsupported native mint token2022")]
+    UnsupportNativeMintToken2022,
+
     #[msg("Unmatch token mint")]
     UnmatchTokenMint,
+
+    #[msg("Unsupported token mint")]
+    UnsupportedTokenMint,
+
+    #[msg("Insufficient remaining accounts")]
+    InsufficientRemainingAccounts,
+
+    #[msg("Invalid remaining account slice")]
+    InvalidRemainingAccountSlice,
+
+    #[msg("Duplicated remaining account types")]
+    DuplicatedRemainingAccountTypes,
+
+    #[msg("Missing remaining account for transfer hook")]
+    MissingRemainingAccountForTransferHook,
+
+    #[msg("Remaining account was passed for transfer hook but there's no hook program")]
+    NoTransferHookProgram,
+
+    #[msg("Zero funded amount")]
+    ZeroFundedAmount,
 }

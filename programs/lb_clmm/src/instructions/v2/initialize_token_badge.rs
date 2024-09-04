@@ -1,6 +1,5 @@
-use crate::assert_eq_admin;
 use crate::errors::LBError;
-use crate::state::*;
+use crate::{assert_eq_admin, state::*};
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::Mint;
 use token_badge::TokenBadge;

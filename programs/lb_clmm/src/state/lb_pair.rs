@@ -484,17 +484,6 @@ impl LbPair {
         Ok(total_fee_rate_cap)
     }
 
-    #[cfg(test)]
-    /// Maximum fee rate
-    fn get_max_total_fee(&self) -> Result<u128> {
-        let max_total_fee_rate = self
-            .get_base_fee()?
-            .safe_add(self.compute_variable_fee(self.parameters.max_volatility_accumulator)?)?;
-
-        let total_fee_rate_cap = std::cmp::min(max_total_fee_rate, MAX_FEE_RATE.into());
-        Ok(total_fee_rate_cap)
-    }
-
     /// Compute composition fee. Composition_fee = fee_amount * (1 + total fee rate)
     pub fn compute_composition_fee(&self, swap_amount: u64) -> Result<u64> {
         let total_fee_rate = self.get_total_fee()?;

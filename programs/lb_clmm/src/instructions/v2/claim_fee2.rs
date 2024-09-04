@@ -1,8 +1,10 @@
 use crate::authorize_claim_fee_position;
 use crate::errors::LBError;
 use crate::state::{bin::BinArray, lb_pair::LbPair, position::PositionV2};
+use crate::utils::remaining_accounts_util::RemainingAccountsSlice;
 use crate::PositionLiquidityFlowValidator;
 use anchor_lang::prelude::*;
+use anchor_spl::memo::Memo;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface, TransferChecked};
 
 #[event_cpi]
@@ -24,17 +26,6 @@ pub struct ClaimFee2<'info> {
     )]
     pub position: AccountLoader<'info, PositionV2>,
 
-    #[account(
-        mut,
-        has_one = lb_pair
-    )]
-    pub bin_array_lower: AccountLoader<'info, BinArray>,
-    #[account(
-        mut,
-        has_one = lb_pair
-    )]
-    pub bin_array_upper: AccountLoader<'info, BinArray>,
-
     pub sender: Signer<'info>,
 
     #[account(mut)]
@@ -52,8 +43,15 @@ pub struct ClaimFee2<'info> {
 
     pub token_program_x: Interface<'info, TokenInterface>,
     pub token_program_y: Interface<'info, TokenInterface>,
+
+    pub memo_program: Program<'info, Memo>,
 }
 
-pub fn handle(ctx: Context<ClaimFee2>) -> Result<()> {
+pub fn handle(
+    ctx: Context<ClaimFee2>,
+    min_bin_id: i32,
+    max_bin_id: i32,
+    remaining_accounts_slice: &[RemainingAccountsSlice],
+) -> Result<()> {
     Ok(())
 }
