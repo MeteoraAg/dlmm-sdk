@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.2.0] - PR #109
+
+### Removed
+
+- Removed `removeLiquiditySingleSide`
+
 ## @meteora-ag/dlmm [1.1.5] - PR #107
 
 ### Fixed
