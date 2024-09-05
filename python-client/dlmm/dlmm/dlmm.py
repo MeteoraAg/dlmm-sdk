@@ -186,7 +186,7 @@ class DLMM:
             raise HTTPError(f"Error connecting to DLMM: {e}")
 
     # TODO: Add result to transaction object
-    def remove_liqidity(self, position_pub_key: Pubkey, user: Pubkey, bin_ids: List[int], bps: List[int], should_claim_and_close: bool) -> List[Transaction]:
+    def remove_liqidity(self, position_pub_key: Pubkey, user: Pubkey, bin_ids: List[int], bps: int, should_claim_and_close: bool) -> List[Transaction]:
         if type(position_pub_key) != Pubkey:
             raise TypeError("position_pub_key must be of type `solders.pubkey.Pubkey`")
         
@@ -196,8 +196,8 @@ class DLMM:
         if type(bin_ids) != list:
             raise TypeError("bin_ids must be of type `list`")
         
-        if type(bps) != list:
-            raise TypeError("bps must be of type `list`")
+        if type(bps) != int:
+            raise TypeError("bps must be of type `int`")
         
         if isinstance(should_claim_and_close, bool) == False:
             raise TypeError("should_claim_and_close must be of type `bool`")
@@ -211,7 +211,7 @@ class DLMM:
                 "shouldClaimAndClose": should_claim_and_close
             })
             result = self.__session.post(f"{API_URL}/dlmm/remove-liquidity", data=data).json()
-            return [Transaction(tx_data) for tx_data in result]if type(result) == list else [Transaction(result)]
+            return [convert_to_transaction(tx_data) for tx_data in result] if type(result) == list else [convert_to_transaction(result)]
         except requests.exceptions.HTTPError as e:
             raise HTTPError(f"Error removing liquidity: {e}")
         except requests.exceptions.ConnectionError as e:

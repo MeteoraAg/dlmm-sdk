@@ -1,8 +1,7 @@
 import { Connection, PublicKey } from '@solana/web3.js';
-import { IdlAccounts } from '@coral-xyz/anchor';
 import express from 'express';
 import { DLMM } from '../dlmm';
-import { BinArrayAccount, LbPosition, StrategyType } from '../dlmm/types';
+import { BinArrayAccount, LbPosition } from '../dlmm/types';
 import { BN } from 'bn.js';
 
 declare global {
@@ -134,7 +133,7 @@ app.post("/dlmm/initialize-position-and-add-liquidity-by-strategy", async (req, 
     const totalYAmount = new BN(req.body.totalYAmount);
     const maxBinId = req.body.maxBinId;
     const minBinId = req.body.minBinId;
-    const strategyType = req.body.strategyType as StrategyType;
+    const strategyType = parseInt(req.body.strategyType);
     const data = {
       positionPubKey: new PublicKey(positionPublicKey),
       user: new PublicKey(userPublicKey),
@@ -166,7 +165,7 @@ app.post("/dlmm/add-liquidity-by-strategy", async (req, res) => {
     const totalYAmount = new BN(req.body.totalYAmount);
     const maxBinId = req.body.maxBinId;
     const minBinId = req.body.minBinId;
-    const strategyType = req.body.strategyType as StrategyType;
+    const strategyType = parseInt(req.body.strategyType);
     const data = {
       positionPubKey: new PublicKey(positionPublicKey),
       user: new PublicKey(userPublicKey),
@@ -210,7 +209,7 @@ app.post("/dlmm/remove-liquidity", async (req, res) => {
     const positionPublicKey = req.body.positionPubKey;
     const userPublicKey = req.body.userPublicKey;
     const binIds = req.body.binIds;
-    const bps = req.body.bps.map((bp: string) => new BN(bp));
+    const bps = new BN(req.body.bps);
     const shouldClaimAndClose = req.body.shouldClaimAndClose;
 
     const poolAddress = req.pool;

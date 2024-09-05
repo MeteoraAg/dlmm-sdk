@@ -8,18 +8,18 @@ class DlmmHttpError(Exception):
         super().__init__(message)
 
 class StrategyType(Enum):
-    SpotOneSide="SpotOneSide",
-    CurveOneSide="CurveOneSide",
-    BidAskOneSide="BidAskOneSide",
-    SpotImBalanced="SpotImBalanced",
-    CurveImBalanced="CurveImBalanced",
-    BidAskImBalanced="BidAskImBalanced",
-    SpotBalanced="SpotBalanced",
-    CurveBalanced="CurveBalanced",
-    BidAskBalanced="BidAskBalanced"
+    SpotOneSide=0,
+    CurveOneSide=1,
+    BidAskOneSide=2,
+    SpotImBalanced=3,
+    CurveImBalanced=4,
+    BidAskImBalanced=5,
+    SpotBalanced=6,
+    CurveBalanced=7,
+    BidAskBalanced=8
 
     def __str__(self) -> str:
-        return self.name
+        return f"{self.value[0]}"
     
     def __repr__(self) -> str:
         return self.name
