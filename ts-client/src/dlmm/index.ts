@@ -25,6 +25,7 @@ import {
   BIN_ARRAY_FEE,
   POSITION_FEE,
   MAX_BIN_PER_TX,
+  MEMO_PROGRAM_ID,
 } from "./constants";
 import {
   BinLiquidity,
@@ -73,6 +74,8 @@ import {
   PairStatus,
   PairType,
   RewardMintInfo,
+  RemainingAccountsInfo,
+  AccountsType,
 } from "./types";
 import { AnchorProvider, BN, Program } from "@coral-xyz/anchor";
 import {
@@ -108,6 +111,7 @@ import {
   getPriceOfBinByBinId,
   computeFee,
   deriveTokenBadge,
+  getBinArrayAccounstMetaByBinRange,
 } from "./helpers";
 import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import Decimal from "decimal.js";
@@ -118,6 +122,7 @@ import {
   RawMint,
   TOKEN_PROGRAM_ID,
   getAssociatedTokenAddressSync,
+  unpackMint,
 } from "@solana/spl-token";
 import {
   Rounding,
@@ -133,6 +138,7 @@ import {
   shlDiv,
 } from "./helpers/math";
 import { DlmmSdkError } from "./error";
+import { getExtraAccountMetasForTransferHook } from "./helpers/token2022";
 
 type Opt = {
   cluster?: Cluster | "localhost";
@@ -316,10 +322,34 @@ export class DLMM {
 
     const reserveXBalance = AccountLayout.decode(reserveAccountsInfo[0].data);
     const reserveYBalance = AccountLayout.decode(reserveAccountsInfo[1].data);
+
     const mintXAccountInfo = reserveAccountsInfo[2];
     const mintYAccountInfo = reserveAccountsInfo[3];
-    const tokenXDecimal = MintLayout.decode(mintXAccountInfo.data).decimals;
-    const tokenYDecimal = MintLayout.decode(mintYAccountInfo.data).decimals;
+
+    const [mintXHookAccountsMeta, mintYHookAccountsMeta] = await Promise.all([
+      getExtraAccountMetasForTransferHook(
+        connection,
+        lbPairAccInfo.tokenXMint,
+        mintXAccountInfo
+      ),
+      getExtraAccountMetasForTransferHook(
+        connection,
+        lbPairAccInfo.tokenYMint,
+        mintYAccountInfo
+      ),
+    ]);
+
+    const mintXState = unpackMint(
+      lbPairAccInfo.tokenXMint,
+      mintXAccountInfo,
+      mintXAccountInfo.owner
+    );
+
+    const mintYState = unpackMint(
+      lbPairAccInfo.tokenXMint,
+      mintYAccountInfo,
+      mintYAccountInfo.owner
+    );
 
     let rewardInfos: RewardMintInfo[] = [];
 
@@ -330,29 +360,40 @@ export class DLMM {
         rewardInfos.push({
           publicKey: PublicKey.default,
           owner: SystemProgram.programId,
+          extraAccountsMetaForTransferHook: [],
         });
       } else {
+        const mintAccountInfo = rewardMintAccountsInfo.shift();
+        const rewardMintHookAccountsMeta =
+          await getExtraAccountMetasForTransferHook(
+            connection,
+            reward.mint,
+            mintAccountInfo
+          );
         rewardInfos.push({
           publicKey: reward.mint,
-          owner: rewardMintAccountsInfo.shift().owner,
+          owner: mintAccountInfo.owner,
+          extraAccountsMetaForTransferHook: rewardMintHookAccountsMeta,
         });
       }
     }
 
-    const tokenX = {
+    const tokenX: TokenReserve = {
       publicKey: lbPairAccInfo.tokenXMint,
       reserve: lbPairAccInfo.reserveX,
       amount: reserveXBalance.amount,
-      decimal: tokenXDecimal,
+      decimal: mintXState.decimals,
       owner: mintXAccountInfo.owner,
+      extraAccountsMetaForTransferHook: mintXHookAccountsMeta,
     };
 
-    const tokenY = {
+    const tokenY: TokenReserve = {
       publicKey: lbPairAccInfo.tokenYMint,
       reserve: lbPairAccInfo.reserveY,
       amount: reserveYBalance.amount,
-      decimal: tokenYDecimal,
+      decimal: mintYState.decimals,
       owner: mintYAccountInfo.owner,
+      extraAccountsMetaForTransferHook: mintYHookAccountsMeta,
     };
 
     return new DLMM(
@@ -482,6 +523,55 @@ export class DLMM {
       new Map<PublicKey, AccountInfo<Buffer>>()
     );
 
+    const rewardMintHookAccountsMetaMap = (
+      await Promise.all(
+        Array.from(rewardMintAccountInfoMap.keys()).map(async (key) => {
+          const mintAccountInfo = rewardMintAccountInfoMap.get(key);
+          const extraAccountMetas = await getExtraAccountMetasForTransferHook(
+            connection,
+            key,
+            mintAccountInfo
+          );
+          return {
+            key,
+            extraAccountMetas,
+          };
+        })
+      )
+    ).reduce((map, { key, extraAccountMetas }) => {
+      map.set(key, extraAccountMetas);
+      return map;
+    }, new Map<PublicKey, AccountMeta[]>());
+
+    const mintAccountsInfoSlice = reserveAndTokenMintAccountsInfo.slice(
+      reservePublicKeys.length
+    );
+
+    const mintAccountsInfoMap = tokenMintPublicKeys.reduce((map, key, idx) => {
+      map.set(key, mintAccountsInfoSlice[idx]);
+      return map;
+    }, new Map<PublicKey, AccountInfo<Buffer>>());
+
+    const mintHookAccountsMetaMap = (
+      await Promise.all(
+        Array.from(mintAccountsInfoMap.keys()).map(async (key) => {
+          const mintAccountInfo = mintAccountsInfoMap.get(key);
+          const extraAccountMetas = await getExtraAccountMetasForTransferHook(
+            connection,
+            key,
+            mintAccountInfo
+          );
+          return {
+            key,
+            extraAccountMetas,
+          };
+        })
+      )
+    ).reduce((map, { key, extraAccountMetas }) => {
+      map.set(key, extraAccountMetas);
+      return map;
+    }, new Map<PublicKey, AccountMeta[]>());
+
     const lbClmmImpl = await Promise.all(
       dlmmList.map(async (lbPair, index) => {
         const lbPairState = lbPairArraysMap.get(lbPair.toBase58());
@@ -520,27 +610,41 @@ export class DLMM {
         const reserveXBalance = AccountLayout.decode(reserveXAccountInfo.data);
         const reserveYBalance = AccountLayout.decode(reserveYAccountInfo.data);
 
-        const tokenXDecimal = MintLayout.decode(
-          tokenXMintAccountInfo.data
-        ).decimals;
-        const tokenYDecimal = MintLayout.decode(
-          tokenYMintAccountInfo.data
-        ).decimals;
+        const mintXHookAccountsMeta = mintHookAccountsMetaMap.get(
+          lbPairState.tokenXMint
+        );
+        const mintYHookAccountsMeta = mintHookAccountsMetaMap.get(
+          lbPairState.tokenYMint
+        );
 
-        const tokenX = {
+        const mintXState = unpackMint(
+          lbPairState.tokenXMint,
+          tokenXMintAccountInfo,
+          tokenXMintAccountInfo.owner
+        );
+
+        const mintYState = unpackMint(
+          lbPairState.tokenYMint,
+          tokenYMintAccountInfo,
+          tokenYMintAccountInfo.owner
+        );
+
+        const tokenX: TokenReserve = {
           publicKey: lbPairState.tokenXMint,
           reserve: lbPairState.reserveX,
           amount: reserveXBalance.amount,
-          decimal: tokenXDecimal,
+          decimal: mintXState.decimals,
           owner: tokenXMintAccountInfo.owner,
+          extraAccountsMetaForTransferHook: mintXHookAccountsMeta,
         };
 
-        const tokenY = {
+        const tokenY: TokenReserve = {
           publicKey: lbPairState.tokenYMint,
           reserve: lbPairState.reserveY,
           amount: reserveYBalance.amount,
-          decimal: tokenYDecimal,
+          decimal: mintYState.decimals,
           owner: tokenYMintAccountInfo.owner,
+          extraAccountsMetaForTransferHook: mintYHookAccountsMeta,
         };
 
         let rewardInfos: RewardMintInfo[] = [];
@@ -550,11 +654,16 @@ export class DLMM {
             rewardInfos.push({
               publicKey: PublicKey.default,
               owner: SystemProgram.programId,
+              extraAccountsMetaForTransferHook: [],
             });
           } else {
+            const mintAccountInfo = rewardMintAccountInfoMap.get(reward.mint);
+            const rewardMintHookAccountsMeta =
+              rewardMintHookAccountsMetaMap.get(reward.mint);
             rewardInfos.push({
               publicKey: reward.mint,
-              owner: rewardMintAccountInfoMap.get(reward.mint).owner,
+              owner: mintAccountInfo.owner,
+              extraAccountsMetaForTransferHook: rewardMintHookAccountsMeta,
             });
           }
         }
@@ -804,9 +913,11 @@ export class DLMM {
       ])
       .flat();
 
+    const reserveAndMintKeys = [...reservePublicKeys, ...reservePublicKeysV2];
+
     const reserveAccountsInfo = await chunkedGetMultipleAccountInfos(
       program.provider.connection,
-      [...reservePublicKeys, ...reservePublicKeysV2]
+      reserveAndMintKeys
     );
 
     type LbPairMintInfo = { mint: RawMint; owner: PublicKey };
@@ -819,6 +930,7 @@ export class DLMM {
       string,
       { mintX: LbPairMintInfo; mintY: LbPairMintInfo }
     >();
+    const mintAccountInfoMap = new Map<PublicKey, AccountInfo<Buffer>>();
     lbPairArray.forEach((lbPair, idx) => {
       const index = idx * 4;
       const reserveAccBufferX = reserveAccountsInfo[index];
@@ -837,6 +949,13 @@ export class DLMM {
 
       const mintXBuffer = reserveAccountsInfo[index + 2];
       const mintYBuffer = reserveAccountsInfo[index + 3];
+
+      const mintXKey = reserveAndMintKeys[index + 2];
+      const mintYKey = reserveAndMintKeys[index + 3];
+
+      mintAccountInfoMap.set(mintXKey, mintXBuffer);
+      mintAccountInfoMap.set(mintYKey, mintYBuffer);
+
       if (!mintXBuffer || !mintYBuffer)
         throw new Error(
           `Mint account for LB Pair ${lbPair.toBase58()} not found`
@@ -880,6 +999,13 @@ export class DLMM {
         reserveAccountsInfo[reservePublicKeys.length + index + 2];
       const mintYBufferV2 =
         reserveAccountsInfo[reservePublicKeys.length + index + 3];
+
+      const mintXKey = reserveAndMintKeys[reservePublicKeys.length + index + 2];
+      const mintYKey = reserveAndMintKeys[reservePublicKeys.length + index + 3];
+
+      mintAccountInfoMap.set(mintXKey, mintXBufferV2);
+      mintAccountInfoMap.set(mintYKey, mintYBufferV2);
+
       if (!mintXBufferV2 || !mintYBufferV2)
         throw new Error(
           `Mint account for LB Pair ${lbPair.toBase58()} not found`
@@ -898,6 +1024,26 @@ export class DLMM {
         },
       });
     });
+
+    const mintHookAccountsMetaMap = (
+      await Promise.all(
+        Array.from(mintAccountInfoMap.keys()).map(async (key) => {
+          const mintAccountInfo = mintAccountInfoMap.get(key);
+          const extraAccountMetas = await getExtraAccountMetasForTransferHook(
+            connection,
+            key,
+            mintAccountInfo
+          );
+          return {
+            key,
+            extraAccountMetas,
+          };
+        })
+      )
+    ).reduce((map, { key, extraAccountMetas }) => {
+      map.set(key, extraAccountMetas);
+      return map;
+    }, new Map<PublicKey, AccountMeta[]>());
 
     const onChainTimestamp = new BN(
       clockAccInfo.data.readBigInt64LE(32).toString()
@@ -945,19 +1091,29 @@ export class DLMM {
         lbPairReserveMap.get(lbPair.toBase58())?.reserveX ?? BigInt(0);
       const reserveYBalance =
         lbPairReserveMap.get(lbPair.toBase58())?.reserveY ?? BigInt(0);
-      const tokenX = {
+
+      const mintXHookAccountsMeta = mintHookAccountsMetaMap.get(
+        lbPairAcc.tokenXMint
+      );
+      const mintYHookAccountsMeta = mintHookAccountsMetaMap.get(
+        lbPairAcc.tokenYMint
+      );
+
+      const tokenX: TokenReserve = {
         publicKey: lbPairAcc.tokenXMint,
         reserve: lbPairAcc.reserveX,
         amount: reserveXBalance,
         decimal: mintX.mint.decimals,
         owner: mintX.owner,
+        extraAccountsMetaForTransferHook: mintXHookAccountsMeta ?? [],
       };
-      const tokenY = {
+      const tokenY: TokenReserve = {
         publicKey: lbPairAcc.tokenYMint,
         reserve: lbPairAcc.reserveY,
         amount: reserveYBalance,
         decimal: mintY.mint.decimals,
         owner: mintY.owner,
+        extraAccountsMetaForTransferHook: mintYHookAccountsMeta ?? [],
       };
       const positionData = await DLMM.processPosition(
         program,
@@ -1025,19 +1181,30 @@ export class DLMM {
         lbPairReserveMapV2.get(lbPair.toBase58())?.reserveX ?? BigInt(0);
       const reserveYBalance =
         lbPairReserveMapV2.get(lbPair.toBase58())?.reserveY ?? BigInt(0);
-      const tokenX = {
+
+      const mintXHookAccountsMeta = mintHookAccountsMetaMap.get(
+        lbPairAcc.tokenXMint
+      );
+
+      const mintYHookAccountsMeta = mintHookAccountsMetaMap.get(
+        lbPairAcc.tokenYMint
+      );
+
+      const tokenX: TokenReserve = {
         publicKey: lbPairAcc.tokenXMint,
         reserve: lbPairAcc.reserveX,
         amount: reserveXBalance,
         decimal: baseMint.decimals,
         owner: baseMintAccountInfo.owner,
+        extraAccountsMetaForTransferHook: mintXHookAccountsMeta ?? [],
       };
-      const tokenY = {
+      const tokenY: TokenReserve = {
         publicKey: lbPairAcc.tokenYMint,
         reserve: lbPairAcc.reserveY,
         amount: reserveYBalance,
         decimal: quoteMint.decimals,
         owner: quoteMintAccountInfo.owner,
+        extraAccountsMetaForTransferHook: mintYHookAccountsMeta ?? [],
       };
       const positionData = await DLMM.processPosition(
         program,
@@ -1352,11 +1519,17 @@ export class DLMM {
       binArrayBitmapExtensionAccountInfo,
       reserveXAccountInfo,
       reserveYAccountInfo,
+      mintXAccountInfo,
+      mintYAccountInfo,
+      clockAccountInfo,
     ] = await chunkedGetMultipleAccountInfos(this.program.provider.connection, [
       this.pubkey,
       binArrayBitmapExtensionPubkey,
       this.lbPair.reserveX,
       this.lbPair.reserveY,
+      this.lbPair.tokenXMint,
+      this.lbPair.tokenYMint,
+      SYSVAR_CLOCK_PUBKEY,
     ]);
 
     const lbPairState = this.program.coder.accounts.decode(
@@ -1379,32 +1552,53 @@ export class DLMM {
 
     const reserveXBalance = AccountLayout.decode(reserveXAccountInfo.data);
     const reserveYBalance = AccountLayout.decode(reserveYAccountInfo.data);
-    const [tokenXDecimal, tokenYDecimal] = await Promise.all([
-      getTokenDecimals(
-        this.program.provider.connection,
-        lbPairState.tokenXMint
+
+    const mintXState = unpackMint(
+      this.lbPair.tokenXMint,
+      mintXAccountInfo,
+      mintXAccountInfo.owner
+    );
+
+    const mintYState = unpackMint(
+      this.lbPair.tokenYMint,
+      mintYAccountInfo,
+      mintYAccountInfo.owner
+    );
+
+    const connection = this.program.provider.connection;
+    const [mintXHookAccountsMeta, mintYHookAccountsMeta] = await Promise.all([
+      getExtraAccountMetasForTransferHook(
+        connection,
+        this.lbPair.tokenXMint,
+        mintXAccountInfo
       ),
-      getTokenDecimals(
-        this.program.provider.connection,
-        lbPairState.tokenYMint
+      getExtraAccountMetasForTransferHook(
+        connection,
+        this.lbPair.tokenYMint,
+        mintYAccountInfo
       ),
     ]);
 
+    const clock = ClockLayout.decode(clockAccountInfo.data) as Clock;
+
     this.tokenX = {
       amount: reserveXBalance.amount,
-      decimal: tokenXDecimal,
+      decimal: mintXState.decimals,
       publicKey: lbPairState.tokenXMint,
       reserve: lbPairState.reserveX,
       owner: this.tokenX.owner,
+      extraAccountsMetaForTransferHook: mintXHookAccountsMeta,
     };
     this.tokenY = {
       amount: reserveYBalance.amount,
-      decimal: tokenYDecimal,
+      decimal: mintYState.decimals,
       publicKey: lbPairState.tokenYMint,
       reserve: lbPairState.reserveY,
       owner: this.tokenY.owner,
+      extraAccountsMetaForTransferHook: mintYHookAccountsMeta,
     };
 
+    this.clock = clock;
     this.lbPair = lbPairState;
   }
 
@@ -2090,26 +2284,20 @@ export class DLMM {
       .instruction();
     preInstructions.push(initializePositionIx);
 
-    const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(minBinId));
-    const [binArrayLower] = deriveBinArray(
-      this.pubkey,
-      lowerBinArrayIndex,
-      this.program.programId
-    );
+    const minBinArrayIndex = binIdToBinArrayIndex(new BN(minBinId));
+    const maxBinArrayIndex = binIdToBinArrayIndex(new BN(maxBinId));
 
-    const upperBinArrayIndex = BN.max(
-      lowerBinArrayIndex.add(new BN(1)),
-      binIdToBinArrayIndex(new BN(maxBinId))
-    );
-    const [binArrayUpper] = deriveBinArray(
-      this.pubkey,
-      upperBinArrayIndex,
-      this.program.programId
-    );
+    const useExtension =
+      isOverflowDefaultBinArrayBitmap(minBinArrayIndex) ||
+      isOverflowDefaultBinArrayBitmap(maxBinArrayIndex);
+
+    const binArrayBitmapExtension = useExtension
+      ? deriveBinArrayBitmapExtension(this.pubkey, this.program.programId)[0]
+      : null;
 
     const createBinArrayIxs = await this.createBinArraysIfNeeded(
-      upperBinArrayIndex,
-      lowerBinArrayIndex,
+      maxBinArrayIndex,
+      minBinArrayIndex,
       user
     );
     preInstructions.push(...createBinArrayIxs);
@@ -2162,17 +2350,6 @@ export class DLMM {
       const closeWrappedSOLIx = await unwrapSOLInstruction(user);
       closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
     }
-
-    const minBinArrayIndex = binIdToBinArrayIndex(new BN(minBinId));
-    const maxBinArrayIndex = binIdToBinArrayIndex(new BN(maxBinId));
-
-    const useExtension =
-      isOverflowDefaultBinArrayBitmap(minBinArrayIndex) ||
-      isOverflowDefaultBinArrayBitmap(maxBinArrayIndex);
-
-    const binArrayBitmapExtension = useExtension
-      ? deriveBinArrayBitmapExtension(this.pubkey, this.program.programId)[0]
-      : null;
 
     const activeId = this.lbPair.activeId;
 
@@ -2187,6 +2364,26 @@ export class DLMM {
       strategyParameters,
     };
 
+    const binArrayAccountsMeta = getBinArrayAccounstMetaByBinRange(
+      this.pubkey,
+      new BN(minBinId),
+      new BN(maxBinId),
+      this.program.programId
+    );
+
+    const remainingAccountsInfo: RemainingAccountsInfo = {
+      slices: [
+        {
+          accountsType: AccountsType.TransferHookX,
+          length: this.tokenX.extraAccountsMetaForTransferHook.length,
+        },
+        {
+          accountsType: AccountsType.TransferHookY,
+          length: this.tokenY.extraAccountsMetaForTransferHook.length,
+        },
+      ],
+    };
+
     const addLiquidityAccounts = {
       position: positionPubKey,
       lbPair: this.pubkey,
@@ -2196,19 +2393,25 @@ export class DLMM {
       reserveY: this.lbPair.reserveY,
       tokenXMint: this.lbPair.tokenXMint,
       tokenYMint: this.lbPair.tokenYMint,
-      binArrayLower,
-      binArrayUpper,
       binArrayBitmapExtension,
       sender: user,
       tokenXProgram: this.tokenX.owner,
       tokenYProgram: this.tokenY.owner,
+      memoProgram: MEMO_PROGRAM_ID,
     };
 
-    const programMethod =
-      this.program.methods.addLiquidityByStrategy(liquidityParams);
+    const programMethod = this.program.methods.addLiquidityByStrategy2(
+      liquidityParams,
+      remainingAccountsInfo
+    );
 
     const createPositionTx = await programMethod
       .accounts(addLiquidityAccounts)
+      .remainingAccounts([
+        ...this.tokenX.extraAccountsMetaForTransferHook,
+        ...this.tokenY.extraAccountsMetaForTransferHook,
+        ...binArrayAccountsMeta,
+      ])
       .preInstructions(preInstructions)
       .postInstructions(postInstructions)
       .transaction();
@@ -2220,280 +2423,6 @@ export class DLMM {
       lastValidBlockHeight,
       feePayer: user,
     }).add(createPositionTx);
-  }
-
-  /**
-   * The function `initializePositionAndAddLiquidityByWeight` function is used to initializes a position and adds liquidity
-   * @param {TInitializePositionAndAddLiquidityParams}
-   *    - `positionPubKey`: The public key of the position account. (usually use `new Keypair()`)
-   *    - `totalXAmount`: The total amount of token X to be added to the liquidity pool.
-   *    - `totalYAmount`: The total amount of token Y to be added to the liquidity pool.
-   *    - `xYAmountDistribution`: An array of objects of type `XYAmountDistribution` that represents (can use `calculateSpotDistribution`, `calculateBidAskDistribution` & `calculateNormalDistribution`)
-   *    - `user`: The public key of the user account.
-   *    - `slippage`: The slippage percentage to be used for the liquidity pool.
-   * @returns {Promise<Transaction|Transaction[]>} The function `initializePositionAndAddLiquidityByWeight` returns a `Promise` that
-   * resolves to either a single `Transaction` object (if less than 26bin involved) or an array of `Transaction` objects.
-   */
-  public async initializePositionAndAddLiquidityByWeight({
-    positionPubKey,
-    totalXAmount,
-    totalYAmount,
-    xYAmountDistribution,
-    user,
-    slippage,
-  }: TInitializePositionAndAddLiquidityParams): Promise<
-    Transaction | Transaction[]
-  > {
-    const { lowerBinId, upperBinId, binIds } =
-      this.processXYAmountDistribution(xYAmountDistribution);
-
-    const maxActiveBinSlippage = slippage
-      ? Math.ceil(slippage / (this.lbPair.binStep / 100))
-      : MAX_ACTIVE_BIN_SLIPPAGE;
-
-    if (upperBinId >= lowerBinId + MAX_BIN_PER_POSITION.toNumber()) {
-      throw new Error(
-        `Position must be within a range of 1 to ${MAX_BIN_PER_POSITION.toNumber()} bins.`
-      );
-    }
-
-    const preInstructions: Array<TransactionInstruction> = [];
-    const initializePositionIx = await this.program.methods
-      .initializePosition(lowerBinId, upperBinId - lowerBinId + 1)
-      .accounts({
-        payer: user,
-        position: positionPubKey,
-        lbPair: this.pubkey,
-        owner: user,
-      })
-      .instruction();
-    preInstructions.push(initializePositionIx);
-
-    const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(lowerBinId));
-    const [binArrayLower] = deriveBinArray(
-      this.pubkey,
-      lowerBinArrayIndex,
-      this.program.programId
-    );
-
-    const upperBinArrayIndex = BN.max(
-      lowerBinArrayIndex.add(new BN(1)),
-      binIdToBinArrayIndex(new BN(upperBinId))
-    );
-    const [binArrayUpper] = deriveBinArray(
-      this.pubkey,
-      upperBinArrayIndex,
-      this.program.programId
-    );
-
-    const createBinArrayIxs = await this.createBinArraysIfNeeded(
-      upperBinArrayIndex,
-      lowerBinArrayIndex,
-      user
-    );
-    preInstructions.push(...createBinArrayIxs);
-
-    const [
-      { ataPubKey: userTokenX, ix: createPayerTokenXIx },
-      { ataPubKey: userTokenY, ix: createPayerTokenYIx },
-    ] = await Promise.all([
-      getOrCreateATAInstruction(
-        this.program.provider.connection,
-        this.tokenX.publicKey,
-        user
-      ),
-      getOrCreateATAInstruction(
-        this.program.provider.connection,
-        this.tokenY.publicKey,
-        user
-      ),
-    ]);
-    createPayerTokenXIx && preInstructions.push(createPayerTokenXIx);
-    createPayerTokenYIx && preInstructions.push(createPayerTokenYIx);
-
-    if (this.tokenX.publicKey.equals(NATIVE_MINT) && !totalXAmount.isZero()) {
-      const wrapSOLIx = wrapSOLInstruction(
-        user,
-        userTokenX,
-        BigInt(totalXAmount.toString())
-      );
-
-      preInstructions.push(...wrapSOLIx);
-    }
-
-    if (this.tokenY.publicKey.equals(NATIVE_MINT) && !totalYAmount.isZero()) {
-      const wrapSOLIx = wrapSOLInstruction(
-        user,
-        userTokenY,
-        BigInt(totalYAmount.toString())
-      );
-
-      preInstructions.push(...wrapSOLIx);
-    }
-
-    const postInstructions: Array<TransactionInstruction> = [];
-    if (
-      [
-        this.tokenX.publicKey.toBase58(),
-        this.tokenY.publicKey.toBase58(),
-      ].includes(NATIVE_MINT.toBase58())
-    ) {
-      const closeWrappedSOLIx = await unwrapSOLInstruction(user);
-      closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
-    }
-
-    const setComputeUnitLimitIx = computeBudgetIx();
-
-    const minBinId = Math.min(...binIds);
-    const maxBinId = Math.max(...binIds);
-
-    const minBinArrayIndex = binIdToBinArrayIndex(new BN(minBinId));
-    const maxBinArrayIndex = binIdToBinArrayIndex(new BN(maxBinId));
-
-    const useExtension =
-      isOverflowDefaultBinArrayBitmap(minBinArrayIndex) ||
-      isOverflowDefaultBinArrayBitmap(maxBinArrayIndex);
-
-    const binArrayBitmapExtension = useExtension
-      ? deriveBinArrayBitmapExtension(this.pubkey, this.program.programId)[0]
-      : null;
-
-    const activeId = this.lbPair.activeId;
-
-    const binLiquidityDist: LiquidityParameterByWeight["binLiquidityDist"] =
-      toWeightDistribution(
-        totalXAmount,
-        totalYAmount,
-        xYAmountDistribution.map((item) => ({
-          binId: item.binId,
-          xAmountBpsOfTotal: item.xAmountBpsOfTotal,
-          yAmountBpsOfTotal: item.yAmountBpsOfTotal,
-        })),
-        this.lbPair.binStep
-      );
-
-    if (binLiquidityDist.length === 0) {
-      throw new Error("No liquidity to add");
-    }
-
-    const liquidityParams: LiquidityParameterByWeight = {
-      amountX: totalXAmount,
-      amountY: totalYAmount,
-      binLiquidityDist,
-      activeId,
-      maxActiveBinSlippage,
-    };
-
-    const addLiquidityAccounts = {
-      position: positionPubKey,
-      lbPair: this.pubkey,
-      userTokenX,
-      userTokenY,
-      reserveX: this.lbPair.reserveX,
-      reserveY: this.lbPair.reserveY,
-      tokenXMint: this.lbPair.tokenXMint,
-      tokenYMint: this.lbPair.tokenYMint,
-      binArrayLower,
-      binArrayUpper,
-      binArrayBitmapExtension,
-      sender: user,
-      tokenXProgram: this.tokenX.owner,
-      tokenYProgram: this.tokenY.owner,
-    };
-
-    const oneSideLiquidityParams: LiquidityOneSideParameter = {
-      amount: totalXAmount.isZero() ? totalYAmount : totalXAmount,
-      activeId,
-      maxActiveBinSlippage,
-      binLiquidityDist,
-    };
-
-    const [reserve, tokenMint, tokenProgram, userToken] = totalXAmount.isZero()
-      ? [
-          this.lbPair.reserveY,
-          this.lbPair.tokenYMint,
-          this.tokenY.owner,
-          userTokenY,
-        ]
-      : [
-          this.lbPair.reserveX,
-          this.lbPair.tokenXMint,
-          this.tokenX.owner,
-          userTokenX,
-        ];
-
-    const oneSideAddLiquidityAccounts = {
-      binArrayLower,
-      binArrayUpper,
-      lbPair: this.pubkey,
-      binArrayBitmapExtension: null,
-      sender: user,
-      position: positionPubKey,
-      reserve,
-      tokenMint,
-      tokenProgram,
-      userToken,
-    };
-
-    const isOneSideDeposit = totalXAmount.isZero() || totalYAmount.isZero();
-    const programMethod = isOneSideDeposit
-      ? this.program.methods.addLiquidityOneSide(oneSideLiquidityParams)
-      : this.program.methods.addLiquidityByWeight(liquidityParams);
-
-    if (xYAmountDistribution.length < MAX_BIN_LENGTH_ALLOWED_IN_ONE_TX) {
-      const addLiqTx = await programMethod
-        .accounts(
-          isOneSideDeposit ? oneSideAddLiquidityAccounts : addLiquidityAccounts
-        )
-        .preInstructions([setComputeUnitLimitIx, ...preInstructions])
-        .postInstructions(postInstructions)
-        .transaction();
-
-      const { blockhash, lastValidBlockHeight } =
-        await this.program.provider.connection.getLatestBlockhash("confirmed");
-      return new Transaction({
-        blockhash,
-        lastValidBlockHeight,
-        feePayer: user,
-      }).add(addLiqTx);
-    }
-
-    const addLiqTx = await programMethod
-      .accounts(
-        isOneSideDeposit ? oneSideAddLiquidityAccounts : addLiquidityAccounts
-      )
-      .preInstructions([setComputeUnitLimitIx])
-      .transaction();
-
-    const transactions: Transaction[] = [];
-    const { blockhash, lastValidBlockHeight } =
-      await this.program.provider.connection.getLatestBlockhash("confirmed");
-    if (preInstructions.length) {
-      const preInstructionsTx = new Transaction({
-        blockhash,
-        lastValidBlockHeight,
-        feePayer: user,
-      }).add(...preInstructions);
-      transactions.push(preInstructionsTx);
-    }
-
-    const mainTx = new Transaction({
-      blockhash,
-      lastValidBlockHeight,
-      feePayer: user,
-    }).add(addLiqTx);
-    transactions.push(mainTx);
-
-    if (postInstructions.length) {
-      const postInstructionsTx = new Transaction({
-        blockhash,
-        lastValidBlockHeight,
-        feePayer: user,
-      }).add(...postInstructions);
-      transactions.push(postInstructionsTx);
-    }
-
-    return transactions;
   }
 
   /**
@@ -2538,31 +2467,12 @@ export class DLMM {
       ? deriveBinArrayBitmapExtension(this.pubkey, this.program.programId)[0]
       : null;
 
-    const activeId = this.lbPair.activeId;
-
     const strategyParameters: LiquidityParameterByStrategy["strategyParameters"] =
       toStrategyParameters(strategy) as ProgramStrategyParameter;
 
-    const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(minBinId));
-    const [binArrayLower] = deriveBinArray(
-      this.pubkey,
-      lowerBinArrayIndex,
-      this.program.programId
-    );
-
-    const upperBinArrayIndex = BN.max(
-      lowerBinArrayIndex.add(new BN(1)),
-      binIdToBinArrayIndex(new BN(maxBinId))
-    );
-    const [binArrayUpper] = deriveBinArray(
-      this.pubkey,
-      upperBinArrayIndex,
-      this.program.programId
-    );
-
     const createBinArrayIxs = await this.createBinArraysIfNeeded(
-      upperBinArrayIndex,
-      lowerBinArrayIndex,
+      maxBinArrayIndex,
+      minBinArrayIndex,
       user
     );
     preInstructions.push(...createBinArrayIxs);
@@ -2633,19 +2543,45 @@ export class DLMM {
       reserveY: this.lbPair.reserveY,
       tokenXMint: this.lbPair.tokenXMint,
       tokenYMint: this.lbPair.tokenYMint,
-      binArrayLower,
-      binArrayUpper,
       binArrayBitmapExtension,
       sender: user,
       tokenXProgram: this.tokenX.owner,
       tokenYProgram: this.tokenY.owner,
+      memoProgram: MEMO_PROGRAM_ID,
     };
 
-    const programMethod =
-      this.program.methods.addLiquidityByStrategy(liquidityParams);
+    const binArrayAccountsMeta = getBinArrayAccounstMetaByBinRange(
+      this.pubkey,
+      new BN(minBinId),
+      new BN(maxBinId),
+      this.program.programId
+    );
+
+    const remainingAccountsInfo: RemainingAccountsInfo = {
+      slices: [
+        {
+          accountsType: AccountsType.TransferHookX,
+          length: this.tokenX.extraAccountsMetaForTransferHook.length,
+        },
+        {
+          accountsType: AccountsType.TransferHookY,
+          length: this.tokenY.extraAccountsMetaForTransferHook.length,
+        },
+      ],
+    };
+
+    const programMethod = this.program.methods.addLiquidityByStrategy2(
+      liquidityParams,
+      remainingAccountsInfo
+    );
 
     const createPositionTx = await programMethod
       .accounts(addLiquidityAccounts)
+      .remainingAccounts([
+        ...this.tokenX.extraAccountsMetaForTransferHook,
+        ...this.tokenY.extraAccountsMetaForTransferHook,
+        ...binArrayAccountsMeta,
+      ])
       .preInstructions(preInstructions)
       .postInstructions(postInstructions)
       .transaction();
@@ -2657,277 +2593,6 @@ export class DLMM {
       lastValidBlockHeight,
       feePayer: user,
     }).add(createPositionTx);
-  }
-
-  /**
-   * The `addLiquidityByWeight` function is used to add liquidity to existing position
-   * @param {TInitializePositionAndAddLiquidityParams}
-   *    - `positionPubKey`: The public key of the position account. (usually use `new Keypair()`)
-   *    - `totalXAmount`: The total amount of token X to be added to the liquidity pool.
-   *    - `totalYAmount`: The total amount of token Y to be added to the liquidity pool.
-   *    - `xYAmountDistribution`: An array of objects of type `XYAmountDistribution` that represents (can use `calculateSpotDistribution`, `calculateBidAskDistribution` & `calculateNormalDistribution`)
-   *    - `user`: The public key of the user account.
-   *    - `slippage`: The slippage percentage to be used for the liquidity pool.
-   * @returns {Promise<Transaction|Transaction[]>} The function `addLiquidityByWeight` returns a `Promise` that resolves to either a single
-   * `Transaction` object (if less than 26bin involved) or an array of `Transaction` objects.
-   */
-  public async addLiquidityByWeight({
-    positionPubKey,
-    totalXAmount,
-    totalYAmount,
-    xYAmountDistribution,
-    user,
-    slippage,
-  }: TInitializePositionAndAddLiquidityParams): Promise<
-    Transaction | Transaction[]
-  > {
-    const maxActiveBinSlippage = slippage
-      ? Math.ceil(slippage / (this.lbPair.binStep / 100))
-      : MAX_ACTIVE_BIN_SLIPPAGE;
-
-    const positionAccount = await this.program.account.positionV2.fetch(
-      positionPubKey
-    );
-    const { lowerBinId, upperBinId, binIds } =
-      this.processXYAmountDistribution(xYAmountDistribution);
-
-    if (lowerBinId < positionAccount.lowerBinId)
-      throw new Error(
-        `Lower Bin ID (${lowerBinId}) lower than Position Lower Bin Id (${positionAccount.lowerBinId})`
-      );
-    if (upperBinId > positionAccount.upperBinId)
-      throw new Error(
-        `Upper Bin ID (${upperBinId}) higher than Position Upper Bin Id (${positionAccount.upperBinId})`
-      );
-
-    const minBinId = Math.min(...binIds);
-    const maxBinId = Math.max(...binIds);
-
-    const minBinArrayIndex = binIdToBinArrayIndex(new BN(minBinId));
-    const maxBinArrayIndex = binIdToBinArrayIndex(new BN(maxBinId));
-
-    const useExtension =
-      isOverflowDefaultBinArrayBitmap(minBinArrayIndex) ||
-      isOverflowDefaultBinArrayBitmap(maxBinArrayIndex);
-
-    const binArrayBitmapExtension = useExtension
-      ? deriveBinArrayBitmapExtension(this.pubkey, this.program.programId)[0]
-      : null;
-
-    const activeId = this.lbPair.activeId;
-
-    const binLiquidityDist: LiquidityParameterByWeight["binLiquidityDist"] =
-      toWeightDistribution(
-        totalXAmount,
-        totalYAmount,
-        xYAmountDistribution.map((item) => ({
-          binId: item.binId,
-          xAmountBpsOfTotal: item.xAmountBpsOfTotal,
-          yAmountBpsOfTotal: item.yAmountBpsOfTotal,
-        })),
-        this.lbPair.binStep
-      );
-
-    if (binLiquidityDist.length === 0) {
-      throw new Error("No liquidity to add");
-    }
-
-    const lowerBinArrayIndex = binIdToBinArrayIndex(
-      new BN(positionAccount.lowerBinId)
-    );
-    const [binArrayLower] = deriveBinArray(
-      this.pubkey,
-      lowerBinArrayIndex,
-      this.program.programId
-    );
-
-    const upperBinArrayIndex = BN.max(
-      lowerBinArrayIndex.add(new BN(1)),
-      binIdToBinArrayIndex(new BN(positionAccount.upperBinId))
-    );
-    const [binArrayUpper] = deriveBinArray(
-      this.pubkey,
-      upperBinArrayIndex,
-      this.program.programId
-    );
-
-    const preInstructions: TransactionInstruction[] = [];
-    const createBinArrayIxs = await this.createBinArraysIfNeeded(
-      upperBinArrayIndex,
-      lowerBinArrayIndex,
-      user
-    );
-    preInstructions.push(...createBinArrayIxs);
-
-    const [
-      { ataPubKey: userTokenX, ix: createPayerTokenXIx },
-      { ataPubKey: userTokenY, ix: createPayerTokenYIx },
-    ] = await Promise.all([
-      getOrCreateATAInstruction(
-        this.program.provider.connection,
-        this.tokenX.publicKey,
-        user
-      ),
-      getOrCreateATAInstruction(
-        this.program.provider.connection,
-        this.tokenY.publicKey,
-        user
-      ),
-    ]);
-    createPayerTokenXIx && preInstructions.push(createPayerTokenXIx);
-    createPayerTokenYIx && preInstructions.push(createPayerTokenYIx);
-
-    if (this.tokenX.publicKey.equals(NATIVE_MINT) && !totalXAmount.isZero()) {
-      const wrapSOLIx = wrapSOLInstruction(
-        user,
-        userTokenX,
-        BigInt(totalXAmount.toString())
-      );
-
-      preInstructions.push(...wrapSOLIx);
-    }
-
-    if (this.tokenY.publicKey.equals(NATIVE_MINT) && !totalYAmount.isZero()) {
-      const wrapSOLIx = wrapSOLInstruction(
-        user,
-        userTokenY,
-        BigInt(totalYAmount.toString())
-      );
-
-      preInstructions.push(...wrapSOLIx);
-    }
-
-    const postInstructions: Array<TransactionInstruction> = [];
-    if (
-      [
-        this.tokenX.publicKey.toBase58(),
-        this.tokenY.publicKey.toBase58(),
-      ].includes(NATIVE_MINT.toBase58())
-    ) {
-      const closeWrappedSOLIx = await unwrapSOLInstruction(user);
-      closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
-    }
-
-    const setComputeUnitLimitIx = computeBudgetIx();
-
-    const liquidityParams: LiquidityParameterByWeight = {
-      amountX: totalXAmount,
-      amountY: totalYAmount,
-      binLiquidityDist,
-      activeId,
-      maxActiveBinSlippage,
-    };
-
-    const addLiquidityAccounts = {
-      position: positionPubKey,
-      lbPair: this.pubkey,
-      userTokenX,
-      userTokenY,
-      reserveX: this.lbPair.reserveX,
-      reserveY: this.lbPair.reserveY,
-      tokenXMint: this.lbPair.tokenXMint,
-      tokenYMint: this.lbPair.tokenYMint,
-      binArrayLower,
-      binArrayUpper,
-      binArrayBitmapExtension,
-      sender: user,
-      tokenXProgram: this.tokenX.owner,
-      tokenYProgram: this.tokenY.owner,
-    };
-
-    const oneSideLiquidityParams: LiquidityOneSideParameter = {
-      amount: totalXAmount.isZero() ? totalYAmount : totalXAmount,
-      activeId,
-      maxActiveBinSlippage,
-      binLiquidityDist,
-    };
-
-    const [reserve, tokenMint, tokenProgram, userToken] = totalXAmount.isZero()
-      ? [
-          this.lbPair.reserveY,
-          this.lbPair.tokenYMint,
-          this.tokenY.owner,
-          userTokenY,
-        ]
-      : [
-          this.lbPair.reserveX,
-          this.lbPair.tokenXMint,
-          this.tokenX.owner,
-          userTokenX,
-        ];
-
-    const oneSideAddLiquidityAccounts = {
-      binArrayLower,
-      binArrayUpper,
-      lbPair: this.pubkey,
-      binArrayBitmapExtension: null,
-      sender: user,
-      position: positionPubKey,
-      reserve,
-      tokenMint,
-      tokenProgram,
-      userToken,
-    };
-
-    const isOneSideDeposit = totalXAmount.isZero() || totalYAmount.isZero();
-    const programMethod = isOneSideDeposit
-      ? this.program.methods.addLiquidityOneSide(oneSideLiquidityParams)
-      : this.program.methods.addLiquidityByWeight(liquidityParams);
-
-    if (xYAmountDistribution.length < MAX_BIN_LENGTH_ALLOWED_IN_ONE_TX) {
-      const addLiqTx = await programMethod
-        .accounts(
-          isOneSideDeposit ? oneSideAddLiquidityAccounts : addLiquidityAccounts
-        )
-        .preInstructions([setComputeUnitLimitIx, ...preInstructions])
-        .postInstructions(postInstructions)
-        .transaction();
-
-      const { blockhash, lastValidBlockHeight } =
-        await this.program.provider.connection.getLatestBlockhash("confirmed");
-      return new Transaction({
-        blockhash,
-        lastValidBlockHeight,
-        feePayer: user,
-      }).add(addLiqTx);
-    }
-
-    const addLiqTx = await programMethod
-      .accounts(
-        isOneSideDeposit ? oneSideAddLiquidityAccounts : addLiquidityAccounts
-      )
-      .preInstructions([setComputeUnitLimitIx])
-      .transaction();
-
-    const transactions: Transaction[] = [];
-    const { blockhash, lastValidBlockHeight } =
-      await this.program.provider.connection.getLatestBlockhash("confirmed");
-    if (preInstructions.length) {
-      const preInstructionsTx = new Transaction({
-        blockhash,
-        lastValidBlockHeight,
-        feePayer: user,
-      }).add(...preInstructions);
-      transactions.push(preInstructionsTx);
-    }
-
-    const mainTx = new Transaction({
-      blockhash,
-      lastValidBlockHeight,
-      feePayer: user,
-    }).add(addLiqTx);
-    transactions.push(mainTx);
-
-    if (postInstructions.length) {
-      const postInstructionsTx = new Transaction({
-        blockhash,
-        lastValidBlockHeight,
-        feePayer: user,
-      }).add(...postInstructions);
-      transactions.push(postInstructionsTx);
-    }
-
-    return transactions;
   }
 
   /**
@@ -2959,18 +2624,9 @@ export class DLMM {
 
     const { reserveX, reserveY, tokenXMint, tokenYMint } =
       await this.program.account.lbPair.fetch(lbPair);
-    const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(lowerBinId));
-    const upperBinArrayIndex = lowerBinArrayIndex.add(new BN(1));
-    const [binArrayLower] = deriveBinArray(
-      lbPair,
-      lowerBinArrayIndex,
-      this.program.programId
-    );
-    const [binArrayUpper] = deriveBinArray(
-      lbPair,
-      upperBinArrayIndex,
-      this.program.programId
-    );
+
+    const minBinId = Math.min(...binIds);
+    const maxBinId = Math.max(...binIds);
 
     const preInstructions: Array<TransactionInstruction> = [];
     const setComputeUnitLimitIx = computeBudgetIx();
@@ -3023,12 +2679,30 @@ export class DLMM {
     const secondTransactionsIx: TransactionInstruction[] = [];
     const postInstructions: Array<TransactionInstruction> = [];
 
+    let mintXYRemainingAccountsInfo: RemainingAccountsInfo = {
+      slices: [
+        {
+          accountsType: AccountsType.TransferHookX,
+          length: this.tokenX.extraAccountsMetaForTransferHook.length,
+        },
+        {
+          accountsType: AccountsType.TransferHookY,
+          length: this.tokenY.extraAccountsMetaForTransferHook.length,
+        },
+      ],
+    };
+
+    const binArrayAccountsMeta = getBinArrayAccounstMetaByBinRange(
+      this.pubkey,
+      new BN(minBinId),
+      new BN(maxBinId),
+      this.program.programId
+    );
+
     if (shouldClaimAndClose) {
       const claimSwapFeeIx = await this.program.methods
-        .claimFee2()
+        .claimFee2(minBinId, maxBinId, mintXYRemainingAccountsInfo)
         .accounts({
-          binArrayLower,
-          binArrayUpper,
           lbPair: this.pubkey,
           sender: user,
           position,
@@ -3040,13 +2714,29 @@ export class DLMM {
           tokenYMint: this.tokenY.publicKey,
           userTokenX: feeOwnerTokenX,
           userTokenY: feeOwnerTokenY,
+          memoProgram: MEMO_PROGRAM_ID,
         })
+        .remainingAccounts([
+          ...this.tokenX.extraAccountsMetaForTransferHook,
+          ...this.tokenY.extraAccountsMetaForTransferHook,
+          ...binArrayAccountsMeta,
+        ])
         .instruction();
       postInstructions.push(claimSwapFeeIx);
 
       for (let i = 0; i < 2; i++) {
         const rewardInfo = this.lbPair.rewardInfos[i];
         if (!rewardInfo || rewardInfo.mint.equals(PublicKey.default)) continue;
+
+        const rewardMintRemainingAccountsInfo: RemainingAccountsInfo = {
+          slices: [
+            {
+              accountsType: AccountsType.TransferHookReward,
+              length:
+                this.rewardMintInfo[i].extraAccountsMetaForTransferHook.length,
+            },
+          ],
+        };
 
         const { ataPubKey, ix: rewardAtaIx } = await getOrCreateATAInstruction(
           this.program.provider.connection,
@@ -3056,21 +2746,42 @@ export class DLMM {
         rewardAtaIx && preInstructions.push(rewardAtaIx);
 
         const claimRewardIx = await this.program.methods
-          .claimReward(new BN(i))
+          .claimReward2(
+            new BN(i),
+            minBinId,
+            maxBinId,
+            rewardMintRemainingAccountsInfo
+          )
           .accounts({
             lbPair: this.pubkey,
             sender: user,
             position,
-            binArrayLower,
-            binArrayUpper,
             rewardVault: rewardInfo.vault,
             rewardMint: rewardInfo.mint,
             tokenProgram: this.rewardMintInfo[i].owner,
             userTokenAccount: ataPubKey,
+            memoProgram: MEMO_PROGRAM_ID,
           })
+          .remainingAccounts([
+            ...this.rewardMintInfo[i].extraAccountsMetaForTransferHook,
+            ...binArrayAccountsMeta,
+          ])
           .instruction();
         secondTransactionsIx.push(claimRewardIx);
       }
+
+      const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(lowerBinId));
+      const upperBinArrayIndex = lowerBinArrayIndex.add(new BN(1));
+      const [binArrayLower] = deriveBinArray(
+        lbPair,
+        lowerBinArrayIndex,
+        this.program.programId
+      );
+      const [binArrayUpper] = deriveBinArray(
+        lbPair,
+        upperBinArrayIndex,
+        this.program.programId
+      );
 
       const closePositionIx = await this.program.methods
         .closePosition()
@@ -3100,9 +2811,6 @@ export class DLMM {
       closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
     }
 
-    const minBinId = Math.min(...binIds);
-    const maxBinId = Math.max(...binIds);
-
     const minBinArrayIndex = binIdToBinArrayIndex(new BN(minBinId));
     const maxBinArrayIndex = binIdToBinArrayIndex(new BN(maxBinId));
 
@@ -3115,7 +2823,12 @@ export class DLMM {
       : null;
 
     const removeLiquidityTx = await this.program.methods
-      .removeLiquidityByRange(minBinId, maxBinId, bps.toNumber())
+      .removeLiquidityByRange2(
+        minBinId,
+        maxBinId,
+        bps.toNumber(),
+        mintXYRemainingAccountsInfo
+      )
       .accounts({
         position,
         lbPair,
@@ -3125,13 +2838,17 @@ export class DLMM {
         reserveY,
         tokenXMint,
         tokenYMint,
-        binArrayLower,
-        binArrayUpper,
         binArrayBitmapExtension,
         tokenXProgram: this.tokenX.owner,
         tokenYProgram: this.tokenY.owner,
         sender: user,
+        memoProgram: MEMO_PROGRAM_ID,
       })
+      .remainingAccounts([
+        ...this.tokenX.extraAccountsMetaForTransferHook,
+        ...this.tokenY.extraAccountsMetaForTransferHook,
+        ...binArrayAccountsMeta,
+      ])
       .preInstructions(preInstructions)
       .postInstructions(postInstructions)
       .transaction();
@@ -3348,7 +3065,7 @@ export class DLMM {
   }
 
   /**
-   * The `swapQuote` function returns a quote for a swap
+   * The `swapQuote` function returns a quote for a swap. Do not support token 2022.
    * @param
    *    - `inAmount`: Amount of lamport to swap in
    *    - `swapForY`: Swap token X to Y when it is true, else reversed.
@@ -3655,8 +3372,18 @@ export class DLMM {
       closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
     }
 
-    let swapForY = true;
-    if (outToken.equals(tokenXMint)) swapForY = false;
+    const remainingAccountsInfo: RemainingAccountsInfo = {
+      slices: [
+        {
+          accountsType: AccountsType.TransferHookX,
+          length: this.tokenX.extraAccountsMetaForTransferHook.length,
+        },
+        {
+          accountsType: AccountsType.TransferHookY,
+          length: this.tokenY.extraAccountsMetaForTransferHook.length,
+        },
+      ],
+    };
 
     // TODO: needs some refinement in case binArray not yet initialized
     const binArrays: AccountMeta[] = binArraysPubkey.map((pubkey) => {
@@ -3668,10 +3395,11 @@ export class DLMM {
     });
 
     const swapTx = await this.program.methods
-      .swapWithPriceImpact(
+      .swapWithPriceImpact2(
         inAmount,
         this.lbPair.activeId,
-        priceImpact.toNumber()
+        priceImpact.toNumber(),
+        remainingAccountsInfo
       )
       .accounts({
         lbPair,
@@ -3689,8 +3417,13 @@ export class DLMM {
           : null,
         oracle,
         hostFeeIn: null,
+        memoProgram: MEMO_PROGRAM_ID,
       })
-      .remainingAccounts(binArrays)
+      .remainingAccounts([
+        ...this.tokenX.extraAccountsMetaForTransferHook,
+        ...this.tokenY.extraAccountsMetaForTransferHook,
+        ...binArrays,
+      ])
       .preInstructions(preInstructions)
       .postInstructions(postInstructions)
       .transaction();
@@ -3764,8 +3497,18 @@ export class DLMM {
       closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
     }
 
-    let swapForY = true;
-    if (outToken.equals(tokenXMint)) swapForY = false;
+    const remainingAccountsInfo: RemainingAccountsInfo = {
+      slices: [
+        {
+          accountsType: AccountsType.TransferHookX,
+          length: this.tokenX.extraAccountsMetaForTransferHook.length,
+        },
+        {
+          accountsType: AccountsType.TransferHookY,
+          length: this.tokenY.extraAccountsMetaForTransferHook.length,
+        },
+      ],
+    };
 
     // TODO: needs some refinement in case binArray not yet initialized
     const binArrays: AccountMeta[] = binArraysPubkey.map((pubkey) => {
@@ -3777,7 +3520,7 @@ export class DLMM {
     });
 
     const swapTx = await this.program.methods
-      .swap(inAmount, minOutAmount)
+      .swap2(inAmount, minOutAmount, remainingAccountsInfo)
       .accounts({
         lbPair,
         reserveX,
@@ -3794,8 +3537,13 @@ export class DLMM {
           : null,
         oracle,
         hostFeeIn: null,
+        memoProgram: MEMO_PROGRAM_ID,
       })
-      .remainingAccounts(binArrays)
+      .remainingAccounts([
+        ...this.tokenX.extraAccountsMetaForTransferHook,
+        ...this.tokenY.extraAccountsMetaForTransferHook,
+        ...binArrays,
+      ])
       .preInstructions(preInstructions)
       .postInstructions(postInstructions)
       .transaction();
@@ -5601,23 +5349,16 @@ export class DLMM {
     position: LbPosition;
     shouldIncludePreIx?: boolean;
   }) {
-    const lowerBinArrayIndex = binIdToBinArrayIndex(
-      new BN(position.positionData.lowerBinId)
-    );
-    const [binArrayLower] = deriveBinArray(
-      this.pubkey,
-      lowerBinArrayIndex,
-      this.program.programId
-    );
-
-    const upperBinArrayIndex = lowerBinArrayIndex.add(new BN(1));
-    const [binArrayUpper] = deriveBinArray(
-      this.pubkey,
-      upperBinArrayIndex,
-      this.program.programId
-    );
-
+    const { lowerBinId, upperBinId } = position.positionData;
     const claimTransactions: Transaction[] = [];
+
+    const binArrayAccountsMeta = getBinArrayAccounstMetaByBinRange(
+      this.pubkey,
+      new BN(lowerBinId),
+      new BN(upperBinId),
+      this.program.programId
+    );
+
     for (let i = 0; i < 2; i++) {
       const rewardInfo = this.lbPair.rewardInfos[i];
       if (!rewardInfo || rewardInfo.mint.equals(PublicKey.default)) continue;
@@ -5629,19 +5370,32 @@ export class DLMM {
         owner
       );
       ix && preInstructions.push(ix);
+
+      const remainingAccountsInfo: RemainingAccountsInfo = {
+        slices: [
+          {
+            accountsType: AccountsType.TransferHookReward,
+            length:
+              this.rewardMintInfo[i].extraAccountsMetaForTransferHook.length,
+          },
+        ],
+      };
+
       const claimTransaction = await this.program.methods
-        .claimReward(new BN(i))
+        .claimReward2(new BN(i), lowerBinId, upperBinId, remainingAccountsInfo)
         .accounts({
           lbPair: this.pubkey,
           sender: owner,
           position: position.publicKey,
-          binArrayLower,
-          binArrayUpper,
           rewardVault: rewardInfo.vault,
           rewardMint: rewardInfo.mint,
           tokenProgram: this.rewardMintInfo[i].owner,
           userTokenAccount: ataPubKey,
         })
+        .remainingAccounts([
+          ...this.rewardMintInfo[i].extraAccountsMetaForTransferHook,
+          ...binArrayAccountsMeta,
+        ])
         .preInstructions(shouldIncludePreIx ? preInstructions : [])
         .transaction();
       claimTransactions.push(claimTransaction);
@@ -5661,21 +5415,7 @@ export class DLMM {
     shouldIncludePretIx?: boolean;
     shouldIncludePostIx?: boolean;
   }) {
-    const { lowerBinId, feeOwner } = position.positionData;
-
-    const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(lowerBinId));
-    const [binArrayLower] = deriveBinArray(
-      this.pubkey,
-      lowerBinArrayIndex,
-      this.program.programId
-    );
-
-    const upperBinArrayIndex = lowerBinArrayIndex.add(new BN(1));
-    const [binArrayUpper] = deriveBinArray(
-      this.pubkey,
-      upperBinArrayIndex,
-      this.program.programId
-    );
+    const { lowerBinId, upperBinId, feeOwner } = position.positionData;
 
     const [reserveX] = deriveReserve(
       this.tokenX.publicKey,
@@ -5724,11 +5464,29 @@ export class DLMM {
       closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
     }
 
+    const binArrayAccountsMeta = getBinArrayAccounstMetaByBinRange(
+      this.pubkey,
+      new BN(lowerBinId),
+      new BN(upperBinId),
+      this.program.programId
+    );
+
+    const remainingAccountsInfo: RemainingAccountsInfo = {
+      slices: [
+        {
+          accountsType: AccountsType.TransferHookX,
+          length: this.tokenX.extraAccountsMetaForTransferHook.length,
+        },
+        {
+          accountsType: AccountsType.TransferHookY,
+          length: this.tokenY.extraAccountsMetaForTransferHook.length,
+        },
+      ],
+    };
+
     const claimFeeTx = await this.program.methods
-      .claimFee2()
+      .claimFee2(lowerBinId, upperBinId, remainingAccountsInfo)
       .accounts({
-        binArrayLower,
-        binArrayUpper,
         lbPair: this.pubkey,
         sender: owner,
         position: position.publicKey,
@@ -5740,7 +5498,13 @@ export class DLMM {
         tokenYMint: this.tokenY.publicKey,
         userTokenX,
         userTokenY,
+        memoProgram: MEMO_PROGRAM_ID,
       })
+      .remainingAccounts([
+        ...this.tokenX.extraAccountsMetaForTransferHook,
+        ...this.tokenY.extraAccountsMetaForTransferHook,
+        ...binArrayAccountsMeta,
+      ])
       .preInstructions(shouldIncludePretIx ? preInstructions : [])
       .postInstructions(shouldIncludePostIx ? postInstructions : [])
       .transaction();

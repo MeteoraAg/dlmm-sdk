@@ -1,7 +1,7 @@
 export type LbClmm = {
-  "version": "0.8.0",
-  "name": "lb_clmm",
-  "constants": [
+  version: "0.9.0";
+  name: "lb_clmm";
+  constants: [
     {
       name: "BASIS_POINT_MAX";
       type: "i32";
@@ -201,8 +201,8 @@ export type LbClmm = {
       ];
     },
     {
-      "name": "initializePermissionLbPair",
-      "accounts": [
+      name: "initializePermissionLbPair";
+      accounts: [
         {
           name: "base";
           isMut: false;
@@ -1437,6 +1437,11 @@ export type LbClmm = {
           name: "tokenYProgram";
           isMut: false;
           isSigner: false;
+        },
+        {
+          name: "memoProgram";
+          isMut: false;
+          isSigner: false;
         }
       ];
       args: [
@@ -1447,6 +1452,12 @@ export type LbClmm = {
         {
           name: "amountY";
           type: "u64";
+        },
+        {
+          name: "remainingAccountsInfo";
+          type: {
+            defined: "RemainingAccountsInfo";
+          };
         }
       ];
     },
@@ -1469,9 +1480,15 @@ export type LbClmm = {
           isSigner: false;
         },
         {
-          "name": "admin",
-          "isMut": true,
-          "isSigner": true
+          name: "tokenBadge";
+          isMut: false;
+          isSigner: false;
+          isOptional: true;
+        },
+        {
+          name: "admin";
+          isMut: true;
+          isSigner: true;
         },
         {
           name: "tokenProgram";
@@ -1575,6 +1592,12 @@ export type LbClmm = {
         {
           name: "carryForward";
           type: "bool";
+        },
+        {
+          name: "remainingAccountsInfo";
+          type: {
+            defined: "RemainingAccountsInfo";
+          };
         }
       ];
     },
@@ -1796,8 +1819,8 @@ export type LbClmm = {
       args: [];
     },
     {
-      "name": "closePosition",
-      "accounts": [
+      name: "closePosition";
+      accounts: [
         {
           name: "position";
           isMut: true;
@@ -2052,75 +2075,8 @@ export type LbClmm = {
       args: [];
     },
     {
-      "name": "removeLiquiditySingleSide",
-      "accounts": [
-        {
-          "name": "position",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "lbPair",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayBitmapExtension",
-          "isMut": true,
-          "isSigner": false,
-          "isOptional": true
-        },
-        {
-          "name": "userToken",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "reserve",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "tokenMint",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayLower",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayUpper",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "sender",
-          "isMut": false,
-          "isSigner": true
-        },
-        {
-          "name": "tokenProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "eventAuthority",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "program",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": []
-    },
-    {
-      "name": "togglePairStatus",
-      "accounts": [
+      name: "togglePairStatus";
+      accounts: [
         {
           name: "lbPair";
           isMut: true;
@@ -2292,6 +2248,11 @@ export type LbClmm = {
           isSigner: false;
         },
         {
+          name: "memoProgram";
+          isMut: false;
+          isSigner: false;
+        },
+        {
           name: "eventAuthority";
           isMut: false;
           isSigner: false;
@@ -2306,12 +2267,18 @@ export type LbClmm = {
         {
           name: "rewardIndex";
           type: "u64";
+        },
+        {
+          name: "remainingAccountsInfo";
+          type: {
+            defined: "RemainingAccountsInfo";
+          };
         }
       ];
     },
     {
-      "name": "setActivationPoint",
-      "accounts": [
+      name: "setActivationPoint";
+      accounts: [
         {
           name: "lbPair";
           isMut: true;
@@ -2325,14 +2292,14 @@ export type LbClmm = {
       ];
       args: [
         {
-          "name": "activationPoint",
-          "type": "u64"
+          name: "activationPoint";
+          type: "u64";
         }
       ];
     },
     {
-      "name": "setLockReleasePoint",
-      "accounts": [
+      name: "setLockReleasePoint";
+      accounts: [
         {
           name: "position";
           isMut: true;
@@ -2361,8 +2328,8 @@ export type LbClmm = {
       ];
       args: [
         {
-          "name": "newLockReleasePoint",
-          "type": "u64"
+          name: "newLockReleasePoint";
+          type: "u64";
         }
       ];
     },
@@ -2585,8 +2552,8 @@ export type LbClmm = {
       ];
     },
     {
-      "name": "setPreActivationDuration",
-      "accounts": [
+      name: "setPreActivationDuration";
+      accounts: [
         {
           name: "lbPair";
           isMut: true;
@@ -2600,8 +2567,8 @@ export type LbClmm = {
       ];
       args: [
         {
-          "name": "preActivationDuration",
-          "type": "u16"
+          name: "preActivationDuration";
+          type: "u64";
         }
       ];
     },
@@ -2624,7 +2591,902 @@ export type LbClmm = {
           name: "preActivationSwapAddress";
           type: "publicKey";
         }
-      ]
+      ];
+    },
+    {
+      name: "initializeTokenBadge";
+      accounts: [
+        {
+          name: "tokenMint";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "tokenBadge";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "admin";
+          isMut: true;
+          isSigner: true;
+        },
+        {
+          name: "systemProgram";
+          isMut: false;
+          isSigner: false;
+        }
+      ];
+      args: [];
+    },
+    {
+      name: "initializeLbPair2";
+      accounts: [
+        {
+          name: "lbPair";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "binArrayBitmapExtension";
+          isMut: true;
+          isSigner: false;
+          isOptional: true;
+        },
+        {
+          name: "tokenMintX";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "tokenMintY";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "reserveX";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "reserveY";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "oracle";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "presetParameter";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "funder";
+          isMut: true;
+          isSigner: true;
+        },
+        {
+          name: "tokenBadgeX";
+          isMut: false;
+          isSigner: false;
+          isOptional: true;
+        },
+        {
+          name: "tokenBadgeY";
+          isMut: false;
+          isSigner: false;
+          isOptional: true;
+        },
+        {
+          name: "tokenProgramX";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "tokenProgramY";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "systemProgram";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "rent";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "eventAuthority";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "program";
+          isMut: false;
+          isSigner: false;
+        }
+      ];
+      args: [
+        {
+          name: "activeId";
+          type: "i32";
+        },
+        {
+          name: "binStep";
+          type: "u16";
+        }
+      ];
+    },
+    {
+      name: "claimFee2";
+      accounts: [
+        {
+          name: "lbPair";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "position";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "sender";
+          isMut: false;
+          isSigner: true;
+        },
+        {
+          name: "reserveX";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "reserveY";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "userTokenX";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "userTokenY";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "tokenXMint";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "tokenYMint";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "tokenProgramX";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "tokenProgramY";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "memoProgram";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "eventAuthority";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "program";
+          isMut: false;
+          isSigner: false;
+        }
+      ];
+      args: [
+        {
+          name: "minBinId";
+          type: "i32";
+        },
+        {
+          name: "maxBinId";
+          type: "i32";
+        },
+        {
+          name: "remainingAccountsInfo";
+          type: {
+            defined: "RemainingAccountsInfo";
+          };
+        }
+      ];
+    },
+    {
+      name: "claimReward2";
+      accounts: [
+        {
+          name: "lbPair";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "position";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "sender";
+          isMut: false;
+          isSigner: true;
+        },
+        {
+          name: "rewardVault";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "rewardMint";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "userTokenAccount";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "tokenProgram";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "memoProgram";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "eventAuthority";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "program";
+          isMut: false;
+          isSigner: false;
+        }
+      ];
+      args: [
+        {
+          name: "rewardIndex";
+          type: "u64";
+        },
+        {
+          name: "minBinId";
+          type: "i32";
+        },
+        {
+          name: "maxBinId";
+          type: "i32";
+        },
+        {
+          name: "remainingAccountsInfo";
+          type: {
+            defined: "RemainingAccountsInfo";
+          };
+        }
+      ];
+    },
+    {
+      name: "addLiquidity2";
+      accounts: [
+        {
+          name: "position";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "lbPair";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "binArrayBitmapExtension";
+          isMut: true;
+          isSigner: false;
+          isOptional: true;
+        },
+        {
+          name: "userTokenX";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "userTokenY";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "reserveX";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "reserveY";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "tokenXMint";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "tokenYMint";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "sender";
+          isMut: false;
+          isSigner: true;
+        },
+        {
+          name: "tokenXProgram";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "tokenYProgram";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "memoProgram";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "eventAuthority";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "program";
+          isMut: false;
+          isSigner: false;
+        }
+      ];
+      args: [
+        {
+          name: "liquidityParameter";
+          type: {
+            defined: "LiquidityParameter";
+          };
+        },
+        {
+          name: "remainingAccountsInfo";
+          type: {
+            defined: "RemainingAccountsInfo";
+          };
+        }
+      ];
+    },
+    {
+      name: "addLiquidityByStrategy2";
+      accounts: [
+        {
+          name: "position";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "lbPair";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "binArrayBitmapExtension";
+          isMut: true;
+          isSigner: false;
+          isOptional: true;
+        },
+        {
+          name: "userTokenX";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "userTokenY";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "reserveX";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "reserveY";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "tokenXMint";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "tokenYMint";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "sender";
+          isMut: false;
+          isSigner: true;
+        },
+        {
+          name: "tokenXProgram";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "tokenYProgram";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "memoProgram";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "eventAuthority";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "program";
+          isMut: false;
+          isSigner: false;
+        }
+      ];
+      args: [
+        {
+          name: "liquidityParameter";
+          type: {
+            defined: "LiquidityParameterByStrategy";
+          };
+        },
+        {
+          name: "remainingAccountsInfo";
+          type: {
+            defined: "RemainingAccountsInfo";
+          };
+        }
+      ];
+    },
+    {
+      name: "removeLiquidity2";
+      accounts: [
+        {
+          name: "position";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "lbPair";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "binArrayBitmapExtension";
+          isMut: true;
+          isSigner: false;
+          isOptional: true;
+        },
+        {
+          name: "userTokenX";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "userTokenY";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "reserveX";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "reserveY";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "tokenXMint";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "tokenYMint";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "sender";
+          isMut: false;
+          isSigner: true;
+        },
+        {
+          name: "tokenXProgram";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "tokenYProgram";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "memoProgram";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "eventAuthority";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "program";
+          isMut: false;
+          isSigner: false;
+        }
+      ];
+      args: [
+        {
+          name: "binLiquidityRemoval";
+          type: {
+            vec: {
+              defined: "BinLiquidityReduction";
+            };
+          };
+        },
+        {
+          name: "remainingAccountsInfo";
+          type: {
+            defined: "RemainingAccountsInfo";
+          };
+        }
+      ];
+    },
+    {
+      name: "removeLiquidityByRange2";
+      accounts: [
+        {
+          name: "position";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "lbPair";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "binArrayBitmapExtension";
+          isMut: true;
+          isSigner: false;
+          isOptional: true;
+        },
+        {
+          name: "userTokenX";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "userTokenY";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "reserveX";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "reserveY";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "tokenXMint";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "tokenYMint";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "sender";
+          isMut: false;
+          isSigner: true;
+        },
+        {
+          name: "tokenXProgram";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "tokenYProgram";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "memoProgram";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "eventAuthority";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "program";
+          isMut: false;
+          isSigner: false;
+        }
+      ];
+      args: [
+        {
+          name: "fromBinId";
+          type: "i32";
+        },
+        {
+          name: "toBinId";
+          type: "i32";
+        },
+        {
+          name: "bpsToRemove";
+          type: "u16";
+        },
+        {
+          name: "remainingAccountsInfo";
+          type: {
+            defined: "RemainingAccountsInfo";
+          };
+        }
+      ];
+    },
+    {
+      name: "swap2";
+      accounts: [
+        {
+          name: "lbPair";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "binArrayBitmapExtension";
+          isMut: false;
+          isSigner: false;
+          isOptional: true;
+        },
+        {
+          name: "reserveX";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "reserveY";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "userTokenIn";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "userTokenOut";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "tokenXMint";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "tokenYMint";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "oracle";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "hostFeeIn";
+          isMut: true;
+          isSigner: false;
+          isOptional: true;
+        },
+        {
+          name: "user";
+          isMut: false;
+          isSigner: true;
+        },
+        {
+          name: "tokenXProgram";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "tokenYProgram";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "memoProgram";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "eventAuthority";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "program";
+          isMut: false;
+          isSigner: false;
+        }
+      ];
+      args: [
+        {
+          name: "amountIn";
+          type: "u64";
+        },
+        {
+          name: "minAmountOut";
+          type: "u64";
+        },
+        {
+          name: "remainingAccountsInfo";
+          type: {
+            defined: "RemainingAccountsInfo";
+          };
+        }
+      ];
+    },
+    {
+      name: "swapWithPriceImpact2";
+      accounts: [
+        {
+          name: "lbPair";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "binArrayBitmapExtension";
+          isMut: false;
+          isSigner: false;
+          isOptional: true;
+        },
+        {
+          name: "reserveX";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "reserveY";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "userTokenIn";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "userTokenOut";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "tokenXMint";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "tokenYMint";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "oracle";
+          isMut: true;
+          isSigner: false;
+        },
+        {
+          name: "hostFeeIn";
+          isMut: true;
+          isSigner: false;
+          isOptional: true;
+        },
+        {
+          name: "user";
+          isMut: false;
+          isSigner: true;
+        },
+        {
+          name: "tokenXProgram";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "tokenYProgram";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "memoProgram";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "eventAuthority";
+          isMut: false;
+          isSigner: false;
+        },
+        {
+          name: "program";
+          isMut: false;
+          isSigner: false;
+        }
+      ];
+      args: [
+        {
+          name: "amountIn";
+          type: "u64";
+        },
+        {
+          name: "activeId";
+          type: {
+            option: "i32";
+          };
+        },
+        {
+          name: "maxPriceImpactBps";
+          type: "u16";
+        },
+        {
+          name: "remainingAccountsInfo";
+          type: {
+            defined: "RemainingAccountsInfo";
+          };
+        }
+      ];
     }
   ];
   accounts: [
@@ -2763,37 +3625,26 @@ export type LbClmm = {
             type: "u8";
           },
           {
-            "name": "requireBaseFactorSeed",
-            "docs": [
-              "Require base factor seed"
-            ],
-            "type": "u8"
+            name: "requireBaseFactorSeed";
+            docs: ["Require base factor seed"];
+            type: "u8";
           },
           {
-            "name": "baseFactorSeed",
-            "docs": [
-              "Base factor seed"
-            ],
-            "type": {
-              "array": [
-                "u8",
-                2
-              ]
-            }
+            name: "baseFactorSeed";
+            docs: ["Base factor seed"];
+            type: {
+              array: ["u8", 2];
+            };
           },
           {
-            "name": "activationType",
-            "docs": [
-              "Activation type"
-            ],
-            "type": "u8"
+            name: "activationType";
+            docs: ["Activation type"];
+            type: "u8";
           },
           {
-            "name": "padding0",
-            "docs": [
-              "padding 0"
-            ],
-            "type": "u8"
+            name: "padding0";
+            docs: ["padding 0"];
+            type: "u8";
           },
           {
             name: "tokenXMint";
@@ -2823,16 +3674,13 @@ export type LbClmm = {
             };
           },
           {
-            "name": "padding1",
-            "docs": [
+            name: "padding1";
+            docs: [
               "_padding_1, previous Fee owner, BE CAREFUL FOR TOMBSTONE WHEN REUSE !!"
-            ],
-            "type": {
-              "array": [
-                "u8",
-                32
-              ]
-            }
+            ];
+            type: {
+              array: ["u8", 32];
+            };
           },
           {
             name: "rewardInfos";
@@ -2869,11 +3717,11 @@ export type LbClmm = {
             type: "publicKey";
           },
           {
-            "name": "preActivationSwapAddress",
-            "docs": [
+            name: "preActivationSwapAddress";
+            docs: [
               "Address allowed to swap when the current point is greater than or equal to the pre-activation point. The pre-activation point is calculated as `activation_point - pre_activation_duration`."
-            ],
-            "type": "publicKey"
+            ];
+            type: "publicKey";
           },
           {
             name: "baseKey";
@@ -2881,34 +3729,31 @@ export type LbClmm = {
             type: "publicKey";
           },
           {
-            "name": "activationPoint",
-            "docs": [
+            name: "activationPoint";
+            docs: [
               "Time point to enable the pair. Only applicable for permission pair."
-            ],
-            "type": "u64"
+            ];
+            type: "u64";
           },
           {
-            "name": "preActivationDuration",
-            "docs": [
+            name: "preActivationDuration";
+            docs: [
               "Duration before activation activation_point. Used to calculate pre-activation time point for pre_activation_swap_address"
-            ],
-            "type": "u64"
+            ];
+            type: "u64";
           },
           {
-            "name": "padding2",
-            "docs": [
+            name: "padding2";
+            docs: [
               "_padding 2 is reclaimed free space from swap_cap_deactivate_point and swap_cap_amount before, BE CAREFUL FOR TOMBSTONE WHEN REUSE !!"
-            ],
-            "type": {
-              "array": [
-                "u8",
-                8
-              ]
-            }
+            ];
+            type: {
+              array: ["u8", 8];
+            };
           },
           {
-            "name": "lockDuration",
-            "docs": [
+            name: "lockDuration";
+            docs: [
               "Liquidity lock duration for positions which created before activate. Only applicable for permission pair."
             ];
             type: "u64";
@@ -2919,10 +3764,20 @@ export type LbClmm = {
             type: "publicKey";
           },
           {
+            name: "tokenMintXProgramFlag";
+            docs: ["token_mint_x_program_flag"];
+            type: "u8";
+          },
+          {
+            name: "tokenMintYProgramFlag";
+            docs: ["token_mint_y_program_flag"];
+            type: "u8";
+          },
+          {
             name: "reserved";
             docs: ["Reserved space for future use"];
             type: {
-              array: ["u8", 24];
+              array: ["u8", 22];
             };
           }
         ];
@@ -2934,11 +3789,9 @@ export type LbClmm = {
         kind: "struct";
         fields: [
           {
-            "name": "idx",
-            "docs": [
-              "Index of latest observation"
-            ],
-            "type": "u64"
+            name: "idx";
+            docs: ["Index of latest observation"];
+            type: "u64";
           },
           {
             name: "activeSize";
@@ -3135,11 +3988,9 @@ export type LbClmm = {
             type: "publicKey";
           },
           {
-            "name": "lockReleasePoint",
-            "docs": [
-              "Time point which the locked liquidity can be withdraw"
-            ],
-            "type": "u64"
+            name: "lockReleasePoint";
+            docs: ["Time point which the locked liquidity can be withdraw"];
+            type: "u64";
           },
           {
             name: "subjectedToBootstrapLiquidityLocking";
@@ -3238,8 +4089,29 @@ export type LbClmm = {
             ];
             type: "u16";
           }
-        ]
-      }
+        ];
+      };
+    },
+    {
+      name: "tokenBadge";
+      docs: ["Parameter that set by the protocol"];
+      type: {
+        kind: "struct";
+        fields: [
+          {
+            name: "tokenMint";
+            docs: ["token mint"];
+            type: "publicKey";
+          },
+          {
+            name: "padding";
+            docs: ["Reserve"];
+            type: {
+              array: ["u8", 128];
+            };
+          }
+        ];
+      };
     }
   ];
   types: [
@@ -3543,12 +4415,12 @@ export type LbClmm = {
             type: "i32";
           },
           {
-            "name": "lockDuration",
-            "type": "u64"
+            name: "lockDuration";
+            type: "u64";
           },
           {
-            "name": "activationType",
-            "type": "u8"
+            name: "activationType";
+            type: "u8";
           }
         ];
       };
@@ -3630,10 +4502,10 @@ export type LbClmm = {
       };
     },
     {
-      "name": "FeeParameter",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "FeeParameter";
+      type: {
+        kind: "struct";
+        fields: [
           {
             name: "protocolShare";
             docs: [
@@ -3650,26 +4522,26 @@ export type LbClmm = {
       };
     },
     {
-      "name": "BinLiquidityReduction",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "BinLiquidityReduction";
+      type: {
+        kind: "struct";
+        fields: [
           {
-            "name": "binId",
-            "type": "i32"
+            name: "binId";
+            type: "i32";
           },
           {
-            "name": "bpsToRemove",
-            "type": "u16"
+            name: "bpsToRemove";
+            type: "u16";
           }
-        ]
-      }
+        ];
+      };
     },
     {
-      "name": "Bin",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "Bin";
+      type: {
+        kind: "struct";
+        fields: [
           {
             name: "amountX";
             docs: [
@@ -3992,6 +4864,40 @@ export type LbClmm = {
       };
     },
     {
+      name: "RemainingAccountsSlice";
+      type: {
+        kind: "struct";
+        fields: [
+          {
+            name: "accountsType";
+            type: {
+              defined: "AccountsType";
+            };
+          },
+          {
+            name: "length";
+            type: "u8";
+          }
+        ];
+      };
+    },
+    {
+      name: "RemainingAccountsInfo";
+      type: {
+        kind: "struct";
+        fields: [
+          {
+            name: "slices";
+            type: {
+              vec: {
+                defined: "RemainingAccountsSlice";
+              };
+            };
+          }
+        ];
+      };
+    },
+    {
       name: "StrategyType";
       type: {
         kind: "enum";
@@ -4056,25 +4962,23 @@ export type LbClmm = {
       };
     },
     {
-      "name": "ActivationType",
-      "docs": [
-        "Type of the activation"
-      ],
-      "type": {
-        "kind": "enum",
-        "variants": [
+      name: "ActivationType";
+      docs: ["Type of the activation"];
+      type: {
+        kind: "enum";
+        variants: [
           {
-            "name": "Slot"
+            name: "Slot";
           },
           {
-            "name": "Timestamp"
+            name: "Timestamp";
           }
-        ]
-      }
+        ];
+      };
     },
     {
-      "name": "PairType",
-      "docs": [
+      name: "PairType";
+      docs: [
         "Type of the Pair. 0 = Permissionless, 1 = Permission. Putting 0 as permissionless for backward compatibility."
       ];
       type: {
@@ -4102,6 +5006,37 @@ export type LbClmm = {
           },
           {
             name: "Disabled";
+          }
+        ];
+      };
+    },
+    {
+      name: "TokenProgramFlags";
+      type: {
+        kind: "enum";
+        variants: [
+          {
+            name: "TokenProgram";
+          },
+          {
+            name: "TokenProgram2022";
+          }
+        ];
+      };
+    },
+    {
+      name: "AccountsType";
+      type: {
+        kind: "enum";
+        variants: [
+          {
+            name: "TransferHookX";
+          },
+          {
+            name: "TransferHookY";
+          },
+          {
+            name: "TransferHookReward";
           }
         ];
       };
@@ -4568,27 +5503,27 @@ export type LbClmm = {
       ];
     },
     {
-      "name": "UpdatePositionLockReleasePoint",
-      "fields": [
+      name: "UpdatePositionLockReleasePoint";
+      fields: [
         {
           name: "position";
           type: "publicKey";
           index: false;
         },
         {
-          "name": "currentPoint",
-          "type": "u64",
-          "index": false
+          name: "currentPoint";
+          type: "u64";
+          index: false;
         },
         {
-          "name": "newLockReleasePoint",
-          "type": "u64",
-          "index": false
+          name: "newLockReleasePoint";
+          type: "u64";
+          index: false;
         },
         {
-          "name": "oldLockReleasePoint",
-          "type": "u64",
-          "index": false
+          name: "oldLockReleasePoint";
+          type: "u64";
+          index: false;
         },
         {
           name: "sender";
@@ -4880,47 +5815,102 @@ export type LbClmm = {
       msg: "Wrong rent receiver";
     },
     {
-      "code": 6052,
-      "name": "AlreadyPassActivationPoint",
-      "msg": "Already activated"
+      code: 6052;
+      name: "AlreadyPassActivationPoint";
+      msg: "Already activated";
     },
     {
-      "code": 6053,
-      "name": "ExceedMaxSwappedAmount",
-      "msg": "Swapped amount is exceeded max swapped amount"
+      code: 6053;
+      name: "ExceedMaxSwappedAmount";
+      msg: "Swapped amount is exceeded max swapped amount";
     },
     {
-      "code": 6054,
-      "name": "InvalidStrategyParameters",
-      "msg": "Invalid strategy parameters"
+      code: 6054;
+      name: "InvalidStrategyParameters";
+      msg: "Invalid strategy parameters";
     },
     {
-      "code": 6055,
-      "name": "LiquidityLocked",
-      "msg": "Liquidity locked"
+      code: 6055;
+      name: "LiquidityLocked";
+      msg: "Liquidity locked";
     },
     {
-      "code": 6056,
-      "name": "BinRangeIsNotEmpty",
-      "msg": "Bin range is not empty"
+      code: 6056;
+      name: "BinRangeIsNotEmpty";
+      msg: "Bin range is not empty";
     },
     {
-      "code": 6057,
-      "name": "NotExactAmountOut",
-      "msg": "Amount out is not matched with exact amount out"
+      code: 6057;
+      name: "NotExactAmountOut";
+      msg: "Amount out is not matched with exact amount out";
     },
     {
-      "code": 6058,
-      "name": "InvalidActivationType",
-      "msg": "Invalid activation type"
+      code: 6058;
+      name: "InvalidActivationType";
+      msg: "Invalid activation type";
+    },
+    {
+      code: 6059;
+      name: "NotSupportMint";
+      msg: "Not support token_2022 mint extension";
+    },
+    {
+      code: 6060;
+      name: "UnsupportedMintExtension";
+      msg: "Unsupported mint extension";
+    },
+    {
+      code: 6061;
+      name: "UnsupportNativeMintToken2022";
+      msg: "Unsupported native mint token2022";
+    },
+    {
+      code: 6062;
+      name: "UnmatchTokenMint";
+      msg: "Unmatch token mint";
+    },
+    {
+      code: 6063;
+      name: "UnsupportedTokenMint";
+      msg: "Unsupported token mint";
+    },
+    {
+      code: 6064;
+      name: "InsufficientRemainingAccounts";
+      msg: "Insufficient remaining accounts";
+    },
+    {
+      code: 6065;
+      name: "InvalidRemainingAccountSlice";
+      msg: "Invalid remaining account slice";
+    },
+    {
+      code: 6066;
+      name: "DuplicatedRemainingAccountTypes";
+      msg: "Duplicated remaining account types";
+    },
+    {
+      code: 6067;
+      name: "MissingRemainingAccountForTransferHook";
+      msg: "Missing remaining account for transfer hook";
+    },
+    {
+      code: 6068;
+      name: "NoTransferHookProgram";
+      msg: "Remaining account was passed for transfer hook but there's no hook program";
+    },
+    {
+      code: 6069;
+      name: "ZeroFundedAmount";
+      msg: "Zero funded amount";
     }
   ];
 };
 
 export const IDL: LbClmm = {
-  "version": "0.8.0",
-  "name": "lb_clmm",
-  "constants": [
+  version: "0.9.0",
+  name: "lb_clmm",
+  constants: [
     {
       name: "BASIS_POINT_MAX",
       type: "i32",
@@ -5121,8 +6111,8 @@ export const IDL: LbClmm = {
       ],
     },
     {
-      "name": "initializePermissionLbPair",
-      "accounts": [
+      name: "initializePermissionLbPair",
+      accounts: [
         {
           name: "base",
           isMut: false,
@@ -6358,6 +7348,11 @@ export const IDL: LbClmm = {
           isMut: false,
           isSigner: false,
         },
+        {
+          name: "memoProgram",
+          isMut: false,
+          isSigner: false,
+        },
       ],
       args: [
         {
@@ -6367,6 +7362,12 @@ export const IDL: LbClmm = {
         {
           name: "amountY",
           type: "u64",
+        },
+        {
+          name: "remainingAccountsInfo",
+          type: {
+            defined: "RemainingAccountsInfo",
+          },
         },
       ],
     },
@@ -6389,9 +7390,15 @@ export const IDL: LbClmm = {
           isSigner: false,
         },
         {
-          "name": "admin",
-          "isMut": true,
-          "isSigner": true
+          name: "tokenBadge",
+          isMut: false,
+          isSigner: false,
+          isOptional: true,
+        },
+        {
+          name: "admin",
+          isMut: true,
+          isSigner: true,
         },
         {
           name: "tokenProgram",
@@ -6495,6 +7502,12 @@ export const IDL: LbClmm = {
         {
           name: "carryForward",
           type: "bool",
+        },
+        {
+          name: "remainingAccountsInfo",
+          type: {
+            defined: "RemainingAccountsInfo",
+          },
         },
       ],
     },
@@ -6716,8 +7729,8 @@ export const IDL: LbClmm = {
       args: [],
     },
     {
-      "name": "closePosition",
-      "accounts": [
+      name: "closePosition",
+      accounts: [
         {
           name: "position",
           isMut: true,
@@ -6972,75 +7985,8 @@ export const IDL: LbClmm = {
       args: [],
     },
     {
-      "name": "removeLiquiditySingleSide",
-      "accounts": [
-        {
-          "name": "position",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "lbPair",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayBitmapExtension",
-          "isMut": true,
-          "isSigner": false,
-          "isOptional": true
-        },
-        {
-          "name": "userToken",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "reserve",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "tokenMint",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayLower",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayUpper",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "sender",
-          "isMut": false,
-          "isSigner": true
-        },
-        {
-          "name": "tokenProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "eventAuthority",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "program",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": []
-    },
-    {
-      "name": "togglePairStatus",
-      "accounts": [
+      name: "togglePairStatus",
+      accounts: [
         {
           name: "lbPair",
           isMut: true,
@@ -7212,6 +8158,11 @@ export const IDL: LbClmm = {
           isSigner: false,
         },
         {
+          name: "memoProgram",
+          isMut: false,
+          isSigner: false,
+        },
+        {
           name: "eventAuthority",
           isMut: false,
           isSigner: false,
@@ -7227,11 +8178,17 @@ export const IDL: LbClmm = {
           name: "rewardIndex",
           type: "u64",
         },
+        {
+          name: "remainingAccountsInfo",
+          type: {
+            defined: "RemainingAccountsInfo",
+          },
+        },
       ],
     },
     {
-      "name": "setActivationPoint",
-      "accounts": [
+      name: "setActivationPoint",
+      accounts: [
         {
           name: "lbPair",
           isMut: true,
@@ -7245,14 +8202,14 @@ export const IDL: LbClmm = {
       ],
       args: [
         {
-          "name": "activationPoint",
-          "type": "u64"
-        }
-      ]
+          name: "activationPoint",
+          type: "u64",
+        },
+      ],
     },
     {
-      "name": "setLockReleasePoint",
-      "accounts": [
+      name: "setLockReleasePoint",
+      accounts: [
         {
           name: "position",
           isMut: true,
@@ -7281,10 +8238,10 @@ export const IDL: LbClmm = {
       ],
       args: [
         {
-          "name": "newLockReleasePoint",
-          "type": "u64"
-        }
-      ]
+          name: "newLockReleasePoint",
+          type: "u64",
+        },
+      ],
     },
     {
       name: "removeLiquidityByRange",
@@ -7505,8 +8462,8 @@ export const IDL: LbClmm = {
       ],
     },
     {
-      "name": "setPreActivationDuration",
-      "accounts": [
+      name: "setPreActivationDuration",
+      accounts: [
         {
           name: "lbPair",
           isMut: true,
@@ -7520,10 +8477,10 @@ export const IDL: LbClmm = {
       ],
       args: [
         {
-          "name": "preActivationDuration",
-          "type": "u16"
-        }
-      ]
+          name: "preActivationDuration",
+          type: "u64",
+        },
+      ],
     },
     {
       name: "setPreActivationSwapAddress",
@@ -7541,11 +8498,906 @@ export const IDL: LbClmm = {
       ],
       args: [
         {
-          "name": "preActivationSwapAddress",
-          "type": "publicKey"
-        }
-      ]
-    }
+          name: "preActivationSwapAddress",
+          type: "publicKey",
+        },
+      ],
+    },
+    {
+      name: "initializeTokenBadge",
+      accounts: [
+        {
+          name: "tokenMint",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "tokenBadge",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "admin",
+          isMut: true,
+          isSigner: true,
+        },
+        {
+          name: "systemProgram",
+          isMut: false,
+          isSigner: false,
+        },
+      ],
+      args: [],
+    },
+    {
+      name: "initializeLbPair2",
+      accounts: [
+        {
+          name: "lbPair",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "binArrayBitmapExtension",
+          isMut: true,
+          isSigner: false,
+          isOptional: true,
+        },
+        {
+          name: "tokenMintX",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "tokenMintY",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "reserveX",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "reserveY",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "oracle",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "presetParameter",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "funder",
+          isMut: true,
+          isSigner: true,
+        },
+        {
+          name: "tokenBadgeX",
+          isMut: false,
+          isSigner: false,
+          isOptional: true,
+        },
+        {
+          name: "tokenBadgeY",
+          isMut: false,
+          isSigner: false,
+          isOptional: true,
+        },
+        {
+          name: "tokenProgramX",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "tokenProgramY",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "systemProgram",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "rent",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "eventAuthority",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "program",
+          isMut: false,
+          isSigner: false,
+        },
+      ],
+      args: [
+        {
+          name: "activeId",
+          type: "i32",
+        },
+        {
+          name: "binStep",
+          type: "u16",
+        },
+      ],
+    },
+    {
+      name: "claimFee2",
+      accounts: [
+        {
+          name: "lbPair",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "position",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "sender",
+          isMut: false,
+          isSigner: true,
+        },
+        {
+          name: "reserveX",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "reserveY",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "userTokenX",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "userTokenY",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "tokenXMint",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "tokenYMint",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "tokenProgramX",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "tokenProgramY",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "memoProgram",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "eventAuthority",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "program",
+          isMut: false,
+          isSigner: false,
+        },
+      ],
+      args: [
+        {
+          name: "minBinId",
+          type: "i32",
+        },
+        {
+          name: "maxBinId",
+          type: "i32",
+        },
+        {
+          name: "remainingAccountsInfo",
+          type: {
+            defined: "RemainingAccountsInfo",
+          },
+        },
+      ],
+    },
+    {
+      name: "claimReward2",
+      accounts: [
+        {
+          name: "lbPair",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "position",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "sender",
+          isMut: false,
+          isSigner: true,
+        },
+        {
+          name: "rewardVault",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "rewardMint",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "userTokenAccount",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "tokenProgram",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "memoProgram",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "eventAuthority",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "program",
+          isMut: false,
+          isSigner: false,
+        },
+      ],
+      args: [
+        {
+          name: "rewardIndex",
+          type: "u64",
+        },
+        {
+          name: "minBinId",
+          type: "i32",
+        },
+        {
+          name: "maxBinId",
+          type: "i32",
+        },
+        {
+          name: "remainingAccountsInfo",
+          type: {
+            defined: "RemainingAccountsInfo",
+          },
+        },
+      ],
+    },
+    {
+      name: "addLiquidity2",
+      accounts: [
+        {
+          name: "position",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "lbPair",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "binArrayBitmapExtension",
+          isMut: true,
+          isSigner: false,
+          isOptional: true,
+        },
+        {
+          name: "userTokenX",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "userTokenY",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "reserveX",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "reserveY",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "tokenXMint",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "tokenYMint",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "sender",
+          isMut: false,
+          isSigner: true,
+        },
+        {
+          name: "tokenXProgram",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "tokenYProgram",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "memoProgram",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "eventAuthority",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "program",
+          isMut: false,
+          isSigner: false,
+        },
+      ],
+      args: [
+        {
+          name: "liquidityParameter",
+          type: {
+            defined: "LiquidityParameter",
+          },
+        },
+        {
+          name: "remainingAccountsInfo",
+          type: {
+            defined: "RemainingAccountsInfo",
+          },
+        },
+      ],
+    },
+    {
+      name: "addLiquidityByStrategy2",
+      accounts: [
+        {
+          name: "position",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "lbPair",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "binArrayBitmapExtension",
+          isMut: true,
+          isSigner: false,
+          isOptional: true,
+        },
+        {
+          name: "userTokenX",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "userTokenY",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "reserveX",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "reserveY",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "tokenXMint",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "tokenYMint",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "sender",
+          isMut: false,
+          isSigner: true,
+        },
+        {
+          name: "tokenXProgram",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "tokenYProgram",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "memoProgram",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "eventAuthority",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "program",
+          isMut: false,
+          isSigner: false,
+        },
+      ],
+      args: [
+        {
+          name: "liquidityParameter",
+          type: {
+            defined: "LiquidityParameterByStrategy",
+          },
+        },
+        {
+          name: "remainingAccountsInfo",
+          type: {
+            defined: "RemainingAccountsInfo",
+          },
+        },
+      ],
+    },
+    {
+      name: "removeLiquidity2",
+      accounts: [
+        {
+          name: "position",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "lbPair",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "binArrayBitmapExtension",
+          isMut: true,
+          isSigner: false,
+          isOptional: true,
+        },
+        {
+          name: "userTokenX",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "userTokenY",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "reserveX",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "reserveY",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "tokenXMint",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "tokenYMint",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "sender",
+          isMut: false,
+          isSigner: true,
+        },
+        {
+          name: "tokenXProgram",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "tokenYProgram",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "memoProgram",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "eventAuthority",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "program",
+          isMut: false,
+          isSigner: false,
+        },
+      ],
+      args: [
+        {
+          name: "binLiquidityRemoval",
+          type: {
+            vec: {
+              defined: "BinLiquidityReduction",
+            },
+          },
+        },
+        {
+          name: "remainingAccountsInfo",
+          type: {
+            defined: "RemainingAccountsInfo",
+          },
+        },
+      ],
+    },
+    {
+      name: "removeLiquidityByRange2",
+      accounts: [
+        {
+          name: "position",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "lbPair",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "binArrayBitmapExtension",
+          isMut: true,
+          isSigner: false,
+          isOptional: true,
+        },
+        {
+          name: "userTokenX",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "userTokenY",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "reserveX",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "reserveY",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "tokenXMint",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "tokenYMint",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "sender",
+          isMut: false,
+          isSigner: true,
+        },
+        {
+          name: "tokenXProgram",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "tokenYProgram",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "memoProgram",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "eventAuthority",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "program",
+          isMut: false,
+          isSigner: false,
+        },
+      ],
+      args: [
+        {
+          name: "fromBinId",
+          type: "i32",
+        },
+        {
+          name: "toBinId",
+          type: "i32",
+        },
+        {
+          name: "bpsToRemove",
+          type: "u16",
+        },
+        {
+          name: "remainingAccountsInfo",
+          type: {
+            defined: "RemainingAccountsInfo",
+          },
+        },
+      ],
+    },
+    {
+      name: "swap2",
+      accounts: [
+        {
+          name: "lbPair",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "binArrayBitmapExtension",
+          isMut: false,
+          isSigner: false,
+          isOptional: true,
+        },
+        {
+          name: "reserveX",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "reserveY",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "userTokenIn",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "userTokenOut",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "tokenXMint",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "tokenYMint",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "oracle",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "hostFeeIn",
+          isMut: true,
+          isSigner: false,
+          isOptional: true,
+        },
+        {
+          name: "user",
+          isMut: false,
+          isSigner: true,
+        },
+        {
+          name: "tokenXProgram",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "tokenYProgram",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "memoProgram",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "eventAuthority",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "program",
+          isMut: false,
+          isSigner: false,
+        },
+      ],
+      args: [
+        {
+          name: "amountIn",
+          type: "u64",
+        },
+        {
+          name: "minAmountOut",
+          type: "u64",
+        },
+        {
+          name: "remainingAccountsInfo",
+          type: {
+            defined: "RemainingAccountsInfo",
+          },
+        },
+      ],
+    },
+    {
+      name: "swapWithPriceImpact2",
+      accounts: [
+        {
+          name: "lbPair",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "binArrayBitmapExtension",
+          isMut: false,
+          isSigner: false,
+          isOptional: true,
+        },
+        {
+          name: "reserveX",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "reserveY",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "userTokenIn",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "userTokenOut",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "tokenXMint",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "tokenYMint",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "oracle",
+          isMut: true,
+          isSigner: false,
+        },
+        {
+          name: "hostFeeIn",
+          isMut: true,
+          isSigner: false,
+          isOptional: true,
+        },
+        {
+          name: "user",
+          isMut: false,
+          isSigner: true,
+        },
+        {
+          name: "tokenXProgram",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "tokenYProgram",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "memoProgram",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "eventAuthority",
+          isMut: false,
+          isSigner: false,
+        },
+        {
+          name: "program",
+          isMut: false,
+          isSigner: false,
+        },
+      ],
+      args: [
+        {
+          name: "amountIn",
+          type: "u64",
+        },
+        {
+          name: "activeId",
+          type: {
+            option: "i32",
+          },
+        },
+        {
+          name: "maxPriceImpactBps",
+          type: "u16",
+        },
+        {
+          name: "remainingAccountsInfo",
+          type: {
+            defined: "RemainingAccountsInfo",
+          },
+        },
+      ],
+    },
   ],
   accounts: [
     {
@@ -7684,19 +9536,25 @@ export const IDL: LbClmm = {
           },
           {
             name: "requireBaseFactorSeed",
+            docs: ["Require base factor seed"],
             type: "u8",
           },
           {
             name: "baseFactorSeed",
+            docs: ["Base factor seed"],
             type: {
               array: ["u8", 2],
             },
           },
           {
-            name: "padding1",
-            type: {
-              array: ["u8", 2],
-            },
+            name: "activationType",
+            docs: ["Activation type"],
+            type: "u8",
+          },
+          {
+            name: "padding0",
+            docs: ["padding 0"],
+            type: "u8",
           },
           {
             name: "tokenXMint",
@@ -7726,129 +9584,19 @@ export const IDL: LbClmm = {
             },
           },
           {
-            name: "feeOwner",
+            name: "padding1",
             docs: [
-              "Fee owner. Deprecated. Can be used as buffer in the future.",
+              "_padding_1, previous Fee owner, BE CAREFUL FOR TOMBSTONE WHEN REUSE !!",
             ],
-            type: "publicKey",
+            type: {
+              array: ["u8", 32],
+            },
           },
           {
-            "name": "pairType",
-            "docs": [
-              "Type of the pair"
-            ],
-            "type": "u8"
-          },
-          {
-            "name": "activeId",
-            "docs": [
-              "Active bin id"
-            ],
-            "type": "i32"
-          },
-          {
-            "name": "binStep",
-            "docs": [
-              "Bin step. Represent the price increment / decrement."
-            ],
-            "type": "u16"
-          },
-          {
-            "name": "status",
-            "docs": [
-              "Status of the pair. Check PairStatus enum."
-            ],
-            "type": "u8"
-          },
-          {
-            "name": "requireBaseFactorSeed",
-            "docs": [
-              "Require base factor seed"
-            ],
-            "type": "u8"
-          },
-          {
-            "name": "baseFactorSeed",
-            "docs": [
-              "Base factor seed"
-            ],
-            "type": {
-              "array": [
-                "u8",
-                2
-              ]
-            }
-          },
-          {
-            "name": "activationType",
-            "docs": [
-              "Activation type"
-            ],
-            "type": "u8"
-          },
-          {
-            "name": "padding0",
-            "docs": [
-              "padding 0"
-            ],
-            "type": "u8"
-          },
-          {
-            "name": "tokenXMint",
-            "docs": [
-              "Token X mint"
-            ],
-            "type": "publicKey"
-          },
-          {
-            "name": "tokenYMint",
-            "docs": [
-              "Token Y mint"
-            ],
-            "type": "publicKey"
-          },
-          {
-            "name": "reserveX",
-            "docs": [
-              "LB token X vault"
-            ],
-            "type": "publicKey"
-          },
-          {
-            "name": "reserveY",
-            "docs": [
-              "LB token Y vault"
-            ],
-            "type": "publicKey"
-          },
-          {
-            "name": "protocolFee",
-            "docs": [
-              "Uncollected protocol fee"
-            ],
-            "type": {
-              "defined": "ProtocolFee"
-            }
-          },
-          {
-            "name": "padding1",
-            "docs": [
-              "_padding_1, previous Fee owner, BE CAREFUL FOR TOMBSTONE WHEN REUSE !!"
-            ],
-            "type": {
-              "array": [
-                "u8",
-                32
-              ]
-            }
-          },
-          {
-            "name": "rewardInfos",
-            "docs": [
-              "Farming reward information"
-            ],
-            "type": {
-              "array": [
+            name: "rewardInfos",
+            docs: ["Farming reward information"],
+            type: {
+              array: [
                 {
                   defined: "RewardInfo",
                 },
@@ -7879,9 +9627,9 @@ export const IDL: LbClmm = {
             type: "publicKey",
           },
           {
-            "name": "preActivationSwapAddress",
-            "docs": [
-              "Address allowed to swap when the current point is greater than or equal to the pre-activation point. The pre-activation point is calculated as `activation_point - pre_activation_duration`."
+            name: "preActivationSwapAddress",
+            docs: [
+              "Address allowed to swap when the current point is greater than or equal to the pre-activation point. The pre-activation point is calculated as `activation_point - pre_activation_duration`.",
             ],
             type: "publicKey",
           },
@@ -7891,32 +9639,32 @@ export const IDL: LbClmm = {
             type: "publicKey",
           },
           {
-            "name": "activationPoint",
-            "docs": [
-              "Time point to enable the pair. Only applicable for permission pair."
+            name: "activationPoint",
+            docs: [
+              "Time point to enable the pair. Only applicable for permission pair.",
             ],
             type: "u64",
           },
           {
-            "name": "preActivationDuration",
-            "docs": [
-              "Duration before activation activation_point. Used to calculate pre-activation time point for pre_activation_swap_address"
+            name: "preActivationDuration",
+            docs: [
+              "Duration before activation activation_point. Used to calculate pre-activation time point for pre_activation_swap_address",
             ],
             type: "u64",
           },
           {
-            "name": "padding2",
-            "docs": [
-              "_padding 2 is reclaimed free space from swap_cap_deactivate_point and swap_cap_amount before, BE CAREFUL FOR TOMBSTONE WHEN REUSE !!"
+            name: "padding2",
+            docs: [
+              "_padding 2 is reclaimed free space from swap_cap_deactivate_point and swap_cap_amount before, BE CAREFUL FOR TOMBSTONE WHEN REUSE !!",
             ],
             type: {
               array: ["u8", 8],
             },
           },
           {
-            "name": "lockDuration",
-            "docs": [
-              "Liquidity lock duration for positions which created before activate. Only applicable for permission pair."
+            name: "lockDuration",
+            docs: [
+              "Liquidity lock duration for positions which created before activate. Only applicable for permission pair.",
             ],
             type: "u64",
           },
@@ -7926,10 +9674,20 @@ export const IDL: LbClmm = {
             type: "publicKey",
           },
           {
+            name: "tokenMintXProgramFlag",
+            docs: ["token_mint_x_program_flag"],
+            type: "u8",
+          },
+          {
+            name: "tokenMintYProgramFlag",
+            docs: ["token_mint_y_program_flag"],
+            type: "u8",
+          },
+          {
             name: "reserved",
             docs: ["Reserved space for future use"],
             type: {
-              array: ["u8", 24],
+              array: ["u8", 22],
             },
           },
         ],
@@ -7941,11 +9699,9 @@ export const IDL: LbClmm = {
         kind: "struct",
         fields: [
           {
-            "name": "idx",
-            "docs": [
-              "Index of latest observation"
-            ],
-            "type": "u64"
+            name: "idx",
+            docs: ["Index of latest observation"],
+            type: "u64",
           },
           {
             name: "activeSize",
@@ -8142,11 +9898,9 @@ export const IDL: LbClmm = {
             type: "publicKey",
           },
           {
-            "name": "lockReleasePoint",
-            "docs": [
-              "Time point which the locked liquidity can be withdraw"
-            ],
-            "type": "u64"
+            name: "lockReleasePoint",
+            docs: ["Time point which the locked liquidity can be withdraw"],
+            type: "u64",
           },
           {
             name: "subjectedToBootstrapLiquidityLocking",
@@ -8243,11 +9997,32 @@ export const IDL: LbClmm = {
             docs: [
               "Portion of swap fees retained by the protocol by controlling protocol_share parameter. protocol_swap_fee = protocol_share * total_swap_fee",
             ],
-            "type": "u16"
-          }
-        ]
-      }
-    }
+            type: "u16",
+          },
+        ],
+      },
+    },
+    {
+      name: "tokenBadge",
+      docs: ["Parameter that set by the protocol"],
+      type: {
+        kind: "struct",
+        fields: [
+          {
+            name: "tokenMint",
+            docs: ["token mint"],
+            type: "publicKey",
+          },
+          {
+            name: "padding",
+            docs: ["Reserve"],
+            type: {
+              array: ["u8", 128],
+            },
+          },
+        ],
+      },
+    },
   ],
   types: [
     {
@@ -8550,15 +10325,15 @@ export const IDL: LbClmm = {
             type: "i32",
           },
           {
-            "name": "lockDuration",
-            "type": "u64"
+            name: "lockDuration",
+            type: "u64",
           },
           {
-            "name": "activationType",
-            "type": "u8"
-          }
-        ]
-      }
+            name: "activationType",
+            type: "u8",
+          },
+        ],
+      },
     },
     {
       name: "InitPresetParametersIx",
@@ -8637,10 +10412,10 @@ export const IDL: LbClmm = {
       },
     },
     {
-      "name": "FeeParameter",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "FeeParameter",
+      type: {
+        kind: "struct",
+        fields: [
           {
             name: "protocolShare",
             docs: [
@@ -8657,26 +10432,26 @@ export const IDL: LbClmm = {
       },
     },
     {
-      "name": "BinLiquidityReduction",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "BinLiquidityReduction",
+      type: {
+        kind: "struct",
+        fields: [
           {
-            "name": "binId",
-            "type": "i32"
+            name: "binId",
+            type: "i32",
           },
           {
-            "name": "bpsToRemove",
-            "type": "u16"
-          }
-        ]
-      }
+            name: "bpsToRemove",
+            type: "u16",
+          },
+        ],
+      },
     },
     {
-      "name": "Bin",
-      "type": {
-        "kind": "struct",
-        "fields": [
+      name: "Bin",
+      type: {
+        kind: "struct",
+        fields: [
           {
             name: "amountX",
             docs: [
@@ -8999,6 +10774,40 @@ export const IDL: LbClmm = {
       },
     },
     {
+      name: "RemainingAccountsSlice",
+      type: {
+        kind: "struct",
+        fields: [
+          {
+            name: "accountsType",
+            type: {
+              defined: "AccountsType",
+            },
+          },
+          {
+            name: "length",
+            type: "u8",
+          },
+        ],
+      },
+    },
+    {
+      name: "RemainingAccountsInfo",
+      type: {
+        kind: "struct",
+        fields: [
+          {
+            name: "slices",
+            type: {
+              vec: {
+                defined: "RemainingAccountsSlice",
+              },
+            },
+          },
+        ],
+      },
+    },
+    {
       name: "StrategyType",
       type: {
         kind: "enum",
@@ -9063,6 +10872,21 @@ export const IDL: LbClmm = {
       },
     },
     {
+      name: "ActivationType",
+      docs: ["Type of the activation"],
+      type: {
+        kind: "enum",
+        variants: [
+          {
+            name: "Slot",
+          },
+          {
+            name: "Timestamp",
+          },
+        ],
+      },
+    },
+    {
       name: "PairType",
       docs: [
         "Type of the Pair. 0 = Permissionless, 1 = Permission. Putting 0 as permissionless for backward compatibility.",
@@ -9080,26 +10904,9 @@ export const IDL: LbClmm = {
       },
     },
     {
-      "name": "ActivationType",
-      "docs": [
-        "Type of the activation"
-      ],
-      "type": {
-        "kind": "enum",
-        "variants": [
-          {
-            "name": "Slot"
-          },
-          {
-            "name": "Timestamp"
-          }
-        ]
-      }
-    },
-    {
-      "name": "PairType",
-      "docs": [
-        "Type of the Pair. 0 = Permissionless, 1 = Permission. Putting 0 as permissionless for backward compatibility."
+      name: "PairStatus",
+      docs: [
+        "Pair status. 0 = Enabled, 1 = Disabled. Putting 0 as enabled for backward compatibility.",
       ],
       type: {
         kind: "enum",
@@ -9109,6 +10916,37 @@ export const IDL: LbClmm = {
           },
           {
             name: "Disabled",
+          },
+        ],
+      },
+    },
+    {
+      name: "TokenProgramFlags",
+      type: {
+        kind: "enum",
+        variants: [
+          {
+            name: "TokenProgram",
+          },
+          {
+            name: "TokenProgram2022",
+          },
+        ],
+      },
+    },
+    {
+      name: "AccountsType",
+      type: {
+        kind: "enum",
+        variants: [
+          {
+            name: "TransferHookX",
+          },
+          {
+            name: "TransferHookY",
+          },
+          {
+            name: "TransferHookReward",
           },
         ],
       },
@@ -9575,27 +11413,27 @@ export const IDL: LbClmm = {
       ],
     },
     {
-      "name": "UpdatePositionLockReleasePoint",
-      "fields": [
+      name: "UpdatePositionLockReleasePoint",
+      fields: [
         {
           name: "position",
           type: "publicKey",
           index: false,
         },
         {
-          "name": "currentPoint",
-          "type": "u64",
-          "index": false
+          name: "currentPoint",
+          type: "u64",
+          index: false,
         },
         {
-          "name": "newLockReleasePoint",
-          "type": "u64",
-          "index": false
+          name: "newLockReleasePoint",
+          type: "u64",
+          index: false,
         },
         {
-          "name": "oldLockReleasePoint",
-          "type": "u64",
-          "index": false
+          name: "oldLockReleasePoint",
+          type: "u64",
+          index: false,
         },
         {
           name: "sender",
@@ -9887,39 +11725,94 @@ export const IDL: LbClmm = {
       msg: "Wrong rent receiver",
     },
     {
-      "code": 6052,
-      "name": "AlreadyPassActivationPoint",
-      "msg": "Already activated"
+      code: 6052,
+      name: "AlreadyPassActivationPoint",
+      msg: "Already activated",
     },
     {
-      "code": 6053,
-      "name": "ExceedMaxSwappedAmount",
-      "msg": "Swapped amount is exceeded max swapped amount"
+      code: 6053,
+      name: "ExceedMaxSwappedAmount",
+      msg: "Swapped amount is exceeded max swapped amount",
     },
     {
-      "code": 6054,
-      "name": "InvalidStrategyParameters",
-      "msg": "Invalid strategy parameters"
+      code: 6054,
+      name: "InvalidStrategyParameters",
+      msg: "Invalid strategy parameters",
     },
     {
-      "code": 6055,
-      "name": "LiquidityLocked",
-      "msg": "Liquidity locked"
+      code: 6055,
+      name: "LiquidityLocked",
+      msg: "Liquidity locked",
     },
     {
-      "code": 6056,
-      "name": "BinRangeIsNotEmpty",
-      "msg": "Bin range is not empty"
+      code: 6056,
+      name: "BinRangeIsNotEmpty",
+      msg: "Bin range is not empty",
     },
     {
-      "code": 6057,
-      "name": "NotExactAmountOut",
-      "msg": "Amount out is not matched with exact amount out"
+      code: 6057,
+      name: "NotExactAmountOut",
+      msg: "Amount out is not matched with exact amount out",
     },
     {
-      "code": 6058,
-      "name": "InvalidActivationType",
-      "msg": "Invalid activation type"
-    }
-  ]
+      code: 6058,
+      name: "InvalidActivationType",
+      msg: "Invalid activation type",
+    },
+    {
+      code: 6059,
+      name: "NotSupportMint",
+      msg: "Not support token_2022 mint extension",
+    },
+    {
+      code: 6060,
+      name: "UnsupportedMintExtension",
+      msg: "Unsupported mint extension",
+    },
+    {
+      code: 6061,
+      name: "UnsupportNativeMintToken2022",
+      msg: "Unsupported native mint token2022",
+    },
+    {
+      code: 6062,
+      name: "UnmatchTokenMint",
+      msg: "Unmatch token mint",
+    },
+    {
+      code: 6063,
+      name: "UnsupportedTokenMint",
+      msg: "Unsupported token mint",
+    },
+    {
+      code: 6064,
+      name: "InsufficientRemainingAccounts",
+      msg: "Insufficient remaining accounts",
+    },
+    {
+      code: 6065,
+      name: "InvalidRemainingAccountSlice",
+      msg: "Invalid remaining account slice",
+    },
+    {
+      code: 6066,
+      name: "DuplicatedRemainingAccountTypes",
+      msg: "Duplicated remaining account types",
+    },
+    {
+      code: 6067,
+      name: "MissingRemainingAccountForTransferHook",
+      msg: "Missing remaining account for transfer hook",
+    },
+    {
+      code: 6068,
+      name: "NoTransferHookProgram",
+      msg: "Remaining account was passed for transfer hook but there's no hook program",
+    },
+    {
+      code: 6069,
+      name: "ZeroFundedAmount",
+      msg: "Zero funded amount",
+    },
+  ],
 };

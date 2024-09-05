@@ -6,7 +6,11 @@ import {
   ProgramAccount,
 } from "@coral-xyz/anchor";
 import { LbClmm } from "../idl";
-import { PublicKey, TransactionInstruction } from "@solana/web3.js";
+import {
+  AccountMeta,
+  PublicKey,
+  TransactionInstruction,
+} from "@solana/web3.js";
 import Decimal from "decimal.js";
 import { u64, i64, struct } from "@coral-xyz/borsh";
 
@@ -28,11 +32,13 @@ export interface TokenReserve {
   amount: bigint;
   decimal: number;
   owner: PublicKey;
+  extraAccountsMetaForTransferHook: AccountMeta[];
 }
 
 export interface RewardMintInfo {
   publicKey: PublicKey;
   owner: PublicKey;
+  extraAccountsMetaForTransferHook: AccountMeta[];
 }
 
 export type ClmmProgram = Program<LbClmm>;
@@ -78,6 +84,8 @@ export type ProgramStrategyType = IdlTypes<LbClmm>["StrategyType"];
 export type CompressedBinDepositAmount =
   IdlTypes<LbClmm>["CompressedBinDepositAmount"];
 export type CompressedBinDepositAmounts = CompressedBinDepositAmount[];
+
+export type RemainingAccountsInfo = IdlTypes<LbClmm>["RemainingAccountsInfo"];
 
 export interface LbPosition {
   publicKey: PublicKey;
@@ -152,6 +160,18 @@ export enum ActivationType {
   Slot,
   Timestamp,
 }
+
+export const AccountsType = {
+  TransferHookX: {
+    transferHookX: {},
+  },
+  TransferHookY: {
+    transferHookY: {},
+  },
+  TransferHookReward: {
+    transferHookReward: {},
+  },
+};
 
 export interface StrategyParameters {
   maxBinId: number;
