@@ -1954,8 +1954,6 @@ export class DLMM {
     slippage,
   }: TInitializePositionAndAddLiquidityParamsByStrategy) {
     const { maxBinId, minBinId } = strategy;
-    console.log("🚀 ~ DLMM ~ minBinId:", minBinId);
-    console.log("🚀 ~ DLMM ~ maxBinId:", maxBinId);
 
     const maxActiveBinSlippage = slippage
       ? Math.ceil(slippage / (this.lbPair.binStep / 100))
