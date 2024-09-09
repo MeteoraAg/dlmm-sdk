@@ -15,9 +15,7 @@ def test_flow():
     assert isinstance(dlmm, DLMM)
 
     active_bin = dlmm.get_active_bin()
-    print(active_bin.price)
     active_bin_price_per_token = dlmm.from_price_per_lamport(active_bin.price)
-    print(active_bin_price_per_token)
     assert type(active_bin_price_per_token) == float
 
     user = Keypair.from_bytes([3, 65, 174, 194, 140, 162, 138, 46, 167, 188, 153, 227, 110, 110, 82, 167, 238, 92, 174, 250, 66, 104, 188, 196, 164, 72, 222, 202, 150, 52, 38, 249, 205, 59, 43, 173, 101, 40, 208, 183, 241, 9, 237, 75, 52, 240, 165, 65, 91, 247, 233, 207, 170, 155, 162, 181, 215, 135, 103, 2, 132, 32, 196, 16])
@@ -94,4 +92,5 @@ def test_flow():
     assert isinstance(swap_tx, Transaction)
 
     client.send_transaction(swap_tx, user)
+    
     

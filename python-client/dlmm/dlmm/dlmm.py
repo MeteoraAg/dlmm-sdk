@@ -4,7 +4,7 @@ from typing import Dict, List, Optional
 from solana.transaction import Transaction
 from solders.pubkey import Pubkey
 from .utils import convert_to_transaction
-from .types import ActiveBin, FeeInfo, GetPositionByUser, Position, PositionInfo, StrategyParameters, SwapQuote, LBPair, TokenReserve, DlmmHttpError as HTTPError
+from .types import ActiveBin, FeeInfo, GetBins, GetPositionByUser, Position, PositionInfo, StrategyParameters, SwapQuote, LBPair, TokenReserve, DlmmHttpError as HTTPError
 
 API_URL = "http://localhost:3000"
 
@@ -185,7 +185,6 @@ class DLMM:
         except requests.exceptions.ConnectionError as e:
             raise HTTPError(f"Error connecting to DLMM: {e}")
 
-    # TODO: Add result to transaction object
     def remove_liqidity(self, position_pub_key: Pubkey, user: Pubkey, bin_ids: List[int], bps: int, should_claim_and_close: bool) -> List[Transaction]:
         if type(position_pub_key) != Pubkey:
             raise TypeError("position_pub_key must be of type `solders.pubkey.Pubkey`")
@@ -288,7 +287,6 @@ class DLMM:
         except requests.exceptions.ConnectionError as e:
             raise HTTPError(f"Error connecting to DLMM: {e}")
     
-    # TODO: Add type for result
     def swap(self, in_token: Pubkey, out_token: Pubkey, in_amount: int, min_out_amount: int, lb_pair: Pubkey,  user: Pubkey, binArrays: List[Pubkey]) -> Transaction:
         if type(in_token) != Pubkey:
             raise TypeError("in_token must be of type `solders.pubkey.Pubkey`")
@@ -322,8 +320,7 @@ class DLMM:
                 "binArrays": list(map(lambda x: str(x), binArrays))
             })
             result = self.__session.post(f"{API_URL}/dlmm/swap", data=data).json()
-            tx = convert_to_transaction(result)
-            return tx
+            return convert_to_transaction(result)
         except requests.exceptions.HTTPError as e:
             raise HTTPError(f"Error swapping: {e}")
         except requests.exceptions.ConnectionError as e:
@@ -338,6 +335,7 @@ class DLMM:
         except requests.exceptions.ConnectionError as e:
             raise HTTPError(f"Error connecting to DLMM: {e}")
     
+    # TODO: Add type for result
     def get_bin_arrays(self) -> dict:
         try:
             result = self.__session.get(f"{API_URL}/dlmm/get-bin-arrays").json()
@@ -350,7 +348,7 @@ class DLMM:
     def get_fee_info(self) -> FeeInfo:
         try:
             result = self.__session.get(f"{API_URL}/dlmm/get-fee-info").json()
-            return result
+            return FeeInfo(result)
         except requests.exceptions.HTTPError as e:
             raise HTTPError(f"Error getting fee info: {e}")
         except requests.exceptions.ConnectionError as e:
@@ -359,12 +357,179 @@ class DLMM:
     def get_dynamic_fee(self) -> float:
         try:
             result = self.__session.get(f"{API_URL}/dlmm/get-dynamic-fee").json()
-            return result
+            return float(result['fee'])
         except requests.exceptions.HTTPError as e:
             raise HTTPError(f"Error getting dynamic fee: {e}")
         except requests.exceptions.ConnectionError as e:
             raise HTTPError(f"Error connecting to DLMM: {e}")
     
+    def get_bin_id_from_price(self, price: float, min: bool) -> int:
+        if type(price) != float:
+            raise TypeError("price must be of type `float`")
+
+        if isinstance(min, bool) == False:
+            raise TypeError("min must be of type `bool`")
+        
+        try:
+            data = json.dumps({
+                "price": price,
+                "min": min
+            })
+            result = self.__session.post(f"{API_URL}/dlmm/get-bin-id-from-price", data=data).json()
+            return int(result['binId'])
+        except requests.exceptions.HTTPError as e:
+            raise HTTPError(f"Error getting bin id from price: {e}")
+        except requests.exceptions.ConnectionError as e:
+            raise HTTPError(f"Error connecting to DLMM: {e}")
+    
+    def get_bins_around_active_bin(self, number_of_bins_to_left: int, number_of_bins_to_right: int) -> GetBins:
+        if type(number_of_bins_to_left) != int:
+            raise TypeError("number_of_bins_to_left must be of type `int`")
+        
+        if type(number_of_bins_to_right) != int:
+            raise TypeError("number_of_bins_to_right must be of type `int`")
+        
+        try:
+            data = json.dumps({
+                "numberOfBinsToTheLeft": number_of_bins_to_left,
+                "numberOfBinsToTheRight": number_of_bins_to_right
+            })
+            result = self.__session.post(f"{API_URL}/dlmm/get-bins-around-active-bin", data=data).json()
+            return GetBins(result)
+        except requests.exceptions.HTTPError as e:
+            raise HTTPError(f"Error getting bins around active bin: {e}")
+        except requests.exceptions.ConnectionError as e:
+            raise HTTPError(f"Error connecting to DLMM: {e}")
+    
+    def get_bins_between_min_and_max_price(self, min_price: float, max_price: float) -> GetBins:
+        if type(min_price) != float:
+            raise TypeError("min_price must be of type `float`")
+        
+        if type(max_price) != float:
+            raise TypeError("max_price must be of type `float`")
+        
+        try:
+            data = json.dumps({
+                "minPrice": min_price,
+                "maxPrice": max_price
+            })
+            result = self.__session.post(f"{API_URL}/dlmm/get-bins-between-min-and-max-price", data=data).json()
+            return GetBins(result)
+        except requests.exceptions.HTTPError as e:
+            raise HTTPError(f"Error getting bins between min and max price: {e}")
+        except requests.exceptions.ConnectionError as e:
+            raise HTTPError(f"Error connecting to DLMM: {e}")
+    
+    def get_bins_between_lower_and_upper_bound(self, lower_bound: int, upper_bound: int) -> GetBins:
+        if type(lower_bound) != int:
+            raise TypeError("lower_bound must be of type `int`")
+        
+        if type(upper_bound) != int:
+            raise TypeError("upper_bound must be of type `int`")
+        
+        try:
+            data = json.dumps({
+                "lowerBound": lower_bound,
+                "upperBound": upper_bound
+            })
+            result = self.__session.post(f"{API_URL}/dlmm/get-bins-between-lower-and-upper-bound", data=data).json()
+            return GetBins(result)
+        except requests.exceptions.HTTPError as e:
+            raise HTTPError(f"Error getting bins between lower and upper bound: {e}")
+        except requests.exceptions.ConnectionError as e:
+            raise HTTPError(f"Error connecting to DLMM: {e}")
+    
+    def claim_LM_reward(self, owner: Pubkey, position: Position) -> Transaction:
+        if type(owner) != Pubkey:
+            raise TypeError("owner must be of type `solders.pubkey.Pubkey`")
+        
+        try:
+            data = json.dumps({
+                "owner": str(owner),
+                "position": position.to_json()
+            })
+            result = self.__session.post(f"{API_URL}/dlmm/claim-lm-reward", data=data).json()
+            return convert_to_transaction(result)
+        except requests.exceptions.HTTPError as e:
+            raise HTTPError(f"Error claiming LM rewards: {e}")
+        except requests.exceptions.ConnectionError as e:
+            raise HTTPError(f"Error connecting to DLMM: {e}")
+    
+    def claim_all_LM_reards(self, owner: Pubkey, positions: List[Position]) -> List[Transaction]:
+        if type(owner) != Pubkey:
+            raise TypeError("owner must be of type `solders.pubkey.Pubkey`")
+        
+        if type(positions) != list:
+            raise TypeError("positions must be of type `list`")
+        
+        try:
+            data = json.dumps({
+                "owner": str(owner),
+                "positions": [position.to_json() for position in positions]
+            })
+            result = self.__session.post(f"{API_URL}/dlmm/claim-all-lm-rewards", data=data).json()
+            return [convert_to_transaction(tx) for tx in result]
+        except requests.exceptions.HTTPError as e:
+            raise HTTPError(f"Error claiming all LM rewards: {e}")
+        except requests.exceptions.ConnectionError as e:
+            raise HTTPError(f"Error connecting to DLMM: {e}")
+    
+    def claim_swap_fee(self, owner: Pubkey, position: Position) -> Transaction:
+        if type(owner) != Pubkey:
+            raise TypeError("owner must be of type `solders.pubkey.Pubkey`")
+        
+        if type(position) != Position:
+            raise TypeError("position must be of type `dlmm.types.Position`")
+        
+        try:
+            data = json.dumps({
+                "owner": str(owner),
+                "position": position.to_json()
+            })
+            result = self.__session.post(f"{API_URL}/dlmm/claim-swap-fee", data=data).json()
+            return convert_to_transaction(result)
+        except requests.exceptions.HTTPError as e:
+            raise HTTPError(f"Error claiming swap fee: {e}")
+        except requests.exceptions.ConnectionError as e:
+            raise HTTPError(f"Error connecting to DLMM: {e}")
+    
+    def claim_all_swap_fees(self, owner: Pubkey, positions: List[Position]) -> List[Transaction]:
+        if type(owner) != Pubkey:
+            raise TypeError("owner must be of type `solders.pubkey.Pubkey`")
+        
+        if type(positions) != list:
+            raise TypeError("positions must be of type `list`")
+        
+        try:
+            data = json.dumps({
+                "owner": str(owner),
+                "positions": [position.to_json() for position in positions]
+            })
+            result = self.__session.post(f"{API_URL}/dlmm/claim-all-swap-fee", data=data).json()
+            return [convert_to_transaction(tx) for tx in result]
+        except requests.exceptions.HTTPError as e:
+            raise HTTPError(f"Error claiming all swap fees: {e}")
+        except requests.exceptions.ConnectionError as e:
+            raise HTTPError(f"Error connecting to DLMM: {e}")
+    
+    def claim_all_rewards(self, owner: Pubkey, positions: List[Position]) -> List[Transaction]:
+        if type(owner) != Pubkey:
+            raise TypeError("owner must be of type `solders.pubkey.Pubkey`")
+        
+        if type(positions) != list:
+            raise TypeError("positions must be of type `list`")
+        
+        try:
+            data = json.dumps({
+                "owner": str(owner),
+                "positions": [position.to_json() for position in positions]
+            })
+            result = self.__session.post(f"{API_URL}/dlmm/claim-all-rewards", data=data).json()
+            return [convert_to_transaction(tx) for tx in result]
+        except requests.exceptions.HTTPError as e:
+            raise HTTPError(f"Error claiming all rewards: {e}")
+        except requests.exceptions.ConnectionError as e:
+            raise HTTPError(f"Error connecting to DLMM: {e}")
 
 class DLMM_CLIENT:
 
