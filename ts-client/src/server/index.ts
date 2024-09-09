@@ -363,8 +363,25 @@ app.get("/dlmm/get-bin-arrays", async (req, res) => {
   try {
     const poolAddress = req.pool;
     const dlmm = await DLMM.create(req.connect, poolAddress);
-    const binArrays = await dlmm.getBinArrays();
-    return res.status(200).send(safeStringify(binArrays));
+    const binArray = (await dlmm.getBinArrays()).map(bin => ({
+      publicKey: bin.publicKey,
+      account: {
+        ...bin.account,
+        index: bin.account.index.toString('hex'),
+        bins: bin.account.bins.map(b => ({
+          amountX: b.amountX.toString('hex'),
+          amountXIn: b.amountXIn.toString('hex'),
+          amountY: b.amountY.toString('hex'),
+          amountYIn: b.amountYIn.toString('hex'),
+          feeAmountXPerTokenStored: b.feeAmountXPerTokenStored.toString('hex'),
+          feeAmountYPerTokenStored: b.feeAmountYPerTokenStored.toString('hex'),
+          liquiditySupply: b.liquiditySupply.toString('hex'),
+          price: b.price.toString('hex'),
+          rewardPerTokenStored: b.rewardPerTokenStored.map(r => r.toString('hex')),
+        })),
+      }
+    }));
+    return res.status(200).send(safeStringify(binArray));
   }
   catch (error) {
     console.log(error)
@@ -390,7 +407,7 @@ app.get("/dlmm/get-dynamic-fee", async (req, res) => {
     const poolAddress = req.pool;
     const dlmm = await DLMM.create(req.connect, poolAddress);
     const dynamicFee = dlmm.getDynamicFee();
-    return res.status(200).send(safeStringify(dynamicFee));
+    return res.status(200).send({ fee: dynamicFee.toString() });
   }
   catch (error) {
     console.log(error)
@@ -398,6 +415,149 @@ app.get("/dlmm/get-dynamic-fee", async (req, res) => {
   }
 })
 
+app.post("/dlmm/get-bin-id-from-price", async (req, res) => {
+  try {
+    const poolAddress = req.pool;
+    const price = req.body.price;
+    const min = Boolean(req.body.min);
+
+    const dlmm = await DLMM.create(req.connect, poolAddress);
+    const binId = dlmm.getBinIdFromPrice(price, min);
+    return res.status(200).send({ binId });
+  }
+  catch (error) {
+    console.log(error)
+    return res.status(400).send(error)
+  }
+})
+
+app.post("/dlmm/get-bins-around-active-bin", async (req, res) => {
+  try {
+    const poolAddress = req.pool;
+    const numberOfBinsToTheLeft = parseInt(req.body.numberOfBinsToTheLeft);
+    const numberOfBinsToTheRight = parseInt(req.body.numberOfBinsToTheRight);
+
+    const dlmm = await DLMM.create(req.connect, poolAddress);
+    const bins = await dlmm.getBinsAroundActiveBin(numberOfBinsToTheLeft, numberOfBinsToTheRight);
+    return res.status(200).send(safeStringify(bins));
+  }
+  catch (error) {
+    console.log(error)
+    return res.status(400).send(error)
+  }
+})
+
+app.post("/dlmm/get-bins-between-min-and-max-price", async (req, res) => {
+  try {
+    const poolAddress = req.pool;
+    const minPrice = parseInt(req.body.minPrice);
+    const maxPrice = parseInt(req.body.maxPrice);
+
+    const dlmm = await DLMM.create(req.connect, poolAddress);
+    const bins = await dlmm.getBinsBetweenMinAndMaxPrice(minPrice, maxPrice);
+    return res.status(200).send(safeStringify(bins));
+  }
+  catch (error) {
+    console.log(error)
+    return res.status(400).send(error)
+  }
+})
+
+app.post("/dlmm/get-bins-between-lower-and-upper-bound", async (req, res) => {
+  try {
+    const poolAddress = req.pool;
+    const lowerBound = parseInt(req.body.lowerBound);
+    const upperBound = parseInt(req.body.upperBound);
+
+    const dlmm = await DLMM.create(req.connect, poolAddress);
+    const bins = await dlmm.getBinsBetweenLowerAndUpperBound(lowerBound, upperBound);
+    return res.status(200).send(safeStringify(bins));
+  }
+  catch (error) {
+    console.log(error)
+    return res.status(400).send(error)
+  }
+})
+
+app.post("/dlmm/claim-lm-reward", async (req, res) => {
+  try {
+    const poolAddress = req.pool;
+    const owner = new PublicKey(req.body.owner);
+    const position = req.body.position as LbPosition;
+
+    const dlmm = await DLMM.create(req.connect, poolAddress);
+    const tx = await dlmm.claimLMReward({ owner, position });
+    return res.status(200).send(safeStringify(tx));
+  }
+  catch (error) {
+    console.log(error)
+    return res.status(400).send(error)
+  }
+})
+
+app.post("/dlmm/claim-all-lm-rewards", async (req, res) => {
+  try {
+    const poolAddress = req.pool;
+    const owner = new PublicKey(req.body.owner);
+    const positions = req.body.positions as LbPosition[];
+
+    const dlmm = await DLMM.create(req.connect, poolAddress);
+    const tx = await dlmm.claimAllLMRewards({ owner, positions });
+    return res.status(200).send(safeStringify(tx));
+  }
+  catch (error) {
+    console.log(error)
+    return res.status(400).send(error)
+  }
+})
+
+app.post("/dlmm/claim-swap-fee", async (req, res) => {
+  try {
+    const poolAddress = req.pool;
+    const owner = new PublicKey(req.body.owner);
+    const position = req.body.position as LbPosition;
+
+    const dlmm = await DLMM.create(req.connect, poolAddress);
+    const tx = await dlmm.claimSwapFee({ owner, position });
+    return res.status(200).send(safeStringify(tx));
+  }
+  catch (error) {
+    console.log(error)
+    return res.status(400).send(error)
+  }
+})
+
+app.post("/dlmm/claim-all-swap-fee", async (req, res) => {
+  try {
+    const poolAddress = req.pool;
+    const owner = new PublicKey(req.body.owner);
+    const positions = req.body.positions as LbPosition[];
+
+    const dlmm = await DLMM.create(req.connect, poolAddress);
+    const tx = await dlmm.claimAllSwapFee({ owner, positions });
+    return res.status(200).send(safeStringify(tx));
+  }
+  catch (error) {
+    console.log(error)
+    return res.status(400).send(error)
+  }
+})
+
+app.post("/dlmm/claim-all-rewards", async (req, res) => {
+  try {
+    const poolAddress = req.pool;
+    const owner = new PublicKey(req.body.owner);
+    const positions = req.body.positions as LbPosition[];
+
+    const dlmm = await DLMM.create(req.connect, poolAddress);
+    const tx = await dlmm.claimAllRewards({ owner, positions });
+    return res.status(200).send(safeStringify(tx));
+  }
+  catch (error) {
+    console.log(error)
+    return res.status(400).send(error)
+  }
+})
 
 
 app.listen(3000, () => {
