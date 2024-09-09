@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.2.2] - PR #110
+
+### Fixed
+
+- Fixed `quoteCreatePosition` incorrect result if bin range too short
+
 ## @meteora-ag/dlmm [1.2.0] - PR #109
 
 ### Removed

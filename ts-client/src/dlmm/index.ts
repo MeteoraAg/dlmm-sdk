@@ -1866,7 +1866,10 @@ export class DLMM {
     const { minBinId, maxBinId } = strategy;
 
     const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(minBinId));
-    const upperBinArrayIndex = binIdToBinArrayIndex(new BN(maxBinId));
+    const upperBinArrayIndex = BN.max(
+      binIdToBinArrayIndex(new BN(maxBinId)),
+      lowerBinArrayIndex.add(new BN(1))
+    );
 
     const binArraysCount = (
       await this.binArraysToBeCreate(lowerBinArrayIndex, upperBinArrayIndex)
@@ -1884,20 +1887,20 @@ export class DLMM {
   }
 
   /**
- * Creates an empty position and initializes the corresponding bin arrays if needed.
- * @param param0 The settings of the requested new position.
- * @returns A promise that resolves into a transaction for creating the requested position.
- */
+   * Creates an empty position and initializes the corresponding bin arrays if needed.
+   * @param param0 The settings of the requested new position.
+   * @returns A promise that resolves into a transaction for creating the requested position.
+   */
   public async createEmptyPosition({
     positionPubKey,
     minBinId,
     maxBinId,
     user,
   }: {
-    positionPubKey: PublicKey,
-    minBinId: number,
-    maxBinId: number,
-    user: PublicKey,
+    positionPubKey: PublicKey;
+    minBinId: number;
+    maxBinId: number;
+    user: PublicKey;
   }) {
     const setComputeUnitLimitIx = computeBudgetIx();
     const createPositionIx = await this.program.methods
@@ -1951,6 +1954,8 @@ export class DLMM {
     slippage,
   }: TInitializePositionAndAddLiquidityParamsByStrategy) {
     const { maxBinId, minBinId } = strategy;
+    console.log("🚀 ~ DLMM ~ minBinId:", minBinId);
+    console.log("🚀 ~ DLMM ~ maxBinId:", maxBinId);
 
     const maxActiveBinSlippage = slippage
       ? Math.ceil(slippage / (this.lbPair.binStep / 100))
@@ -5359,19 +5364,20 @@ export class DLMM {
 
     const binArrays: PublicKey[] = [];
     for (const idx of binArrayIndexes) {
-      const [binArray] = deriveBinArray(
+      const [binArrayPubKey] = deriveBinArray(
         this.pubkey,
         idx,
         this.program.programId
       );
-      const binArrayAccount =
-        await this.program.provider.connection.getAccountInfo(binArray);
-
-      if (binArrayAccount === null) {
-        binArrays.push(binArray);
-      }
+      binArrays.push(binArrayPubKey);
     }
-    return binArrays;
+
+    const binArrayAccounts =
+      await this.program.provider.connection.getMultipleAccountsInfo(binArrays);
+
+    return binArrayAccounts
+      .filter((binArray) => binArray === null)
+      .map((_, index) => binArrays[index]);
   }
 
   private async createBinArraysIfNeeded(
