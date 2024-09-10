@@ -346,7 +346,7 @@ class BinLiquidty():
 
 @dataclass
 class GetBins():
-    active_bin: ActiveBin
+    active_bin: int
     bin_liquidty: List[BinLiquidty]
 
     def __init__(self, data: dict) -> None:
@@ -356,5 +356,5 @@ class GetBins():
         if data.get("bins") is None:
             raise AttributeError("bins is required")
         
-        self.active_bin = ActiveBin(data["activeBin"])
+        self.active_bin = int(data["activeBin"])
         self.bin_liquidty = [BinLiquidty(bin_data) for bin_data in data["bins"]]

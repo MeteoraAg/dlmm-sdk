@@ -336,7 +336,7 @@ class DLMM:
             raise HTTPError(f"Error connecting to DLMM: {e}")
     
     # TODO: Add type for result
-    def get_bin_arrays(self) -> dict:
+    def get_bin_arrays(self) -> List[dict]:
         try:
             result = self.__session.get(f"{API_URL}/dlmm/get-bin-arrays").json()
             return result
@@ -363,7 +363,7 @@ class DLMM:
         except requests.exceptions.ConnectionError as e:
             raise HTTPError(f"Error connecting to DLMM: {e}")
     
-    def get_bin_id_from_price(self, price: float, min: bool) -> int:
+    def get_bin_id_from_price(self, price: float, min: bool) -> int | None:
         if type(price) != float:
             raise TypeError("price must be of type `float`")
 
@@ -376,7 +376,7 @@ class DLMM:
                 "min": min
             })
             result = self.__session.post(f"{API_URL}/dlmm/get-bin-id-from-price", data=data).json()
-            return int(result['binId'])
+            return int(result['binId']) if result.get('binId') is not None else None
         except requests.exceptions.HTTPError as e:
             raise HTTPError(f"Error getting bin id from price: {e}")
         except requests.exceptions.ConnectionError as e:
