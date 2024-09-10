@@ -3,6 +3,7 @@ import express from 'express';
 import { DLMM } from '../dlmm';
 import { BinArrayAccount, LbPosition } from '../dlmm/types';
 import { BN } from 'bn.js';
+import { convertToPosition } from './utils';
 
 declare global {
   namespace Express {
@@ -232,7 +233,7 @@ app.post("/dlmm/remove-liquidity", async (req, res) => {
 app.post("/dlmm/close-position", async (req, res) => {
   try {
     const owner = new PublicKey(req.body.owner);
-    const position = req.body.position as LbPosition;
+    const position = convertToPosition(req.body.position)
 
     const poolAddress = req.pool;
     const dlmm = await DLMM.create(req.connect, poolAddress);
@@ -450,8 +451,8 @@ app.post("/dlmm/get-bins-around-active-bin", async (req, res) => {
 app.post("/dlmm/get-bins-between-min-and-max-price", async (req, res) => {
   try {
     const poolAddress = req.pool;
-    const minPrice = parseInt(req.body.minPrice);
-    const maxPrice = parseInt(req.body.maxPrice);
+    const minPrice = req.body.minPrice;
+    const maxPrice = req.body.maxPrice;
 
     const dlmm = await DLMM.create(req.connect, poolAddress);
     const bins = await dlmm.getBinsBetweenMinAndMaxPrice(minPrice, maxPrice);
@@ -483,7 +484,7 @@ app.post("/dlmm/claim-lm-reward", async (req, res) => {
   try {
     const poolAddress = req.pool;
     const owner = new PublicKey(req.body.owner);
-    const position = req.body.position as LbPosition;
+    const position = convertToPosition(req.body.position);
 
     const dlmm = await DLMM.create(req.connect, poolAddress);
     const tx = await dlmm.claimLMReward({ owner, position });
@@ -499,7 +500,7 @@ app.post("/dlmm/claim-all-lm-rewards", async (req, res) => {
   try {
     const poolAddress = req.pool;
     const owner = new PublicKey(req.body.owner);
-    const positions = req.body.positions as LbPosition[];
+    const positions = req.body.positions.map(convertToPosition);
 
     const dlmm = await DLMM.create(req.connect, poolAddress);
     const tx = await dlmm.claimAllLMRewards({ owner, positions });
@@ -515,7 +516,7 @@ app.post("/dlmm/claim-swap-fee", async (req, res) => {
   try {
     const poolAddress = req.pool;
     const owner = new PublicKey(req.body.owner);
-    const position = req.body.position as LbPosition;
+    const position = convertToPosition(req.body.position);
 
     const dlmm = await DLMM.create(req.connect, poolAddress);
     const tx = await dlmm.claimSwapFee({ owner, position });
@@ -531,7 +532,7 @@ app.post("/dlmm/claim-all-swap-fee", async (req, res) => {
   try {
     const poolAddress = req.pool;
     const owner = new PublicKey(req.body.owner);
-    const positions = req.body.positions as LbPosition[];
+    const positions = req.body.positions.map(convertToPosition);
 
     const dlmm = await DLMM.create(req.connect, poolAddress);
     const tx = await dlmm.claimAllSwapFee({ owner, positions });
@@ -547,7 +548,7 @@ app.post("/dlmm/claim-all-rewards", async (req, res) => {
   try {
     const poolAddress = req.pool;
     const owner = new PublicKey(req.body.owner);
-    const positions = req.body.positions as LbPosition[];
+    const positions = req.body.positions.map(convertToPosition);
 
     const dlmm = await DLMM.create(req.connect, poolAddress);
     const tx = await dlmm.claimAllRewards({ owner, positions });
