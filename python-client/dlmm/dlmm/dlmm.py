@@ -6,9 +6,12 @@ from solders.pubkey import Pubkey
 from .utils import convert_to_transaction
 from .types import ActiveBin, FeeInfo, GetBins, GetPositionByUser, Position, PositionInfo, StrategyParameters, SwapQuote, LBPair, TokenReserve, DlmmHttpError as HTTPError
 
-API_URL = "http://localhost:3000"
+API_URL = "localhost:3000"
 
 class DLMM:
+    '''
+    DLMM is a class that provides utility methods for interacting with the DLMM API.
+    '''
     __session: requests.Session
     pool_address: Pubkey
     rpc: str
@@ -45,6 +48,9 @@ class DLMM:
             raise HTTPError(f"Error connecting to DLMM: {e}")
     
     def get_active_bin(self) -> ActiveBin:
+        '''
+        The function retrieves the active bin ID and its corresponding price.
+        '''
         try:
             result = self.__session.get(f"{API_URL}/dlmm/get-active-bin").json()
             active_bin = ActiveBin(result)
@@ -55,6 +61,13 @@ class DLMM:
             raise HTTPError(f"Error connecting to DLMM: {e}")
 
     def from_price_per_lamport(self, price: float) -> float:
+        '''
+        The function converts a price per lamport value to a real price of bin.
+
+        Args:
+            price (float): The price per lamport.
+        
+        '''
         if type(price) != float:
             raise TypeError("price must be of type `float`")
         
@@ -70,6 +83,13 @@ class DLMM:
             raise HTTPError(f"Error connecting to DLMM: {e}")
     
     def to_price_per_lamport(self, price: float) -> float:
+        '''
+        The function converts a real price of bin to a lamport value.
+
+        Args:
+            price (float): The price per lamport.
+        
+        '''
         if type(price) != float:
             raise TypeError("price must be of type `float`")
         
@@ -85,6 +105,17 @@ class DLMM:
             raise HTTPError(f"Error connecting to DLMM: {e}")
 
     def initialize_position_and_add_liquidity_by_strategy(self, position_pub_key: Pubkey, user: Pubkey, x_amount: int, y_amount: int, strategy: StrategyParameters) -> Transaction:
+        '''
+        Initialize position and add liquidity by strategy.
+
+        Args:
+            position_pub_key (Pubkey): The public key of the position.
+            user (Pubkey): The public key of the user.
+            x_amount (int): The total amount of token X to be added to the liquidity pool.
+            y_amount (int): The total amount of token Y to be added to the liquidity pool.
+            strategy (StrategyParameters): The strategy parameters.
+
+        '''
         if type(position_pub_key) != Pubkey:
             raise TypeError("position_pub_key must be of type `solders.pubkey.Pubkey`")
         
@@ -128,6 +159,17 @@ class DLMM:
             raise HTTPError(f"Error connecting to DLMM: {e}")
     
     def add_liquidity_by_strategy(self, position_pub_key: Pubkey, user: Pubkey, x_amount: int, y_amount: int, strategy: StrategyParameters) -> Transaction:
+        '''
+        Add liquidity by strategy to existing position.
+
+        Args:
+            position_pub_key (Pubkey): The public key of the position.
+            user (Pubkey): The public key of the user.
+            x_amount (int): The total amount of token X to be added to the liquidity pool.
+            y_amount (int): The total amount of token Y to be added to the liquidity pool.
+            strategy (StrategyParameters): The strategy parameters.
+
+        '''
         if type(position_pub_key) != Pubkey:
             raise TypeError("position_pub_key must be of type `solders.pubkey.Pubkey`")
         
@@ -171,6 +213,13 @@ class DLMM:
             raise HTTPError(f"Error connecting to DLMM: {e}")
 
     def get_positions_by_user_and_lb_pair(self, user: Pubkey) -> GetPositionByUser:
+        '''
+        This function retrieves positions by user and LB pair, including active bin and user positions.
+
+        Args:
+            user (Pubkey): The public key of the user.
+        
+        '''
         if type(user) != Pubkey:
             raise TypeError("user must be of type `solders.pubkey.Pubkey`")
         
@@ -186,6 +235,17 @@ class DLMM:
             raise HTTPError(f"Error connecting to DLMM: {e}")
 
     def remove_liqidity(self, position_pub_key: Pubkey, user: Pubkey, bin_ids: List[int], bps: int, should_claim_and_close: bool) -> List[Transaction]:
+        '''
+        Remove liquidity from the position.
+
+        Args:
+            position_pub_key (Pubkey): The public key of the position account.
+            user (Pubkey): The public key of the user.
+            bin_ids (List[int]): The list bin IDs to remove liquidity from.
+            bps (int): The percentage of liquidity to remove.
+            should_claim_and_close (bool): A boolean flag that indicates whether to claim rewards and close the position.
+        
+        '''
         if type(position_pub_key) != Pubkey:
             raise TypeError("position_pub_key must be of type `solders.pubkey.Pubkey`")
         
@@ -217,6 +277,14 @@ class DLMM:
             raise HTTPError(f"Error connecting to DLMM: {e}")
     
     def close_position(self, owner: Pubkey, position: Position) -> Transaction:
+        '''
+        Close the position.
+
+        Args:
+            owner (Pubkey): The public key of the owner of the position.
+            position (Position): The position to close.
+        
+        '''
         if type(owner) != Pubkey:
             raise TypeError("owner must be of type `solders.pubkey.Pubkey`")
         
@@ -238,6 +306,14 @@ class DLMM:
     
     # TODO: Add type for result
     def get_bin_array_for_swap(self, swap_Y_to_X: bool, count: Optional[int]=4) -> List[dict]:
+        '''
+        This function retrieves a specified number of `BinArrayAccount` objects from the blockchain for swap.
+
+        Args:
+            swap_Y_to_X (bool): A boolean value that indicates whether the swap is using quote token as input.
+            count (Optional[int]): The number of `BinArrayAccount` objects to retrieve.
+        
+        '''
         if isinstance(swap_Y_to_X, bool) == False:
             raise TypeError("swap_Y_to_X must be of type `bool`")
         
@@ -257,6 +333,17 @@ class DLMM:
             raise HTTPError(f"Error connecting to DLMM: {e}")
 
     def swap_quote(self, amount: int, swap_Y_to_X: bool, allowed_slippage: int, binArrays: List[dict], is_partial_filled: Optional[bool]=False) -> SwapQuote:
+        '''
+        Get a quote for the swap.
+
+        Args:
+            amount (int): Amount of lamport to swap in.
+            swap_Y_to_X (bool): Swap token X to Y when it is true, else reversed.
+            allowed_slippage (int): Allowed slippage for the swap. Expressed in BPS. To convert from slippage percentage to BPS unit: SLIPPAGE_PERCENTAGE * 100
+            binArrays (List[dict]): The list of bin arrays to use for the swap.
+            is_partial_filled (Optional[bool]): Flag to check whether the the swapQuote is partial fill.
+        
+        '''
         if type(amount) != int:
             raise TypeError("amount must be of type `int`")
         
@@ -288,6 +375,19 @@ class DLMM:
             raise HTTPError(f"Error connecting to DLMM: {e}")
     
     def swap(self, in_token: Pubkey, out_token: Pubkey, in_amount: int, min_out_amount: int, lb_pair: Pubkey,  user: Pubkey, binArrays: List[Pubkey]) -> Transaction:
+        '''
+        Swap tokens.
+
+        Args:
+            in_token (Pubkey): The public key of the token to swap in.
+            out_token (Pubkey): The public key of the token to swap out.
+            in_amount (int): The amount of token to swap in.
+            min_out_amount (int): The minimum amount of token to swap out.
+            lb_pair (Pubkey): The public key of the liquidity pool pair.
+            user (Pubkey): The public key of the user.
+            binArrays (List[Pubkey]): The list of public keys of the bin arrays to use for the swap.
+        
+        '''
         if type(in_token) != Pubkey:
             raise TypeError("in_token must be of type `solders.pubkey.Pubkey`")
         
@@ -327,6 +427,9 @@ class DLMM:
             raise HTTPError(f"Error connecting to DLMM: {e}")
 
     def refetch_states(self) -> None:
+        '''
+        This function retrieves and updates various states and data related to bin arrays and lb pairs
+        '''
         try:
             result = self.__session.get(f"{API_URL}/dlmm/refetch-states")
             return None
@@ -337,6 +440,9 @@ class DLMM:
     
     # TODO: Add type for result
     def get_bin_arrays(self) -> List[dict]:
+        '''
+        This function retrieves all bin arrays from the blockchain.
+        '''
         try:
             result = self.__session.get(f"{API_URL}/dlmm/get-bin-arrays").json()
             return result
@@ -346,6 +452,9 @@ class DLMM:
             raise HTTPError(f"Error connecting to DLMM: {e}")
     
     def get_fee_info(self) -> FeeInfo:
+        '''
+        This function calculates and returns the base fee rate percentage, maximum fee rate percentage, and protocol fee percentage.
+        '''
         try:
             result = self.__session.get(f"{API_URL}/dlmm/get-fee-info").json()
             return FeeInfo(result)
@@ -355,6 +464,9 @@ class DLMM:
             raise HTTPError(f"Error connecting to DLMM: {e}")
     
     def get_dynamic_fee(self) -> float:
+        '''
+        This function calculates and returns the dynamic fee.
+        '''
         try:
             result = self.__session.get(f"{API_URL}/dlmm/get-dynamic-fee").json()
             return float(result['fee'])
@@ -364,6 +476,14 @@ class DLMM:
             raise HTTPError(f"Error connecting to DLMM: {e}")
     
     def get_bin_id_from_price(self, price: float, min: bool) -> int | None:
+        '''
+        The function get bin ID based on a given price and a boolean flag indicating whether to round down or up.
+
+        Args:
+            price (float): The price of the bin.
+            min (bool): A boolean value that determines whether to round down or round up the calculated binId. If "min" is true, the bin_id will be rounded down (floor), otherwise it will be rounded up (ceil).
+        
+        '''
         if type(price) != float:
             raise TypeError("price must be of type `float`")
 
@@ -383,6 +503,15 @@ class DLMM:
             raise HTTPError(f"Error connecting to DLMM: {e}")
     
     def get_bins_around_active_bin(self, number_of_bins_to_left: int, number_of_bins_to_right: int) -> GetBins:
+        '''
+        The function retrieves a specified number of bins to the left and right of the active bin and returns them along with the active bin ID.
+
+        Args:
+            number_of_bins_to_left (int): The number of bins to the left of the active bin.  It determines how many bins you want to include in the result that are positioned to the left of the active bin.
+            number_of_bins_to_right (int): The number of bins to the right of the active bin. It determines how many bins you want to include in the result that are positioned to the right of the active bin.
+        
+        '''
+        
         if type(number_of_bins_to_left) != int:
             raise TypeError("number_of_bins_to_left must be of type `int`")
         
@@ -402,6 +531,14 @@ class DLMM:
             raise HTTPError(f"Error connecting to DLMM: {e}")
     
     def get_bins_between_min_and_max_price(self, min_price: float, max_price: float) -> GetBins:
+        '''
+        The function retrieves a list of bins within a specified price range.
+
+        Args:
+            min_price (float): The minimum price.
+            max_price (float): The maximum price.
+        
+        '''
         if type(min_price) != float:
             raise TypeError("min_price must be of type `float`")
         
@@ -421,6 +558,14 @@ class DLMM:
             raise HTTPError(f"Error connecting to DLMM: {e}")
     
     def get_bins_between_lower_and_upper_bound(self, lower_bound: int, upper_bound: int) -> GetBins:
+        '''
+        The function retrieves a list of bins within a specified range of bin IDs.
+
+        Args:
+            lower_bound (int): A number that represents the ID of the lowest bin.
+            upper_bound (int): A number that represents the ID of the highest bin.
+
+        '''
         if type(lower_bound) != int:
             raise TypeError("lower_bound must be of type `int`")
         
@@ -440,6 +585,14 @@ class DLMM:
             raise HTTPError(f"Error connecting to DLMM: {e}")
     
     def claim_LM_reward(self, owner: Pubkey, position: Position) -> Transaction:
+        '''
+        The function is used to claim rewards for a specific position owned by a specific owner.
+
+        Args:
+            owner (Pubkey): The public key of the owner of the position.
+            position (Position): The position to claim rewards from.
+            
+        '''
         if type(owner) != Pubkey:
             raise TypeError("owner must be of type `solders.pubkey.Pubkey`")
         
@@ -456,6 +609,13 @@ class DLMM:
             raise HTTPError(f"Error connecting to DLMM: {e}")
     
     def claim_all_LM_reards(self, owner: Pubkey, positions: List[Position]) -> List[Transaction]:
+        '''
+        The function is used to claim all liquidity mining rewards for a given owner and their positions.
+
+        Args:
+            owner (Pubkey): The public key of the owner of the positions.
+            positions (List[Position]): The list of positions to claim rewards from.
+        '''
         if type(owner) != Pubkey:
             raise TypeError("owner must be of type `solders.pubkey.Pubkey`")
         
@@ -475,6 +635,14 @@ class DLMM:
             raise HTTPError(f"Error connecting to DLMM: {e}")
     
     def claim_swap_fee(self, owner: Pubkey, position: Position) -> Transaction:
+        '''
+        The function is used to claim swap fee for a specific position owned by a specific owner.
+
+        Args:
+            owner (Pubkey): The public key of the owner of the position.
+            position (Position): The position to claim swap fee from.
+        
+        '''
         if type(owner) != Pubkey:
             raise TypeError("owner must be of type `solders.pubkey.Pubkey`")
         
@@ -494,6 +662,14 @@ class DLMM:
             raise HTTPError(f"Error connecting to DLMM: {e}")
     
     def claim_all_swap_fees(self, owner: Pubkey, positions: List[Position]) -> List[Transaction]:
+        '''
+        The function is used to claim all swap fees for a given owner and their positions.
+
+        Args:
+            owner (Pubkey): The public key of the owner of the positions.
+            positions (List[Position]): The list of positions to claim swap fees from.
+        
+        '''
         if type(owner) != Pubkey:
             raise TypeError("owner must be of type `solders.pubkey.Pubkey`")
         
@@ -513,6 +689,14 @@ class DLMM:
             raise HTTPError(f"Error connecting to DLMM: {e}")
     
     def claim_all_rewards(self, owner: Pubkey, positions: List[Position]) -> List[Transaction]:
+        '''
+        The function to claim swap fees and LM rewards for multiple positions owned by a specific owner.
+
+        Args:
+            owner (Pubkey): The public key of the owner of the positions.
+            positions (List[Position]): The list of positions to claim rewards from.
+        
+        '''
         if type(owner) != Pubkey:
             raise TypeError("owner must be of type `solders.pubkey.Pubkey`")
         
@@ -532,13 +716,35 @@ class DLMM:
             raise HTTPError(f"Error connecting to DLMM: {e}")
 
 class DLMM_CLIENT:
+    '''
+    DLMM_CLIENT is a class that provides utility methods for interacting with the DLMM API using DLMM class object.
+    '''
 
     @staticmethod
     def create(public_key: Pubkey, rpc: str) -> DLMM:
+        '''
+        Create a DLMM object using the public key of the pool and the RPC URL.
+
+        Args:
+            public_key (Pubkey): The public key of the pool.
+            rpc (str): The RPC URL.
+        
+        '''
+        if isinstance(public_key, Pubkey) == False:
+            raise TypeError("public_key must be of type `solders.pubkey.Pubkey`")
+        
         return DLMM(public_key, rpc)
     
     @staticmethod
     def create_multiple(public_keys: List[Pubkey], rpc: str) -> List[DLMM]:
+        '''
+        Create multiple DLMM objects using the public keys of the pools and the RPC URL.
+
+        Args:
+            public_keys (List[Pubkey]): The public keys of the pools.
+            rpc (str): The RPC URL
+        
+        '''
         if type(public_keys) != list:
             raise TypeError("public_keys must be of type `list`")
         
@@ -546,6 +752,14 @@ class DLMM_CLIENT:
     
     @staticmethod
     def get_all_lb_pair_positions_by_user(user: Pubkey, rpc: str) -> Dict[str, PositionInfo]:
+        '''
+        Get all lb pair positions by user.
+
+        Args:
+            user (Pubkey): The public key of the user.
+            rpc (str): The RPC URL.
+        
+        '''
         if type(user) != Pubkey:
             raise TypeError("user must be of type `solders.pubkey.Pubkey`")
         
