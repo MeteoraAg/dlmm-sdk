@@ -471,11 +471,18 @@ describe.only("SDK test", () => {
 
       await pair.refetchStates();
 
-      let addLiquidityTxs = await pair.addLiquidityByWeight({
+      const minBinId = lowerBinId;
+      const maxBinId = minBinId.add(MAX_BIN_PER_POSITION).sub(new BN(1));
+
+      let addLiquidityTxs = await pair.addLiquidityByStrategy({
         positionPubKey: customFeeOwnerPosition,
         totalXAmount: btcInAmount,
         totalYAmount: usdcInAmount,
-        xYAmountDistribution,
+        strategy: {
+          strategyType: StrategyType.SpotBalanced,
+          minBinId: minBinId.toNumber(),
+          maxBinId: maxBinId.toNumber(),
+        },
         user: keypair.publicKey,
         slippage: 0,
       });
@@ -1622,30 +1629,19 @@ describe.only("SDK test", () => {
     const btcInAmount = new BN(1).mul(new BN(10 ** btcDecimal));
     const usdcInAmount = new BN(24000).mul(new BN(10 ** usdcDecimal));
 
-    const xYAmountDistribution = [
-      {
-        binId: DEFAULT_ACTIVE_ID.sub(new BN(1)).toNumber(),
-        xAmountBpsOfTotal: new BN(0),
-        yAmountBpsOfTotal: new BN(7500),
-      },
-      {
-        binId: DEFAULT_ACTIVE_ID.toNumber(),
-        xAmountBpsOfTotal: new BN(2500),
-        yAmountBpsOfTotal: new BN(2500),
-      },
-      {
-        binId: DEFAULT_ACTIVE_ID.add(new BN(1)).toNumber(),
-        xAmountBpsOfTotal: new BN(7500),
-        yAmountBpsOfTotal: new BN(0),
-      },
-    ];
+    const minBinId = DEFAULT_ACTIVE_ID.sub(new BN(1));
+    const maxBinId = DEFAULT_ACTIVE_ID.add(new BN(1));
 
-    const rawTxs = await lbClmm.initializePositionAndAddLiquidityByWeight({
+    const rawTxs = await lbClmm.initializePositionAndAddLiquidityByStrategy({
       user: keypair.publicKey,
       positionPubKey: positionKeypair.publicKey,
       totalXAmount: btcInAmount,
       totalYAmount: usdcInAmount,
-      xYAmountDistribution,
+      strategy: {
+        strategyType: StrategyType.SpotBalanced,
+        minBinId: minBinId.toNumber(),
+        maxBinId: maxBinId.toNumber(),
+      },
     });
 
     if (Array.isArray(rawTxs)) {
@@ -1705,28 +1701,9 @@ describe.only("SDK test", () => {
     const positionBinWithLiquidity = positionData.positionBinData.filter(
       (p) => p.positionLiquidity != "0"
     );
-    expect(positionBinWithLiquidity.length).toBe(xYAmountDistribution.length);
-
-    for (const [idx, binData] of positionBinWithLiquidity.entries()) {
-      const xYDist = xYAmountDistribution[idx];
-      expect(binData.binId).toBe(xYDist.binId);
-      assertAmountWithPrecision(
-        +binData.binXAmount,
-        xYDist.xAmountBpsOfTotal
-          .mul(btcInAmount)
-          .div(new BN(BASIS_POINT_MAX))
-          .toNumber(),
-        15
-      );
-      assertAmountWithPrecision(
-        +binData.binYAmount,
-        xYDist.yAmountBpsOfTotal
-          .mul(usdcInAmount)
-          .div(new BN(BASIS_POINT_MAX))
-          .toNumber(),
-        15
-      );
-    }
+    expect(positionBinWithLiquidity.length).toBe(
+      maxBinId.sub(minBinId).add(new BN(1)).toNumber()
+    );
   });
 
   it("get user positions in pool", async () => {

@@ -7,6 +7,7 @@ use crate::state::preset_parameters::PresetParameter;
 use crate::utils::seeds::BIN_ARRAY_BITMAP_SEED;
 use crate::utils::seeds::ORACLE;
 use anchor_lang::prelude::*;
+use anchor_spl::token::Token;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use std::cmp::{max, min};
 
@@ -89,12 +90,12 @@ pub struct InitializeLbPair<'info> {
     #[account(mut)]
     pub funder: Signer<'info>,
 
-    // #[account(address = Token2022::id())]
-    pub token_program: Interface<'info, TokenInterface>,
+    pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
 }
 
+// To support token 2022, please use `InitializeLbPair2`
 pub fn handle(ctx: Context<InitializeLbPair>, active_id: i32, bin_step: u16) -> Result<()> {
     Ok(())
 }

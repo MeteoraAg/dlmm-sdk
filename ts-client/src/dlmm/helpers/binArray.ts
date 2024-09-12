@@ -1,5 +1,5 @@
 import { BN } from "@coral-xyz/anchor";
-import { PublicKey } from "@solana/web3.js";
+import { AccountMeta, PublicKey } from "@solana/web3.js";
 import { MAX_BIN_ARRAY_SIZE, MAX_BIN_PER_POSITION } from "../constants";
 import {
   Bin,
@@ -363,4 +363,42 @@ export function getBinArraysRequiredByPositionRange(
     key: new PublicKey(key),
     index,
   }));
+}
+
+export function getBinArrayIndexesByBinRange(lowerBinId: BN, upperBinId: BN) {
+  let binArrayIndex = binIdToBinArrayIndex(lowerBinId);
+  const indexes: BN[] = [];
+  while (true) {
+    const [binArrayLowerBinId, binArrayUpperBinId] =
+      getBinArrayLowerUpperBinId(binArrayIndex);
+    indexes.push(binArrayIndex);
+
+    if (
+      upperBinId.gte(binArrayLowerBinId) &&
+      upperBinId.lte(binArrayUpperBinId)
+    ) {
+      break;
+    } else {
+      binArrayIndex = binArrayIndex.add(new BN(1));
+    }
+  }
+
+  return indexes;
+}
+
+export function getBinArrayAccounstMetaByBinRange(
+  lbPair: PublicKey,
+  lowerBinId: BN,
+  upperBinId: BN,
+  programId: PublicKey
+): AccountMeta[] {
+  const indexes = getBinArrayIndexesByBinRange(lowerBinId, upperBinId);
+  return indexes.map((index) => {
+    const [binArray] = deriveBinArray(lbPair, index, programId);
+    return {
+      pubkey: binArray,
+      isSigner: false,
+      isWritable: true,
+    };
+  });
 }

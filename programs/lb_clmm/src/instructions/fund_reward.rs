@@ -1,6 +1,12 @@
-use crate::state::{bin::BinArray, lb_pair::LbPair};
+use crate::{
+    state::{bin::BinArray, lb_pair::LbPair},
+    utils::remaining_accounts_util::RemainingAccountsInfo,
+};
 use anchor_lang::prelude::*;
-use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
+use anchor_spl::{
+    token::Token,
+    token_interface::{Mint, TokenAccount},
+};
 
 #[event_cpi]
 #[derive(Accounts)]
@@ -23,7 +29,7 @@ pub struct FundReward<'info> {
     )]
     pub bin_array: AccountLoader<'info, BinArray>,
 
-    pub token_program: Interface<'info, TokenInterface>,
+    pub token_program: Program<'info, Token>,
 }
 
 pub fn handle(
@@ -31,6 +37,7 @@ pub fn handle(
     index: u64,
     amount: u64,
     carry_forward: bool,
+    remaining_accounts_info: RemainingAccountsInfo,
 ) -> Result<()> {
     Ok(())
 }

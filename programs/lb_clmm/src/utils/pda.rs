@@ -116,3 +116,7 @@ pub fn derive_preset_parameter_pda2(bin_step: u16, base_factor: u16) -> (Pubkey,
         &crate::ID,
     )
 }
+
+pub fn derive_token_badge_pda(token_mint: Pubkey) -> (Pubkey, u8) {
+    Pubkey::find_program_address(&[b"token_badge", token_mint.as_ref()], &crate::ID)
+}

@@ -1,7 +1,8 @@
 use crate::authorize_modify_position;
 use crate::state::{bin::BinArray, lb_pair::LbPair, position::PositionV2};
 use anchor_lang::prelude::*;
-use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
+use anchor_spl::token::Token;
+use anchor_spl::token_interface::{Mint, TokenAccount};
 
 #[event_cpi]
 #[derive(Accounts)]
@@ -37,7 +38,7 @@ pub struct ClaimReward<'info> {
     #[account(mut)]
     pub user_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
-    pub token_program: Interface<'info, TokenInterface>,
+    pub token_program: Program<'info, Token>,
 }
 
 // TODO: Should we pass in range of bin we are going to collect reward ? It could help us in heap / compute unit issue by chunking into multiple tx.

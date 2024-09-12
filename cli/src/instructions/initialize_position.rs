@@ -6,11 +6,11 @@ use anchor_client::{solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, Prog
 
 use anchor_lang::prelude::AccountMeta;
 use anchor_lang::ToAccountMetas;
+use anchor_spl::metadata::mpl_token_metadata::accounts::Metadata;
 use anyhow::*;
 use lb_clmm::accounts;
 use lb_clmm::instruction;
 use lb_clmm::utils::pda::derive_event_authority_pda;
-use mpl_token_metadata::accounts::Metadata;
 use spl_associated_token_account::get_associated_token_address;
 
 #[derive(Debug)]

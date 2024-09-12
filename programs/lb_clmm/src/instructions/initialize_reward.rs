@@ -1,8 +1,9 @@
-use crate::assert_eq_admin;
 use crate::errors::LBError;
 use crate::state::lb_pair::LbPair;
+use crate::{assert_eq_admin, state::token_badge::TokenBadge};
 use anchor_lang::prelude::*;
-use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
+use anchor_spl::token::Token;
+use anchor_spl::token_interface::{Mint, TokenAccount};
 
 #[event_cpi]
 #[derive(Accounts)]
@@ -26,13 +27,15 @@ pub struct InitializeReward<'info> {
 
     pub reward_mint: Box<InterfaceAccount<'info, Mint>>,
 
+    pub token_badge: Option<AccountLoader<'info, TokenBadge>>,
+
     #[account(
         mut,
         constraint = assert_eq_admin(admin.key()) @ LBError::InvalidAdmin,
     )]
     pub admin: Signer<'info>,
 
-    pub token_program: Interface<'info, TokenInterface>,
+    pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
 }

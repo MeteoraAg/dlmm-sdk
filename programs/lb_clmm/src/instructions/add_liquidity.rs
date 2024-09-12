@@ -3,7 +3,8 @@ use crate::state::bin_array_bitmap_extension::BinArrayBitmapExtension;
 use crate::state::position::PositionV2;
 use crate::state::{bin::BinArray, lb_pair::LbPair};
 use anchor_lang::prelude::*;
-use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
+use anchor_spl::token::Token;
+use anchor_spl::token_interface::{Mint, TokenAccount};
 
 pub struct CompositeDepositInfo {
     pub liquidity_share: u128,
@@ -87,8 +88,8 @@ pub struct ModifyLiquidity<'info> {
     pub bin_array_upper: AccountLoader<'info, BinArray>,
 
     pub sender: Signer<'info>,
-    pub token_x_program: Interface<'info, TokenInterface>,
-    pub token_y_program: Interface<'info, TokenInterface>,
+    pub token_x_program: Program<'info, Token>,
+    pub token_y_program: Program<'info, Token>,
 }
 
 pub fn handle<'a, 'b, 'c, 'info>(

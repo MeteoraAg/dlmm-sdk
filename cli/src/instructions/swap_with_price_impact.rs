@@ -1,23 +1,29 @@
-use std::collections::HashMap;
 use std::ops::Deref;
 
 use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
 
 use anchor_client::solana_sdk::compute_budget::ComputeBudgetInstruction;
+use anchor_client::solana_sdk::instruction::Instruction;
 use anchor_client::{solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, Program};
 use anchor_lang::solana_program::instruction::AccountMeta;
-use anchor_lang::AccountDeserialize;
 use anchor_spl::associated_token::get_associated_token_address;
 
+use anchor_spl::memo;
 use anyhow::*;
-use commons::quote::{get_bin_array_pubkeys_for_swap, quote_exact_in};
+use commons::quote::get_bin_array_pubkeys_for_swap;
 use lb_clmm::accounts;
 use lb_clmm::instruction;
 
-use lb_clmm::state::bin::BinArray;
 use lb_clmm::state::bin_array_bitmap_extension::BinArrayBitmapExtension;
 use lb_clmm::state::lb_pair::LbPair;
 use lb_clmm::utils::pda::*;
+
+use anchor_lang::{InstructionData, ToAccountMetas};
+use lb_clmm::utils::remaining_accounts_util::{
+    AccountsType, RemainingAccountsInfo, RemainingAccountsSlice,
+};
+
+use crate::instructions::utils::get_extra_account_metas_for_transfer_hook;
 
 #[derive(Debug)]
 pub struct SwapWithPriceImpactParameters {
@@ -40,6 +46,18 @@ pub async fn swap_with_price_impact<C: Deref<Target = impl Signer> + Clone>(
     } = params;
 
     let lb_pair_state: LbPair = program.account(lb_pair).await?;
+
+    let mint_x_owner = program
+        .async_rpc()
+        .get_account(&lb_pair_state.token_x_mint)
+        .await
+        .map(|acc| acc.owner)?;
+
+    let mint_y_owner = program
+        .async_rpc()
+        .get_account(&lb_pair_state.token_y_mint)
+        .await
+        .map(|acc| acc.owner)?;
 
     let (user_token_in, user_token_out) = if swap_for_y {
         (
@@ -68,26 +86,9 @@ pub async fn swap_with_price_impact<C: Deref<Target = impl Signer> + Clone>(
         3,
     )?;
 
-    let bin_arrays = program
-        .async_rpc()
-        .get_multiple_accounts(&bin_arrays_for_swap)
-        .await?
-        .into_iter()
-        .zip(bin_arrays_for_swap.iter())
-        .map(|(account, &key)| {
-            let account = account?;
-            Some((
-                key,
-                BinArray::try_deserialize(&mut account.data.as_ref()).ok()?,
-            ))
-        })
-        .collect::<Option<HashMap<Pubkey, BinArray>>>()
-        .context("Failed to fetch bin arrays")?;
+    let (event_authority, _bump) = derive_event_authority_pda();
 
-    let (event_authority, _bump) =
-        Pubkey::find_program_address(&[b"__event_authority"], &lb_clmm::ID);
-
-    let accounts = accounts::Swap {
+    let mut accounts = accounts::Swap2 {
         lb_pair,
         bin_array_bitmap_extension: bitmap_extension
             .map(|_| bitmap_extension_key)
@@ -96,8 +97,8 @@ pub async fn swap_with_price_impact<C: Deref<Target = impl Signer> + Clone>(
         reserve_y: lb_pair_state.reserve_y,
         token_x_mint: lb_pair_state.token_x_mint,
         token_y_mint: lb_pair_state.token_y_mint,
-        token_x_program: anchor_spl::token::ID,
-        token_y_program: anchor_spl::token::ID,
+        token_x_program: mint_x_owner,
+        token_y_program: mint_y_owner,
         user: program.payer(),
         user_token_in,
         user_token_out,
@@ -105,27 +106,59 @@ pub async fn swap_with_price_impact<C: Deref<Target = impl Signer> + Clone>(
         host_fee_in: Some(lb_clmm::ID),
         event_authority,
         program: lb_clmm::ID,
-    };
+        memo_program: memo::ID,
+    }
+    .to_account_metas(None);
 
-    let ix = instruction::SwapWithPriceImpact {
-        amount_in,
-        active_id: Some(lb_pair_state.active_id),
-        max_price_impact_bps: price_impact_bps,
-    };
+    let mut remaining_accounts_info = RemainingAccountsInfo { slices: vec![] };
+
+    let transfer_hook_x_accounts =
+        get_extra_account_metas_for_transfer_hook(lb_pair_state.token_x_mint, program.async_rpc())
+            .await?;
+
+    remaining_accounts_info.slices.push(RemainingAccountsSlice {
+        accounts_type: AccountsType::TransferHookX,
+        length: transfer_hook_x_accounts.len() as u8,
+    });
+
+    let transfer_hook_y_accounts =
+        get_extra_account_metas_for_transfer_hook(lb_pair_state.token_y_mint, program.async_rpc())
+            .await?;
+
+    remaining_accounts_info.slices.push(RemainingAccountsSlice {
+        accounts_type: AccountsType::TransferHookY,
+        length: transfer_hook_y_accounts.len() as u8,
+    });
 
     let remaining_accounts = bin_arrays_for_swap
         .into_iter()
         .map(|key| AccountMeta::new(key, false))
         .collect::<Vec<_>>();
 
+    accounts.extend(transfer_hook_x_accounts);
+    accounts.extend(transfer_hook_y_accounts);
+    accounts.extend(remaining_accounts);
+
+    let data = instruction::SwapWithPriceImpact2 {
+        amount_in,
+        active_id: Some(lb_pair_state.active_id),
+        max_price_impact_bps: price_impact_bps,
+        remaining_accounts_info,
+    }
+    .data();
+
+    let ix = Instruction {
+        program_id: lb_clmm::ID,
+        data,
+        accounts,
+    };
+
     let compute_budget_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
 
     let request_builder = program.request();
     let signature = request_builder
         .instruction(compute_budget_ix)
-        .accounts(accounts)
-        .accounts(remaining_accounts)
-        .args(ix)
+        .instruction(ix)
         .send_with_spinner_and_config(transaction_config)
         .await;
 

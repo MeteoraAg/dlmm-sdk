@@ -7,7 +7,8 @@ use crate::state::bin_array_bitmap_extension::BinArrayBitmapExtension;
 use crate::state::position::PositionV2;
 use crate::state::{bin::BinArray, lb_pair::LbPair};
 use anchor_lang::prelude::*;
-use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
+use anchor_spl::token::Token;
+use anchor_spl::token_interface::{Mint, TokenAccount};
 
 use super::add_liquidity_by_weight::BinLiquidityDistributionByWeight;
 
@@ -135,7 +136,7 @@ pub struct ModifyLiquidityOneSide<'info> {
     pub bin_array_upper: AccountLoader<'info, BinArray>,
 
     pub sender: Signer<'info>,
-    pub token_program: Interface<'info, TokenInterface>,
+    pub token_program: Program<'info, Token>,
 }
 
 pub fn handle<'a, 'b, 'c, 'info>(
