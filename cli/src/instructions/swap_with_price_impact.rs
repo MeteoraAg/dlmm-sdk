@@ -3,9 +3,7 @@ use std::ops::Deref;
 
 use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
 
-use anchor_client::solana_sdk::clock::Clock;
 use anchor_client::solana_sdk::compute_budget::ComputeBudgetInstruction;
-use anchor_client::solana_sdk::sysvar::SysvarId;
 use anchor_client::{solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, Program};
 use anchor_lang::solana_program::instruction::AccountMeta;
 use anchor_lang::AccountDeserialize;
@@ -14,7 +12,6 @@ use anchor_spl::associated_token::get_associated_token_address;
 use anyhow::*;
 use commons::quote::{get_bin_array_pubkeys_for_swap, quote_exact_in};
 use lb_clmm::accounts;
-use lb_clmm::constants::BASIS_POINT_MAX;
 use lb_clmm::instruction;
 
 use lb_clmm::state::bin::BinArray;
@@ -86,26 +83,6 @@ pub async fn swap_with_price_impact<C: Deref<Target = impl Signer> + Clone>(
         })
         .collect::<Option<HashMap<Pubkey, BinArray>>>()
         .context("Failed to fetch bin arrays")?;
-
-    let current_timestamp =
-        program
-            .async_rpc()
-            .get_account(&Clock::id())
-            .await
-            .map(|account| {
-                let clock: Clock = bincode::deserialize(account.data.as_ref())?;
-                Ok(clock.unix_timestamp)
-            })??;
-
-    let quote = quote_exact_in(
-        lb_pair,
-        &lb_pair_state,
-        amount_in,
-        swap_for_y,
-        bin_arrays,
-        bitmap_extension.as_ref(),
-        current_timestamp as u64,
-    )?;
 
     let (event_authority, _bump) =
         Pubkey::find_program_address(&[b"__event_authority"], &lb_clmm::ID);

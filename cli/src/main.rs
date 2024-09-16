@@ -53,10 +53,8 @@ use crate::{
             remove_liquidity_by_price_range, RemoveLiquidityByPriceRangeParameters,
         },
         seed_liquidity::{seed_liquidity, SeedLiquidityParameters},
-        set_activation_slot::*,
-        set_pre_activation_slot_duration::{
-            set_pre_activation_slot_duration, SetPreactivationSlotParam,
-        },
+        set_activation_point::*,
+        set_pre_activation_duration::{set_pre_activation_duration, SetPreactivationDurationParam},
         set_pre_activation_swap_address::{
             set_pre_activation_swap_address, SetPreactivationSwapAddressParam,
         },
@@ -66,7 +64,6 @@ use crate::{
         swap_exact_out::{swap_exact_out, SwapExactOutParameters},
         swap_with_price_impact::{swap_with_price_impact, SwapWithPriceImpactParameters},
         toggle_pair_status::toggle_pool_status,
-        update_fee_owner::{update_fee_owner, UpdateFeeOwnerParam},
         update_reward_duration::*,
         update_reward_funder::*,
         update_whitelisted_wallet::update_whitelisted_wallet,
@@ -336,7 +333,8 @@ async fn main() -> Result<()> {
                 initial_price,
                 base_keypair_path,
                 base_fee_bps,
-                lock_duration_in_slot,
+                lock_duration,
+                activation_type,
             } => {
                 let base_keypair =
                     read_keypair_file(base_keypair_path).expect("base keypair file not found");
@@ -347,7 +345,8 @@ async fn main() -> Result<()> {
                     token_mint_x,
                     token_mint_y,
                     base_fee_bps,
-                    lock_duration_in_slot,
+                    lock_duration,
+                    activation_type,
                 };
                 initialize_permission_lb_pair(params, &amm_program, transaction_config).await?;
             }
@@ -400,15 +399,15 @@ async fn main() -> Result<()> {
                 };
                 check_my_balance(params, &amm_program).await?;
             }
-            AdminCommand::SetActivationSlot {
-                activation_slot,
+            AdminCommand::SetActivationPoint {
+                activation_point,
                 lb_pair,
             } => {
-                let params = SetActivationSlotParam {
-                    activation_slot,
+                let params = SetActivationPointParam {
+                    activation_point,
                     lb_pair,
                 };
-                set_activation_slot(params, &amm_program, transaction_config).await?;
+                set_activation_point(params, &amm_program, transaction_config).await?;
             }
             AdminCommand::ClosePresetParameter { preset_parameter } => {
                 close_preset_parameter(preset_parameter, &amm_program, transaction_config).await?;
@@ -453,10 +452,6 @@ async fn main() -> Result<()> {
                     variable_fee_control,
                 };
                 initialize_preset_parameter(params, &amm_program, transaction_config).await?;
-            }
-            AdminCommand::UpdateFeeOwner { lb_pair, fee_owner } => {
-                let params = UpdateFeeOwnerParam { fee_owner, lb_pair };
-                update_fee_owner(params, &amm_program, transaction_config).await?;
             }
             AdminCommand::WithdrawProtocolFee {
                 lb_pair,
@@ -508,15 +503,15 @@ async fn main() -> Result<()> {
                 };
                 set_pre_activation_swap_address(params, &amm_program, transaction_config).await?;
             }
-            AdminCommand::SetPreActivationSlotDuration {
+            AdminCommand::SetPreActivationDuration {
                 lb_pair,
-                pre_activation_slot_duration,
+                pre_activation_duration,
             } => {
-                let params = SetPreactivationSlotParam {
+                let params = SetPreactivationDurationParam {
                     lb_pair,
-                    pre_activation_slot_duration,
+                    pre_activation_duration,
                 };
-                set_pre_activation_slot_duration(params, &amm_program, transaction_config).await?;
+                set_pre_activation_duration(params, &amm_program, transaction_config).await?;
             }
         },
     };

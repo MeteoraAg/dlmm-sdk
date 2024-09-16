@@ -34,7 +34,7 @@ import {
   MAX_BIN_PER_POSITION,
 } from "../dlmm/constants";
 import { IDL } from "../dlmm/idl";
-import { PairType, StrategyType } from "../dlmm/types";
+import { ActivationType, PairType, StrategyType } from "../dlmm/types";
 import Decimal from "decimal.js";
 import babar from "babar";
 import {
@@ -103,7 +103,7 @@ function assertAmountWithPrecision(
   expect(diff).toBeLessThan(precisionPercent);
 }
 
-describe("SDK test", () => {
+describe.only("SDK test", () => {
   beforeAll(async () => {
     BTC = await createMint(
       connection,
@@ -346,7 +346,7 @@ describe("SDK test", () => {
 
     it("create permissioned LB pair", async () => {
       const feeBps = new BN(50);
-      const lockDurationInSlot = new BN(0);
+      const lockDuration = new BN(0);
 
       try {
         const rawTx = await DLMM.createPermissionLbPair(
@@ -358,7 +358,8 @@ describe("SDK test", () => {
           baseKeypair.publicKey,
           keypair.publicKey,
           feeBps,
-          lockDurationInSlot,
+          lockDuration,
+          ActivationType.Slot,
           { cluster: "localhost" }
         );
         const txHash = await sendAndConfirmTransaction(connection, rawTx, [
@@ -488,21 +489,21 @@ describe("SDK test", () => {
       await pair.refetchStates();
     });
 
-    it("update activation slot", async () => {
+    it("update activation point", async () => {
       try {
         const currentSlot = await connection.getSlot();
-        const activationSlot = new BN(currentSlot + 10);
-        const rawTx = await pair.setActivationSlot(new BN(currentSlot + 10));
+        const activationPoint = new BN(currentSlot + 10);
+        const rawTx = await pair.setActivationPoint(new BN(currentSlot + 10));
         const txHash = await sendAndConfirmTransaction(connection, rawTx, [
           keypair,
         ]);
-        console.log("Update activation slot", txHash);
+        console.log("Update activation point", txHash);
         expect(txHash).not.toBeNull();
 
         await pair.refetchStates();
 
         const pairState = pair.lbPair;
-        expect(pairState.activationSlot.eq(activationSlot)).toBeTruthy();
+        expect(pairState.activationPoint.eq(activationPoint)).toBeTruthy();
       } catch (error) {
         console.log(JSON.parse(JSON.stringify(error)));
       }
@@ -511,7 +512,7 @@ describe("SDK test", () => {
     it("normal position add liquidity after activation", async () => {
       while (true) {
         const currentSlot = await connection.getSlot();
-        if (currentSlot >= pair.lbPair.activationSlot.toNumber()) {
+        if (currentSlot >= pair.lbPair.activationPoint.toNumber()) {
           break;
         } else {
           await new Promise((res) => setTimeout(res, 1000));
@@ -790,7 +791,7 @@ describe("SDK test", () => {
 
       baseKeypair = Keypair.generate();
       const feeBps = new BN(50);
-      const lockDurationInSlot = new BN(0);
+      const locakDuration = new BN(0);
 
       let rawTx = await DLMM.createPermissionLbPair(
         connection,
@@ -801,7 +802,8 @@ describe("SDK test", () => {
         baseKeypair.publicKey,
         keypair.publicKey,
         feeBps,
-        lockDurationInSlot,
+        locakDuration,
+        ActivationType.Slot,
         { cluster: "localhost" }
       );
       let txHash = await sendAndConfirmTransaction(connection, rawTx, [
@@ -849,13 +851,14 @@ describe("SDK test", () => {
       );
 
       const minPrice = new Decimal(
-        pair.getPriceOfBinByBinId(pair.lbPair.activeId) + 1
-      ).mul(priceMultiplier);
+        getPriceOfBinByBinId(pair.lbPair.activeId, pair.lbPair.binStep)
+      )
+        .add(1)
+        .mul(priceMultiplier);
 
-      const maxPrice = new Decimal(
-        pair.getPriceOfBinByBinId(
-          pair.lbPair.activeId + 1 + MAX_BIN_PER_POSITION.toNumber() * 3
-        )
+      const maxPrice = getPriceOfBinByBinId(
+        pair.lbPair.activeId + 1 + MAX_BIN_PER_POSITION.toNumber() * 3,
+        pair.lbPair.binStep
       ).mul(priceMultiplier);
 
       let { initializeBinArraysAndPositionIxs, addLiquidityIxs } =
@@ -1020,14 +1023,16 @@ describe("SDK test", () => {
         10 ** (pair.tokenX.decimal - pair.tokenY.decimal)
       );
 
-      const minPrice = new Decimal(
-        pair.getPriceOfBinByBinId(pair.lbPair.activeId) + 1
-      ).mul(priceMultiplier);
+      const minPrice = getPriceOfBinByBinId(
+        pair.lbPair.activeId,
+        pair.lbPair.binStep
+      )
+        .add(1)
+        .mul(priceMultiplier);
 
-      const maxPrice = new Decimal(
-        pair.getPriceOfBinByBinId(
-          pair.lbPair.activeId + 1 + MAX_BIN_PER_POSITION.toNumber() * 3
-        )
+      const maxPrice = getPriceOfBinByBinId(
+        pair.lbPair.activeId + 1 + MAX_BIN_PER_POSITION.toNumber() * 3,
+        pair.lbPair.binStep
       ).mul(priceMultiplier);
 
       let { initializeBinArraysAndPositionIxs, addLiquidityIxs } =
@@ -1191,14 +1196,16 @@ describe("SDK test", () => {
         10 ** (pair.tokenX.decimal - pair.tokenY.decimal)
       );
 
-      const minPrice = new Decimal(
-        pair.getPriceOfBinByBinId(pair.lbPair.activeId) + 1
-      ).mul(priceMultiplier);
+      const minPrice = getPriceOfBinByBinId(
+        pair.lbPair.activeId,
+        pair.lbPair.binStep
+      )
+        .add(1)
+        .mul(priceMultiplier);
 
-      const maxPrice = new Decimal(
-        pair.getPriceOfBinByBinId(
-          pair.lbPair.activeId + 1 + MAX_BIN_PER_POSITION.toNumber() * 3
-        )
+      const maxPrice = getPriceOfBinByBinId(
+        pair.lbPair.activeId + 1 + MAX_BIN_PER_POSITION.toNumber() * 3,
+        pair.lbPair.binStep
       ).mul(priceMultiplier);
 
       let { initializeBinArraysAndPositionIxs, addLiquidityIxs } =
@@ -1367,16 +1374,18 @@ describe("SDK test", () => {
 
       const positionNeeded = Math.floor(Math.random() * 11 + 1);
 
-      const minPrice = new Decimal(
-        pair.getPriceOfBinByBinId(pair.lbPair.activeId) + 1
-      ).mul(priceMultiplier);
+      const minPrice = getPriceOfBinByBinId(
+        pair.lbPair.activeId,
+        pair.lbPair.binStep
+      )
+        .add(1)
+        .mul(priceMultiplier);
 
-      const maxPrice = new Decimal(
-        pair.getPriceOfBinByBinId(
-          pair.lbPair.activeId +
-            1 +
-            MAX_BIN_PER_POSITION.toNumber() * positionNeeded
-        )
+      const maxPrice = getPriceOfBinByBinId(
+        pair.lbPair.activeId +
+          1 +
+          MAX_BIN_PER_POSITION.toNumber() * positionNeeded,
+        pair.lbPair.binStep
       ).mul(priceMultiplier);
 
       console.log("SeedAmount", seedAmount.toString());

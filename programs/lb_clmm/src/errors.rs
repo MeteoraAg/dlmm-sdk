@@ -147,12 +147,36 @@ pub enum LBError {
     #[msg("Must withdraw ineligible reward")]
     MustWithdrawnIneligibleReward,
 
+    #[msg("Unauthorized address")]
+    UnauthorizedAddress,
+
+    #[msg("Cannot update because operators are the same")]
+    OperatorsAreTheSame,
+
+    #[msg("Withdraw to wrong token account")]
+    WithdrawToWrongTokenAccount,
+
+    #[msg("Wrong rent receiver")]
+    WrongRentReceiver,
+
+    #[msg("Already activated")]
+    AlreadyPassActivationPoint,
+
+    #[msg("Swapped amount is exceeded max swapped amount")]
+    ExceedMaxSwappedAmount,
+
     #[msg("Invalid strategy parameters")]
     InvalidStrategyParameters,
 
     #[msg("Liquidity locked")]
     LiquidityLocked,
 
-    #[msg("Invalid lock release slot")]
-    InvalidLockReleaseSlot,
+    #[msg("Bin range is not empty")]
+    BinRangeIsNotEmpty,
+
+    #[msg("Amount out is not matched with exact amount out")]
+    NotExactAmountOut,
+
+    #[msg("Invalid activation type")]
+    InvalidActivationType,
 }

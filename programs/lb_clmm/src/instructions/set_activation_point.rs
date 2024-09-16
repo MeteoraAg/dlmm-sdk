@@ -4,7 +4,7 @@ use crate::state::lb_pair::LbPair;
 use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
-pub struct SetActivationSlot<'info> {
+pub struct SetActivationPoint<'info> {
     #[account(mut)]
     pub lb_pair: AccountLoader<'info, LbPair>,
 
@@ -15,6 +15,6 @@ pub struct SetActivationSlot<'info> {
     pub admin: Signer<'info>,
 }
 
-pub fn handle(ctx: Context<SetActivationSlot>, activation_slot: u64) -> Result<()> {
+pub fn handle(ctx: Context<SetActivationPoint>, activation_point: u64) -> Result<()> {
     Ok(())
 }

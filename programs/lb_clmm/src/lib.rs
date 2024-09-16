@@ -36,13 +36,12 @@ use instructions::migrate_bin_array::*;
 use instructions::migrate_position::*;
 use instructions::position_authorize::*;
 use instructions::remove_liquidity::*;
-use instructions::set_activation_slot::*;
-use instructions::set_lock_release_slot::*;
-use instructions::set_pre_activation_slot_duration::*;
+use instructions::set_activation_point::*;
+use instructions::set_lock_release_point::*;
+use instructions::set_pre_activation_sduration::*;
 use instructions::set_pre_activation_swap_address::*;
 use instructions::swap::*;
 use instructions::toggle_pair_status::*;
-use instructions::update_fee_owner::*;
 use instructions::update_fee_parameters::*;
 use instructions::update_fees_and_rewards::*;
 use instructions::update_position_operator::*;
@@ -243,10 +242,6 @@ pub mod lb_clmm {
         instructions::withdraw_protocol_fee::handle(ctx, amount_x, amount_y)
     }
 
-    pub fn update_fee_owner(ctx: Context<UpdateFeeOwner>) -> Result<()> {
-        instructions::update_fee_owner::handle(ctx)
-    }
-
     pub fn initialize_reward(
         ctx: Context<InitializeReward>,
         reward_index: u64,
@@ -355,18 +350,18 @@ pub mod lb_clmm {
         instructions::withdraw_ineligible_reward::handle(ctx, reward_index)
     }
 
-    pub fn set_activation_slot(
-        ctx: Context<SetActivationSlot>,
-        activation_slot: u64,
+    pub fn set_activation_point(
+        ctx: Context<SetActivationPoint>,
+        activation_point: u64,
     ) -> Result<()> {
-        instructions::set_activation_slot::handle(ctx, activation_slot)
+        instructions::set_activation_point::handle(ctx, activation_point)
     }
 
-    pub fn set_lock_release_slot(
-        ctx: Context<SetLockReleaseSlot>,
-        new_lock_release_slot: u64,
+    pub fn set_lock_release_point(
+        ctx: Context<SetLockReleasePoint>,
+        new_lock_release_point: u64,
     ) -> Result<()> {
-        instructions::set_lock_release_slot::handle(ctx, new_lock_release_slot)
+        instructions::set_lock_release_point::handle(ctx, new_lock_release_point)
     }
 
     pub fn add_liquidity_one_side_precise<'a, 'b, 'c, 'info>(
@@ -376,11 +371,11 @@ pub mod lb_clmm {
         instructions::add_liquidity_single_side_precise::handle(ctx, parameter)
     }
 
-    pub fn set_pre_activation_slot_duration(
+    pub fn set_pre_activation_duration(
         ctx: Context<SetPreActivationInfo>,
-        pre_activation_slot_duration: u16,
+        pre_activation_duration: u16,
     ) -> Result<()> {
-        instructions::set_pre_activation_slot_duration::handle(ctx, pre_activation_slot_duration)
+        instructions::set_pre_activation_sduration::handle(ctx, pre_activation_duration)
     }
 
     pub fn set_pre_activation_swap_address(

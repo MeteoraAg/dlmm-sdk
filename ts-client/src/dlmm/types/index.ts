@@ -8,6 +8,7 @@ import {
 import { LbClmm } from "../idl";
 import { PublicKey, TransactionInstruction } from "@solana/web3.js";
 import Decimal from "decimal.js";
+import { u64, i64, struct } from "@coral-xyz/borsh";
 
 export interface FeeInfo {
   baseFeeRatePercentage: Decimal;
@@ -141,6 +142,11 @@ export enum StrategyType {
   BidAskBalanced,
 }
 
+export enum ActivationType {
+  Slot,
+  Timestamp,
+}
+
 export interface StrategyParameters {
   maxBinId: number;
   minBinId: number;
@@ -188,6 +194,7 @@ export interface SwapQuote {
   minOutAmount: BN;
   priceImpact: Decimal;
   binArraysPubkey: any[];
+  endPrice: Decimal;
 }
 
 export interface SwapQuoteExactOut {
@@ -330,4 +337,25 @@ export enum BitmapType {
 export interface SeedLiquidityResponse {
   initializeBinArraysAndPositionIxs: TransactionInstruction[][];
   addLiquidityIxs: TransactionInstruction[][];
+}
+
+export interface Clock {
+  slot: BN;
+  epochStartTimestamp: BN;
+  epoch: BN;
+  leaderScheduleEpoch: BN;
+  unixTimestamp: BN;
+}
+
+export const ClockLayout = struct([
+  u64("slot"),
+  i64("epochStartTimestamp"),
+  u64("epoch"),
+  u64("leaderScheduleEpoch"),
+  i64("unixTimestamp"),
+]);
+
+export enum PairStatus {
+  Enabled,
+  Disabled,
 }

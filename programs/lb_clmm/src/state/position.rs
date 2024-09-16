@@ -68,8 +68,8 @@ pub struct PositionV2 {
     pub total_claimed_rewards: [u64; 2],
     /// Operator of position
     pub operator: Pubkey,
-    /// Slot which the locked liquidity can be withdraw
-    pub lock_release_slot: u64,
+    /// Time point which the locked liquidity can be withdraw
+    pub lock_release_point: u64,
     /// Is the position subjected to liquidity locking for the launch pool.
     pub subjected_to_bootstrap_liquidity_locking: u8,
     /// Address is able to claim fee in this position, only valid for bootstrap_liquidity_position
@@ -94,7 +94,7 @@ impl Default for PositionV2 {
             total_claimed_rewards: [0u64; 2],
             operator: Pubkey::default(),
             subjected_to_bootstrap_liquidity_locking: 0,
-            lock_release_slot: 0,
+            lock_release_point: 0,
             fee_owner: Pubkey::default(),
             _reserved: [0u8; 87],
         }
@@ -126,7 +126,7 @@ impl PositionV2 {
         lower_bin_id: i32,
         upper_bin_id: i32,
         current_time: i64,
-        lock_release_slot: u64,
+        lock_release_point: u64,
         subjected_to_bootstrap_liquidity_locking: bool,
         fee_owner: Pubkey,
     ) -> Result<()> {
@@ -141,7 +141,7 @@ impl PositionV2 {
         self.reward_infos = [UserRewardInfo::default(); MAX_BIN_PER_POSITION];
 
         self.last_updated_at = current_time;
-        self.lock_release_slot = lock_release_slot;
+        self.lock_release_point = lock_release_point;
         self.subjected_to_bootstrap_liquidity_locking =
             subjected_to_bootstrap_liquidity_locking.into();
 
@@ -365,8 +365,8 @@ impl PositionV2 {
         true
     }
 
-    pub fn is_liquidity_locked(&self, current_slot: u64) -> bool {
-        current_slot < self.lock_release_slot
+    pub fn is_liquidity_locked(&self, current_point: u64) -> bool {
+        current_point < self.lock_release_point
     }
 
     pub fn is_subjected_to_initial_liquidity_locking(&self) -> bool {
