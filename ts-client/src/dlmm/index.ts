@@ -2421,12 +2421,12 @@ export class DLMM {
     let lowerBinArrayIndex = binIdToBinArrayIndex(new BN(minBinId));
     let upperBinArrayIndex = binIdToBinArrayIndex(new BN(maxBinId));
     if (lowerBinArrayIndex.eq(positionLowerBinArrayIndex)) {
-      upperBinArrayIndex= BN.max(
+      upperBinArrayIndex = BN.max(
         lowerBinArrayIndex.add(new BN(1)),
         upperBinArrayIndex
       );
     } else {
-      lowerBinArrayIndex =  BN.min(
+      lowerBinArrayIndex = BN.min(
         upperBinArrayIndex.sub(new BN(1)),
         lowerBinArrayIndex
       );
