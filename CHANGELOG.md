@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.2.3] - PR #111
+
+### Fixed
+
+- Fixed `addLiquidityByStrategy` incorrect array bin indices calculation
+
 ## @meteora-ag/dlmm [1.2.2] - PR #110
 
 ### Fixed

@@ -2410,21 +2410,32 @@ export class DLMM {
       ? deriveBinArrayBitmapExtension(this.pubkey, this.program.programId)[0]
       : null;
 
-    const activeId = this.lbPair.activeId;
-
     const strategyParameters: LiquidityParameterByStrategy["strategyParameters"] =
       toStrategyParameters(strategy) as ProgramStrategyParameter;
 
-    const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(minBinId));
+    const positionAccount = await this.program.account.positionV2.fetch(
+      positionPubKey
+    );
+
+    const positionLowerBinArrayIndex = binIdToBinArrayIndex(new BN(positionAccount.lowerBinId));
+    let lowerBinArrayIndex = binIdToBinArrayIndex(new BN(minBinId));
+    let upperBinArrayIndex = binIdToBinArrayIndex(new BN(maxBinId));
+    if (lowerBinArrayIndex.eq(positionLowerBinArrayIndex)) {
+      upperBinArrayIndex= BN.max(
+        lowerBinArrayIndex.add(new BN(1)),
+        upperBinArrayIndex
+      );
+    } else {
+      lowerBinArrayIndex =  BN.min(
+        upperBinArrayIndex.sub(new BN(1)),
+        lowerBinArrayIndex
+      );
+    }
+
     const [binArrayLower] = deriveBinArray(
       this.pubkey,
       lowerBinArrayIndex,
       this.program.programId
-    );
-
-    const upperBinArrayIndex = BN.max(
-      lowerBinArrayIndex.add(new BN(1)),
-      binIdToBinArrayIndex(new BN(maxBinId))
     );
     const [binArrayUpper] = deriveBinArray(
       this.pubkey,
