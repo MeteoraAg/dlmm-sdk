@@ -66,7 +66,6 @@ use crate::{
         toggle_pair_status::toggle_pool_status,
         update_reward_duration::*,
         update_reward_funder::*,
-        update_whitelisted_wallet::update_whitelisted_wallet,
         withdraw_protocol_fee::{withdraw_protocol_fee, WithdrawProtocolFeeParams},
     },
 };
@@ -411,20 +410,6 @@ async fn main() -> Result<()> {
             }
             AdminCommand::ClosePresetParameter { preset_parameter } => {
                 close_preset_parameter(preset_parameter, &amm_program, transaction_config).await?;
-            }
-            AdminCommand::UpdateWhitelistedWallet {
-                lb_pair,
-                wallet_address,
-                idx,
-            } => {
-                update_whitelisted_wallet(
-                    lb_pair,
-                    idx,
-                    wallet_address,
-                    &amm_program,
-                    transaction_config,
-                )
-                .await?
             }
             AdminCommand::InitializePresetParameter {
                 bin_step,

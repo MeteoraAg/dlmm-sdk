@@ -8,7 +8,7 @@ use anchor_spl::token::Mint;
 use anyhow::*;
 use lb_clmm::accounts;
 use lb_clmm::instruction;
-use lb_clmm::instructions::initialize_permission_lb_pair::InitPermissionPairIx;
+use lb_clmm::instructions::initialize_pool::initialize_permission_lb_pair::InitPermissionPairIx;
 use lb_clmm::math::u128x128_math::Rounding;
 use lb_clmm::utils::pda::*;
 

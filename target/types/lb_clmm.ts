@@ -1,5 +1,5 @@
 export type LbClmm = {
-  "version": "0.8.0",
+  "version": "0.8.2",
   "name": "lb_clmm",
   "constants": [
     {
@@ -86,6 +86,21 @@ export type LbClmm = {
         "defined": "usize"
       },
       "value": "15"
+    },
+    {
+      "name": "MAX_BIN_STEP",
+      "type": "u16",
+      "value": "400"
+    },
+    {
+      "name": "MAX_BASE_FEE",
+      "type": "u128",
+      "value": "100_000_000"
+    },
+    {
+      "name": "MIN_BASE_FEE",
+      "type": "u128",
+      "value": "100_000"
     },
     {
       "name": "BIN_ARRAY",
@@ -1870,31 +1885,6 @@ export type LbClmm = {
       "args": []
     },
     {
-      "name": "updateWhitelistedWallet",
-      "accounts": [
-        {
-          "name": "lbPair",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "creator",
-          "isMut": false,
-          "isSigner": true
-        }
-      ],
-      "args": [
-        {
-          "name": "idx",
-          "type": "u8"
-        },
-        {
-          "name": "wallet",
-          "type": "publicKey"
-        }
-      ]
-    },
-    {
       "name": "migratePosition",
       "accounts": [
         {
@@ -2065,42 +2055,6 @@ export type LbClmm = {
       "args": [
         {
           "name": "activationPoint",
-          "type": "u64"
-        }
-      ]
-    },
-    {
-      "name": "setLockReleasePoint",
-      "accounts": [
-        {
-          "name": "position",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "lbPair",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "sender",
-          "isMut": false,
-          "isSigner": true
-        },
-        {
-          "name": "eventAuthority",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "program",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "newLockReleasePoint",
           "type": "u64"
         }
       ]
@@ -2697,11 +2651,16 @@ export type LbClmm = {
             "type": "i64"
           },
           {
-            "name": "whitelistedWallet",
+            "name": "padding2",
             "docs": [
-              "Whitelisted wallet"
+              "_padding_2, previous whitelisted_wallet, BE CAREFUL FOR TOMBSTONE WHEN REUSE !!"
             ],
-            "type": "publicKey"
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
           },
           {
             "name": "preActivationSwapAddress",
@@ -2732,9 +2691,9 @@ export type LbClmm = {
             "type": "u64"
           },
           {
-            "name": "padding2",
+            "name": "padding3",
             "docs": [
-              "_padding 2 is reclaimed free space from swap_cap_deactivate_point and swap_cap_amount before, BE CAREFUL FOR TOMBSTONE WHEN REUSE !!"
+              "_padding 3 is reclaimed free space from swap_cap_deactivate_point and swap_cap_amount before, BE CAREFUL FOR TOMBSTONE WHEN REUSE !!"
             ],
             "type": {
               "array": [
@@ -2744,9 +2703,9 @@ export type LbClmm = {
             }
           },
           {
-            "name": "lockDuration",
+            "name": "padding4",
             "docs": [
-              "Liquidity lock duration for positions which created before activate. Only applicable for permission pair."
+              "_padding_4, previous lock_duration, BE CAREFUL FOR TOMBSTONE WHEN REUSE !!"
             ],
             "type": "u64"
           },
@@ -3152,6 +3111,106 @@ export type LbClmm = {
   ],
   "types": [
     {
+      "name": "InitPresetParametersIx",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "binStep",
+            "docs": [
+              "Bin step. Represent the price increment / decrement."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "baseFactor",
+            "docs": [
+              "Used for base fee calculation. base_fee_rate = base_factor * bin_step"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "filterPeriod",
+            "docs": [
+              "Filter period determine high frequency trading time window."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "decayPeriod",
+            "docs": [
+              "Decay period determine when the volatile fee start decay / decrease."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "reductionFactor",
+            "docs": [
+              "Reduction factor controls the volatile fee rate decrement rate."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "variableFeeControl",
+            "docs": [
+              "Used to scale the variable fee component depending on the dynamic of the market"
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "maxVolatilityAccumulator",
+            "docs": [
+              "Maximum number of bin crossed can be accumulated. Used to cap volatile fee rate."
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "minBinId",
+            "docs": [
+              "Min bin id supported by the pool based on the configured bin step."
+            ],
+            "type": "i32"
+          },
+          {
+            "name": "maxBinId",
+            "docs": [
+              "Max bin id supported by the pool based on the configured bin step."
+            ],
+            "type": "i32"
+          },
+          {
+            "name": "protocolShare",
+            "docs": [
+              "Portion of swap fees retained by the protocol by controlling protocol_share parameter. protocol_swap_fee = protocol_share * total_swap_fee"
+            ],
+            "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "FeeParameter",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "protocolShare",
+            "docs": [
+              "Portion of swap fees retained by the protocol by controlling protocol_share parameter. protocol_swap_fee = protocol_share * total_swap_fee"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "baseFactor",
+            "docs": [
+              "Base factor for base fee rate"
+            ],
+            "type": "u16"
+          }
+        ]
+      }
+    },
+    {
       "name": "LiquidityParameterByStrategyOneSide",
       "type": {
         "kind": "struct",
@@ -3521,84 +3580,6 @@ export type LbClmm = {
       }
     },
     {
-      "name": "InitPresetParametersIx",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "binStep",
-            "docs": [
-              "Bin step. Represent the price increment / decrement."
-            ],
-            "type": "u16"
-          },
-          {
-            "name": "baseFactor",
-            "docs": [
-              "Used for base fee calculation. base_fee_rate = base_factor * bin_step"
-            ],
-            "type": "u16"
-          },
-          {
-            "name": "filterPeriod",
-            "docs": [
-              "Filter period determine high frequency trading time window."
-            ],
-            "type": "u16"
-          },
-          {
-            "name": "decayPeriod",
-            "docs": [
-              "Decay period determine when the volatile fee start decay / decrease."
-            ],
-            "type": "u16"
-          },
-          {
-            "name": "reductionFactor",
-            "docs": [
-              "Reduction factor controls the volatile fee rate decrement rate."
-            ],
-            "type": "u16"
-          },
-          {
-            "name": "variableFeeControl",
-            "docs": [
-              "Used to scale the variable fee component depending on the dynamic of the market"
-            ],
-            "type": "u32"
-          },
-          {
-            "name": "maxVolatilityAccumulator",
-            "docs": [
-              "Maximum number of bin crossed can be accumulated. Used to cap volatile fee rate."
-            ],
-            "type": "u32"
-          },
-          {
-            "name": "minBinId",
-            "docs": [
-              "Min bin id supported by the pool based on the configured bin step."
-            ],
-            "type": "i32"
-          },
-          {
-            "name": "maxBinId",
-            "docs": [
-              "Max bin id supported by the pool based on the configured bin step."
-            ],
-            "type": "i32"
-          },
-          {
-            "name": "protocolShare",
-            "docs": [
-              "Portion of swap fees retained by the protocol by controlling protocol_share parameter. protocol_swap_fee = protocol_share * total_swap_fee"
-            ],
-            "type": "u16"
-          }
-        ]
-      }
-    },
-    {
       "name": "BinLiquidityReduction",
       "type": {
         "kind": "struct",
@@ -3609,28 +3590,6 @@ export type LbClmm = {
           },
           {
             "name": "bpsToRemove",
-            "type": "u16"
-          }
-        ]
-      }
-    },
-    {
-      "name": "FeeParameter",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "protocolShare",
-            "docs": [
-              "Portion of swap fees retained by the protocol by controlling protocol_share parameter. protocol_swap_fee = protocol_share * total_swap_fee"
-            ],
-            "type": "u16"
-          },
-          {
-            "name": "baseFactor",
-            "docs": [
-              "Base factor for base fee rate"
-            ],
             "type": "u16"
           }
         ]
@@ -4110,7 +4069,7 @@ export type LbClmm = {
     {
       "name": "PairType",
       "docs": [
-        "Type of the Pair. 0 = Permissionless, 1 = Permission. Putting 0 as permissionless for backward compatibility."
+        "Type of the Pair. 0 = Permissionless, 1 = Permission, 2 = CustomizablePermissionless"
       ],
       "type": {
         "kind": "enum",
@@ -4120,6 +4079,9 @@ export type LbClmm = {
           },
           {
             "name": "Permission"
+          },
+          {
+            "name": "CustomizablePermissionless"
           }
         ]
       }
@@ -4934,12 +4896,37 @@ export type LbClmm = {
       "code": 6058,
       "name": "InvalidActivationType",
       "msg": "Invalid activation type"
+    },
+    {
+      "code": 6059,
+      "name": "InvalidActivationDuration",
+      "msg": "Invalid activation duration"
+    },
+    {
+      "code": 6060,
+      "name": "MissingTokenAmountAsTokenLaunchProof",
+      "msg": "Missing token amount as token launch owner proof"
+    },
+    {
+      "code": 6061,
+      "name": "InvalidQuoteToken",
+      "msg": "Quote token must be SOL or USDC"
+    },
+    {
+      "code": 6062,
+      "name": "InvalidBinStep",
+      "msg": "Invalid bin step"
+    },
+    {
+      "code": 6063,
+      "name": "InvalidBaseFee",
+      "msg": "Invalid base fee"
     }
   ]
 };
 
 export const IDL: LbClmm = {
-  "version": "0.8.0",
+  "version": "0.8.2",
   "name": "lb_clmm",
   "constants": [
     {
@@ -5026,6 +5013,21 @@ export const IDL: LbClmm = {
         "defined": "usize"
       },
       "value": "15"
+    },
+    {
+      "name": "MAX_BIN_STEP",
+      "type": "u16",
+      "value": "400"
+    },
+    {
+      "name": "MAX_BASE_FEE",
+      "type": "u128",
+      "value": "100_000_000"
+    },
+    {
+      "name": "MIN_BASE_FEE",
+      "type": "u128",
+      "value": "100_000"
     },
     {
       "name": "BIN_ARRAY",
@@ -6810,31 +6812,6 @@ export const IDL: LbClmm = {
       "args": []
     },
     {
-      "name": "updateWhitelistedWallet",
-      "accounts": [
-        {
-          "name": "lbPair",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "creator",
-          "isMut": false,
-          "isSigner": true
-        }
-      ],
-      "args": [
-        {
-          "name": "idx",
-          "type": "u8"
-        },
-        {
-          "name": "wallet",
-          "type": "publicKey"
-        }
-      ]
-    },
-    {
       "name": "migratePosition",
       "accounts": [
         {
@@ -7005,42 +6982,6 @@ export const IDL: LbClmm = {
       "args": [
         {
           "name": "activationPoint",
-          "type": "u64"
-        }
-      ]
-    },
-    {
-      "name": "setLockReleasePoint",
-      "accounts": [
-        {
-          "name": "position",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "lbPair",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "sender",
-          "isMut": false,
-          "isSigner": true
-        },
-        {
-          "name": "eventAuthority",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "program",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "newLockReleasePoint",
           "type": "u64"
         }
       ]
@@ -7637,11 +7578,16 @@ export const IDL: LbClmm = {
             "type": "i64"
           },
           {
-            "name": "whitelistedWallet",
+            "name": "padding2",
             "docs": [
-              "Whitelisted wallet"
+              "_padding_2, previous whitelisted_wallet, BE CAREFUL FOR TOMBSTONE WHEN REUSE !!"
             ],
-            "type": "publicKey"
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
           },
           {
             "name": "preActivationSwapAddress",
@@ -7672,9 +7618,9 @@ export const IDL: LbClmm = {
             "type": "u64"
           },
           {
-            "name": "padding2",
+            "name": "padding3",
             "docs": [
-              "_padding 2 is reclaimed free space from swap_cap_deactivate_point and swap_cap_amount before, BE CAREFUL FOR TOMBSTONE WHEN REUSE !!"
+              "_padding 3 is reclaimed free space from swap_cap_deactivate_point and swap_cap_amount before, BE CAREFUL FOR TOMBSTONE WHEN REUSE !!"
             ],
             "type": {
               "array": [
@@ -7684,9 +7630,9 @@ export const IDL: LbClmm = {
             }
           },
           {
-            "name": "lockDuration",
+            "name": "padding4",
             "docs": [
-              "Liquidity lock duration for positions which created before activate. Only applicable for permission pair."
+              "_padding_4, previous lock_duration, BE CAREFUL FOR TOMBSTONE WHEN REUSE !!"
             ],
             "type": "u64"
           },
@@ -8092,6 +8038,106 @@ export const IDL: LbClmm = {
   ],
   "types": [
     {
+      "name": "InitPresetParametersIx",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "binStep",
+            "docs": [
+              "Bin step. Represent the price increment / decrement."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "baseFactor",
+            "docs": [
+              "Used for base fee calculation. base_fee_rate = base_factor * bin_step"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "filterPeriod",
+            "docs": [
+              "Filter period determine high frequency trading time window."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "decayPeriod",
+            "docs": [
+              "Decay period determine when the volatile fee start decay / decrease."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "reductionFactor",
+            "docs": [
+              "Reduction factor controls the volatile fee rate decrement rate."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "variableFeeControl",
+            "docs": [
+              "Used to scale the variable fee component depending on the dynamic of the market"
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "maxVolatilityAccumulator",
+            "docs": [
+              "Maximum number of bin crossed can be accumulated. Used to cap volatile fee rate."
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "minBinId",
+            "docs": [
+              "Min bin id supported by the pool based on the configured bin step."
+            ],
+            "type": "i32"
+          },
+          {
+            "name": "maxBinId",
+            "docs": [
+              "Max bin id supported by the pool based on the configured bin step."
+            ],
+            "type": "i32"
+          },
+          {
+            "name": "protocolShare",
+            "docs": [
+              "Portion of swap fees retained by the protocol by controlling protocol_share parameter. protocol_swap_fee = protocol_share * total_swap_fee"
+            ],
+            "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "FeeParameter",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "protocolShare",
+            "docs": [
+              "Portion of swap fees retained by the protocol by controlling protocol_share parameter. protocol_swap_fee = protocol_share * total_swap_fee"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "baseFactor",
+            "docs": [
+              "Base factor for base fee rate"
+            ],
+            "type": "u16"
+          }
+        ]
+      }
+    },
+    {
       "name": "LiquidityParameterByStrategyOneSide",
       "type": {
         "kind": "struct",
@@ -8461,84 +8507,6 @@ export const IDL: LbClmm = {
       }
     },
     {
-      "name": "InitPresetParametersIx",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "binStep",
-            "docs": [
-              "Bin step. Represent the price increment / decrement."
-            ],
-            "type": "u16"
-          },
-          {
-            "name": "baseFactor",
-            "docs": [
-              "Used for base fee calculation. base_fee_rate = base_factor * bin_step"
-            ],
-            "type": "u16"
-          },
-          {
-            "name": "filterPeriod",
-            "docs": [
-              "Filter period determine high frequency trading time window."
-            ],
-            "type": "u16"
-          },
-          {
-            "name": "decayPeriod",
-            "docs": [
-              "Decay period determine when the volatile fee start decay / decrease."
-            ],
-            "type": "u16"
-          },
-          {
-            "name": "reductionFactor",
-            "docs": [
-              "Reduction factor controls the volatile fee rate decrement rate."
-            ],
-            "type": "u16"
-          },
-          {
-            "name": "variableFeeControl",
-            "docs": [
-              "Used to scale the variable fee component depending on the dynamic of the market"
-            ],
-            "type": "u32"
-          },
-          {
-            "name": "maxVolatilityAccumulator",
-            "docs": [
-              "Maximum number of bin crossed can be accumulated. Used to cap volatile fee rate."
-            ],
-            "type": "u32"
-          },
-          {
-            "name": "minBinId",
-            "docs": [
-              "Min bin id supported by the pool based on the configured bin step."
-            ],
-            "type": "i32"
-          },
-          {
-            "name": "maxBinId",
-            "docs": [
-              "Max bin id supported by the pool based on the configured bin step."
-            ],
-            "type": "i32"
-          },
-          {
-            "name": "protocolShare",
-            "docs": [
-              "Portion of swap fees retained by the protocol by controlling protocol_share parameter. protocol_swap_fee = protocol_share * total_swap_fee"
-            ],
-            "type": "u16"
-          }
-        ]
-      }
-    },
-    {
       "name": "BinLiquidityReduction",
       "type": {
         "kind": "struct",
@@ -8549,28 +8517,6 @@ export const IDL: LbClmm = {
           },
           {
             "name": "bpsToRemove",
-            "type": "u16"
-          }
-        ]
-      }
-    },
-    {
-      "name": "FeeParameter",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "protocolShare",
-            "docs": [
-              "Portion of swap fees retained by the protocol by controlling protocol_share parameter. protocol_swap_fee = protocol_share * total_swap_fee"
-            ],
-            "type": "u16"
-          },
-          {
-            "name": "baseFactor",
-            "docs": [
-              "Base factor for base fee rate"
-            ],
             "type": "u16"
           }
         ]
@@ -9050,7 +8996,7 @@ export const IDL: LbClmm = {
     {
       "name": "PairType",
       "docs": [
-        "Type of the Pair. 0 = Permissionless, 1 = Permission. Putting 0 as permissionless for backward compatibility."
+        "Type of the Pair. 0 = Permissionless, 1 = Permission, 2 = CustomizablePermissionless"
       ],
       "type": {
         "kind": "enum",
@@ -9060,6 +9006,9 @@ export const IDL: LbClmm = {
           },
           {
             "name": "Permission"
+          },
+          {
+            "name": "CustomizablePermissionless"
           }
         ]
       }
@@ -9874,6 +9823,31 @@ export const IDL: LbClmm = {
       "code": 6058,
       "name": "InvalidActivationType",
       "msg": "Invalid activation type"
+    },
+    {
+      "code": 6059,
+      "name": "InvalidActivationDuration",
+      "msg": "Invalid activation duration"
+    },
+    {
+      "code": 6060,
+      "name": "MissingTokenAmountAsTokenLaunchProof",
+      "msg": "Missing token amount as token launch owner proof"
+    },
+    {
+      "code": 6061,
+      "name": "InvalidQuoteToken",
+      "msg": "Quote token must be SOL or USDC"
+    },
+    {
+      "code": 6062,
+      "name": "InvalidBinStep",
+      "msg": "Invalid bin step"
+    },
+    {
+      "code": 6063,
+      "name": "InvalidBaseFee",
+      "msg": "Invalid base fee"
     }
   ]
 };

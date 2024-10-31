@@ -342,15 +342,6 @@ pub enum AdminCommand {
         reward_index: u64,
         funding_amount: u64,
     },
-    /// Remove whitelisted wallet from a permission pool
-    UpdateWhitelistedWallet {
-        /// Address of the pair
-        lb_pair: Pubkey,
-        /// Address of the wallet
-        wallet_address: Pubkey,
-        /// Index of the wallet to be updated
-        idx: u8,
-    },
 
     InitializePresetParameter {
         /// Bin step. Represent the price increment / decrement.

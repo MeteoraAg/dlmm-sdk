@@ -1,4 +1,4 @@
-use crate::ModifyLiquidityOneSide;
+use super::ModifyLiquidityOneSide;
 use anchor_lang::prelude::*;
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]

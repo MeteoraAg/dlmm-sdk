@@ -30,6 +30,5 @@ pub mod swap_with_price_impact;
 pub mod toggle_pair_status;
 pub mod update_reward_duration;
 pub mod update_reward_funder;
-pub mod update_whitelisted_wallet;
 pub mod utils;
 pub mod withdraw_protocol_fee;

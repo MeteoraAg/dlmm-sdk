@@ -44,6 +44,7 @@ pub fn handle(
     width: i32,
     owner: Pubkey,
     fee_owner: Pubkey,
+    lock_release_point: u64,
 ) -> Result<()> {
     Ok(())
 }

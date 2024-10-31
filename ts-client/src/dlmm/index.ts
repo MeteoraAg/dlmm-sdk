@@ -2413,9 +2413,13 @@ export class DLMM {
     const strategyParameters: LiquidityParameterByStrategy["strategyParameters"] =
       toStrategyParameters(strategy) as ProgramStrategyParameter;
 
-    const positionAccount = await this.program.account.positionV2.fetch(positionPubKey);
+    const positionAccount = await this.program.account.positionV2.fetch(
+      positionPubKey
+    );
 
-    const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(positionAccount.lowerBinId));
+    const lowerBinArrayIndex = binIdToBinArrayIndex(
+      new BN(positionAccount.lowerBinId)
+    );
     const upperBinArrayIndex = lowerBinArrayIndex.add(new BN(1));
 
     const [binArrayLower] = deriveBinArray(

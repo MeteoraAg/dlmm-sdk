@@ -7,7 +7,7 @@ use anchor_client::{solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, Prog
 use anyhow::*;
 use lb_clmm::accounts;
 use lb_clmm::instruction;
-use lb_clmm::instructions::add_liquidity::{BinLiquidityDistribution, LiquidityParameter};
+use lb_clmm::instructions::deposit::add_liquidity::{BinLiquidityDistribution, LiquidityParameter};
 
 use crate::instructions::utils::{get_bin_arrays_for_position, get_or_create_ata};
 use lb_clmm::constants::BASIS_POINT_MAX;

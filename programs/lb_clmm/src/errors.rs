@@ -179,4 +179,19 @@ pub enum LBError {
 
     #[msg("Invalid activation type")]
     InvalidActivationType,
+
+    #[msg("Invalid activation duration")]
+    InvalidActivationDuration,
+
+    #[msg("Missing token amount as token launch owner proof")]
+    MissingTokenAmountAsTokenLaunchProof,
+
+    #[msg("Quote token must be SOL or USDC")]
+    InvalidQuoteToken,
+
+    #[msg("Invalid bin step")]
+    InvalidBinStep,
+
+    #[msg("Invalid base fee")]
+    InvalidBaseFee,
 }

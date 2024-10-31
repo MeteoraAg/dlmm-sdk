@@ -16,7 +16,7 @@ use anyhow::*;
 use lb_clmm::accounts;
 use lb_clmm::constants::{BASIS_POINT_MAX, MAX_BIN_PER_POSITION};
 use lb_clmm::instruction;
-use lb_clmm::instructions::add_liquidity::{BinLiquidityDistribution, LiquidityParameter};
+use lb_clmm::instructions::deposit::add_liquidity::{BinLiquidityDistribution, LiquidityParameter};
 use lb_clmm::math::u128x128_math::Rounding;
 use lb_clmm::state::bin::BinArray;
 use lb_clmm::state::lb_pair::LbPair;

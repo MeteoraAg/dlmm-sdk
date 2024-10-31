@@ -1,5 +1,5 @@
 {
-  "version": "0.8.0",
+  "version": "0.8.2",
   "name": "lb_clmm",
   "constants": [
     {
@@ -86,6 +86,21 @@
         "defined": "usize"
       },
       "value": "15"
+    },
+    {
+      "name": "MAX_BIN_STEP",
+      "type": "u16",
+      "value": "400"
+    },
+    {
+      "name": "MAX_BASE_FEE",
+      "type": "u128",
+      "value": "100_000_000"
+    },
+    {
+      "name": "MIN_BASE_FEE",
+      "type": "u128",
+      "value": "100_000"
     },
     {
       "name": "BIN_ARRAY",
@@ -1188,196 +1203,6 @@
       ]
     },
     {
-      "name": "swapExactOut",
-      "accounts": [
-        {
-          "name": "lbPair",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayBitmapExtension",
-          "isMut": false,
-          "isSigner": false,
-          "isOptional": true
-        },
-        {
-          "name": "reserveX",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "reserveY",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "userTokenIn",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "userTokenOut",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "tokenXMint",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "tokenYMint",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "oracle",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "hostFeeIn",
-          "isMut": true,
-          "isSigner": false,
-          "isOptional": true
-        },
-        {
-          "name": "user",
-          "isMut": false,
-          "isSigner": true
-        },
-        {
-          "name": "tokenXProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "tokenYProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "eventAuthority",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "program",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "maxInAmount",
-          "type": "u64"
-        },
-        {
-          "name": "outAmount",
-          "type": "u64"
-        }
-      ]
-    },
-    {
-      "name": "swapWithPriceImpact",
-      "accounts": [
-        {
-          "name": "lbPair",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayBitmapExtension",
-          "isMut": false,
-          "isSigner": false,
-          "isOptional": true
-        },
-        {
-          "name": "reserveX",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "reserveY",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "userTokenIn",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "userTokenOut",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "tokenXMint",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "tokenYMint",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "oracle",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "hostFeeIn",
-          "isMut": true,
-          "isSigner": false,
-          "isOptional": true
-        },
-        {
-          "name": "user",
-          "isMut": false,
-          "isSigner": true
-        },
-        {
-          "name": "tokenXProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "tokenYProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "eventAuthority",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "program",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "amountIn",
-          "type": "u64"
-        },
-        {
-          "name": "activeId",
-          "type": {
-            "option": "i32"
-          }
-        },
-        {
-          "name": "maxPriceImpactBps",
-          "type": "u16"
-        }
-      ]
-    },
-    {
       "name": "withdrawProtocolFee",
       "accounts": [
         {
@@ -1414,6 +1239,11 @@
           "name": "receiverTokenY",
           "isMut": true,
           "isSigner": false
+        },
+        {
+          "name": "feeOwner",
+          "isMut": false,
+          "isSigner": true
         },
         {
           "name": "tokenXProgram",
@@ -2039,73 +1869,6 @@
       "args": []
     },
     {
-      "name": "removeLiquiditySingleSide",
-      "accounts": [
-        {
-          "name": "position",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "lbPair",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayBitmapExtension",
-          "isMut": true,
-          "isSigner": false,
-          "isOptional": true
-        },
-        {
-          "name": "userToken",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "reserve",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "tokenMint",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayLower",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayUpper",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "sender",
-          "isMut": false,
-          "isSigner": true
-        },
-        {
-          "name": "tokenProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "eventAuthority",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "program",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": []
-    },
-    {
       "name": "togglePairStatus",
       "accounts": [
         {
@@ -2120,27 +1883,6 @@
         }
       ],
       "args": []
-    },
-    {
-      "name": "updateWhitelistedWallet",
-      "accounts": [
-        {
-          "name": "lbPair",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "creator",
-          "isMut": false,
-          "isSigner": true
-        }
-      ],
-      "args": [
-        {
-          "name": "wallet",
-          "type": "publicKey"
-        }
-      ]
     },
     {
       "name": "migratePosition",
@@ -2318,142 +2060,6 @@
       ]
     },
     {
-      "name": "setLockReleasePoint",
-      "accounts": [
-        {
-          "name": "position",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "lbPair",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "sender",
-          "isMut": false,
-          "isSigner": true
-        },
-        {
-          "name": "eventAuthority",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "program",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "newLockReleasePoint",
-          "type": "u64"
-        }
-      ]
-    },
-    {
-      "name": "removeLiquidityByRange",
-      "accounts": [
-        {
-          "name": "position",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "lbPair",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayBitmapExtension",
-          "isMut": true,
-          "isSigner": false,
-          "isOptional": true
-        },
-        {
-          "name": "userTokenX",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "userTokenY",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "reserveX",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "reserveY",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "tokenXMint",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "tokenYMint",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayLower",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayUpper",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "sender",
-          "isMut": false,
-          "isSigner": true
-        },
-        {
-          "name": "tokenXProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "tokenYProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "eventAuthority",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "program",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "fromBinId",
-          "type": "i32"
-        },
-        {
-          "name": "toBinId",
-          "type": "i32"
-        },
-        {
-          "name": "bpsToRemove",
-          "type": "u16"
-        }
-      ]
-    },
-    {
       "name": "addLiquidityOneSidePrecise",
       "accounts": [
         {
@@ -2528,51 +2134,7 @@
       ]
     },
     {
-      "name": "goToABin",
-      "accounts": [
-        {
-          "name": "lbPair",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayBitmapExtension",
-          "isMut": false,
-          "isSigner": false,
-          "isOptional": true
-        },
-        {
-          "name": "fromBinArray",
-          "isMut": false,
-          "isSigner": false,
-          "isOptional": true
-        },
-        {
-          "name": "toBinArray",
-          "isMut": false,
-          "isSigner": false,
-          "isOptional": true
-        },
-        {
-          "name": "eventAuthority",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "program",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "binId",
-          "type": "i32"
-        }
-      ]
-    },
-    {
-      "name": "setPreActivationSlotDuration",
+      "name": "setPreActivationDuration",
       "accounts": [
         {
           "name": "lbPair",
@@ -2612,11 +2174,201 @@
           "type": "publicKey"
         }
       ]
+    },
+    {
+      "name": "swapExactOut",
+      "accounts": [
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayBitmapExtension",
+          "isMut": false,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
+          "name": "reserveX",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "reserveY",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userTokenIn",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userTokenOut",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenXMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenYMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "oracle",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "hostFeeIn",
+          "isMut": true,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
+          "name": "user",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "tokenXProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenYProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "maxInAmount",
+          "type": "u64"
+        },
+        {
+          "name": "outAmount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "swapWithPriceImpact",
+      "accounts": [
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayBitmapExtension",
+          "isMut": false,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
+          "name": "reserveX",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "reserveY",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userTokenIn",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userTokenOut",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenXMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenYMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "oracle",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "hostFeeIn",
+          "isMut": true,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
+          "name": "user",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "tokenXProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenYProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "amountIn",
+          "type": "u64"
+        },
+        {
+          "name": "activeId",
+          "type": {
+            "option": "i32"
+          }
+        },
+        {
+          "name": "maxPriceImpactBps",
+          "type": "u16"
+        }
+      ]
     }
   ],
   "accounts": [
     {
-      "name": "binArrayBitmapExtension",
+      "name": "BinArrayBitmapExtension",
       "type": {
         "kind": "struct",
         "fields": [
@@ -2662,7 +2414,7 @@
       }
     },
     {
-      "name": "binArray",
+      "name": "BinArray",
       "docs": [
         "An account to contain a range of bin. For example: Bin 100 <-> 200.",
         "For example:",
@@ -2711,7 +2463,7 @@
       }
     },
     {
-      "name": "lbPair",
+      "name": "LbPair",
       "type": {
         "kind": "struct",
         "fields": [
@@ -2849,7 +2601,7 @@
           {
             "name": "padding1",
             "docs": [
-              "Fee owner. Deprecated. Can be used as buffer in the future."
+              "_padding_1, previous Fee owner, BE CAREFUL FOR TOMBSTONE WHEN REUSE !!"
             ],
             "type": {
               "array": [
@@ -2899,11 +2651,16 @@
             "type": "i64"
           },
           {
-            "name": "whitelistedWallet",
+            "name": "padding2",
             "docs": [
-              "Whitelisted wallet"
+              "_padding_2, previous whitelisted_wallet, BE CAREFUL FOR TOMBSTONE WHEN REUSE !!"
             ],
-            "type": "publicKey"
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
           },
           {
             "name": "preActivationSwapAddress",
@@ -2934,9 +2691,9 @@
             "type": "u64"
           },
           {
-            "name": "padding2",
+            "name": "padding3",
             "docs": [
-              "_padding 2 is reclaimed free space from swap_cap_deactivate_point and swap_cap_amount before, BE CAREFUL FOR TOMBSTONE WHEN REUSE !!"
+              "_padding 3 is reclaimed free space from swap_cap_deactivate_point and swap_cap_amount before, BE CAREFUL FOR TOMBSTONE WHEN REUSE !!"
             ],
             "type": {
               "array": [
@@ -2946,9 +2703,9 @@
             }
           },
           {
-            "name": "lockDuration",
+            "name": "padding4",
             "docs": [
-              "Liquidity lock duration for positions which created before activate. Only applicable for permission pair."
+              "_padding_4, previous lock_duration, BE CAREFUL FOR TOMBSTONE WHEN REUSE !!"
             ],
             "type": "u64"
           },
@@ -2975,7 +2732,7 @@
       }
     },
     {
-      "name": "oracle",
+      "name": "Oracle",
       "type": {
         "kind": "struct",
         "fields": [
@@ -3004,7 +2761,7 @@
       }
     },
     {
-      "name": "position",
+      "name": "Position",
       "type": {
         "kind": "struct",
         "fields": [
@@ -3125,7 +2882,7 @@
       }
     },
     {
-      "name": "positionV2",
+      "name": "PositionV2",
       "type": {
         "kind": "struct",
         "fields": [
@@ -3274,7 +3031,7 @@
       }
     },
     {
-      "name": "presetParameter",
+      "name": "PresetParameter",
       "type": {
         "kind": "struct",
         "fields": [
@@ -3353,6 +3110,106 @@
     }
   ],
   "types": [
+    {
+      "name": "InitPresetParametersIx",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "binStep",
+            "docs": [
+              "Bin step. Represent the price increment / decrement."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "baseFactor",
+            "docs": [
+              "Used for base fee calculation. base_fee_rate = base_factor * bin_step"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "filterPeriod",
+            "docs": [
+              "Filter period determine high frequency trading time window."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "decayPeriod",
+            "docs": [
+              "Decay period determine when the volatile fee start decay / decrease."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "reductionFactor",
+            "docs": [
+              "Reduction factor controls the volatile fee rate decrement rate."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "variableFeeControl",
+            "docs": [
+              "Used to scale the variable fee component depending on the dynamic of the market"
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "maxVolatilityAccumulator",
+            "docs": [
+              "Maximum number of bin crossed can be accumulated. Used to cap volatile fee rate."
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "minBinId",
+            "docs": [
+              "Min bin id supported by the pool based on the configured bin step."
+            ],
+            "type": "i32"
+          },
+          {
+            "name": "maxBinId",
+            "docs": [
+              "Max bin id supported by the pool based on the configured bin step."
+            ],
+            "type": "i32"
+          },
+          {
+            "name": "protocolShare",
+            "docs": [
+              "Portion of swap fees retained by the protocol by controlling protocol_share parameter. protocol_swap_fee = protocol_share * total_swap_fee"
+            ],
+            "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "FeeParameter",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "protocolShare",
+            "docs": [
+              "Portion of swap fees retained by the protocol by controlling protocol_share parameter. protocol_swap_fee = protocol_share * total_swap_fee"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "baseFactor",
+            "docs": [
+              "Base factor for base fee rate"
+            ],
+            "type": "u16"
+          }
+        ]
+      }
+    },
     {
       "name": "LiquidityParameterByStrategyOneSide",
       "type": {
@@ -3718,106 +3575,6 @@
           {
             "name": "activationType",
             "type": "u8"
-          }
-        ]
-      }
-    },
-    {
-      "name": "InitPresetParametersIx",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "binStep",
-            "docs": [
-              "Bin step. Represent the price increment / decrement."
-            ],
-            "type": "u16"
-          },
-          {
-            "name": "baseFactor",
-            "docs": [
-              "Used for base fee calculation. base_fee_rate = base_factor * bin_step"
-            ],
-            "type": "u16"
-          },
-          {
-            "name": "filterPeriod",
-            "docs": [
-              "Filter period determine high frequency trading time window."
-            ],
-            "type": "u16"
-          },
-          {
-            "name": "decayPeriod",
-            "docs": [
-              "Decay period determine when the volatile fee start decay / decrease."
-            ],
-            "type": "u16"
-          },
-          {
-            "name": "reductionFactor",
-            "docs": [
-              "Reduction factor controls the volatile fee rate decrement rate."
-            ],
-            "type": "u16"
-          },
-          {
-            "name": "variableFeeControl",
-            "docs": [
-              "Used to scale the variable fee component depending on the dynamic of the market"
-            ],
-            "type": "u32"
-          },
-          {
-            "name": "maxVolatilityAccumulator",
-            "docs": [
-              "Maximum number of bin crossed can be accumulated. Used to cap volatile fee rate."
-            ],
-            "type": "u32"
-          },
-          {
-            "name": "minBinId",
-            "docs": [
-              "Min bin id supported by the pool based on the configured bin step."
-            ],
-            "type": "i32"
-          },
-          {
-            "name": "maxBinId",
-            "docs": [
-              "Max bin id supported by the pool based on the configured bin step."
-            ],
-            "type": "i32"
-          },
-          {
-            "name": "protocolShare",
-            "docs": [
-              "Portion of swap fees retained by the protocol by controlling protocol_share parameter. protocol_swap_fee = protocol_share * total_swap_fee"
-            ],
-            "type": "u16"
-          }
-        ]
-      }
-    },
-    {
-      "name": "FeeParameter",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "protocolShare",
-            "docs": [
-              "Portion of swap fees retained by the protocol by controlling protocol_share parameter. protocol_swap_fee = protocol_share * total_swap_fee"
-            ],
-            "type": "u16"
-          },
-          {
-            "name": "baseFactor",
-            "docs": [
-              "Base factor for base fee rate"
-            ],
-            "type": "u16"
           }
         ]
       }
@@ -4312,7 +4069,7 @@
     {
       "name": "PairType",
       "docs": [
-        "Type of the Pair. 0 = Permissionless, 1 = Permission. Putting 0 as permissionless for backward compatibility."
+        "Type of the Pair. 0 = Permissionless, 1 = Permission, 2 = CustomizablePermissionless"
       ],
       "type": {
         "kind": "enum",
@@ -4322,6 +4079,9 @@
           },
           {
             "name": "Permission"
+          },
+          {
+            "name": "CustomizablePermissionless"
           }
         ]
       }
@@ -4839,26 +4599,6 @@
           "index": false
         }
       ]
-    },
-    {
-      "name": "GoToABin",
-      "fields": [
-        {
-          "name": "lbPair",
-          "type": "publicKey",
-          "index": false
-        },
-        {
-          "name": "fromBinId",
-          "type": "i32",
-          "index": false
-        },
-        {
-          "name": "toBinId",
-          "type": "i32",
-          "index": false
-        }
-      ]
     }
   ],
   "errors": [
@@ -5124,46 +4864,63 @@
     },
     {
       "code": 6052,
-      "name": "AlreadyPassActivationSlot",
+      "name": "AlreadyPassActivationPoint",
       "msg": "Already activated"
     },
     {
       "code": 6053,
-      "name": "LastSlotCannotBeSmallerThanActivateSlot",
-      "msg": "Last slot cannot be smaller than activate slot"
-    },
-    {
-      "code": 6054,
       "name": "ExceedMaxSwappedAmount",
       "msg": "Swapped amount is exceeded max swapped amount"
     },
     {
-      "code": 6055,
+      "code": 6054,
       "name": "InvalidStrategyParameters",
       "msg": "Invalid strategy parameters"
     },
     {
-      "code": 6056,
+      "code": 6055,
       "name": "LiquidityLocked",
       "msg": "Liquidity locked"
     },
     {
-      "code": 6057,
-      "name": "InvalidLockReleaseSlot",
-      "msg": "Invalid lock release slot"
-    },
-    {
-      "code": 6058,
+      "code": 6056,
       "name": "BinRangeIsNotEmpty",
       "msg": "Bin range is not empty"
     },
     {
-      "code": 6059,
+      "code": 6057,
       "name": "NotExactAmountOut",
       "msg": "Amount out is not matched with exact amount out"
+    },
+    {
+      "code": 6058,
+      "name": "InvalidActivationType",
+      "msg": "Invalid activation type"
+    },
+    {
+      "code": 6059,
+      "name": "InvalidActivationDuration",
+      "msg": "Invalid activation duration"
+    },
+    {
+      "code": 6060,
+      "name": "MissingTokenAmountAsTokenLaunchProof",
+      "msg": "Missing token amount as token launch owner proof"
+    },
+    {
+      "code": 6061,
+      "name": "InvalidQuoteToken",
+      "msg": "Quote token must be SOL or USDC"
+    },
+    {
+      "code": 6062,
+      "name": "InvalidBinStep",
+      "msg": "Invalid bin step"
+    },
+    {
+      "code": 6063,
+      "name": "InvalidBaseFee",
+      "msg": "Invalid base fee"
     }
-  ],
-  "metadata": {
-    "address": "GrAkKfEpTKQuVHG2Y97Y2FF4i7y7Q5AHLK94JBy7Y5yv"
-  }
+  ]
 }
