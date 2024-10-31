@@ -216,6 +216,90 @@ export type LbClmm = {
       ]
     },
     {
+      "name": "initializeCustomizablePermissionLbPair",
+      "accounts": [
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayBitmapExtension",
+          "isMut": true,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
+          "name": "tokenMintX",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenMintY",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "reserveX",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "reserveY",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "oracle",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userTokenX",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "funder",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "rent",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": "CustomizableParams"
+          }
+        }
+      ]
+    },
+    {
       "name": "initializePermissionLbPair",
       "accounts": [
         {
@@ -1076,6 +1160,10 @@ export type LbClmm = {
         {
           "name": "feeOwner",
           "type": "publicKey"
+        },
+        {
+          "name": "lockReleasePoint",
+          "type": "u64"
         }
       ]
     },
@@ -3538,6 +3626,70 @@ export type LbClmm = {
               "vec": {
                 "defined": "BinLiquidityDistribution"
               }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "CustomizableParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "activeId",
+            "docs": [
+              "Pool price"
+            ],
+            "type": "i32"
+          },
+          {
+            "name": "binStep",
+            "docs": [
+              "Bin step"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "baseFactor",
+            "docs": [
+              "Base factor"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "activationType",
+            "docs": [
+              "Activation type. 0 = Slot, 1 = Time. Check ActivationType enum"
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "hasAlphaVault",
+            "docs": [
+              "Whether the pool has an alpha vault"
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "activationPoint",
+            "docs": [
+              "Decide when does the pool start trade. None = Now"
+            ],
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "padding",
+            "docs": [
+              "Padding, for future use"
+            ],
+            "type": {
+              "array": [
+                "u8",
+                64
+              ]
             }
           }
         ]
@@ -5143,6 +5295,90 @@ export const IDL: LbClmm = {
       ]
     },
     {
+      "name": "initializeCustomizablePermissionLbPair",
+      "accounts": [
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayBitmapExtension",
+          "isMut": true,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
+          "name": "tokenMintX",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenMintY",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "reserveX",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "reserveY",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "oracle",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userTokenX",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "funder",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "rent",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": "CustomizableParams"
+          }
+        }
+      ]
+    },
+    {
       "name": "initializePermissionLbPair",
       "accounts": [
         {
@@ -6003,6 +6239,10 @@ export const IDL: LbClmm = {
         {
           "name": "feeOwner",
           "type": "publicKey"
+        },
+        {
+          "name": "lockReleasePoint",
+          "type": "u64"
         }
       ]
     },
@@ -8465,6 +8705,70 @@ export const IDL: LbClmm = {
               "vec": {
                 "defined": "BinLiquidityDistribution"
               }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "CustomizableParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "activeId",
+            "docs": [
+              "Pool price"
+            ],
+            "type": "i32"
+          },
+          {
+            "name": "binStep",
+            "docs": [
+              "Bin step"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "baseFactor",
+            "docs": [
+              "Base factor"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "activationType",
+            "docs": [
+              "Activation type. 0 = Slot, 1 = Time. Check ActivationType enum"
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "hasAlphaVault",
+            "docs": [
+              "Whether the pool has an alpha vault"
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "activationPoint",
+            "docs": [
+              "Decide when does the pool start trade. None = Now"
+            ],
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "padding",
+            "docs": [
+              "Padding, for future use"
+            ],
+            "type": {
+              "array": [
+                "u8",
+                64
+              ]
             }
           }
         ]

@@ -9,6 +9,7 @@ pub mod increase_length;
 pub mod initialize_bin_array;
 pub mod initialize_bin_array_with_bin_range;
 pub mod initialize_bin_array_with_price_range;
+pub mod initialize_customizable_permissionless_lb_pair;
 pub mod initialize_lb_pair;
 pub mod initialize_permission_lb_pair;
 pub mod initialize_position;

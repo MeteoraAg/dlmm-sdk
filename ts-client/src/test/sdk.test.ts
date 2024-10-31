@@ -16,31 +16,30 @@ import {
   Transaction,
   sendAndConfirmTransaction,
 } from "@solana/web3.js";
+import babar from "babar";
+import Decimal from "decimal.js";
 import fs from "fs";
-import { DLMM } from "../dlmm/index";
+import {
+  BASIS_POINT_MAX,
+  LBCLMM_PROGRAM_IDS,
+  MAX_BIN_PER_POSITION,
+} from "../dlmm/constants";
 import {
   binIdToBinArrayIndex,
   deriveBinArray,
   deriveLbPair2,
   derivePermissionLbPair,
   derivePresetParameter2,
-  derivePresetParameter,
   getBinArrayLowerUpperBinId,
   getPriceOfBinByBinId,
 } from "../dlmm/helpers";
 import {
-  BASIS_POINT_MAX,
-  LBCLMM_PROGRAM_IDS,
-  MAX_BIN_PER_POSITION,
-} from "../dlmm/constants";
-import { IDL } from "../dlmm/idl";
-import { ActivationType, PairType, StrategyType } from "../dlmm/types";
-import Decimal from "decimal.js";
-import babar from "babar";
-import {
   findSwappableMinMaxBinId,
   getQPriceFromId,
 } from "../dlmm/helpers/math";
+import { IDL } from "../dlmm/idl";
+import { DLMM } from "../dlmm/index";
+import { ActivationType, PairType, StrategyType } from "../dlmm/types";
 
 const keypairBuffer = fs.readFileSync(
   "../keys/localnet/admin-bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1.json",
@@ -103,7 +102,7 @@ function assertAmountWithPrecision(
   expect(diff).toBeLessThan(precisionPercent);
 }
 
-describe.only("SDK test", () => {
+describe("SDK test", () => {
   beforeAll(async () => {
     BTC = await createMint(
       connection,
@@ -294,19 +293,19 @@ describe.only("SDK test", () => {
 
     const xYAmountDistribution = [
       {
+        binId: DEFAULT_ACTIVE_ID.sub(new BN(3)).toNumber(),
+        xAmountBpsOfTotal: new BN(0),
+        yAmountBpsOfTotal: new BN(4500),
+      },
+      {
+        binId: DEFAULT_ACTIVE_ID.sub(new BN(2)).toNumber(),
+        xAmountBpsOfTotal: new BN(0),
+        yAmountBpsOfTotal: new BN(3000),
+      },
+      {
         binId: DEFAULT_ACTIVE_ID.sub(new BN(1)).toNumber(),
         xAmountBpsOfTotal: new BN(0),
-        yAmountBpsOfTotal: new BN(7500),
-      },
-      {
-        binId: DEFAULT_ACTIVE_ID.toNumber(),
-        xAmountBpsOfTotal: new BN(2500),
         yAmountBpsOfTotal: new BN(2500),
-      },
-      {
-        binId: DEFAULT_ACTIVE_ID.add(new BN(1)).toNumber(),
-        xAmountBpsOfTotal: new BN(7500),
-        yAmountBpsOfTotal: new BN(0),
       },
     ];
 
@@ -346,7 +345,6 @@ describe.only("SDK test", () => {
 
     it("create permissioned LB pair", async () => {
       const feeBps = new BN(50);
-      const lockDuration = new BN(0);
 
       try {
         const rawTx = await DLMM.createPermissionLbPair(
@@ -358,7 +356,6 @@ describe.only("SDK test", () => {
           baseKeypair.publicKey,
           keypair.publicKey,
           feeBps,
-          lockDuration,
           ActivationType.Slot,
           { cluster: "localhost" }
         );
@@ -388,40 +385,10 @@ describe.only("SDK test", () => {
       }
     });
 
-    it("update whitelisted wallet", async () => {
-      try {
-        const walletToWhitelist = keypair.publicKey;
-        const rawTx = await pair.updateWhitelistedWallet(walletToWhitelist);
-        const txHash = await sendAndConfirmTransaction(connection, rawTx, [
-          keypair,
-        ]);
-        console.log("Update whitelisted wallet", txHash);
-        expect(txHash).not.toBeNull();
-
-        await pair.refetchStates();
-
-        const pairState = pair.lbPair;
-        expect(pairState.whitelistedWallet.toBase58()).toBe(
-          walletToWhitelist.toBase58()
-        );
-      } catch (error) {
-        console.log(JSON.parse(JSON.stringify(error)));
-      }
-    });
-
-    it("initialize position by operator and add liquidity", async () => {
-      const updateWhitelistedWalletRawTx = await pair.updateWhitelistedWallet(
-        keypair.publicKey
-      );
-      await sendAndConfirmTransaction(
-        connection,
-        updateWhitelistedWalletRawTx,
-        [keypair]
-      );
-
+    it("initialize position and add liquidity buy side", async () => {
       const program = pair.program;
       const baseKeypair = Keypair.generate();
-      const lowerBinId = DEFAULT_ACTIVE_ID.sub(new BN(30));
+      const lowerBinId = DEFAULT_ACTIVE_ID.sub(MAX_BIN_PER_POSITION);
       const width = MAX_BIN_PER_POSITION;
 
       const lowerBinIdBytes = lowerBinId.isNeg()
@@ -448,7 +415,8 @@ describe.only("SDK test", () => {
           lowerBinId.toNumber(),
           width.toNumber(),
           customFeeOwnerPositionOwner.publicKey,
-          customFeeOwnerPositionFeeOwner.publicKey
+          customFeeOwnerPositionFeeOwner.publicKey,
+          new BN(0)
         )
         .accounts({
           lbPair: pair.pubkey,
@@ -473,7 +441,7 @@ describe.only("SDK test", () => {
 
       let addLiquidityTxs = await pair.addLiquidityByWeight({
         positionPubKey: customFeeOwnerPosition,
-        totalXAmount: btcInAmount,
+        totalXAmount: new BN(0),
         totalYAmount: usdcInAmount,
         xYAmountDistribution,
         user: keypair.publicKey,
@@ -551,11 +519,11 @@ describe.only("SDK test", () => {
       );
 
       let swapTx = await pair.swap({
-        inAmount: new BN(10000).mul(new BN(10 ** usdcDecimal)),
-        outToken: BTC,
+        inAmount: new BN(10000000),
+        outToken: USDC,
         minOutAmount: new BN(0),
         user: keypair.publicKey,
-        inToken: USDC,
+        inToken: BTC,
         lbPair: pair.pubkey,
         binArraysPubkey: [activeBinArray],
       });
@@ -563,11 +531,11 @@ describe.only("SDK test", () => {
       await sendAndConfirmTransaction(connection, swapTx, [keypair]);
 
       swapTx = await pair.swap({
-        inAmount: new BN(1000000),
-        outToken: USDC,
+        inAmount: new BN(100).mul(new BN(10 ** usdcDecimal)),
+        outToken: BTC,
         minOutAmount: new BN(0),
         user: keypair.publicKey,
-        inToken: BTC,
+        inToken: USDC,
         lbPair: pair.pubkey,
         binArraysPubkey: [activeBinArray],
       });
@@ -791,7 +759,6 @@ describe.only("SDK test", () => {
 
       baseKeypair = Keypair.generate();
       const feeBps = new BN(50);
-      const locakDuration = new BN(0);
 
       let rawTx = await DLMM.createPermissionLbPair(
         connection,
@@ -802,7 +769,6 @@ describe.only("SDK test", () => {
         baseKeypair.publicKey,
         keypair.publicKey,
         feeBps,
-        locakDuration,
         ActivationType.Slot,
         { cluster: "localhost" }
       );
@@ -824,22 +790,6 @@ describe.only("SDK test", () => {
       pair = await DLMM.create(connection, pairKey, {
         cluster: "localhost",
       });
-
-      let pairState = pair.lbPair;
-      expect(pairState.pairType).toBe(PairType.Permissioned);
-
-      const walletToWhitelist = keypair.publicKey;
-      rawTx = await pair.updateWhitelistedWallet(walletToWhitelist);
-      txHash = await sendAndConfirmTransaction(connection, rawTx, [keypair]);
-      console.log("Update whitelisted wallet", txHash);
-      expect(txHash).not.toBeNull();
-
-      await pair.refetchStates();
-
-      pairState = pair.lbPair;
-      expect(pairState.whitelistedWallet.toBase58()).toBe(
-        walletToWhitelist.toBase58()
-      );
     });
 
     it("Rerun if failed at first deposit", async () => {
@@ -863,8 +813,6 @@ describe.only("SDK test", () => {
 
       let { initializeBinArraysAndPositionIxs, addLiquidityIxs } =
         await pair.seedLiquidity(
-          keypair.publicKey,
-          keypair.publicKey,
           keypair.publicKey,
           seedAmount,
           curvature,
@@ -945,8 +893,6 @@ describe.only("SDK test", () => {
       );
 
       const seedLiquidityResponse = await pair.seedLiquidity(
-        keypair.publicKey,
-        keypair.publicKey,
         keypair.publicKey,
         seedAmount,
         curvature,
@@ -1038,8 +984,6 @@ describe.only("SDK test", () => {
       let { initializeBinArraysAndPositionIxs, addLiquidityIxs } =
         await pair.seedLiquidity(
           keypair.publicKey,
-          keypair.publicKey,
-          keypair.publicKey,
           seedAmount,
           curvature,
           minPrice.toNumber(),
@@ -1119,8 +1063,6 @@ describe.only("SDK test", () => {
       );
 
       const seedLiquidityResponse = await pair.seedLiquidity(
-        keypair.publicKey,
-        keypair.publicKey,
         keypair.publicKey,
         seedAmount,
         curvature,
@@ -1211,8 +1153,6 @@ describe.only("SDK test", () => {
       let { initializeBinArraysAndPositionIxs, addLiquidityIxs } =
         await pair.seedLiquidity(
           keypair.publicKey,
-          keypair.publicKey,
-          keypair.publicKey,
           seedAmount,
           curvature,
           minPrice.toNumber(),
@@ -1292,8 +1232,6 @@ describe.only("SDK test", () => {
       );
 
       const seedLiquidityResponse = await pair.seedLiquidity(
-        keypair.publicKey,
-        keypair.publicKey,
         keypair.publicKey,
         seedAmount,
         curvature,
@@ -1396,8 +1334,6 @@ describe.only("SDK test", () => {
 
       const { initializeBinArraysAndPositionIxs, addLiquidityIxs } =
         await pair.seedLiquidity(
-          keypair.publicKey,
-          keypair.publicKey,
           keypair.publicKey,
           seedAmount,
           curvature,

@@ -16,6 +16,7 @@ mod instructions;
 mod math;
 
 use args::*;
+use instructions::initialize_customizable_permissionless_lb_pair::InitCustomizablePermissionlessLbPairParameters;
 use instructions::initialize_lb_pair::*;
 use lb_clmm::state::preset_parameters::PresetParameter;
 
@@ -41,6 +42,7 @@ use crate::{
         initialize_bin_array_with_price_range::{
             initialize_bin_array_with_price_range, InitBinArrayWithPriceRangeParameters,
         },
+        initialize_customizable_permissionless_lb_pair::initialize_customizable_permissionless_lb_pair,
         initialize_permission_lb_pair::{
             initialize_permission_lb_pair, InitPermissionLbPairParameters,
         },
@@ -323,6 +325,33 @@ async fn main() -> Result<()> {
                 price_impact_bps,
             };
             swap_with_price_impact(params, &amm_program, transaction_config).await?;
+        }
+        Command::InitializeCustomizablePermissionlessLbPair {
+            token_mint_x,
+            token_mint_y,
+            bin_step,
+            initial_price,
+            base_fee_bps,
+            activation_type,
+            has_alpha_vault,
+            activation_point,
+        } => {
+            let params = InitCustomizablePermissionlessLbPairParameters {
+                token_mint_x,
+                token_mint_y,
+                bin_step,
+                initial_price,
+                base_fee_bps,
+                activation_point,
+                has_alpha_vault,
+                activation_type,
+            };
+            initialize_customizable_permissionless_lb_pair(
+                params,
+                &amm_program,
+                transaction_config,
+            )
+            .await?;
         }
         Command::Admin(admin_command) => match admin_command {
             AdminCommand::InitializePermissionPair {

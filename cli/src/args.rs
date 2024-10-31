@@ -239,6 +239,25 @@ pub enum Command {
         side_ratio: u64,
     },
 
+    InitializeCustomizablePermissionlessLbPair {
+        /// Token X address
+        token_mint_x: Pubkey,
+        /// Token Y address
+        token_mint_y: Pubkey,
+        /// Bin step
+        bin_step: u16,
+        /// Pool starting price
+        initial_price: f64,
+        /// Base fee rate
+        base_fee_bps: u16,
+        /// Pool activation (start trading) type. 0 = Slot based, 1 = Timestamp based
+        activation_type: u8,
+        /// Indicate whether the launch pool have alpha vault
+        has_alpha_vault: bool,
+        /// Pool activation point. None = Now
+        activation_point: Option<u64>,
+    },
+
     #[clap(flatten)]
     Admin(AdminCommand),
 }

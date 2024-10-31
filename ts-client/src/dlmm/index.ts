@@ -71,6 +71,7 @@ import {
   ClockLayout,
   PairStatus,
   PairType,
+  InitCustomizablePermissionlessPairIx,
 } from "./types";
 import { AnchorProvider, BN, Program } from "@coral-xyz/anchor";
 import {
@@ -105,6 +106,7 @@ import {
   swapExactOutQuoteAtBin,
   getPriceOfBinByBinId,
   computeFee,
+  deriveCustomizablePermissionlessLbPair,
 } from "./helpers";
 import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import Decimal from "decimal.js";
@@ -670,6 +672,7 @@ export class DLMM {
       .flat();
 
     const positionBinArraysMapV2 = new Map();
+
     for (
       let i = binArrayPubkeyArray.length + lbPairArray.length;
       i <
@@ -1084,7 +1087,6 @@ export class DLMM {
     baseKey: PublicKey,
     creatorKey: PublicKey,
     feeBps: BN,
-    lockDuration: BN,
     activationType: ActivationType,
     opt?: Opt
   ) {
@@ -1126,7 +1128,6 @@ export class DLMM {
       baseFactor: computeBaseFactorFromFeeBps(binStep, feeBps).toNumber(),
       minBinId: minBinId.toNumber(),
       maxBinId: maxBinId.toNumber(),
-      lockDuration,
       activationType,
     };
 
@@ -1148,6 +1149,79 @@ export class DLMM {
       })
       .transaction();
   }
+
+  public static async createCustomizablePermissionlessLbPair(
+    connection: Connection,
+    binStep: BN,
+    tokenX: PublicKey,
+    tokenY: PublicKey,
+    activeId: BN,
+    feeBps: BN,
+    activationType: ActivationType,
+    hasAlphaVault: boolean,
+    creatorKey: PublicKey,
+    activationPoint?: BN,
+    opt?: Opt
+  ): Promise<Transaction> {
+    const provider = new AnchorProvider(
+      connection,
+      {} as any,
+      AnchorProvider.defaultOptions()
+    );
+    const program = new Program(
+      IDL,
+      opt?.programId ?? LBCLMM_PROGRAM_IDS[opt.cluster],
+      provider
+    );
+
+    const [lbPair] = deriveCustomizablePermissionlessLbPair(
+      tokenX,
+      tokenY,
+      program.programId
+    );
+
+    const [reserveX] = deriveReserve(tokenX, lbPair, program.programId);
+    const [reserveY] = deriveReserve(tokenY, lbPair, program.programId);
+    const [oracle] = deriveOracle(lbPair, program.programId);
+
+    const activeBinArrayIndex = binIdToBinArrayIndex(activeId);
+    const binArrayBitmapExtension = isOverflowDefaultBinArrayBitmap(
+      activeBinArrayIndex
+    )
+      ? deriveBinArrayBitmapExtension(lbPair, program.programId)[0]
+      : null;
+
+    const ixData: InitCustomizablePermissionlessPairIx = {
+      activeId: activeId.toNumber(),
+      binStep: binStep.toNumber(),
+      baseFactor: computeBaseFactorFromFeeBps(binStep, feeBps).toNumber(),
+      activationType,
+      activationPoint: activationPoint ? activationPoint : null,
+      hasAlphaVault,
+      padding: Array(64).fill(0),
+    };
+
+    const userTokenX = getAssociatedTokenAddressSync(tokenX, creatorKey);
+
+    return program.methods
+      .initializeCustomizablePermissionLbPair(ixData)
+      .accounts({
+        lbPair,
+        rent: SYSVAR_RENT_PUBKEY,
+        reserveX,
+        reserveY,
+        binArrayBitmapExtension,
+        tokenMintX: tokenX,
+        tokenMintY: tokenY,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        oracle,
+        systemProgram: SystemProgram.programId,
+        userTokenX,
+        funder: creatorKey,
+      })
+      .transaction();
+  }
+
   public static async createLbPair(
     connection: Connection,
     funder: PublicKey,
@@ -3769,35 +3843,6 @@ export class DLMM {
   }
 
   /**
-   * The function `updateWhitelistedWallet` is used to whitelist a wallet, enabling it to deposit into a permissioned pool before the activation point.
-   * @param
-   *    - `walletsToWhitelist`: The public key of the wallet.
-   *    - `overrideIndexes`: Index of the whitelisted wallet to be inserted. Check DLMM.lbPair.whitelistedWallet for the index
-   * @returns {Promise<Transaction>}
-   */
-  public async updateWhitelistedWallet(walletsToWhitelist: PublicKey) {
-    const instructions = [];
-    const updateWhitelistedWalletIx = await this.program.methods
-      .updateWhitelistedWallet(walletsToWhitelist)
-      .accounts({
-        lbPair: this.pubkey,
-        creator: this.lbPair.creator,
-      })
-      .instruction();
-
-    instructions.push(updateWhitelistedWalletIx);
-
-    const { blockhash, lastValidBlockHeight } =
-      await this.program.provider.connection.getLatestBlockhash("confirmed");
-
-    return new Transaction({
-      feePayer: this.lbPair.creator,
-      blockhash,
-      lastValidBlockHeight,
-    }).add(...instructions);
-  }
-
-  /**
    * The function `claimSwapFee` is used to claim swap fees for a specific position owned by a specific owner.
    * @param
    *    - `owner`: The public key of the owner of the position.
@@ -3973,8 +4018,6 @@ export class DLMM {
    * The `seedLiquidity` function create multiple grouped instructions. The grouped instructions will be either [initialize bin array + initialize position instructions] or [deposit instruction] combination.
    * @param
    *    - `owner`: The public key of the positions owner.
-   *    - `operator`: The public key of the operator. Operator can add liquidity for the position owner, withdraw on behalf of position owner (only can withdraw to position owner), and claim fee on behalf of position owner / fee owner (only can claim fee to position / fee owner)
-   *    - `feeOwner`: The public key to receive claimed fee.
    *    - `seedAmount`: Lamport amount to be seeded to the pool.
    *    - `minPrice`: Start price in UI format
    *    - `maxPrice`: End price in UI format
@@ -3983,8 +4026,6 @@ export class DLMM {
    */
   public async seedLiquidity(
     owner: PublicKey,
-    operator: PublicKey,
-    feeOwner: PublicKey,
     seedAmount: BN,
     curvature: number,
     minPrice: number,
@@ -4050,7 +4091,7 @@ export class DLMM {
 
     const seederTokenX = getAssociatedTokenAddressSync(
       this.lbPair.tokenXMint,
-      operator,
+      owner,
       false
     );
 
@@ -4105,7 +4146,7 @@ export class DLMM {
             .accounts({
               lbPair: this.pubkey,
               binArray: lowerBinArray,
-              funder: operator,
+              funder: owner,
             })
             .instruction()
         );
@@ -4124,7 +4165,7 @@ export class DLMM {
             .accounts({
               lbPair: this.pubkey,
               binArray: upperBinArray,
-              funder: operator,
+              funder: owner,
             })
             .instruction()
         );
@@ -4136,18 +4177,16 @@ export class DLMM {
       if (!positionAccount) {
         instructions.push(
           await this.program.methods
-            .initializePositionByOperator(
+            .initializePositionPda(
               lowerBinId.toNumber(),
-              MAX_BIN_PER_POSITION.toNumber(),
-              owner,
-              feeOwner
+              MAX_BIN_PER_POSITION.toNumber()
             )
             .accounts({
               lbPair: this.pubkey,
               position: positionPda,
               base,
-              operator,
-              payer: operator,
+              owner,
+              payer: owner,
             })
             .instruction()
         );
@@ -4198,7 +4237,7 @@ export class DLMM {
               tokenMint: this.lbPair.tokenXMint,
               binArrayLower: lowerBinArray,
               binArrayUpper: upperBinArray,
-              sender: operator,
+              sender: owner,
             })
             .instruction()
         );
@@ -4229,7 +4268,7 @@ export class DLMM {
                 tokenMint: this.lbPair.tokenXMint,
                 binArrayLower: lowerBinArray,
                 binArrayUpper: upperBinArray,
-                sender: operator,
+                sender: owner,
               })
               .instruction()
           );
@@ -4292,6 +4331,7 @@ export class DLMM {
    *    - `base`: Base key
    *    - `feeOwner`: Owner of the fees earned by the position.
    *    - `payer`: Payer for the position account rental.
+   *    - `lockReleasePoint`: The lock release point of the position.
    * @returns
    */
   public async initializePositionByOperator({
@@ -4302,6 +4342,7 @@ export class DLMM {
     base,
     operator,
     payer,
+    lockReleasePoint,
   }: {
     lowerBinId: BN;
     positionWidth: BN;
@@ -4310,6 +4351,7 @@ export class DLMM {
     operator: PublicKey;
     payer: PublicKey;
     base: PublicKey;
+    lockReleasePoint: BN;
   }): Promise<Transaction> {
     const [positionPda, _bump] = derivePosition(
       this.pubkey,
@@ -4323,7 +4365,8 @@ export class DLMM {
         lowerBinId.toNumber(),
         MAX_BIN_PER_POSITION.toNumber(),
         owner,
-        feeOwner
+        feeOwner,
+        lockReleasePoint
       )
       .accounts({
         lbPair: this.pubkey,
