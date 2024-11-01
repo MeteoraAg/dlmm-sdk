@@ -11,8 +11,10 @@ use std::ops::Deref;
 
 use crate::instructions::utils::get_or_create_ata;
 use crate::math::{
-    compute_base_factor_from_fee_bps, get_id_from_price, price_per_token_to_per_lamport,
+    compute_base_factor_from_fee_bps, get_id_from_price, get_precise_id_from_price,
+    price_per_token_to_per_lamport,
 };
+use crate::SelectiveRounding;
 
 #[derive(Debug)]
 pub struct InitCustomizablePermissionlessLbPairParameters {
@@ -24,6 +26,7 @@ pub struct InitCustomizablePermissionlessLbPairParameters {
     pub activation_type: u8,
     pub has_alpha_vault: bool,
     pub activation_point: Option<u64>,
+    pub selective_rounding: SelectiveRounding,
 }
 
 pub async fn initialize_customizable_permissionless_lb_pair<
@@ -42,6 +45,7 @@ pub async fn initialize_customizable_permissionless_lb_pair<
         activation_type,
         activation_point,
         has_alpha_vault,
+        selective_rounding,
     } = params;
 
     let token_mint_base: Mint = program.account(token_mint_x).await?;
@@ -54,8 +58,14 @@ pub async fn initialize_customizable_permissionless_lb_pair<
     )
     .context("price_per_token_to_per_lamport overflow")?;
 
-    let computed_active_id = get_id_from_price(bin_step, &price_per_lamport, Rounding::Up)
-        .context("get_id_from_price overflow")?;
+    let computed_active_id = match selective_rounding {
+        SelectiveRounding::None => get_precise_id_from_price(bin_step, &price_per_lamport)
+            .context("fail to get exact bin id for the price"),
+        SelectiveRounding::Down => get_id_from_price(bin_step, &price_per_lamport, Rounding::Down)
+            .context("get_id_from_price overflow"),
+        SelectiveRounding::Up => get_id_from_price(bin_step, &price_per_lamport, Rounding::Up)
+            .context("get_id_from_price overflow"),
+    }?;
 
     let (lb_pair, _bump) = derive_customizable_permissionless_lb_pair(token_mint_x, token_mint_y);
 

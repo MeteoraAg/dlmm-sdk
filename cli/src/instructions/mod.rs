@@ -20,6 +20,7 @@ pub mod list_all_binstep;
 pub mod remove_liquidity;
 pub mod remove_liquidity_by_price_range;
 pub mod seed_liquidity;
+pub mod seed_liquidity_single_bin;
 pub mod set_activation_point;
 pub mod set_pre_activation_duration;
 pub mod set_pre_activation_swap_address;

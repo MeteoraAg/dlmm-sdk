@@ -1,5 +1,8 @@
 use std::rc::Rc;
+use std::time::Duration;
 
+use anchor_client::solana_sdk::compute_budget::ComputeBudgetInstruction;
+use anchor_client::solana_sdk::instruction::Instruction;
 use anchor_client::Client;
 use anchor_client::{
     solana_client::rpc_config::RpcSendTransactionConfig,
@@ -18,6 +21,9 @@ mod math;
 use args::*;
 use instructions::initialize_customizable_permissionless_lb_pair::InitCustomizablePermissionlessLbPairParameters;
 use instructions::initialize_lb_pair::*;
+use instructions::seed_liquidity_single_bin::{
+    seed_liquidity_single_bin, SeedLiquiditySingleBinParameters,
+};
 use lb_clmm::state::preset_parameters::PresetParameter;
 
 use crate::instructions::initialize_bin_array_with_bin_range::{
@@ -72,6 +78,16 @@ use crate::{
     },
 };
 
+fn get_set_compute_unit_price_ix(micro_lamports: u64) -> Option<Instruction> {
+    if micro_lamports > 0 {
+        Some(ComputeBudgetInstruction::set_compute_unit_price(
+            micro_lamports,
+        ))
+    } else {
+        None
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
@@ -97,6 +113,8 @@ async fn main() -> Result<()> {
         max_retries: None,
         min_context_slot: None,
     };
+
+    let compute_unit_price_ix = get_set_compute_unit_price_ix(cli.config_override.priority_fee);
 
     match cli.command {
         Command::InitializePair {
@@ -335,6 +353,7 @@ async fn main() -> Result<()> {
             activation_type,
             has_alpha_vault,
             activation_point,
+            selective_rounding,
         } => {
             let params = InitCustomizablePermissionlessLbPairParameters {
                 token_mint_x,
@@ -345,11 +364,93 @@ async fn main() -> Result<()> {
                 activation_point,
                 has_alpha_vault,
                 activation_type,
+                selective_rounding,
             };
             initialize_customizable_permissionless_lb_pair(
                 params,
                 &amm_program,
                 transaction_config,
+            )
+            .await?;
+        }
+        Command::SeedLiquidity {
+            lb_pair,
+            base_position_path,
+            amount,
+            min_price,
+            max_price,
+            base_pubkey,
+            curvature,
+            position_owner_path,
+            max_retries,
+        } => {
+            let mut retry_count = 0;
+            loop {
+                let position_base_kp = read_keypair_file(base_position_path.clone())
+                    .expect("position base keypair file not found");
+
+                let position_owner_kp = read_keypair_file(position_owner_path.clone())
+                    .expect("position owner keypair file not found");
+
+                let params = SeedLiquidityParameters {
+                    lb_pair,
+                    position_base_kp,
+                    amount,
+                    min_price,
+                    max_price,
+                    base_pubkey,
+                    position_owner_kp,
+                    curvature,
+                };
+                if let Err(err) = seed_liquidity(
+                    params,
+                    &amm_program,
+                    transaction_config,
+                    compute_unit_price_ix.clone(),
+                )
+                .await
+                {
+                    println!("Error: {}", err);
+                    retry_count += 1;
+                    if retry_count >= max_retries {
+                        println!("Exceeded max retries {}", max_retries);
+                        break;
+                    }
+                    tokio::time::sleep(Duration::from_secs(16)).await;
+                } else {
+                    break;
+                }
+            }
+        }
+        Command::SeedLiquiditySingleBin {
+            lb_pair,
+            base_position_path,
+            base_pubkey,
+            amount,
+            price,
+            position_owner_path,
+            selective_rounding,
+        } => {
+            let position_base_kp = read_keypair_file(base_position_path)
+                .expect("position base keypair file not found");
+
+            let position_owner_kp = read_keypair_file(position_owner_path)
+                .expect("position owner keypair file not found");
+
+            let params = SeedLiquiditySingleBinParameters {
+                lb_pair,
+                position_base_kp,
+                amount,
+                price,
+                base_pubkey,
+                position_owner_kp,
+                selective_rounding,
+            };
+            seed_liquidity_single_bin(
+                params,
+                &amm_program,
+                transaction_config,
+                compute_unit_price_ix,
             )
             .await?;
         }
@@ -380,24 +481,6 @@ async fn main() -> Result<()> {
             }
             AdminCommand::TogglePoolStatus { lb_pair } => {
                 toggle_pool_status(lb_pair, &amm_program, transaction_config).await?;
-            }
-            AdminCommand::SeedLiquidity {
-                lb_pair,
-                base_position_path,
-                amount,
-                min_price,
-                max_price,
-            } => {
-                let position_base_kp = read_keypair_file(base_position_path)
-                    .expect("position base keypair file not found");
-                let params = SeedLiquidityParameters {
-                    lb_pair,
-                    position_base_kp,
-                    amount,
-                    min_price,
-                    max_price,
-                };
-                seed_liquidity(params, &amm_program, transaction_config).await?;
             }
             AdminCommand::RemoveLiquidityByPriceRange {
                 lb_pair,
