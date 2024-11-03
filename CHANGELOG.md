@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.2.4] - PR #113
+
+### Fixed
+
+- Fixed `getBins` incorrect bin array index to fetch
+
 ## @meteora-ag/dlmm [1.2.3] - PR #112
 
 ### Fixed

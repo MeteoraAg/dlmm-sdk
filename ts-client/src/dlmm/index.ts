@@ -2413,9 +2413,13 @@ export class DLMM {
     const strategyParameters: LiquidityParameterByStrategy["strategyParameters"] =
       toStrategyParameters(strategy) as ProgramStrategyParameter;
 
-    const positionAccount = await this.program.account.positionV2.fetch(positionPubKey);
+    const positionAccount = await this.program.account.positionV2.fetch(
+      positionPubKey
+    );
 
-    const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(positionAccount.lowerBinId));
+    const lowerBinArrayIndex = binIdToBinArrayIndex(
+      new BN(positionAccount.lowerBinId)
+    );
     const upperBinArrayIndex = lowerBinArrayIndex.add(new BN(1));
 
     const [binArrayLower] = deriveBinArray(
@@ -5293,24 +5297,17 @@ export class DLMM {
         }
       });
     } else {
-      const [lowerBinArrayPubKey] = deriveBinArray(
-        lbPairPubKey,
-        lowerBinArrayIndex,
-        this.program.programId
-      );
-      const [upperBinArrayPubKey] = deriveBinArray(
-        lbPairPubKey,
-        upperBinArrayIndex,
-        this.program.programId
-      );
+      const accountsToFetch = [];
+      for (let i = lowerBinArrayIndex.toNumber(); i <= upperBinArrayIndex.toNumber(); i++) {
+        accountsToFetch.push(
+          deriveBinArray(lbPairPubKey, new BN(i), this.program.programId)[0]
+        )
+      }
 
       const binArrays = await (async () => {
         if (!lowerBinArrays || !upperBinArrays) {
           return (
-            await this.program.account.binArray.fetchMultiple([
-              lowerBinArrayPubKey,
-              upperBinArrayPubKey,
-            ])
+            await this.program.account.binArray.fetchMultiple(accountsToFetch)
           ).filter((binArray) => binArray !== null);
         }
 
@@ -5319,9 +5316,8 @@ export class DLMM {
 
       binArrays.forEach((binArray) => {
         if (!binArray) return;
-        const [lowerBinIdForBinArray] = getBinArrayLowerUpperBinId(
-          binArray.index
-        );
+        const [lowerBinIdForBinArray] =
+          getBinArrayLowerUpperBinId(binArray.index);
         binArray.bins.forEach((bin, idx) => {
           const binId = lowerBinIdForBinArray.toNumber() + idx;
           if (binId >= lowerBinId && binId <= upperBinId) {
