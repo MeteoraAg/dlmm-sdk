@@ -5309,7 +5309,6 @@ export class DLMM {
         }
       });
     } else {
-<<<<<<< Updated upstream
       const [lowerBinArrayPubKey] = deriveBinArray(
         lbPairPubKey,
         lowerBinArrayIndex,
@@ -5320,18 +5319,6 @@ export class DLMM {
         upperBinArrayIndex,
         this.program.programId
       );
-=======
-      const accountsToFetch = [];
-      for (
-        let i = lowerBinArrayIndex.toNumber();
-        i <= upperBinArrayIndex.toNumber();
-        i++
-      ) {
-        accountsToFetch.push(
-          deriveBinArray(lbPairPubKey, new BN(i), this.program.programId)[0]
-        );
-      }
->>>>>>> Stashed changes
 
       const binArrays = await (async () => {
         if (!lowerBinArrays || !upperBinArrays) {
