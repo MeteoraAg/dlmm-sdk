@@ -110,7 +110,7 @@ pub mod lb_clmm {
         )
     }
 
-    pub fn initialize_customizable_permission_lb_pair(
+    pub fn initialize_customizable_permissionless_lb_pair(
         ctx: Context<InitializeCustomizablePermissionlessLbPair>,
         params: CustomizableParams,
     ) -> Result<()> {

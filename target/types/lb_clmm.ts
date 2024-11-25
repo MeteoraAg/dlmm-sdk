@@ -1116,6 +1116,11 @@ export type LbClmm = {
           "isSigner": false
         },
         {
+          "name": "owner",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
           "name": "operator",
           "isMut": false,
           "isSigner": true,
@@ -1124,12 +1129,17 @@ export type LbClmm = {
           ]
         },
         {
-          "name": "systemProgram",
+          "name": "operatorTokenX",
           "isMut": false,
           "isSigner": false
         },
         {
-          "name": "rent",
+          "name": "ownerTokenX",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
           "isMut": false,
           "isSigner": false
         },
@@ -1152,10 +1162,6 @@ export type LbClmm = {
         {
           "name": "width",
           "type": "i32"
-        },
-        {
-          "name": "owner",
-          "type": "publicKey"
         },
         {
           "name": "feeOwner",
@@ -3090,9 +3096,9 @@ export type LbClmm = {
             "type": "u64"
           },
           {
-            "name": "subjectedToBootstrapLiquidityLocking",
+            "name": "padding0",
             "docs": [
-              "Is the position subjected to liquidity locking for the launch pool."
+              "_padding_0, previous subjected_to_bootstrap_liquidity_locking, BE CAREFUL FOR TOMBSTONE WHEN REUSE !!"
             ],
             "type": "u8"
           },
@@ -5073,6 +5079,16 @@ export type LbClmm = {
       "code": 6063,
       "name": "InvalidBaseFee",
       "msg": "Invalid base fee"
+    },
+    {
+      "code": 6064,
+      "name": "InvalidPreActivationDuration",
+      "msg": "Invalid pre-activation duration"
+    },
+    {
+      "code": 6065,
+      "name": "AlreadyPassPreActivationSwapPoint",
+      "msg": "Already pass pre-activation swap point"
     }
   ]
 };
@@ -6195,6 +6211,11 @@ export const IDL: LbClmm = {
           "isSigner": false
         },
         {
+          "name": "owner",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
           "name": "operator",
           "isMut": false,
           "isSigner": true,
@@ -6203,12 +6224,17 @@ export const IDL: LbClmm = {
           ]
         },
         {
-          "name": "systemProgram",
+          "name": "operatorTokenX",
           "isMut": false,
           "isSigner": false
         },
         {
-          "name": "rent",
+          "name": "ownerTokenX",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
           "isMut": false,
           "isSigner": false
         },
@@ -6231,10 +6257,6 @@ export const IDL: LbClmm = {
         {
           "name": "width",
           "type": "i32"
-        },
-        {
-          "name": "owner",
-          "type": "publicKey"
         },
         {
           "name": "feeOwner",
@@ -8169,9 +8191,9 @@ export const IDL: LbClmm = {
             "type": "u64"
           },
           {
-            "name": "subjectedToBootstrapLiquidityLocking",
+            "name": "padding0",
             "docs": [
-              "Is the position subjected to liquidity locking for the launch pool."
+              "_padding_0, previous subjected_to_bootstrap_liquidity_locking, BE CAREFUL FOR TOMBSTONE WHEN REUSE !!"
             ],
             "type": "u8"
           },
@@ -10152,6 +10174,16 @@ export const IDL: LbClmm = {
       "code": 6063,
       "name": "InvalidBaseFee",
       "msg": "Invalid base fee"
+    },
+    {
+      "code": 6064,
+      "name": "InvalidPreActivationDuration",
+      "msg": "Invalid pre-activation duration"
+    },
+    {
+      "code": 6065,
+      "name": "AlreadyPassPreActivationSwapPoint",
+      "msg": "Already pass pre-activation swap point"
     }
   ]
 };

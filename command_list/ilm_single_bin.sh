@@ -16,7 +16,7 @@ activation_point=10000
 price_rounding="up"
 
 # Pool token mints
-base_mint="Cu9VgXuDujQpczwhn89SyssKtMziyv2McBXLBf3uC7N4"
+base_mint="27bpEUUHyPvFBnQZ4RjC139Yemcaby4nc4iXgMLcSPPH"
 quote_mint="So11111111111111111111111111111111111111112"
 
 # Liquidity for seeding. UI amount.
@@ -45,7 +45,7 @@ priority_fee_microlamport=100000
  --provider.cluster $cluster --provider.wallet $position_owner_path --priority-fee $priority_fee_microlamport
 
 # Get from initialize pair
-pair="J4ed5J3qxQPpdLFz2pjwQur1TDwHEtVwtzFefUbenxAJ"
+pair="EffF5KFzNGYytXW9i3dB3Ee1Xxh4guTPXrxMb3SWmGnA"
 
 # Seed liquidity
 ../target/debug/cli seed-liquidity-single-bin --lb-pair $pair --base-position-path $base_position_path --base-pubkey $base_position_key --amount $amount \

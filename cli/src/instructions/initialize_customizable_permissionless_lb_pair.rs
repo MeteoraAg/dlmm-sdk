@@ -98,7 +98,7 @@ pub async fn initialize_customizable_permissionless_lb_pair<
         program: lb_clmm::ID,
     };
 
-    let ix = instruction::InitializeCustomizablePermissionLbPair {
+    let ix = instruction::InitializeCustomizablePermissionlessLbPair {
         params: CustomizableParams {
             active_id: computed_active_id,
             bin_step,

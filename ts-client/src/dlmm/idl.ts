@@ -300,7 +300,7 @@ export type LbClmm = {
       ]
     },
     {
-      "name": "initializeCustomizablePermissionLbPair",
+      "name": "initializeCustomizablePermissionlessLbPair",
       "accounts": [
         {
           "name": "lbPair",
@@ -1116,6 +1116,11 @@ export type LbClmm = {
           "isSigner": false
         },
         {
+          "name": "owner",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
           "name": "operator",
           "isMut": false,
           "isSigner": true,
@@ -1124,12 +1129,17 @@ export type LbClmm = {
           ]
         },
         {
-          "name": "systemProgram",
+          "name": "operatorTokenX",
           "isMut": false,
           "isSigner": false
         },
         {
-          "name": "rent",
+          "name": "ownerTokenX",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
           "isMut": false,
           "isSigner": false
         },
@@ -1152,10 +1162,6 @@ export type LbClmm = {
         {
           "name": "width",
           "type": "i32"
-        },
-        {
-          "name": "owner",
-          "type": "publicKey"
         },
         {
           "name": "feeOwner",
@@ -5228,6 +5234,16 @@ export type LbClmm = {
       "code": 6063,
       "name": "InvalidBaseFee",
       "msg": "Invalid base fee"
+    },
+    {
+      "code": 6064,
+      "name": "InvalidPreActivationDuration",
+      "msg": "Invalid pre-activation duration"
+    },
+    {
+      "code": 6065,
+      "name": "AlreadyPassPreActivationSwapPoint",
+      "msg": "Already pass pre-activation swap point"
     }
   ]
 };
@@ -5534,7 +5550,7 @@ export const IDL: LbClmm = {
       ]
     },
     {
-      "name": "initializeCustomizablePermissionLbPair",
+      "name": "initializeCustomizablePermissionlessLbPair",
       "accounts": [
         {
           "name": "lbPair",
@@ -6350,6 +6366,11 @@ export const IDL: LbClmm = {
           "isSigner": false
         },
         {
+          "name": "owner",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
           "name": "operator",
           "isMut": false,
           "isSigner": true,
@@ -6358,12 +6379,17 @@ export const IDL: LbClmm = {
           ]
         },
         {
-          "name": "systemProgram",
+          "name": "operatorTokenX",
           "isMut": false,
           "isSigner": false
         },
         {
-          "name": "rent",
+          "name": "ownerTokenX",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
           "isMut": false,
           "isSigner": false
         },
@@ -6386,10 +6412,6 @@ export const IDL: LbClmm = {
         {
           "name": "width",
           "type": "i32"
-        },
-        {
-          "name": "owner",
-          "type": "publicKey"
         },
         {
           "name": "feeOwner",
@@ -10462,6 +10484,16 @@ export const IDL: LbClmm = {
       "code": 6063,
       "name": "InvalidBaseFee",
       "msg": "Invalid base fee"
+    },
+    {
+      "code": 6064,
+      "name": "InvalidPreActivationDuration",
+      "msg": "Invalid pre-activation duration"
+    },
+    {
+      "code": 6065,
+      "name": "AlreadyPassPreActivationSwapPoint",
+      "msg": "Already pass pre-activation swap point"
     }
   ]
 };
