@@ -70,8 +70,8 @@ pub struct PositionV2 {
     pub operator: Pubkey,
     /// Time point which the locked liquidity can be withdraw
     pub lock_release_point: u64,
-    /// Is the position subjected to liquidity locking for the launch pool.
-    pub subjected_to_bootstrap_liquidity_locking: u8,
+    /// _padding_0, previous subjected_to_bootstrap_liquidity_locking, BE CAREFUL FOR TOMBSTONE WHEN REUSE !!
+    pub _padding_0: u8,
     /// Address is able to claim fee in this position, only valid for bootstrap_liquidity_position
     pub fee_owner: Pubkey,
     /// Reserved space for future use
@@ -93,9 +93,9 @@ impl Default for PositionV2 {
             total_claimed_fee_y_amount: 0,
             total_claimed_rewards: [0u64; 2],
             operator: Pubkey::default(),
-            subjected_to_bootstrap_liquidity_locking: 0,
             lock_release_point: 0,
             fee_owner: Pubkey::default(),
+            _padding_0: 0,
             _reserved: [0u8; 87],
         }
     }
@@ -127,7 +127,6 @@ impl PositionV2 {
         upper_bin_id: i32,
         current_time: i64,
         lock_release_point: u64,
-        subjected_to_bootstrap_liquidity_locking: bool,
         fee_owner: Pubkey,
     ) -> Result<()> {
         self.lb_pair = lb_pair;
@@ -142,12 +141,8 @@ impl PositionV2 {
 
         self.last_updated_at = current_time;
         self.lock_release_point = lock_release_point;
-        self.subjected_to_bootstrap_liquidity_locking =
-            subjected_to_bootstrap_liquidity_locking.into();
 
-        if subjected_to_bootstrap_liquidity_locking {
-            self.fee_owner = fee_owner;
-        }
+        self.fee_owner = fee_owner;
 
         Ok(())
     }
@@ -367,9 +362,5 @@ impl PositionV2 {
 
     pub fn is_liquidity_locked(&self, current_point: u64) -> bool {
         current_point < self.lock_release_point
-    }
-
-    pub fn is_subjected_to_initial_liquidity_locking(&self) -> bool {
-        self.subjected_to_bootstrap_liquidity_locking != 0
     }
 }

@@ -2,6 +2,7 @@ use crate::state::lb_pair::LbPair;
 use crate::state::position::PositionV2;
 use crate::utils::seeds;
 use anchor_lang::prelude::*;
+use anchor_spl::token::TokenAccount;
 
 #[event_cpi]
 #[derive(Accounts)]
@@ -28,21 +29,31 @@ pub struct InitializePositionByOperator<'info> {
 
     pub lb_pair: AccountLoader<'info, LbPair>,
 
+    /// CHECK: owner of position
+    pub owner: UncheckedAccount<'info>,
+
     /// operator
     pub operator: Signer<'info>,
 
-    pub system_program: Program<'info, System>,
+    #[account(
+        token::authority = operator,
+        token::mint = lb_pair.load()?.token_x_mint,
+    )]
+    pub operator_token_x: Account<'info, TokenAccount>,
 
-    pub rent: Sysvar<'info, Rent>,
+    #[account(
+        token::authority = owner,
+        token::mint = lb_pair.load()?.token_x_mint,
+    )]
+    pub owner_token_x: Account<'info, TokenAccount>,
+
+    pub system_program: Program<'info, System>,
 }
 
-/// There is scenario that operator create and deposit position with non-valid owner
-/// Then fund will be lost forever, so only whitelisted operators are able to perform this action
 pub fn handle(
     ctx: Context<InitializePositionByOperator>,
     lower_bin_id: i32,
     width: i32,
-    owner: Pubkey,
     fee_owner: Pubkey,
     lock_release_point: u64,
 ) -> Result<()> {

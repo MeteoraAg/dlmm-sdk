@@ -194,4 +194,10 @@ pub enum LBError {
 
     #[msg("Invalid base fee")]
     InvalidBaseFee,
+
+    #[msg("Invalid pre-activation duration")]
+    InvalidPreActivationDuration,
+
+    #[msg("Already pass pre-activation swap point")]
+    AlreadyPassPreActivationSwapPoint,
 }

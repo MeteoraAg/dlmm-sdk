@@ -78,7 +78,7 @@ impl LbPairTypeActionAccess for CustomizablePermissionlessLbPairActionAccess {
     }
 
     fn validate_initialize_position_by_operator(&self) -> bool {
-        false
+        self.current_point < self.activation_point
     }
     fn validate_initialize_position(&self) -> bool {
         self.is_enabled

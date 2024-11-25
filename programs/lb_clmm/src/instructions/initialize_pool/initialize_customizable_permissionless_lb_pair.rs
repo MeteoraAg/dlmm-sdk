@@ -102,6 +102,7 @@ pub struct InitializeCustomizablePermissionlessLbPair<'info> {
 
     #[account(
         token::authority = funder,
+        token::mint = token_mint_x,
     )]
     pub user_token_x: Box<InterfaceAccount<'info, TokenAccount>>,
 

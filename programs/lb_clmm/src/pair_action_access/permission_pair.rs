@@ -1,4 +1,7 @@
+use crate::constants::FIVE_MINUTES_SLOT_BUFFER;
+use crate::constants::FIVE_MINUTES_TIME_BUFFER;
 use crate::math::safe_math::SafeMath;
+use crate::pair_action_access::validate_activation_point;
 use crate::pair_action_access::ActivationType;
 use crate::pair_action_access::LbPairTypeActionAccess;
 use crate::state::lb_pair::{LbPair, PairStatus};
@@ -15,16 +18,29 @@ pub struct PermissionLbPairActionAccess {
     current_point: u64,
     pre_activation_duration: u64,
     time_buffer: u64,
+    deposit_close_idle_duration: u64,
+    last_join_buffer: u64,
 }
 
 impl PermissionLbPairActionAccess {
     pub fn new(lb_pair: &LbPair) -> Result<Self> {
         let activation_type = ActivationType::try_from(lb_pair.activation_type)
             .map_err(|_| LBError::InvalidActivationType)?;
-        let (current_point, time_buffer) = match activation_type {
-            ActivationType::Slot => (Clock::get()?.slot, SLOT_BUFFER),
-            ActivationType::Timestamp => (Clock::get()?.unix_timestamp as u64, TIME_BUFFER),
-        };
+        let (current_point, time_buffer, deposit_close_idle_duration, last_join_buffer) =
+            match activation_type {
+                ActivationType::Slot => (
+                    Clock::get()?.slot,
+                    SLOT_BUFFER,
+                    FIVE_MINUTES_SLOT_BUFFER,
+                    FIVE_MINUTES_SLOT_BUFFER,
+                ),
+                ActivationType::Timestamp => (
+                    Clock::get()?.unix_timestamp as u64,
+                    TIME_BUFFER,
+                    FIVE_MINUTES_TIME_BUFFER,
+                    FIVE_MINUTES_TIME_BUFFER,
+                ),
+            };
         Ok(Self {
             is_enabled: lb_pair.status == Into::<u8>::into(PairStatus::Enabled),
             pre_activation_swap_address: lb_pair.pre_activation_swap_address,
@@ -32,6 +48,8 @@ impl PermissionLbPairActionAccess {
             current_point,
             pre_activation_duration: lb_pair.pre_activation_duration,
             time_buffer,
+            deposit_close_idle_duration,
+            last_join_buffer,
         })
     }
 }
@@ -64,22 +82,21 @@ impl LbPairTypeActionAccess for PermissionLbPairActionAccess {
     }
 
     fn validate_set_pre_activation_duration(&self, new_pre_activation_duration: u64) -> Result<()> {
-        // At least 1 hour buffer to prevent error, and vault cranked
+        // doesnt allow to set this if pool doesn't link with an alpha-vault
+        if self.pre_activation_swap_address == Pubkey::default() {
+            return Err(LBError::UnauthorizedAccess.into());
+        }
         require!(
             new_pre_activation_duration >= self.time_buffer,
-            LBError::InvalidInput
+            LBError::InvalidPreActivationDuration
         );
-
-        let new_pre_activation_start_point = self
-            .activation_point
-            .saturating_sub(new_pre_activation_duration);
-
-        // Will not immediately enter pre-activation swap
-        require!(
-            new_pre_activation_start_point > self.current_point,
-            LBError::InvalidInput
-        );
-
+        validate_activation_point(
+            self.activation_point,
+            new_pre_activation_duration,
+            self.deposit_close_idle_duration,
+            self.last_join_buffer,
+            self.current_point,
+        )?;
         Ok(())
     }
     fn validate_update_new_activation_point(&self, new_activation_point: u64) -> Result<()> {
@@ -101,25 +118,22 @@ impl LbPairTypeActionAccess for PermissionLbPairActionAccess {
         require!(buffer_time > self.time_buffer, LBError::InvalidInput);
 
         if self.pre_activation_swap_address.ne(&Pubkey::default()) {
-            let pre_activation_start_point = self
+            let pre_activation_swap_point = self
                 .activation_point
-                .saturating_sub(self.pre_activation_duration);
-
-            // Don't allow update when the pool already enter pre-activation phase
+                .safe_sub(self.pre_activation_duration)?;
+            // make sure the current pre_activation_swap_point hasn't reached
             require!(
-                self.current_point < pre_activation_start_point,
-                LBError::InvalidInput
+                pre_activation_swap_point > self.current_point,
+                LBError::AlreadyPassPreActivationSwapPoint
             );
 
-            let new_pre_activation_start_point = new_activation_point.safe_sub(self.time_buffer)?;
-            let buffered_new_pre_activation_start_point =
-                new_pre_activation_start_point.safe_sub(self.time_buffer)?;
-
-            // Prevent update of activation point causes the pool enter pre-activation phase immediately, no time buffer for any correction as the crank will swap it
-            require!(
-                self.current_point < buffered_new_pre_activation_start_point,
-                LBError::InvalidInput
-            );
+            validate_activation_point(
+                new_activation_point,
+                self.pre_activation_duration,
+                self.deposit_close_idle_duration,
+                self.last_join_buffer,
+                self.current_point,
+            )?;
         }
 
         Ok(())
@@ -138,7 +152,7 @@ impl LbPairTypeActionAccess for PermissionLbPairActionAccess {
     }
 
     fn validate_initialize_position_by_operator(&self) -> bool {
-        true
+        self.current_point < self.activation_point
     }
     fn validate_initialize_position(&self) -> bool {
         self.is_enabled

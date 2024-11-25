@@ -1,4 +1,5 @@
 use crate::errors::LBError;
+use crate::math::safe_math::SafeMath;
 use crate::pair_action_access::{
     CustomizablePermissionlessLbPairActionAccess, PermissionLbPairActionAccess,
     PermissionlessLbPairActionAccess,
@@ -49,4 +50,24 @@ pub fn get_lb_pair_type_access_validator<'a>(
             Ok(Box::new(pair_access_validator))
         }
     }
+}
+
+pub fn validate_activation_point(
+    activation_point: u64,
+    pre_activation_swap_duration: u64,
+    deposit_close_idle_duration: u64,
+    last_join_buffer: u64,
+    current_point: u64,
+) -> Result<()> {
+    let pre_activation_swap_point = activation_point.safe_sub(pre_activation_swap_duration)?;
+    let vault_last_join_point = pre_activation_swap_point.safe_sub(deposit_close_idle_duration)?;
+
+    let pre_last_join_point = vault_last_join_point.safe_sub(last_join_buffer)?;
+
+    // Don't allow pool creation if no one can join even with bundle
+    require!(
+        pre_last_join_point >= current_point,
+        LBError::InvalidActivationDuration
+    );
+    Ok(())
 }

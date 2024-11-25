@@ -91,16 +91,16 @@ pub const MAX_ACTIVATION_TIME_DURATION: u64 = TIME_BUFFER * 24 * 31; // 31 days
 pub const MAX_ACTIVATION_TIME_DURATION: u64 = TIME_BUFFER * 24; // 1 days
 
 #[cfg(not(feature = "localnet"))]
-pub const DEPOSIT_CLOSE_IDLE_SLOT_BUFFER: u64 = SLOT_BUFFER / 12; // 5 minutes
+pub const FIVE_MINUTES_SLOT_BUFFER: u64 = SLOT_BUFFER / 12; // 5 minutes
 
 #[cfg(feature = "localnet")]
-pub const DEPOSIT_CLOSE_IDLE_SLOT_BUFFER: u64 = 5;
+pub const FIVE_MINUTES_SLOT_BUFFER: u64 = 5;
 
 #[cfg(not(feature = "localnet"))]
-pub const DEPOSIT_CLOSE_IDLE_TIME_BUFFER: u64 = TIME_BUFFER / 12; // 5 minutes
+pub const FIVE_MINUTES_TIME_BUFFER: u64 = TIME_BUFFER / 12; // 5 minutes
 
 #[cfg(feature = "localnet")]
-pub const DEPOSIT_CLOSE_IDLE_TIME_BUFFER: u64 = 5;
+pub const FIVE_MINUTES_TIME_BUFFER: u64 = 5;
 
 // ILM token launch protocol fee
 pub const ILM_PROTOCOL_SHARE: u16 = 2000; // 20%
@@ -111,7 +111,7 @@ pub const MAX_BIN_STEP: u16 = 400;
 
 /// Maximum base fee, base_fee / 10^9 = fee_in_percentage
 #[constant]
-pub const MAX_BASE_FEE: u128 = 100_000_000; // 10% (10^9 * 15 / 100)
+pub const MAX_BASE_FEE: u128 = 100_000_000; // 10% (10^9 * 10 / 100)
 
 /// Minimum base fee
 #[constant]

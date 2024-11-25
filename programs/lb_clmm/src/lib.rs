@@ -197,7 +197,6 @@ pub mod lb_clmm {
         ctx: Context<InitializePositionByOperator>,
         lower_bin_id: i32,
         width: i32,
-        owner: Pubkey,
         fee_owner: Pubkey,
         lock_release_point: u64,
     ) -> Result<()> {
@@ -205,7 +204,6 @@ pub mod lb_clmm {
             ctx,
             lower_bin_id,
             width,
-            owner,
             fee_owner,
             lock_release_point,
         )
