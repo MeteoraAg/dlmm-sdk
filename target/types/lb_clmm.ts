@@ -216,7 +216,7 @@ export type LbClmm = {
       ]
     },
     {
-      "name": "initializeCustomizablePermissionLbPair",
+      "name": "initializeCustomizablePermissionlessLbPair",
       "accounts": [
         {
           "name": "lbPair",
@@ -5311,7 +5311,7 @@ export const IDL: LbClmm = {
       ]
     },
     {
-      "name": "initializeCustomizablePermissionLbPair",
+      "name": "initializeCustomizablePermissionlessLbPair",
       "accounts": [
         {
           "name": "lbPair",

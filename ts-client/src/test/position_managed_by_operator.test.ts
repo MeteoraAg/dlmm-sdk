@@ -1,7 +1,6 @@
-import { AnchorProvider, BN, Program, Wallet, web3 } from "@coral-xyz/anchor";
+import { BN, web3 } from "@coral-xyz/anchor";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
-  NATIVE_MINT,
   TOKEN_PROGRAM_ID,
   createMint,
   getAssociatedTokenAddressSync,
@@ -13,32 +12,14 @@ import {
   Keypair,
   LAMPORTS_PER_SOL,
   PublicKey,
-  Transaction,
   sendAndConfirmTransaction,
 } from "@solana/web3.js";
-import fs from "fs";
-import { DLMM } from "../dlmm/index";
-import {
-  deriveLbPair,
-  derivePermissionLbPair,
-  derivePosition,
-  derivePresetParameter,
-  getBinArrayLowerUpperBinId,
-  getPriceOfBinByBinId,
-} from "../dlmm/helpers";
-import {
-  BASIS_POINT_MAX,
-  LBCLMM_PROGRAM_IDS,
-  MAX_BIN_PER_POSITION,
-} from "../dlmm/constants";
-import { IDL, LbClmm } from "../dlmm/idl";
-import { ActivationType, PairType, StrategyType } from "../dlmm/types";
 import Decimal from "decimal.js";
-import babar from "babar";
-import {
-  findSwappableMinMaxBinId,
-  getQPriceFromId,
-} from "../dlmm/helpers/math";
+import fs from "fs";
+import { LBCLMM_PROGRAM_IDS, MAX_BIN_PER_POSITION } from "../dlmm/constants";
+import { derivePermissionLbPair, derivePosition } from "../dlmm/helpers";
+import { DLMM } from "../dlmm/index";
+import { ActivationType, StrategyType } from "../dlmm/types";
 
 const keypairBuffer = fs.readFileSync(
   "../keys/localnet/admin-bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1.json",
@@ -123,6 +104,20 @@ describe("Position by operator", () => {
       );
       operatorWEN = operatorWenInfo.address;
 
+      const mockMultisigWenInfo = await getOrCreateAssociatedTokenAccount(
+        connection,
+        keypair,
+        WEN,
+        mockMultisigKeypair.publicKey,
+        true,
+        "confirmed",
+        {
+          commitment: "confirmed",
+        },
+        TOKEN_PROGRAM_ID,
+        ASSOCIATED_TOKEN_PROGRAM_ID
+      );
+
       const operatorUsdcInfo = await getOrCreateAssociatedTokenAccount(
         connection,
         keypair,
@@ -164,6 +159,17 @@ describe("Position by operator", () => {
           commitment: "confirmed",
         },
         TOKEN_PROGRAM_ID
+      );
+
+      await mintTo(
+        connection,
+        keypair,
+        WEN,
+        mockMultisigWenInfo.address,
+        keypair.publicKey,
+        200_000_000_000 * 10 ** wenDecimal,
+        [],
+        {}
       );
 
       let rawTx = await DLMM.createPermissionLbPair(

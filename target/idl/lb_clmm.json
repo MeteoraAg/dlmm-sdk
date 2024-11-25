@@ -216,7 +216,7 @@
       ]
     },
     {
-      "name": "initializeCustomizablePermissionLbPair",
+      "name": "initializeCustomizablePermissionlessLbPair",
       "accounts": [
         {
           "name": "lbPair",

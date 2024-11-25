@@ -7,6 +7,7 @@ import {
   getAssociatedTokenAddressSync,
   getOrCreateAssociatedTokenAccount,
   mintTo,
+  transfer,
 } from "@solana/spl-token";
 import {
   Connection,
@@ -410,11 +411,33 @@ describe("SDK test", () => {
         pair.program.programId
       );
 
+      const operatorTokenX = await getOrCreateAssociatedTokenAccount(
+        connection,
+        keypair,
+        BTC,
+        keypair.publicKey
+      );
+
+      const ownerTokenX = await getOrCreateAssociatedTokenAccount(
+        connection,
+        keypair,
+        BTC,
+        customFeeOwnerPositionOwner.publicKey
+      );
+
+      await transfer(
+        connection,
+        keypair,
+        operatorTokenX.address,
+        ownerTokenX.address,
+        keypair,
+        BigInt(1)
+      );
+
       const initializePositionByOperatorTx = await program.methods
         .initializePositionByOperator(
           lowerBinId.toNumber(),
           width.toNumber(),
-          customFeeOwnerPositionOwner.publicKey,
           customFeeOwnerPositionFeeOwner.publicKey,
           new BN(0)
         )
@@ -423,6 +446,9 @@ describe("SDK test", () => {
           position: customFeeOwnerPosition,
           base: baseKeypair.publicKey,
           operator: keypair.publicKey,
+          operatorTokenX: operatorTokenX.address,
+          ownerTokenX: ownerTokenX.address,
+          owner: customFeeOwnerPositionOwner.publicKey,
           program: program.programId,
           payer: keypair.publicKey,
         })

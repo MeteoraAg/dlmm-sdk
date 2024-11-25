@@ -1204,7 +1204,7 @@ export class DLMM {
     const userTokenX = getAssociatedTokenAddressSync(tokenX, creatorKey);
 
     return program.methods
-      .initializeCustomizablePermissionLbPair(ixData)
+      .initializeCustomizablePermissionlessLbPair(ixData)
       .accounts({
         lbPair,
         rent: SYSVAR_RENT_PUBKEY,
@@ -4360,11 +4360,23 @@ export class DLMM {
       positionWidth,
       this.program.programId
     );
+
+    const operatorTokenX = getAssociatedTokenAddressSync(
+      this.lbPair.tokenXMint,
+      operator,
+      true
+    );
+
+    const ownerTokenX = getAssociatedTokenAddressSync(
+      this.lbPair.tokenXMint,
+      owner,
+      true
+    );
+
     let initializePositionByOperatorTx = await this.program.methods
       .initializePositionByOperator(
         lowerBinId.toNumber(),
         MAX_BIN_PER_POSITION.toNumber(),
-        owner,
         feeOwner,
         lockReleasePoint
       )
@@ -4373,6 +4385,9 @@ export class DLMM {
         position: positionPda,
         base,
         operator,
+        owner,
+        ownerTokenX,
+        operatorTokenX,
         payer,
       })
       .transaction();
