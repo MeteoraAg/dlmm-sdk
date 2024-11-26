@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.2.4] - PR #119
+
+### Fixed
+
+- Refactor `getBins` to work with any bin ranges
+
 ## @meteora-ag/dlmm [1.2.3] - PR #112
 
 ### Fixed
