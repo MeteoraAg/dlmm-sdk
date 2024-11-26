@@ -35,6 +35,15 @@ export function chunks<T>(array: T[], size: number): T[][] {
   );
 }
 
+export function range<T>(
+  min: number,
+  max: number,
+  mapfn: (i: number) => T
+) {
+  const length = max - min + 1;
+  return Array.from({ length }, (_, i) => mapfn(min + i));
+}
+
 export async function chunkedFetchMultiplePoolAccount(
   program: ClmmProgram,
   pks: PublicKey[],
