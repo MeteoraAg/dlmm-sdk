@@ -5218,7 +5218,7 @@ export class DLMM {
     };
   }
 
-  public async getBins(
+  private async getBins(
     lbPairPubKey: PublicKey,
     lowerBinId: number,
     upperBinId: number,
