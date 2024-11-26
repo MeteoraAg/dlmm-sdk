@@ -14,12 +14,14 @@
     "start": "npm run build -- --watch",
     "test": "jest 'src/test/(ilm|sdk|position_managed_by_operator|decode).test.ts'",
     "unit-test": "jest src/test/calculate_distribution.test.ts",
-    "example": "dotenv -e .env npx ts-node src/example.ts"
+    "example": "dotenv -e .env npx ts-node src/example.ts",
+    "start-server": "npx tsc && node dist/src/server/index.js"
   },
   "devDependencies": {
     "@babel/preset-env": "^7.22.5",
     "@types/babar": "^0.2.1",
     "@types/bn.js": "^5.1.5",
+    "@types/express": "^4.17.21",
     "@types/gaussian": "^1.2.0",
     "@types/jest": "^29.5.2",
     "babar": "^0.2.3",
@@ -34,6 +36,8 @@
     "@coral-xyz/anchor": "^0.28.0",
     "@coral-xyz/borsh": "^0.28.0",
     "@solana/buffer-layout": "^4.0.1",
+    "bn.js": "^5.2.1",
+    "express": "^4.19.2",
     "@solana/spl-token": "^0.4.6",
     "@solana/web3.js": "^1.91.6",
     "decimal.js": "^10.4.2",
