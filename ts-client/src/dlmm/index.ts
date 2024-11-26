@@ -1543,6 +1543,8 @@ export class DLMM {
   public async getBinsBetweenLowerAndUpperBound(
     lowerBinId: number,
     upperBinId: number,
+    lowerBinArray?: BinArray,
+    upperBinArray?: BinArray
   ): Promise<{ activeBin: number; bins: BinLiquidity[] }> {
     const bins = await this.getBins(
       this.pubkey,
@@ -1550,6 +1552,8 @@ export class DLMM {
       upperBinId,
       this.tokenX.decimal,
       this.tokenY.decimal,
+      lowerBinArray,
+      upperBinArray
     );
 
     return { activeBin: this.lbPair.activeId, bins };
@@ -5224,21 +5228,39 @@ export class DLMM {
     upperBinId: number,
     baseTokenDecimal: number,
     quoteTokenDecimal: number,
+    lowerBinArray?: BinArray,
+    upperBinArray?: BinArray
   ) {
     const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(lowerBinId));
     const upperBinArrayIndex = binIdToBinArrayIndex(new BN(upperBinId));
+
+    const hasCachedLowerBinArray = lowerBinArray != null;
+    const hasCachedUpperBinArray = upperBinArray != null;
+    const isSingleBinArray = lowerBinArrayIndex.eq(upperBinArrayIndex);
+
+    const lowerBinArrayIndexOffset = hasCachedLowerBinArray ? 1 : 0;
+    const upperBinArrayIndexOffset = hasCachedUpperBinArray ? -1 : 0;
+
     const binArrayPubkeys = range(
-      lowerBinArrayIndex.toNumber(),
-      upperBinArrayIndex.toNumber(),
+      lowerBinArrayIndex.toNumber() + lowerBinArrayIndexOffset,
+      upperBinArrayIndex.toNumber() + upperBinArrayIndexOffset,
       i => deriveBinArray(lbPairPubKey, new BN(i), this.program.programId)[0]
     );
-    const binArrays = await this.program.account.binArray.fetchMultiple(binArrayPubkeys);
+    const fetchedBinArrays = binArrayPubkeys.length !== 0 ?
+      await this.program.account.binArray.fetchMultiple(binArrayPubkeys) : [];
+    const binArrays = [
+      ...(hasCachedLowerBinArray ? [lowerBinArray] : []),
+      ...fetchedBinArrays,
+      ...((hasCachedUpperBinArray && !isSingleBinArray) ? [upperBinArray] : [])
+    ];
+
     const binsById = new Map(binArrays
       .filter(x => x != null)
       .flatMap(({ bins, index }) => {
         const [lowerBinId] = getBinArrayLowerUpperBinId(index);
         return bins.map((b, i) => [lowerBinId.toNumber() + i, b] as [number, Bin]);
       }));
+
     return Array.from(enumerateBins(
       binsById,
       lowerBinId,
