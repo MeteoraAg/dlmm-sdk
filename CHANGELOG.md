@@ -23,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Add a new endpoint `initialize_customizable_permission_lb_pair`, that allows pool creator to be able to create pool with input `active_id`, `bin_step`, `base_factor`, `activation_point` and `alpha-vault`
+- Add a new endpoint `initialize_customizable_permissionless_lb_pair`, that allows pool creator to be able to create pool with input `active_id`, `bin_step`, `base_factor`, `activation_point` and `alpha-vault`
 
 ### Changed
 
