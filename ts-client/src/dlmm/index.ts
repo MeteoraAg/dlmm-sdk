@@ -105,6 +105,8 @@ import {
   swapExactOutQuoteAtBin,
   getPriceOfBinByBinId,
   computeFee,
+  range,
+  enumerateBins,
 } from "./helpers";
 import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import Decimal from "decimal.js";
@@ -1541,8 +1543,8 @@ export class DLMM {
   public async getBinsBetweenLowerAndUpperBound(
     lowerBinId: number,
     upperBinId: number,
-    lowerBinArrays?: BinArray,
-    upperBinArrays?: BinArray
+    lowerBinArray?: BinArray,
+    upperBinArray?: BinArray
   ): Promise<{ activeBin: number; bins: BinLiquidity[] }> {
     const bins = await this.getBins(
       this.pubkey,
@@ -1550,8 +1552,8 @@ export class DLMM {
       upperBinId,
       this.tokenX.decimal,
       this.tokenY.decimal,
-      lowerBinArrays,
-      upperBinArrays
+      lowerBinArray,
+      upperBinArray
     );
 
     return { activeBin: this.lbPair.activeId, bins };
@@ -5226,126 +5228,47 @@ export class DLMM {
     upperBinId: number,
     baseTokenDecimal: number,
     quoteTokenDecimal: number,
-    lowerBinArrays?: BinArray,
-    upperBinArrays?: BinArray
-  ): Promise<BinLiquidity[]> {
+    lowerBinArray?: BinArray,
+    upperBinArray?: BinArray
+  ) {
     const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(lowerBinId));
     const upperBinArrayIndex = binIdToBinArrayIndex(new BN(upperBinId));
 
-    let bins: BinLiquidity[] = [];
-    if (lowerBinArrayIndex.eq(upperBinArrayIndex)) {
-      const [binArrayPubKey] = deriveBinArray(
-        lbPairPubKey,
-        lowerBinArrayIndex,
-        this.program.programId
-      );
-      const binArray =
-        lowerBinArrays ??
-        (await this.program.account.binArray.fetch(binArrayPubKey).catch(() => {
-          const [lowerBinId, upperBinId] =
-            getBinArrayLowerUpperBinId(lowerBinArrayIndex);
+    const hasCachedLowerBinArray = lowerBinArray != null;
+    const hasCachedUpperBinArray = upperBinArray != null;
+    const isSingleBinArray = lowerBinArrayIndex.eq(upperBinArrayIndex);
 
-          const binArrayBins: Bin[] = [];
-          for (let i = lowerBinId.toNumber(); i <= upperBinId.toNumber(); i++) {
-            binArrayBins.push({
-              amountX: new BN(0),
-              amountY: new BN(0),
-              liquiditySupply: new BN(0),
-              rewardPerTokenStored: [new BN(0), new BN(0)],
-              amountXIn: new BN(0),
-              amountYIn: new BN(0),
-              feeAmountXPerTokenStored: new BN(0),
-              feeAmountYPerTokenStored: new BN(0),
-              price: new BN(0),
-            });
-          }
+    const lowerBinArrayIndexOffset = hasCachedLowerBinArray ? 1 : 0;
+    const upperBinArrayIndexOffset = hasCachedUpperBinArray ? -1 : 0;
 
-          return {
-            bins: binArrayBins,
-            index: lowerBinArrayIndex,
-            version: 1,
-          };
-        }));
+    const binArrayPubkeys = range(
+      lowerBinArrayIndex.toNumber() + lowerBinArrayIndexOffset,
+      upperBinArrayIndex.toNumber() + upperBinArrayIndexOffset,
+      i => deriveBinArray(lbPairPubKey, new BN(i), this.program.programId)[0]
+    );
+    const fetchedBinArrays = binArrayPubkeys.length !== 0 ?
+      await this.program.account.binArray.fetchMultiple(binArrayPubkeys) : [];
+    const binArrays = [
+      ...(hasCachedLowerBinArray ? [lowerBinArray] : []),
+      ...fetchedBinArrays,
+      ...((hasCachedUpperBinArray && !isSingleBinArray) ? [upperBinArray] : [])
+    ];
 
-      const [lowerBinIdForBinArray] = getBinArrayLowerUpperBinId(
-        binArray.index
-      );
+    const binsById = new Map(binArrays
+      .filter(x => x != null)
+      .flatMap(({ bins, index }) => {
+        const [lowerBinId] = getBinArrayLowerUpperBinId(index);
+        return bins.map((b, i) => [lowerBinId.toNumber() + i, b] as [number, Bin]);
+      }));
 
-      binArray.bins.forEach((bin, idx) => {
-        const binId = lowerBinIdForBinArray.toNumber() + idx;
-
-        if (binId >= lowerBinId && binId <= upperBinId) {
-          const pricePerLamport = getPriceOfBinByBinId(
-            binId,
-            this.lbPair.binStep
-          ).toString();
-          bins.push({
-            binId,
-            xAmount: bin.amountX,
-            yAmount: bin.amountY,
-            supply: bin.liquiditySupply,
-            price: pricePerLamport,
-            version: binArray.version,
-            pricePerToken: new Decimal(pricePerLamport)
-              .mul(new Decimal(10 ** (baseTokenDecimal - quoteTokenDecimal)))
-              .toString(),
-          });
-        }
-      });
-    } else {
-      const [lowerBinArrayPubKey] = deriveBinArray(
-        lbPairPubKey,
-        lowerBinArrayIndex,
-        this.program.programId
-      );
-      const [upperBinArrayPubKey] = deriveBinArray(
-        lbPairPubKey,
-        upperBinArrayIndex,
-        this.program.programId
-      );
-
-      const binArrays = await (async () => {
-        if (!lowerBinArrays || !upperBinArrays) {
-          return (
-            await this.program.account.binArray.fetchMultiple([
-              lowerBinArrayPubKey,
-              upperBinArrayPubKey,
-            ])
-          ).filter((binArray) => binArray !== null);
-        }
-
-        return [lowerBinArrays, upperBinArrays];
-      })();
-
-      binArrays.forEach((binArray) => {
-        if (!binArray) return;
-        const [lowerBinIdForBinArray] = getBinArrayLowerUpperBinId(
-          binArray.index
-        );
-        binArray.bins.forEach((bin, idx) => {
-          const binId = lowerBinIdForBinArray.toNumber() + idx;
-          if (binId >= lowerBinId && binId <= upperBinId) {
-            const pricePerLamport = getPriceOfBinByBinId(
-              binId,
-              this.lbPair.binStep
-            ).toString();
-            bins.push({
-              binId,
-              xAmount: bin.amountX,
-              yAmount: bin.amountY,
-              supply: bin.liquiditySupply,
-              price: pricePerLamport,
-              version: binArray.version,
-              pricePerToken: new Decimal(pricePerLamport)
-                .mul(new Decimal(10 ** (baseTokenDecimal - quoteTokenDecimal)))
-                .toString(),
-            });
-          }
-        });
-      });
-    }
-
-    return bins;
+    return Array.from(enumerateBins(
+      binsById,
+      lowerBinId,
+      upperBinId,
+      this.lbPair.binStep,
+      baseTokenDecimal,
+      quoteTokenDecimal,
+    ));
   }
 
   private async binArraysToBeCreate(

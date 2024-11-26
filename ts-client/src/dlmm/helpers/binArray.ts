@@ -6,6 +6,7 @@ import {
   BinArray,
   BinArrayAccount,
   BinArrayBitmapExtension,
+  BinLiquidity,
   BitmapType,
   LbPair,
 } from "../types";
@@ -363,4 +364,22 @@ export function getBinArraysRequiredByPositionRange(
     key: new PublicKey(key),
     index,
   }));
+}
+
+export function* enumerateBins(
+  binsById: Map<number, Bin>,
+  lowerBinId: number,
+  upperBinId: number,
+  binStep: number,
+  baseTokenDecimal: number,
+  quoteTokenDecimal: number
+) {
+  for (let currentBinId = lowerBinId; currentBinId <= upperBinId; currentBinId++) {
+    const bin = binsById.get(currentBinId);
+    if (bin != null) {
+      yield BinLiquidity.fromBin(bin, currentBinId, binStep, baseTokenDecimal, quoteTokenDecimal);
+    } else {
+      yield BinLiquidity.empty(currentBinId, binStep, baseTokenDecimal, quoteTokenDecimal);
+    }
+  }
 }
