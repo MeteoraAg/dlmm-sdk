@@ -76,6 +76,21 @@ pub fn compute_base_factor_from_fee_bps(bin_step: u16, fee_bps: u16) -> Result<u
     Ok(computed_base_factor as u16)
 }
 
+pub fn get_precise_id_from_price(bin_step: u16, price: &Decimal) -> Option<i32> {
+    let bps = Decimal::from_u16(bin_step)?.checked_div(Decimal::from_i32(BASIS_POINT_MAX)?)?;
+    let base = Decimal::ONE.checked_add(bps)?;
+
+    let id = price.log10().checked_div(base.log10())?.to_f64()?;
+    let trimmed_id = id as i32;
+    let trimmed_id_f64 = trimmed_id as f64;
+
+    if trimmed_id_f64 == id {
+        id.to_i32()
+    } else {
+        None
+    }
+}
+
 /// Calculate the bin id based on price. If the bin id is in between 2 bins, it will round up.
 pub fn get_id_from_price(bin_step: u16, price: &Decimal, rounding: Rounding) -> Option<i32> {
     let bps = Decimal::from_u16(bin_step)?.checked_div(Decimal::from_i32(BASIS_POINT_MAX)?)?;

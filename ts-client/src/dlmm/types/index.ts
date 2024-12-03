@@ -45,6 +45,8 @@ export type vParameters = IdlAccounts<LbClmm>["lbPair"]["vParameters"];
 export type sParameters = IdlAccounts<LbClmm>["lbPair"]["parameters"];
 
 export type InitPermissionPairIx = IdlTypes<LbClmm>["InitPermissionPairIx"];
+export type InitCustomizablePermissionlessPairIx =
+  IdlTypes<LbClmm>["CustomizableParams"];
 
 export type BinLiquidityDistribution =
   IdlTypes<LbClmm>["BinLiquidityDistribution"];

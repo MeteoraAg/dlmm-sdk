@@ -1,12 +1,12 @@
 use super::add_liquidity_by_strategy::StrategyParameters;
+use super::to_weight_ascending_order;
+use super::to_weight_descending_order;
+use super::to_weight_spot_balanced;
+use super::ModifyLiquidityOneSide;
+use super::StrategyType;
 use crate::errors::LBError;
 use crate::math::weight_to_amounts::to_amount_ask_side;
 use crate::math::weight_to_amounts::to_amount_bid_side;
-use crate::to_weight_ascending_order;
-use crate::to_weight_descending_order;
-use crate::to_weight_spot_balanced;
-use crate::ModifyLiquidityOneSide;
-use crate::StrategyType;
 use anchor_lang::prelude::*;
 
 #[derive(AnchorSerialize, AnchorDeserialize, Eq, PartialEq, Clone, Debug, Default)]

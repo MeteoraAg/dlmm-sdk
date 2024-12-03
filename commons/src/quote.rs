@@ -1,8 +1,8 @@
 use anchor_client::solana_sdk::pubkey::Pubkey;
 use anyhow::{ensure, Context, Result};
 use lb_clmm::{
+    pair_action_access::ActivationType,
     state::{
-        action_access::ActivationType,
         bin::{Bin, BinArray, SwapResult},
         bin_array_bitmap_extension::BinArrayBitmapExtension,
         lb_pair::{LbPair, PairStatus, PairType},

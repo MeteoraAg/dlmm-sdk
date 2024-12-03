@@ -1,6 +1,6 @@
 [package]
 name = "lb_clmm"
-version = "0.8.0"
+version = "0.8.2"
 description = "Created with Anchor"
 edition = "2021"
 
@@ -15,7 +15,6 @@ no-log-ix-name = []
 cpi = ["no-entrypoint"]
 default = []
 localnet = []
-alpha-access = []
 test-bpf = []
 staging = []
 

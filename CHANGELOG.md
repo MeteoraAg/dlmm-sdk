@@ -19,6 +19,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## lb_clmm [0.8.2] - PR #115
+
+### Added
+
+- Add a new endpoint `initialize_customizable_permissionless_lb_pair`, that allows pool creator to be able to create pool with input `active_id`, `bin_step`, `base_factor`, `activation_point` and `alpha-vault`
+
+### Changed
+
+- Add a new PairType `CustomizablePermissionless`, that is set by using the new endpoint above.
+
+- Remove `whitelisted_wallet` and `lock_duration` in pool state.
+
+- Remove `subjected_to_bootstrap_liquidity_locking` in position state.
+
+- With PairType as `Permission` and `CustomizablePermissionless`, `token_y_mint` is always quote token (SOL/USDC). Users are able to deposit both quote token and base token before `activation_slot`, but those pools doesn't allow user to deposit quote token in active_bin before `activation_slot`. After `activation_slot`, that are free for everyone.
+
+- `PairType::Permission` allows user to withdraw base token before `activation_slot`, but `PairType::CustomizablePermissionless` doesn't allow user to withdraw base token before `activation_slot`
+
+- Refactoring on file structures
+
+### Removed
+
+- Remove endpoint `set_lock_release_point`
+- Remove endpoint `update_whitelisted_address`
+
+### Breaking Changes
+
+- Endpoint `initialize_position_by_operator` requires a new field `lock_release_point`, to allow position liquidity locking for compatibility with old launch mechanism in permissioned lb pair
+
+## @meteora-ag/dlmm [1.3.0] - PR #115
+
+### Added
+
+- Add `createCustomizablePermissionlessLbPair` to allow user to create launch pool with more flexible configuration.
+
+### Removed
+
+- Remove `updateWhitelistedWallet`
+
+### Breaking Changes
+
+- `createPermissionLbPair` removed `lockDuration`
+- `initializePositionByOperator` added `lockReleasePoint`
+- `seedLiquidity` removed `operator` and `feeOwner`
+
+## cli [0.4.0] - PR #115
+
+### Added
+
+- Add `initialize_customizable_permission_lb_pair`
+
+### Removed
+
+- Remove `update_whitelisted_wallet`
+
 ## @meteora-ag/dlmm [1.2.3] - PR #112
 
 ### Fixed

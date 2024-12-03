@@ -20,6 +20,9 @@ pub struct ConfigOverride {
         default_value_t = String::from(shellexpand::tilde("~/.config/solana/id.json"))
     )]
     pub wallet: String,
+    /// Priority fee
+    #[clap(global = true, long = "priority-fee", default_value_t = 0)]
+    pub priority_fee: u64,
 }
 
 fn parse_bin_liquidity_removal(src: &str) -> Result<(i32, f64), Error> {
@@ -57,6 +60,13 @@ fn parse_bin_liquidity_distribution(src: &str) -> Result<(i32, f64, f64), Error>
         .ok_or_else(|| clap::error::Error::new(error::ErrorKind::InvalidValue))?;
 
     Ok((delta_id, dist_x, dist_y))
+}
+
+#[derive(Debug, Clone, ValueEnum)]
+pub enum SelectiveRounding {
+    Up,
+    Down,
+    None,
 }
 
 #[derive(Parser, Debug)]
@@ -239,6 +249,90 @@ pub enum Command {
         side_ratio: u64,
     },
 
+    InitializeCustomizablePermissionlessLbPair {
+        /// Token X address
+        #[clap(long)]
+        token_mint_x: Pubkey,
+        /// Token Y address
+        #[clap(long)]
+        token_mint_y: Pubkey,
+        /// Bin step
+        #[clap(long)]
+        bin_step: u16,
+        /// Pool starting price
+        #[clap(long)]
+        initial_price: f64,
+        /// Base fee rate
+        #[clap(long)]
+        base_fee_bps: u16,
+        /// Pool activation (start trading) type. 0 = Slot based, 1 = Timestamp based
+        #[clap(long)]
+        activation_type: u8,
+        /// Indicate whether the launch pool have alpha vault
+        #[clap(long)]
+        has_alpha_vault: bool,
+        /// Initial price rounding
+        #[clap(long)]
+        selective_rounding: SelectiveRounding,
+        /// Pool activation point. None = Now
+        #[clap(long)]
+        activation_point: Option<u64>,
+    },
+
+    /// Seed liquidity
+    SeedLiquidity {
+        /// Address of the pair
+        #[clap(long)]
+        lb_pair: Pubkey,
+        /// Base position path
+        #[clap(long)]
+        base_position_path: String,
+        /// Amount of x
+        #[clap(long)]
+        amount: u64,
+        /// Min price
+        #[clap(long)]
+        min_price: f64,
+        /// Max price
+        #[clap(long)]
+        max_price: f64,
+        /// Base pubkey
+        #[clap(long)]
+        base_pubkey: Pubkey,
+        /// Curvature
+        #[clap(long)]
+        curvature: f64,
+        /// Position owner path
+        #[clap(long)]
+        position_owner_path: String,
+        /// Max retries
+        #[clap(long)]
+        max_retries: u16,
+    },
+
+    SeedLiquiditySingleBin {
+        /// Address of the pair
+        #[clap(long)]
+        lb_pair: Pubkey,
+        /// Base position path
+        #[clap(long)]
+        base_position_path: String,
+        /// Base position pubkey
+        #[clap(long)]
+        base_pubkey: Pubkey,
+        /// amount of x
+        #[clap(long)]
+        amount: u64,
+        #[clap(long)]
+        price: f64,
+        /// Position owner
+        #[clap(long)]
+        position_owner_path: String,
+        /// Selective rounding
+        #[clap(long)]
+        selective_rounding: SelectiveRounding,
+    },
+
     #[clap(flatten)]
     Admin(AdminCommand),
 }
@@ -278,20 +372,6 @@ pub enum AdminCommand {
     TogglePoolStatus {
         /// Address of the pair
         lb_pair: Pubkey,
-    },
-
-    /// Seed liquidity
-    SeedLiquidity {
-        /// Address of the pair
-        lb_pair: Pubkey,
-        /// Base position path
-        base_position_path: String,
-        /// amount of x
-        amount: u64,
-        /// min price
-        min_price: f64,
-        /// max price
-        max_price: f64,
     },
 
     /// Remove liquidity by price range
@@ -341,15 +421,6 @@ pub enum AdminCommand {
         lb_pair: Pubkey,
         reward_index: u64,
         funding_amount: u64,
-    },
-    /// Remove whitelisted wallet from a permission pool
-    UpdateWhitelistedWallet {
-        /// Address of the pair
-        lb_pair: Pubkey,
-        /// Address of the wallet
-        wallet_address: Pubkey,
-        /// Index of the wallet to be updated
-        idx: u8,
     },
 
     InitializePresetParameter {

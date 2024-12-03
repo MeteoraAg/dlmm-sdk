@@ -1,5 +1,5 @@
 use crate::constants::{BASIS_POINT_MAX, MAX_BASE_FACTOR_STEP, MAX_PROTOCOL_SHARE};
-use crate::instructions::update_fee_parameters::FeeParameter;
+use crate::instructions::admin::update_fee_parameters::FeeParameter;
 use crate::{errors::LBError, math::safe_math::SafeMath};
 use anchor_lang::prelude::*;
 

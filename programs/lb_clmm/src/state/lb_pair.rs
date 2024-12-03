@@ -5,11 +5,10 @@ use crate::constants::{
     BASIS_POINT_MAX, BIN_ARRAY_BITMAP_SIZE, FEE_PRECISION, MAX_BIN_ID, MAX_FEE_RATE,
     MAX_FEE_UPDATE_WINDOW, MIN_BIN_ID,
 };
-use crate::instructions::update_fee_parameters::FeeParameter;
+use crate::instructions::admin::update_fee_parameters::FeeParameter;
 use crate::math::u128x128_math::Rounding;
 use crate::math::u64x64_math::SCALE_OFFSET;
 use crate::math::utils_math::{one, safe_mul_div_cast, safe_mul_shr_cast, safe_shl_div_cast};
-use crate::state::action_access::get_lb_pair_type_access_validator;
 use crate::state::bin::BinArray;
 use crate::state::bin_array_bitmap_extension::BinArrayBitmapExtension;
 use crate::state::parameters::{StaticParameters, VariableParameters};
@@ -21,31 +20,13 @@ use std::ops::BitXor;
 use std::ops::Shl;
 use std::ops::Shr;
 
+/// Type of the Pair. 0 = Permissionless, 1 = Permission, 2 = CustomizablePermissionless
 #[derive(Copy, Clone, Debug, PartialEq, Eq, IntoPrimitive, TryFromPrimitive)]
 #[repr(u8)]
-/// Type of the Pair. 0 = Permissionless, 1 = Permission. Putting 0 as permissionless for backward compatibility.
 pub enum PairType {
     Permissionless,
     Permission,
-}
-
-pub struct LaunchPadParams {
-    pub activation_point: u64,
-}
-
-impl PairType {
-    pub fn get_pair_default_launch_pad_params(&self) -> LaunchPadParams {
-        match self {
-            // The point is unreachable. Therefore by default, the pair will be disabled until admin update the activation point.
-            Self::Permission => LaunchPadParams {
-                activation_point: u64::MAX,
-            },
-            // Activation point is not used in permissionless pair. Therefore, default to 0.
-            Self::Permissionless => LaunchPadParams {
-                activation_point: 0,
-            },
-        }
-    }
+    CustomizablePermissionless,
 }
 
 #[derive(
@@ -114,8 +95,8 @@ pub struct LbPair {
     pub bin_array_bitmap: [u64; 16], // store default bin id from -512 to 511 (bin id from -35840 to 35840, price from 2.7e-16 to 3.6e15)
     /// Last time the pool fee parameter was updated
     pub last_updated_at: i64,
-    /// Whitelisted wallet
-    pub whitelisted_wallet: Pubkey,
+    /// _padding_2, previous whitelisted_wallet, BE CAREFUL FOR TOMBSTONE WHEN REUSE !!
+    pub _padding_2: [u8; 32],
     /// Address allowed to swap when the current point is greater than or equal to the pre-activation point. The pre-activation point is calculated as `activation_point - pre_activation_duration`.
     pub pre_activation_swap_address: Pubkey,
     /// Base keypair. Only required for permission pair
@@ -124,10 +105,10 @@ pub struct LbPair {
     pub activation_point: u64,
     /// Duration before activation point. Used to calculate pre-activation point for pre_activation_swap_address
     pub pre_activation_duration: u64,
-    /// _padding 2 is reclaimed free space from swap_cap_deactivate_point and swap_cap_amount before, BE CAREFUL FOR TOMBSTONE WHEN REUSE !!
-    pub _padding_2: [u8; 8],
-    /// Liquidity lock duration for positions which created before activate. Only applicable for permission pair.
-    pub lock_duration: u64,
+    /// _padding 3 is reclaimed free space from swap_cap_deactivate_point and swap_cap_amount before, BE CAREFUL FOR TOMBSTONE WHEN REUSE !!
+    pub _padding_3: [u8; 8],
+    /// _padding_4, previous lock_duration, BE CAREFUL FOR TOMBSTONE WHEN REUSE !!
+    pub _padding_4: u64,
     /// Pool creator
     pub creator: Pubkey,
     /// Reserved space for future use
@@ -136,9 +117,6 @@ pub struct LbPair {
 
 impl Default for LbPair {
     fn default() -> Self {
-        let LaunchPadParams {
-            activation_point: activation_point,
-        } = PairType::Permissionless.get_pair_default_launch_pad_params();
         Self {
             active_id: 0,
             parameters: StaticParameters::default(),
@@ -158,18 +136,18 @@ impl Default for LbPair {
             last_updated_at: 0,
             pair_type: PairType::Permissionless.into(),
             status: 0,
-            whitelisted_wallet: Pubkey::default(),
             pre_activation_swap_address: Pubkey::default(),
             base_key: Pubkey::default(),
-            activation_point,
+            activation_point: 0,
             creator: Pubkey::default(),
-            lock_duration: 0,
+            _padding_4: 0,
             require_base_factor_seed: 0,
             base_factor_seed: [0u8; 2],
             pre_activation_duration: 0,
             _padding_0: 0u8,
             _padding_1: [0u8; 32],
-            _padding_2: [0u8; 8],
+            _padding_2: [0u8; 32],
+            _padding_3: [0u8; 8],
             _reserved: [0u8; 24],
         }
     }
@@ -311,9 +289,11 @@ impl LbPair {
         pair_type: PairType,
         pair_status: u8,
         base_key: Pubkey,
-        lock_duration: u64,
         creator: Pubkey,
         activation_type: u8,
+        activation_point: u64,
+        pre_activation_swap_address: Pubkey,
+        pre_activation_duration: u64,
     ) -> Result<()> {
         self.parameters = static_parameter;
         self.active_id = active_id;
@@ -329,11 +309,10 @@ impl LbPair {
         self.base_key = base_key;
         self.status = pair_status;
         self.creator = creator;
-
-        let LaunchPadParams { activation_point } = pair_type.get_pair_default_launch_pad_params();
+        self.pre_activation_swap_address = pre_activation_swap_address;
+        self.pre_activation_duration = pre_activation_duration;
 
         self.activation_point = activation_point;
-        self.lock_duration = lock_duration;
 
         // Old permissionless pools before added base factor as signer seed by default will be false. All the new pools after the patch will be having bse factor as signer seed.
         self.require_base_factor_seed = match pair_type {
@@ -345,11 +324,6 @@ impl LbPair {
         self.base_factor_seed = self.parameters.base_factor.to_le_bytes();
         self.activation_type = activation_type;
 
-        Ok(())
-    }
-
-    pub fn update_whitelisted_wallet(&mut self, wallet: Pubkey) -> Result<()> {
-        self.whitelisted_wallet = wallet;
         Ok(())
     }
 
@@ -393,6 +367,10 @@ impl LbPair {
         Ok(())
     }
 
+    fn require_base_factor_seed(&self) -> bool {
+        self.require_base_factor_seed != 0
+    }
+
     pub fn seeds(&self) -> Result<Vec<&[u8]>> {
         let min_key = min(self.token_x_mint, self.token_y_mint);
         let (min_key_ref, max_key_ref) = if min_key == self.token_x_mint {
@@ -400,21 +378,42 @@ impl LbPair {
         } else {
             (self.token_y_mint.as_ref(), self.token_x_mint.as_ref())
         };
-        if self.is_permission_pair()? {
-            Ok(vec![
+
+        let pair_type = PairType::try_from(self.pair_type).map_err(|_| LBError::InvalidPoolType)?;
+        match pair_type {
+            PairType::CustomizablePermissionless => Ok(vec![
+                self.base_key.as_ref(),
+                min_key_ref,
+                max_key_ref,
+                &self.bump_seed,
+            ]),
+            PairType::Permission => Ok(vec![
                 self.base_key.as_ref(),
                 min_key_ref,
                 max_key_ref,
                 &self.bin_step_seed,
                 &self.bump_seed,
-            ])
-        } else {
-            Ok(vec![
-                min_key_ref,
-                max_key_ref,
-                &self.bin_step_seed,
-                &self.bump_seed,
-            ])
+            ]),
+            PairType::Permissionless => {
+                if self.require_base_factor_seed() {
+                    // Second version permissionless pool
+                    Ok(vec![
+                        min_key_ref,
+                        max_key_ref,
+                        &self.bin_step_seed,
+                        &self.base_factor_seed,
+                        &self.bump_seed,
+                    ])
+                } else {
+                    // First version permissionless pool
+                    Ok(vec![
+                        min_key_ref,
+                        max_key_ref,
+                        &self.bin_step_seed,
+                        &self.bump_seed,
+                    ])
+                }
+            }
         }
     }
 
