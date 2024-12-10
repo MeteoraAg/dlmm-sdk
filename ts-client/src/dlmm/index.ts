@@ -4495,6 +4495,26 @@ export class DLMM {
   }
 
   /**
+ * Initializes bin arrays for the given bin array bitmap extension if it wasn't initialized.
+ *
+ * @param {PublicKey} binArrayBitmapExtension - The public key of the bin array bitmap extension
+ * @param {PublicKey} funder - The public key of the funder.
+ * @return {Promise<TransactionInstruction[]>} An array of transaction instructions to initialize the bin arrays.
+ */
+  public async initializeBinArrayBitMapExtension(binArrayBitmapExtension: PublicKey, funder: PublicKey): Promise<TransactionInstruction[]> {
+    const ixs: TransactionInstruction[] = [];
+
+    const initializeBinArrayBitmapExtensionIx = await this.program.methods.initializeBinArrayBitMapExtension().accounts({
+      binArrayBitmapExtension,
+      funder,
+      lbPair: this.pubkey,
+    }).instruction();
+    ixs.push(initializeBinArrayBitmapExtensionIx)
+
+    return ixs;
+  }
+
+  /**
    *
    * @param
    *    - `lowerBinId`: Lower bin ID of the position. This represent the lowest price of the position
