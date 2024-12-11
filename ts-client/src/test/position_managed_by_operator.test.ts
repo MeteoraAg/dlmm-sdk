@@ -1,7 +1,6 @@
-import { AnchorProvider, BN, Program, Wallet, web3 } from "@coral-xyz/anchor";
+import { BN, web3 } from "@coral-xyz/anchor";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
-  NATIVE_MINT,
   TOKEN_PROGRAM_ID,
   createMint,
   getAssociatedTokenAddressSync,
@@ -13,32 +12,14 @@ import {
   Keypair,
   LAMPORTS_PER_SOL,
   PublicKey,
-  Transaction,
   sendAndConfirmTransaction,
 } from "@solana/web3.js";
-import fs from "fs";
-import { DLMM } from "../dlmm/index";
-import {
-  deriveLbPair,
-  derivePermissionLbPair,
-  derivePosition,
-  derivePresetParameter,
-  getBinArrayLowerUpperBinId,
-  getPriceOfBinByBinId,
-} from "../dlmm/helpers";
-import {
-  BASIS_POINT_MAX,
-  LBCLMM_PROGRAM_IDS,
-  MAX_BIN_PER_POSITION,
-} from "../dlmm/constants";
-import { IDL, LbClmm } from "../dlmm/idl";
-import { ActivationType, PairType, StrategyType } from "../dlmm/types";
 import Decimal from "decimal.js";
-import babar from "babar";
-import {
-  findSwappableMinMaxBinId,
-  getQPriceFromId,
-} from "../dlmm/helpers/math";
+import fs from "fs";
+import { LBCLMM_PROGRAM_IDS, MAX_BIN_PER_POSITION } from "../dlmm/constants";
+import { derivePermissionLbPair, derivePosition } from "../dlmm/helpers";
+import { DLMM } from "../dlmm/index";
+import { ActivationType, StrategyType } from "../dlmm/types";
 
 const keypairBuffer = fs.readFileSync(
   "../keys/localnet/admin-bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1.json",
@@ -56,7 +37,6 @@ describe("Position by operator", () => {
     const wenDecimal = 5;
     const usdcDecimal = 6;
     const feeBps = new BN(500);
-    const lockDuration = new BN(0);
 
     let WEN: web3.PublicKey;
     let USDC: web3.PublicKey;
@@ -124,6 +104,20 @@ describe("Position by operator", () => {
       );
       operatorWEN = operatorWenInfo.address;
 
+      const mockMultisigWenInfo = await getOrCreateAssociatedTokenAccount(
+        connection,
+        keypair,
+        WEN,
+        mockMultisigKeypair.publicKey,
+        true,
+        "confirmed",
+        {
+          commitment: "confirmed",
+        },
+        TOKEN_PROGRAM_ID,
+        ASSOCIATED_TOKEN_PROGRAM_ID
+      );
+
       const operatorUsdcInfo = await getOrCreateAssociatedTokenAccount(
         connection,
         keypair,
@@ -167,6 +161,17 @@ describe("Position by operator", () => {
         TOKEN_PROGRAM_ID
       );
 
+      await mintTo(
+        connection,
+        keypair,
+        WEN,
+        mockMultisigWenInfo.address,
+        keypair.publicKey,
+        200_000_000_000 * 10 ** wenDecimal,
+        [],
+        {}
+      );
+
       let rawTx = await DLMM.createPermissionLbPair(
         connection,
         new BN(binStep),
@@ -176,7 +181,6 @@ describe("Position by operator", () => {
         baseKeypair.publicKey,
         keypair.publicKey,
         feeBps,
-        lockDuration,
         ActivationType.Slot,
         { cluster: "localhost" }
       );
@@ -200,27 +204,25 @@ describe("Position by operator", () => {
       pair = await DLMM.create(connection, pairKey, {
         cluster: "localhost",
       });
-
-      rawTx = await pair.updateWhitelistedWallet(operatorKeypair.publicKey);
-      txHash = await sendAndConfirmTransaction(connection, rawTx, [keypair]);
-      console.log("Update whitelisted wallet", txHash);
-      expect(txHash).not.toBeNull();
     });
 
     it("Create position with operator", async () => {
       await pair.refetchStates();
 
-      const lowerBinId = new BN(minBinId);
+      const lowerBinId = new BN(minBinId).sub(
+        MAX_BIN_PER_POSITION.div(new BN(2))
+      );
       const positionWidth = new BN(MAX_BIN_PER_POSITION);
 
       const transaction = await pair.initializePositionByOperator({
-        lowerBinId: new BN(minBinId),
+        lowerBinId,
         positionWidth: new BN(MAX_BIN_PER_POSITION),
         owner: mockMultisigKeypair.publicKey,
         feeOwner: mockMultisigKeypair.publicKey,
         operator: operatorKeypair.publicKey,
         payer: operatorKeypair.publicKey,
         base: baseKeypair.publicKey,
+        lockReleasePoint: new BN(0),
       });
 
       const txHash = await sendAndConfirmTransaction(connection, transaction, [
@@ -272,20 +274,40 @@ describe("Position by operator", () => {
           .then((b) => new BN(b.value.amount)),
       ]);
 
-      const transaction = await pair.addLiquidityByStrategy({
+      let transaction = await pair.addLiquidityByStrategy({
         positionPubKey: position,
         totalXAmount: new BN(1000 * 10 ** wenDecimal),
+        totalYAmount: new BN(0),
+        strategy: {
+          strategyType: StrategyType.SpotImBalanced,
+          maxBinId: positionState.upperBinId,
+          minBinId,
+        },
+        user: operatorKeypair.publicKey,
+        slippage: 0,
+      });
+
+      let txHash = await sendAndConfirmTransaction(connection, transaction, [
+        operatorKeypair,
+      ]).catch((e) => {
+        console.error(e);
+        throw e;
+      });
+
+      transaction = await pair.addLiquidityByStrategy({
+        positionPubKey: position,
+        totalXAmount: new BN(0),
         totalYAmount: new BN(1000 * 10 ** usdcDecimal),
         strategy: {
-          strategyType: StrategyType.SpotBalanced,
-          maxBinId: positionState.upperBinId,
+          strategyType: StrategyType.SpotImBalanced,
+          maxBinId: minBinId - 1,
           minBinId: positionState.lowerBinId,
         },
         user: operatorKeypair.publicKey,
         slippage: 0,
       });
 
-      const txHash = await sendAndConfirmTransaction(connection, transaction, [
+      txHash = await sendAndConfirmTransaction(connection, transaction, [
         operatorKeypair,
       ]).catch((e) => {
         console.error(e);

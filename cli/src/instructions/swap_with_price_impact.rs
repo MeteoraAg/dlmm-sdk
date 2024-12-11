@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::ops::Deref;
 
 use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
@@ -6,15 +5,13 @@ use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
 use anchor_client::solana_sdk::compute_budget::ComputeBudgetInstruction;
 use anchor_client::{solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, Program};
 use anchor_lang::solana_program::instruction::AccountMeta;
-use anchor_lang::AccountDeserialize;
 use anchor_spl::associated_token::get_associated_token_address;
 
 use anyhow::*;
-use commons::quote::{get_bin_array_pubkeys_for_swap, quote_exact_in};
+use commons::quote::get_bin_array_pubkeys_for_swap;
 use lb_clmm::accounts;
 use lb_clmm::instruction;
 
-use lb_clmm::state::bin::BinArray;
 use lb_clmm::state::bin_array_bitmap_extension::BinArrayBitmapExtension;
 use lb_clmm::state::lb_pair::LbPair;
 use lb_clmm::utils::pda::*;
@@ -67,22 +64,6 @@ pub async fn swap_with_price_impact<C: Deref<Target = impl Signer> + Clone>(
         swap_for_y,
         3,
     )?;
-
-    let bin_arrays = program
-        .async_rpc()
-        .get_multiple_accounts(&bin_arrays_for_swap)
-        .await?
-        .into_iter()
-        .zip(bin_arrays_for_swap.iter())
-        .map(|(account, &key)| {
-            let account = account?;
-            Some((
-                key,
-                BinArray::try_deserialize(&mut account.data.as_ref()).ok()?,
-            ))
-        })
-        .collect::<Option<HashMap<Pubkey, BinArray>>>()
-        .context("Failed to fetch bin arrays")?;
 
     let (event_authority, _bump) =
         Pubkey::find_program_address(&[b"__event_authority"], &lb_clmm::ID);

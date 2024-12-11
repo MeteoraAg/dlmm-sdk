@@ -1,7 +1,6 @@
-import { AnchorProvider, BN, Program, Wallet, web3 } from "@coral-xyz/anchor";
+import { BN, web3 } from "@coral-xyz/anchor";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
-  NATIVE_MINT,
   TOKEN_PROGRAM_ID,
   createMint,
   getOrCreateAssociatedTokenAccount,
@@ -14,28 +13,17 @@ import {
   Transaction,
   sendAndConfirmTransaction,
 } from "@solana/web3.js";
+import babar from "babar";
+import Decimal from "decimal.js";
 import fs from "fs";
-import { DLMM } from "../dlmm/index";
+import { LBCLMM_PROGRAM_IDS } from "../dlmm/constants";
 import {
-  deriveLbPair,
-  derivePermissionLbPair,
-  derivePresetParameter,
+  deriveCustomizablePermissionlessLbPair,
   getBinArrayLowerUpperBinId,
   getPriceOfBinByBinId,
 } from "../dlmm/helpers";
-import {
-  BASIS_POINT_MAX,
-  LBCLMM_PROGRAM_IDS,
-  MAX_BIN_PER_POSITION,
-} from "../dlmm/constants";
-import { IDL, LbClmm } from "../dlmm/idl";
-import { ActivationType, PairType } from "../dlmm/types";
-import Decimal from "decimal.js";
-import babar from "babar";
-import {
-  findSwappableMinMaxBinId,
-  getQPriceFromId,
-} from "../dlmm/helpers/math";
+import { DLMM } from "../dlmm/index";
+import { ActivationType } from "../dlmm/types";
 
 const keypairBuffer = fs.readFileSync(
   "../keys/localnet/admin-bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1.json",
@@ -157,52 +145,43 @@ describe("ILM test", () => {
         TOKEN_PROGRAM_ID
       );
 
-      let rawTx = await DLMM.createPermissionLbPair(
+      const slot = await connection.getSlot();
+      const activationPoint = new BN(slot).add(new BN(100));
+
+      let rawTx = await DLMM.createCustomizablePermissionlessLbPair(
         connection,
         new BN(binStep),
         WEN,
         USDC,
         new BN(minBinId.toString()),
-        baseKeypair.publicKey,
-        keypair.publicKey,
         feeBps,
-        lockDuration,
         ActivationType.Slot,
-        { cluster: "localhost" }
+        false, // No alpha vault. Set to true the program will deterministically whitelist the alpha vault to swap before the pool start trading. Check: https://github.com/MeteoraAg/alpha-vault-sdk initialize{Prorata|Fcfs}Vault method to create the alpha vault.
+        keypair.publicKey,
+        activationPoint,
+        {
+          cluster: "localhost",
+        }
       );
+
       let txHash = await sendAndConfirmTransaction(connection, rawTx, [
         keypair,
-        baseKeypair,
       ]).catch((e) => {
         console.error(e);
         throw e;
       });
       console.log("Create permissioned LB pair", txHash);
 
-      [pairKey] = derivePermissionLbPair(
-        baseKeypair.publicKey,
-        WEN,
-        USDC,
-        new BN(binStep),
-        programId
-      );
+      [pairKey] = deriveCustomizablePermissionlessLbPair(WEN, USDC, programId);
 
       pair = await DLMM.create(connection, pairKey, {
         cluster: "localhost",
       });
-
-      const walletToWhitelist = keypair.publicKey;
-      rawTx = await pair.updateWhitelistedWallet(walletToWhitelist);
-      txHash = await sendAndConfirmTransaction(connection, rawTx, [keypair]);
-      console.log("Update whitelisted wallet", txHash);
-      expect(txHash).not.toBeNull();
     });
 
     it("seed liquidity", async () => {
       const { initializeBinArraysAndPositionIxs, addLiquidityIxs } =
         await pair.seedLiquidity(
-          keypair.publicKey,
-          keypair.publicKey,
           keypair.publicKey,
           seedAmount,
           curvature,
@@ -309,12 +288,12 @@ describe("ILM test", () => {
       console.log(babar(binLiquidities));
     });
   });
+
   describe("Shaky", () => {
     const baseKeypair = Keypair.generate();
     const sharkyDecimal = 6;
     const usdcDecimal = 6;
     const feeBps = new BN(250);
-    const lockDuration = new BN(0);
 
     let SHARKY: web3.PublicKey;
     let USDC: web3.PublicKey;
@@ -420,52 +399,47 @@ describe("ILM test", () => {
         TOKEN_PROGRAM_ID
       );
 
-      let rawTx = await DLMM.createPermissionLbPair(
+      const slot = await connection.getSlot();
+      const activationPoint = new BN(slot).add(new BN(100));
+
+      let rawTx = await DLMM.createCustomizablePermissionlessLbPair(
         connection,
         new BN(binStep),
         SHARKY,
         USDC,
         new BN(minBinId.toString()),
-        baseKeypair.publicKey,
-        keypair.publicKey,
         feeBps,
-        lockDuration,
         ActivationType.Slot,
-        { cluster: "localhost" }
+        false, // No alpha vault. Set to true the program will deterministically whitelist the alpha vault to swap before the pool start trading. Check: https://github.com/MeteoraAg/alpha-vault-sdk initialize{Prorata|Fcfs}Vault method to create the alpha vault.
+        keypair.publicKey,
+        activationPoint,
+        {
+          cluster: "localhost",
+        }
       );
+
       let txHash = await sendAndConfirmTransaction(connection, rawTx, [
         keypair,
-        baseKeypair,
       ]).catch((e) => {
         console.error(e);
         throw e;
       });
       console.log("Create permissioned LB pair", txHash);
 
-      [pairKey] = derivePermissionLbPair(
-        baseKeypair.publicKey,
+      [pairKey] = deriveCustomizablePermissionlessLbPair(
         SHARKY,
         USDC,
-        new BN(binStep),
         programId
       );
 
       pair = await DLMM.create(connection, pairKey, {
         cluster: "localhost",
       });
-
-      const walletToWhitelist = keypair.publicKey;
-      rawTx = await pair.updateWhitelistedWallet(walletToWhitelist);
-      txHash = await sendAndConfirmTransaction(connection, rawTx, [keypair]);
-      console.log("Update whitelisted wallet", txHash);
-      expect(txHash).not.toBeNull();
     });
 
     it("seed liquidity", async () => {
       const { initializeBinArraysAndPositionIxs, addLiquidityIxs } =
         await pair.seedLiquidity(
-          keypair.publicKey,
-          keypair.publicKey,
           keypair.publicKey,
           seedAmount,
           curvature,

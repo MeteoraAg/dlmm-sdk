@@ -18,3 +18,4 @@ ts-client/dist
 ts-client/.env
 
 .pnpm-debug.log
+pnpm-lock.yaml

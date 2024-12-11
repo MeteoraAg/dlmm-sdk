@@ -7,7 +7,7 @@ use anchor_lang::ToAccountMetas;
 use anyhow::*;
 use lb_clmm::accounts;
 use lb_clmm::instruction;
-use lb_clmm::instructions::initialize_preset_parameters::InitPresetParametersIx;
+use lb_clmm::instructions::admin::initialize_preset_parameters::InitPresetParametersIx;
 use lb_clmm::utils::pda::derive_preset_parameter_pda2;
 
 #[derive(Debug)]

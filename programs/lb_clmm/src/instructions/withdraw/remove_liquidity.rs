@@ -1,5 +1,5 @@
-use super::add_liquidity::ModifyLiquidity;
 use crate::constants::BASIS_POINT_MAX;
+use crate::ModifyLiquidity;
 use crate::{errors::LBError, math::safe_math::SafeMath, state::position::PositionV2};
 use anchor_lang::prelude::*;
 use ruint::aliases::U256;

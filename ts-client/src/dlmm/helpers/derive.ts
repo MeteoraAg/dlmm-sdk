@@ -1,6 +1,7 @@
 import { BN } from "@coral-xyz/anchor";
 import { Connection, PublicKey } from "@solana/web3.js";
 import { DLMM } from "..";
+import { ILM_BASE } from "../constants";
 
 /** private */
 function sortTokenMints(tokenX: PublicKey, tokenY: PublicKey) {
@@ -78,6 +79,18 @@ export function deriveLbPair(
       maxKey.toBuffer(),
       new Uint8Array(binStep.toArrayLike(Buffer, "le", 2)),
     ],
+    programId
+  );
+}
+
+export function deriveCustomizablePermissionlessLbPair(
+  tokenX: PublicKey,
+  tokenY: PublicKey,
+  programId: PublicKey
+) {
+  const [minKey, maxKey] = sortTokenMints(tokenX, tokenY);
+  return PublicKey.findProgramAddressSync(
+    [ILM_BASE.toBuffer(), minKey.toBuffer(), maxKey.toBuffer()],
     programId
   );
 }

@@ -9,7 +9,7 @@ use anyhow::*;
 use lb_clmm::accounts;
 use lb_clmm::constants::BASIS_POINT_MAX;
 use lb_clmm::instruction;
-use lb_clmm::instructions::remove_liquidity::BinLiquidityReduction;
+use lb_clmm::instructions::withdraw::remove_liquidity::BinLiquidityReduction;
 use lb_clmm::state::lb_pair::LbPair;
 use lb_clmm::utils::pda::{derive_bin_array_bitmap_extension, derive_event_authority_pda};
 

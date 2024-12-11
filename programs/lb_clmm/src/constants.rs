@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::{pubkey, pubkey::Pubkey};
+use anchor_lang::solana_program::pubkey;
 
 // TODO: Macro to compute the constants which changes based on the bit system used ?
 // Smallest step between bin is 0.01%, 1 bps
@@ -66,9 +66,58 @@ pub const MAX_FEE_UPDATE_WINDOW: i64 = 0;
 pub const MAX_REWARD_BIN_SPLIT: usize = 15;
 
 #[cfg(feature = "localnet")]
-pub static ALPHA_ACCESS_COLLECTION_MINTS: [Pubkey; 1] =
-    [pubkey!("J1S9H3QjnRtBbbuD4HjPV6RpRhwuk4zKbxsnCHuTgh9w")];
+pub const SLOT_BUFFER: u64 = 5;
+
+// 1 slot ~400ms
+#[cfg(not(feature = "localnet"))]
+pub const SLOT_BUFFER: u64 = 9000;
+
+#[cfg(feature = "localnet")]
+pub const TIME_BUFFER: u64 = 5;
 
 #[cfg(not(feature = "localnet"))]
-pub static ALPHA_ACCESS_COLLECTION_MINTS: [Pubkey; 1] =
-    [pubkey!("5rwhXUgAAdbVEaFQzAwgrcWwoCqYGzR1Mo2KwUYfbRuS")];
+pub const TIME_BUFFER: u64 = 3600;
+
+#[cfg(not(feature = "localnet"))]
+pub const MAX_ACTIVATION_SLOT_DURATION: u64 = SLOT_BUFFER * 24 * 31; // 31 days
+
+#[cfg(feature = "localnet")]
+pub const MAX_ACTIVATION_SLOT_DURATION: u64 = SLOT_BUFFER * 24; // 1 days
+
+#[cfg(not(feature = "localnet"))]
+pub const MAX_ACTIVATION_TIME_DURATION: u64 = TIME_BUFFER * 24 * 31; // 31 days
+
+#[cfg(feature = "localnet")]
+pub const MAX_ACTIVATION_TIME_DURATION: u64 = TIME_BUFFER * 24; // 1 days
+
+#[cfg(not(feature = "localnet"))]
+pub const FIVE_MINUTES_SLOT_BUFFER: u64 = SLOT_BUFFER / 12; // 5 minutes
+
+#[cfg(feature = "localnet")]
+pub const FIVE_MINUTES_SLOT_BUFFER: u64 = 5;
+
+#[cfg(not(feature = "localnet"))]
+pub const FIVE_MINUTES_TIME_BUFFER: u64 = TIME_BUFFER / 12; // 5 minutes
+
+#[cfg(feature = "localnet")]
+pub const FIVE_MINUTES_TIME_BUFFER: u64 = 5;
+
+// ILM token launch protocol fee
+pub const ILM_PROTOCOL_SHARE: u16 = 2000; // 20%
+
+/// Maximum bin step
+#[constant]
+pub const MAX_BIN_STEP: u16 = 400;
+
+/// Maximum base fee, base_fee / 10^9 = fee_in_percentage
+#[constant]
+pub const MAX_BASE_FEE: u128 = 100_000_000; // 10% (10^9 * 10 / 100)
+
+/// Minimum base fee
+#[constant]
+pub const MIN_BASE_FEE: u128 = 100_000; // 0.01% (10^9 * 0.01 / 100)
+
+// Supported quote mints
+const SOL: Pubkey = pubkey!("So11111111111111111111111111111111111111112");
+const USDC: Pubkey = pubkey!("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+pub const QUOTE_MINTS: [Pubkey; 2] = [SOL, USDC];

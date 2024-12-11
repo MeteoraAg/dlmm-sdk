@@ -8,46 +8,28 @@ pub mod events;
 pub mod instructions;
 pub mod manager;
 pub mod math;
+pub mod pair_action_access;
 pub mod state;
 pub mod utils;
 
-use instructions::add_liquidity::*;
-use instructions::add_liquidity_by_strategy::*;
-use instructions::add_liquidity_by_strategy_one_side::*;
-use instructions::add_liquidity_by_weight::*;
-use instructions::add_liquidity_by_weight_one_side::*;
-use instructions::add_liquidity_single_side_precise::*;
+use instructions::admin::*;
 use instructions::claim_fee::*;
 use instructions::claim_reward::*;
 use instructions::close_position::*;
-use instructions::close_preset_parameter::*;
+use instructions::create_position::*;
+use instructions::deposit::*;
 use instructions::fund_reward::*;
 use instructions::increase_oracle_length::*;
 use instructions::initialize_bin_array::*;
 use instructions::initialize_bin_array_bitmap_extension::*;
-use instructions::initialize_lb_pair::*;
-use instructions::initialize_permission_lb_pair::*;
-use instructions::initialize_position::*;
-use instructions::initialize_position_by_operator::*;
-use instructions::initialize_position_pda::*;
-use instructions::initialize_preset_parameters::*;
-use instructions::initialize_reward::*;
+use instructions::initialize_pool::*;
 use instructions::migrate_bin_array::*;
 use instructions::migrate_position::*;
 use instructions::position_authorize::*;
-use instructions::remove_liquidity::*;
-use instructions::set_activation_point::*;
-use instructions::set_lock_release_point::*;
-use instructions::set_pre_activation_sduration::*;
-use instructions::set_pre_activation_swap_address::*;
 use instructions::swap::*;
-use instructions::toggle_pair_status::*;
-use instructions::update_fee_parameters::*;
 use instructions::update_fees_and_rewards::*;
 use instructions::update_position_operator::*;
-use instructions::update_reward_duration::*;
-use instructions::update_reward_funder::*;
-use instructions::update_whitelisted_wallet::*;
+use instructions::withdraw::*;
 use instructions::withdraw_ineligible_reward::*;
 use instructions::withdraw_protocol_fee::*;
 
@@ -116,9 +98,6 @@ pub fn assert_eq_launch_pool_admin(admin: Pubkey) -> bool {
 
 #[program]
 pub mod lb_clmm {
-
-    use self::instructions::add_liquidity_single_side_precise::CompressedBinDepositAmount;
-
     use super::*;
 
     pub fn initialize_lb_pair(
@@ -126,14 +105,25 @@ pub mod lb_clmm {
         active_id: i32,
         bin_step: u16,
     ) -> Result<()> {
-        instructions::initialize_lb_pair::handle(ctx, active_id, bin_step)
+        instructions::initialize_pool::initialize_permissionless_lb_pair::handle(
+            ctx, active_id, bin_step,
+        )
+    }
+
+    pub fn initialize_customizable_permissionless_lb_pair(
+        ctx: Context<InitializeCustomizablePermissionlessLbPair>,
+        params: CustomizableParams,
+    ) -> Result<()> {
+        instructions::initialize_pool::initialize_customizable_permissionless_lb_pair::handle(
+            ctx, params,
+        )
     }
 
     pub fn initialize_permission_lb_pair(
         ctx: Context<InitializePermissionLbPair>,
         ix_data: InitPermissionPairIx,
     ) -> Result<()> {
-        instructions::initialize_permission_lb_pair::handle(ctx, ix_data)
+        instructions::initialize_pool::initialize_permission_lb_pair::handle(ctx, ix_data)
     }
 
     pub fn initialize_bin_array_bitmap_extension(
@@ -150,41 +140,41 @@ pub mod lb_clmm {
         ctx: Context<'a, 'b, 'c, 'info, ModifyLiquidity<'info>>,
         liquidity_parameter: LiquidityParameter,
     ) -> Result<()> {
-        instructions::add_liquidity::handle(ctx, liquidity_parameter)
+        instructions::deposit::add_liquidity::handle(ctx, liquidity_parameter)
     }
     pub fn add_liquidity_by_weight<'a, 'b, 'c, 'info>(
         ctx: Context<'a, 'b, 'c, 'info, ModifyLiquidity<'info>>,
         liquidity_parameter: LiquidityParameterByWeight,
     ) -> Result<()> {
-        instructions::add_liquidity_by_weight::handle(&ctx, &liquidity_parameter)
+        instructions::deposit::add_liquidity_by_weight::handle(&ctx, &liquidity_parameter)
     }
 
     pub fn add_liquidity_by_strategy<'a, 'b, 'c, 'info>(
         ctx: Context<'a, 'b, 'c, 'info, ModifyLiquidity<'info>>,
         liquidity_parameter: LiquidityParameterByStrategy,
     ) -> Result<()> {
-        instructions::add_liquidity_by_strategy::handle(ctx, &liquidity_parameter)
+        instructions::deposit::add_liquidity_by_strategy::handle(ctx, &liquidity_parameter)
     }
 
     pub fn add_liquidity_by_strategy_one_side<'a, 'b, 'c, 'info>(
         ctx: Context<'a, 'b, 'c, 'info, ModifyLiquidityOneSide<'info>>,
         liquidity_parameter: LiquidityParameterByStrategyOneSide,
     ) -> Result<()> {
-        instructions::add_liquidity_by_strategy_one_side::handle(ctx, &liquidity_parameter)
+        instructions::deposit::add_liquidity_by_strategy_one_side::handle(ctx, &liquidity_parameter)
     }
 
     pub fn add_liquidity_one_side<'a, 'b, 'c, 'info>(
         ctx: Context<'a, 'b, 'c, 'info, ModifyLiquidityOneSide<'info>>,
         liquidity_parameter: LiquidityOneSideParameter,
     ) -> Result<()> {
-        instructions::add_liquidity_by_weight_one_side::handle(&ctx, &liquidity_parameter)
+        instructions::deposit::add_liquidity_by_weight_one_side::handle(&ctx, &liquidity_parameter)
     }
 
     pub fn remove_liquidity<'a, 'b, 'c, 'info>(
         ctx: Context<'a, 'b, 'c, 'info, ModifyLiquidity<'info>>,
         bin_liquidity_removal: Vec<BinLiquidityReduction>,
     ) -> Result<()> {
-        instructions::remove_liquidity::handle(ctx, bin_liquidity_removal)
+        instructions::withdraw::remove_liquidity::handle(ctx, bin_liquidity_removal)
     }
 
     pub fn initialize_position(
@@ -192,7 +182,7 @@ pub mod lb_clmm {
         lower_bin_id: i32,
         width: i32,
     ) -> Result<()> {
-        instructions::initialize_position::handle(ctx, lower_bin_id, width)
+        instructions::create_position::initialize_position::handle(ctx, lower_bin_id, width)
     }
 
     pub fn initialize_position_pda(
@@ -200,22 +190,22 @@ pub mod lb_clmm {
         lower_bin_id: i32,
         width: i32,
     ) -> Result<()> {
-        instructions::initialize_position_pda::handle(ctx, lower_bin_id, width)
+        instructions::create_position::initialize_position_pda::handle(ctx, lower_bin_id, width)
     }
 
     pub fn initialize_position_by_operator(
         ctx: Context<InitializePositionByOperator>,
         lower_bin_id: i32,
         width: i32,
-        owner: Pubkey,
         fee_owner: Pubkey,
+        lock_release_point: u64,
     ) -> Result<()> {
-        instructions::initialize_position_by_operator::handle(
+        instructions::create_position::initialize_position_by_operator::handle(
             ctx,
             lower_bin_id,
             width,
-            owner,
             fee_owner,
+            lock_release_point,
         )
     }
 
@@ -248,7 +238,7 @@ pub mod lb_clmm {
         reward_duration: u64,
         funder: Pubkey,
     ) -> Result<()> {
-        instructions::initialize_reward::handle(ctx, reward_index, reward_duration, funder)
+        instructions::admin::initialize_reward::handle(ctx, reward_index, reward_duration, funder)
     }
 
     pub fn fund_reward(
@@ -265,7 +255,7 @@ pub mod lb_clmm {
         reward_index: u64,
         new_funder: Pubkey,
     ) -> Result<()> {
-        instructions::update_reward_funder::handle(ctx, reward_index, new_funder)
+        instructions::admin::update_reward_funder::handle(ctx, reward_index, new_funder)
     }
 
     pub fn update_reward_duration(
@@ -273,7 +263,7 @@ pub mod lb_clmm {
         reward_index: u64,
         new_duration: u64,
     ) -> Result<()> {
-        instructions::update_reward_duration::handle(ctx, reward_index, new_duration)
+        instructions::admin::update_reward_duration::handle(ctx, reward_index, new_duration)
     }
 
     pub fn claim_reward(ctx: Context<ClaimReward>, reward_index: u64) -> Result<()> {
@@ -292,7 +282,7 @@ pub mod lb_clmm {
         ctx: Context<UpdateFeeParameters>,
         fee_parameter: FeeParameter,
     ) -> Result<()> {
-        instructions::update_fee_parameters::handle(ctx, fee_parameter)
+        instructions::admin::update_fee_parameters::handle(ctx, fee_parameter)
     }
 
     pub fn increase_oracle_length(
@@ -306,29 +296,21 @@ pub mod lb_clmm {
         ctx: Context<InitializePresetParameter>,
         ix: InitPresetParametersIx,
     ) -> Result<()> {
-        instructions::initialize_preset_parameters::handle(ctx, ix)
+        instructions::admin::initialize_preset_parameters::handle(ctx, ix)
     }
 
     pub fn close_preset_parameter(ctx: Context<ClosePresetParameter>) -> Result<()> {
-        instructions::close_preset_parameter::handle(ctx)
+        instructions::admin::close_preset_parameter::handle(ctx)
     }
 
     pub fn remove_all_liquidity<'a, 'b, 'c, 'info>(
         ctx: Context<'a, 'b, 'c, 'info, ModifyLiquidity<'info>>,
     ) -> Result<()> {
-        instructions::remove_all_liquidity::handle(ctx)
+        instructions::withdraw::remove_all_liquidity::handle(ctx)
     }
 
     pub fn toggle_pair_status(ctx: Context<TogglePairStatus>) -> Result<()> {
-        instructions::toggle_pair_status::handle(ctx)
-    }
-
-    pub fn update_whitelisted_wallet(
-        ctx: Context<UpdateWhitelistWallet>,
-        idx: u8,
-        wallet: Pubkey,
-    ) -> Result<()> {
-        instructions::update_whitelisted_wallet::handle(ctx, idx.into(), wallet)
+        instructions::admin::toggle_pair_status::handle(ctx)
     }
 
     pub fn migrate_position(ctx: Context<MigratePosition>) -> Result<()> {
@@ -354,35 +336,31 @@ pub mod lb_clmm {
         ctx: Context<SetActivationPoint>,
         activation_point: u64,
     ) -> Result<()> {
-        instructions::set_activation_point::handle(ctx, activation_point)
-    }
-
-    pub fn set_lock_release_point(
-        ctx: Context<SetLockReleasePoint>,
-        new_lock_release_point: u64,
-    ) -> Result<()> {
-        instructions::set_lock_release_point::handle(ctx, new_lock_release_point)
+        instructions::admin::set_activation_point::handle(ctx, activation_point)
     }
 
     pub fn add_liquidity_one_side_precise<'a, 'b, 'c, 'info>(
         ctx: Context<'a, 'b, 'c, 'info, ModifyLiquidityOneSide<'info>>,
         parameter: AddLiquiditySingleSidePreciseParameter,
     ) -> Result<()> {
-        instructions::add_liquidity_single_side_precise::handle(ctx, parameter)
+        instructions::deposit::add_liquidity_single_side_precise::handle(ctx, parameter)
     }
 
     pub fn set_pre_activation_duration(
         ctx: Context<SetPreActivationInfo>,
         pre_activation_duration: u16,
     ) -> Result<()> {
-        instructions::set_pre_activation_sduration::handle(ctx, pre_activation_duration)
+        instructions::admin::set_pre_activation_duration::handle(ctx, pre_activation_duration)
     }
 
     pub fn set_pre_activation_swap_address(
         ctx: Context<SetPreActivationInfo>,
         pre_activation_swap_address: Pubkey,
     ) -> Result<()> {
-        instructions::set_pre_activation_swap_address::handle(ctx, pre_activation_swap_address)
+        instructions::admin::set_pre_activation_swap_address::handle(
+            ctx,
+            pre_activation_swap_address,
+        )
     }
 
     pub fn swap_exact_out<'a, 'b, 'c, 'info>(

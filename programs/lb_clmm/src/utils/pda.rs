@@ -1,4 +1,6 @@
-use super::seeds::{self, BIN_ARRAY, BIN_ARRAY_BITMAP_SEED, ORACLE, PRESET_PARAMETER};
+use super::seeds::{
+    self, BIN_ARRAY, BIN_ARRAY_BITMAP_SEED, ILM_BASE_KEY, ORACLE, PRESET_PARAMETER,
+};
 use anchor_lang::prelude::Pubkey;
 use num_traits::ToBytes;
 use std::{cmp::max, cmp::min};
@@ -15,6 +17,20 @@ pub fn derive_lb_pair_pda2(
             max(token_x_mint, token_y_mint).as_ref(),
             &bin_step.to_le_bytes(),
             &base_factor.to_le_bytes(),
+        ],
+        &crate::ID,
+    )
+}
+
+pub fn derive_customizable_permissionless_lb_pair(
+    token_x_mint: Pubkey,
+    token_y_mint: Pubkey,
+) -> (Pubkey, u8) {
+    Pubkey::find_program_address(
+        &[
+            ILM_BASE_KEY.as_ref(),
+            min(token_x_mint, token_y_mint).as_ref(),
+            max(token_x_mint, token_y_mint).as_ref(),
         ],
         &crate::ID,
     )
