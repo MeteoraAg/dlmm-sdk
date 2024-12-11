@@ -4504,7 +4504,7 @@ export class DLMM {
   public async initializeBinArrayBitMapExtension(binArrayBitmapExtension: PublicKey, funder: PublicKey): Promise<TransactionInstruction[]> {
     const ixs: TransactionInstruction[] = [];
 
-    const initializeBinArrayBitmapExtensionIx = await this.program.methods.initializeBinArrayBitMapExtension().accounts({
+    const initializeBinArrayBitmapExtensionIx = await this.program.methods.initializeBinArrayBitmapExtension().accounts({
       binArrayBitmapExtension,
       funder,
       lbPair: this.pubkey,
