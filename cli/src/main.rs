@@ -21,6 +21,9 @@ mod math;
 use args::*;
 use instructions::initialize_customizable_permissionless_lb_pair::InitCustomizablePermissionlessLbPairParameters;
 use instructions::initialize_lb_pair::*;
+use instructions::seed_liquidity_from_operator::{
+    seed_liquidity_by_operator, SeedLiquidityByOperatorParameters,
+};
 use instructions::seed_liquidity_single_bin::{
     seed_liquidity_single_bin, SeedLiquiditySingleBinParameters,
 };
@@ -403,6 +406,56 @@ async fn main() -> Result<()> {
                     curvature,
                 };
                 if let Err(err) = seed_liquidity(
+                    params,
+                    &amm_program,
+                    transaction_config,
+                    compute_unit_price_ix.clone(),
+                )
+                .await
+                {
+                    println!("Error: {}", err);
+                    retry_count += 1;
+                    if retry_count >= max_retries {
+                        println!("Exceeded max retries {}", max_retries);
+                        break;
+                    }
+                    tokio::time::sleep(Duration::from_secs(16)).await;
+                } else {
+                    break;
+                }
+            }
+        }
+        Command::SeedLiquidityByOperator {
+            lb_pair,
+            base_position_path,
+            amount,
+            min_price,
+            max_price,
+            base_pubkey,
+            curvature,
+            owner,
+            fee_owner,
+            lock_release_point,
+            max_retries,
+        } => {
+            let mut retry_count = 0;
+            loop {
+                let position_base_kp = read_keypair_file(base_position_path.clone())
+                    .expect("position base keypair file not found");
+
+                let params = SeedLiquidityByOperatorParameters {
+                    lb_pair,
+                    position_base_kp,
+                    amount,
+                    min_price,
+                    max_price,
+                    base_pubkey,
+                    owner,
+                    fee_owner,
+                    lock_release_point,
+                    curvature,
+                };
+                if let Err(err) = seed_liquidity_by_operator(
                     params,
                     &amm_program,
                     transaction_config,
