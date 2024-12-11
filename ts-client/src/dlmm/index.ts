@@ -4304,10 +4304,7 @@ export class DLMM {
     roundingUp: boolean
   ): Promise<Transaction> {
     const pricePerLamport = DLMM.getPricePerLamport(this.tokenX.decimal, this.tokenY.decimal, price);
-    let binIdNumber = DLMM.getBinIdFromPrice(pricePerLamport, this.lbPair.binStep, true);
-    if (roundingUp) {
-      binIdNumber = DLMM.getBinIdFromPrice(pricePerLamport, this.lbPair.binStep, false);
-    }
+    const binIdNumber = DLMM.getBinIdFromPrice(pricePerLamport, this.lbPair.binStep, !roundingUp);
 
     if (binIdNumber != this.lbPair.activeId) {
       throw new Error(`binId doesn't match active bin ID`);
