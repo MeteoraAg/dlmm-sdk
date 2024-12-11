@@ -4303,26 +4303,23 @@ export class DLMM {
     price: number,
     roundingUp: boolean
   ): Promise<Transaction> {
-    const toLamportMultiplier = new Decimal(
-      10 ** (this.tokenY.decimal - this.tokenX.decimal)
-    );
-
-    const pricePerLamport = new Decimal(price).mul(toLamportMultiplier);
-    let binId: BN = DLMM.getBinIdFromPrice(pricePerLamport, this.lbPair.binStep, true);
+    const pricePerLamport = DLMM.getPricePerLamport(this.tokenX.decimal, this.tokenY.decimal, price);
+    let binIdNumber = DLMM.getBinIdFromPrice(pricePerLamport, this.lbPair.binStep, true);
     if (roundingUp) {
-      binId = DLMM.getBinIdFromPrice(pricePerLamport, this.lbPair.roundStep, false);
+      binIdNumber = DLMM.getBinIdFromPrice(pricePerLamport, this.lbPair.binStep, false);
     }
 
-    if (binId != this.lbPair.activeId) {
+    if (binIdNumber != this.lbPair.activeId) {
       throw new Error(`binId doesn't match active bin ID`);
     }
 
+    const binId = new BN(binIdNumber);
     const lowerBinArrayIndex = binIdToBinArrayIndex(binId);
     const upperBinArrayIndex = lowerBinArrayIndex.add(new BN(1));
 
     const [lowerBinArray] = deriveBinArray(this.pubkey, lowerBinArrayIndex, this.program.programId);
     const [upperBinArray] = deriveBinArray(this.pubkey, upperBinArrayIndex, this.program.programId);
-    const [positionPda] = derivePosition(this.pubkey, base, binId, 1, this.program.programId);
+    const [positionPda] = derivePosition(this.pubkey, base, binId, new BN(1), this.program.programId);
 
     const setComputeUnitLimitIx = computeBudgetIx();
     const preInstructions = [setComputeUnitLimitIx];
@@ -4346,7 +4343,7 @@ export class DLMM {
     createPayerTokenXIx && preInstructions.push(createPayerTokenXIx);
     createPayerTokenYIx && preInstructions.push(createPayerTokenYIx);
 
-    let binArrayBitmapExtension = deriveBinArrayBitmapExtension(this.pubkey, this.program.programId);
+    let [binArrayBitmapExtension] = deriveBinArrayBitmapExtension(this.pubkey, this.program.programId);
     const accounts = await this.program.provider.connection.getMultipleAccountsInfo([
       lowerBinArray,
       upperBinArray,
@@ -4357,7 +4354,7 @@ export class DLMM {
     if (isOverflowDefaultBinArrayBitmap(lowerBinArrayIndex)) {
       const bitmapExtensionAccount = accounts[3];
       if (!bitmapExtensionAccount) {
-        preInstructions.push(await this.program.methods.initializeBinArrayBitMapExtension().accounts({
+        preInstructions.push(await this.program.methods.initializeBinArrayBitmapExtension().accounts({
           binArrayBitmapExtension,
           funder: owner,
           lbPair: this.pubkey
@@ -4403,15 +4400,17 @@ export class DLMM {
           .initializePositionPda(binId.toNumber(), 1)
           .accounts({
             position: positionPda,
-            funder: owner,
             lbPair: this.pubkey,
+            base,
+            owner,
+            payer: owner,
           })
           .instruction()
       );
     }
 
     const binLiquidityDist: BinLiquidityDistribution = {
-      binId,
+      binId: binIdNumber,
       distributionX: 10000,
       distributionY: 0
     };
@@ -4495,7 +4494,7 @@ export class DLMM {
   public async initializeBinArrayBitMapExtension(binArrayBitmapExtension: PublicKey, funder: PublicKey): Promise<TransactionInstruction[]> {
     const ixs: TransactionInstruction[] = [];
 
-    const initializeBinArrayBitmapExtensionIx = await this.program.methods.initializeBinArrayBitMapExtension().accounts({
+    const initializeBinArrayBitmapExtensionIx = await this.program.methods.initializeBinArrayBitmapExtension().accounts({
       binArrayBitmapExtension,
       funder,
       lbPair: this.pubkey,
