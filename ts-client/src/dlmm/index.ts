@@ -4321,8 +4321,7 @@ export class DLMM {
     const [upperBinArray] = deriveBinArray(this.pubkey, upperBinArrayIndex, this.program.programId);
     const [positionPda] = derivePosition(this.pubkey, base, binId, new BN(1), this.program.programId);
 
-    const setComputeUnitLimitIx = computeBudgetIx();
-    const preInstructions = [setComputeUnitLimitIx];
+    const preInstructions = [];
 
     const [
       { ataPubKey: userTokenX, ix: createPayerTokenXIx },
