@@ -28,14 +28,14 @@ use serde::{Deserialize, Serialize};
 use serde_json_any_key::*;
 
 #[derive(Serialize, Deserialize, Default)]
-struct DustDepositState {
-    lb_pair: Pubkey,
-    dust_amount: u64,
+pub struct DustDepositState {
+    pub lb_pair: Pubkey,
+    pub dust_amount: u64,
     #[serde(with = "any_key_map")]
-    bins_amount_x: HashMap<i32, u64>,
-    total_amount_in_bins_onchain: u64,
+    pub bins_amount_x: HashMap<i32, u64>,
+    pub total_amount_in_bins_onchain: u64,
     #[serde(with = "any_key_map")]
-    position_shares: HashMap<Pubkey, Vec<u128>>,
+    pub position_shares: HashMap<Pubkey, Vec<u128>>,
 }
 
 pub fn to_wei_amount(amount: u64, decimal: u8) -> Result<u64> {
@@ -74,7 +74,7 @@ fn get_base(bin_step: u16) -> f64 {
     1.0 + bin_step as f64 / 10_000.0
 }
 
-fn get_ui_price_from_id(
+pub fn get_ui_price_from_id(
     bin_step: u16,
     bin_id: i32,
     base_token_decimal: i32,
@@ -84,7 +84,10 @@ fn get_ui_price_from_id(
     base.powi(bin_id) * 10.0f64.powi(base_token_decimal - quote_token_decimal)
 }
 
-fn get_number_of_position_required_to_cover_range(min_bin_id: i32, max_bin_id: i32) -> Result<i32> {
+pub fn get_number_of_position_required_to_cover_range(
+    min_bin_id: i32,
+    max_bin_id: i32,
+) -> Result<i32> {
     let bin_delta = max_bin_id
         .checked_sub(min_bin_id)
         .context("bin_delta overflow")?;
@@ -159,7 +162,7 @@ async fn get_or_create_position<C: Deref<Target = impl Signer> + Clone>(
     Ok(position_state)
 }
 
-async fn deposit<C: Deref<Target = impl Signer> + Clone>(
+pub async fn deposit<C: Deref<Target = impl Signer> + Clone>(
     program: &Program<C>,
     position: Pubkey,
     position_state: &PositionV2,
@@ -236,7 +239,7 @@ async fn deposit<C: Deref<Target = impl Signer> + Clone>(
     Ok(signature?.to_string())
 }
 
-async fn create_position_bin_array_if_not_exists<C: Deref<Target = impl Signer> + Clone>(
+pub async fn create_position_bin_array_if_not_exists<C: Deref<Target = impl Signer> + Clone>(
     program: &Program<C>,
     lb_pair: Pubkey,
     lower_bin_id: i32,
@@ -298,7 +301,7 @@ async fn create_position_bin_array_if_not_exists<C: Deref<Target = impl Signer> 
     Ok((lower_bin_array_idx, upper_bin_array_idx))
 }
 
-fn deposit_amount_to_deposit_parameter(
+pub fn deposit_amount_to_deposit_parameter(
     bins_amount: &HashMap<i32, u64>,
     lower_bin_id: i32,
     upper_bin_id: i32,
@@ -341,7 +344,7 @@ fn deposit_amount_to_deposit_parameter(
     Ok((bin_liquidity_dist, total_amount))
 }
 
-async fn get_on_chain_bins_amount_x<C: Deref<Target = impl Signer> + Clone>(
+pub async fn get_on_chain_bins_amount_x<C: Deref<Target = impl Signer> + Clone>(
     lb_pair: Pubkey,
     min_bin_id: i32,
     max_bin_id: i32,
@@ -371,7 +374,7 @@ async fn get_on_chain_bins_amount_x<C: Deref<Target = impl Signer> + Clone>(
     Ok((bins_amount_x, total_amount_x))
 }
 
-fn generate_redistribute_amount_to_position_based_on_ratio(
+pub fn generate_redistribute_amount_to_position_based_on_ratio(
     on_chain_bins_amount_x: &HashMap<i32, u64>,
     on_chain_total_amount_x: u128,
     leftover_amount: u128,
@@ -407,7 +410,7 @@ fn generate_redistribute_amount_to_position_based_on_ratio(
     Ok((position_bin_liquidity_dist, position_redistributed_amount))
 }
 
-fn read_dust_deposit_state(path: &str) -> Result<DustDepositState> {
+pub fn read_dust_deposit_state(path: &str) -> Result<DustDepositState> {
     let file = File::open(path);
     match file {
         std::io::Result::Ok(file) => {
@@ -419,7 +422,7 @@ fn read_dust_deposit_state(path: &str) -> Result<DustDepositState> {
     }
 }
 
-fn write_dust_deposit_state(path: &str, dust_deposit_state: &DustDepositState) -> Result<()> {
+pub fn write_dust_deposit_state(path: &str, dust_deposit_state: &DustDepositState) -> Result<()> {
     let file = File::create(path)?;
     let mut writer = BufWriter::new(file);
     serde_json::to_writer(&mut writer, dust_deposit_state)?;
@@ -844,7 +847,7 @@ fn get_c(
     c as u64
 }
 
-fn generate_amount_for_bins(
+pub fn generate_amount_for_bins(
     bin_step: u16,
     min_bin_id: i32,
     max_bin_id: i32,

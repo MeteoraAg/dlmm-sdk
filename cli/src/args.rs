@@ -310,6 +310,43 @@ pub enum Command {
         max_retries: u16,
     },
 
+    /// Seed liquidity by operator
+    SeedLiquidityByOperator {
+        /// Address of the pair
+        #[clap(long)]
+        lb_pair: Pubkey,
+        /// Base position path
+        #[clap(long)]
+        base_position_path: String,
+        /// Amount of x
+        #[clap(long)]
+        amount: u64,
+        /// Min price
+        #[clap(long)]
+        min_price: f64,
+        /// Max price
+        #[clap(long)]
+        max_price: f64,
+        /// Base pubkey
+        #[clap(long)]
+        base_pubkey: Pubkey,
+        /// Curvature
+        #[clap(long)]
+        curvature: f64,
+        /// owner
+        #[clap(long)]
+        owner: Pubkey,
+        /// fee owner
+        #[clap(long)]
+        fee_owner: Pubkey,
+        /// lock release point
+        #[clap(long)]
+        lock_release_point: u64,
+        /// Max retries
+        #[clap(long)]
+        max_retries: u16,
+    },
+
     SeedLiquiditySingleBin {
         /// Address of the pair
         #[clap(long)]
