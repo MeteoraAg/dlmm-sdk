@@ -10,11 +10,6 @@ min_price=0.003
 max_price=0.03
 curvature=0.8
 
-# Activation type. 0 = Slot, 1 = Timestamp
-activation_type=0
-# Pool start trading time/slot
-activation_point=200000
-
 # Pool token mints
 base_mint="ENPCBkoLSxAXcqu916pc1wrfVfqP6Fu5qbr9nJLnKFsV"
 quote_mint="So11111111111111111111111111111111111111112"
@@ -30,7 +25,7 @@ lock_release_point=0
 
 # Base position keypair path
 base_position_path="../keys/localnet/admin-bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1.json"
-operator_kp_path= "../keys/localnet/admin-bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1.json"
+operator_kp_path="../keys/localnet/admin-bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1.json"
 # Get base_position_path pubkey by solana-keygen pubkey <base_position_path>
 base_position_key="bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1"
 
