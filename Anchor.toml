@@ -31,3 +31,6 @@ directory = "./artifacts/alpha-access"
 
 [test]
 startup_wait = 50000
+
+[toolchain]
+anchor_version = "0.28.0"
