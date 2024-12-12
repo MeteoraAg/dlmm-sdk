@@ -1222,7 +1222,7 @@ export class DLMM {
       .transaction();
   }
 
-  public static async createCustomizablePermissionlessLbPairIxs(
+  public static async createCustomizablePermissionlessLbPairIx(
     connection: Connection,
     binStep: BN,
     tokenX: PublicKey,
