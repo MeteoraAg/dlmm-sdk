@@ -4290,24 +4290,30 @@ export class DLMM {
  * The `seedLiquidity` function create multiple grouped instructions. The grouped instructions will be either [initialize bin array + initialize position instructions] or [deposit instruction] combination.
  * @param
  *    - `owner`: The public key of the positions owner.
- *    - `seedAmount`: Lamport amount to be seeded to the pool.
+ *    - `tokenXSeedAmount`: Token X lamport amount to be seeded to the pool.
+ *    - `tokenYSeedAmount`: Token Y lamport amount to be seeded to the pool.
+ *    - `tokenXBpsDistribution`: Token X amount distribution in bin in bps.
+ *    - `tokenYBpsDistribution`: Token Y amount distribution in bin in bps.
  *    - `price`: Price in UI format
  *    - `base`: Base key
  *    - `roundingUp`: 
- * @returns {Promise<Transaction>}
+ * @returns {Promise<TransactionInstruction[]>}
  */
   public async seedLiquiditySingleBin(
     owner: PublicKey,
     base: PublicKey,
-    seedAmount: BN,
+    tokenXSeedAmount: BN,
+    tokenYSeedAmount: BN,
+    tokenXBpsDistribution: number,
+    tokenYBpsDistribution: number,
     price: number,
     roundingUp: boolean
-  ): Promise<Transaction> {
+  ): Promise<TransactionInstruction[]> {
     const pricePerLamport = DLMM.getPricePerLamport(this.tokenX.decimal, this.tokenY.decimal, price);
     const binIdNumber = DLMM.getBinIdFromPrice(pricePerLamport, this.lbPair.binStep, !roundingUp);
 
-    if (binIdNumber != this.lbPair.activeId) {
-      throw new Error(`binId doesn't match active bin ID`);
+    if (tokenXBpsDistribution + tokenYBpsDistribution != 10000) {
+      throw new Error(`sum of tokenXBpsDistribution and tokenYBpsDistribution must equal to 10000`);
     }
 
     const binId = new BN(binIdNumber);
@@ -4407,17 +4413,17 @@ export class DLMM {
 
     const binLiquidityDist: BinLiquidityDistribution = {
       binId: binIdNumber,
-      distributionX: 10000,
-      distributionY: 0
+      distributionX: tokenXBpsDistribution,
+      distributionY: tokenYBpsDistribution
     };
 
     const addLiquidityParams: LiquidityParameter = {
-      amountX: seedAmount,
-      amountY: new BN(0),
+      amountX: tokenXSeedAmount,
+      amountY: tokenYSeedAmount,
       binLiquidityDist: [binLiquidityDist]
     };
 
-    const depositLiquidityTx = await this.program.methods.addLiquidity(addLiquidityParams).accounts({
+    const depositLiquidityIx = await this.program.methods.addLiquidity(addLiquidityParams).accounts({
       position: positionPda,
       lbPair: this.pubkey,
       binArrayBitmapExtension,
@@ -4432,15 +4438,9 @@ export class DLMM {
       sender: owner,
       tokenXProgram: TOKEN_PROGRAM_ID,
       tokenYProgram: TOKEN_PROGRAM_ID,
-    }).preInstructions(preInstructions).transaction();
+    }).instruction();
 
-    const { blockhash, lastValidBlockHeight } =
-      await this.program.provider.connection.getLatestBlockhash("confirmed");
-    return new Transaction({
-      blockhash,
-      lastValidBlockHeight,
-      feePayer: owner,
-    }).add(depositLiquidityTx);
+    return [...preInstructions, depositLiquidityIx];
   }
 
   /**

@@ -30,7 +30,7 @@ const keypairBuffer = fs.readFileSync(
   "utf-8"
 );
 const connection = new Connection("http://127.0.0.1:8899", "confirmed");
-const keypair = Keypair.fromSecretKey(
+const owner = Keypair.fromSecretKey(
   new Uint8Array(JSON.parse(keypairBuffer))
 );
 const programId = new PublicKey(LBCLMM_PROGRAM_IDS["localhost"]);
@@ -43,7 +43,7 @@ describe("Single Bin Seed Liquidity Test", () => {
     const feeBps = new BN(500);
     const initialPrice = 0.000001;
     const binStep = 100;
-    const seedAmount = new BN(200_000_000_000);
+    const wenSeedAmount = new BN(200_000 * 10 ** wenDecimal);
 
     let WEN: web3.PublicKey;
     let USDC: web3.PublicKey;
@@ -58,8 +58,8 @@ describe("Single Bin Seed Liquidity Test", () => {
     beforeAll(async () => {
       WEN = await createMint(
         connection,
-        keypair,
-        keypair.publicKey,
+        owner,
+        owner.publicKey,
         null,
         wenDecimal,
         Keypair.generate(),
@@ -69,8 +69,8 @@ describe("Single Bin Seed Liquidity Test", () => {
 
       USDC = await createMint(
         connection,
-        keypair,
-        keypair.publicKey,
+        owner,
+        owner.publicKey,
         null,
         usdcDecimal,
         Keypair.generate(),
@@ -80,9 +80,9 @@ describe("Single Bin Seed Liquidity Test", () => {
 
       const userWenInfo = await getOrCreateAssociatedTokenAccount(
         connection,
-        keypair,
+        owner,
         WEN,
-        keypair.publicKey,
+        owner.publicKey,
         false,
         "confirmed",
         {
@@ -95,9 +95,9 @@ describe("Single Bin Seed Liquidity Test", () => {
 
       const userUsdcInfo = await getOrCreateAssociatedTokenAccount(
         connection,
-        keypair,
+        owner,
         USDC,
-        keypair.publicKey,
+        owner.publicKey,
         false,
         "confirmed",
         {
@@ -110,11 +110,11 @@ describe("Single Bin Seed Liquidity Test", () => {
 
       await mintTo(
         connection,
-        keypair,
+        owner,
         WEN,
         userWEN,
-        keypair.publicKey,
-        200_000_000_000 * 10 ** wenDecimal,
+        owner.publicKey,
+        wenSeedAmount.toNumber(),
         [],
         {
           commitment: "confirmed",
@@ -124,10 +124,10 @@ describe("Single Bin Seed Liquidity Test", () => {
 
       await mintTo(
         connection,
-        keypair,
+        owner,
         USDC,
         userUSDC,
-        keypair.publicKey,
+        owner.publicKey,
         1_000_000_000 * 10 ** usdcDecimal,
         [],
         {
@@ -136,7 +136,81 @@ describe("Single Bin Seed Liquidity Test", () => {
         TOKEN_PROGRAM_ID
       );
 
+      const slot = await connection.getSlot();
+      const activationPoint = new BN(slot).add(new BN(100));
+
+      let rawTx = await DLMM.createCustomizablePermissionlessLbPair(
+        connection,
+        new BN(binStep),
+        WEN,
+        USDC,
+        new BN(binId.toString()),
+        feeBps,
+        ActivationType.Slot,
+        false, // No alpha vault. Set to true the program will deterministically whitelist the alpha vault to swap before the pool start trading. Check: https://github.com/MeteoraAg/alpha-vault-sdk initialize{Prorata|Fcfs}Vault method to create the alpha vault.
+        owner.publicKey,
+        activationPoint,
+        {
+          cluster: "localhost",
+        }
+      );
+
+      let txHash = await sendAndConfirmTransaction(connection, rawTx, [
+        owner,
+      ]).catch((e) => {
+        console.error(e);
+        throw e;
+      });
+      console.log("Create permissioned LB pair", txHash);
+
+      [pairKey] = deriveCustomizablePermissionlessLbPair(WEN, USDC, programId);
+
+      pair = await DLMM.create(connection, pairKey, {
+        cluster: "localhost",
+      });
+
     });
 
+    it("seed liquidity single bin", async () => {
+      const ixs = await pair.seedLiquiditySingleBin(
+        owner.publicKey,
+        baseKeypair.publicKey,
+        wenSeedAmount,
+        new BN(0),
+        10000,
+        0,
+        initialPrice,
+        true
+      );
+
+      const { blockhash, lastValidBlockHeight } =
+        await connection.getLatestBlockhash("confirmed");
+      const tx = new Transaction({
+        feePayer: owner.publicKey,
+        blockhash,
+        lastValidBlockHeight,
+      }).add(...ixs);
+
+
+      const beforeTokenXBalance = await connection
+        .getTokenAccountBalance(userWEN)
+        .then((i) => new BN(i.value.amount));
+
+      await sendAndConfirmTransaction(connection, tx, [
+        owner,
+        baseKeypair,
+      ]).catch((e) => {
+        console.error(e)
+      });
+
+      const afterTokenXBalance = await connection
+        .getTokenAccountBalance(userWEN)
+        .then((i) => new BN(i.value.amount));
+
+      const actualDepositedAmount = beforeTokenXBalance.sub(afterTokenXBalance);
+      expect(actualDepositedAmount.toString()).toEqual(wenSeedAmount.toString());
+    })
+
   })
-})
+
+});
