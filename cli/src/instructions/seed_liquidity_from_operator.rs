@@ -45,14 +45,14 @@ async fn get_or_create_position<C: Deref<Target = impl Signer> + Clone>(
 
     let (position, _bump) = derive_position_pda(lb_pair, base, lower_bin_id, width);
 
-    let lp_pair_state: LbPair = program.account(lb_pair).await?;
+    let lb_pair_state: LbPair = program.account(lb_pair).await?;
 
     if program.rpc().get_account_data(&position).is_err() {
         let mut builder = program.request();
 
         let operator_token_x =
-            get_associated_token_address(&program.payer(), &lp_pair_state.token_x_mint);
-        let owner_token_x = get_associated_token_address(&owner, &lp_pair_state.token_x_mint);
+            get_associated_token_address(&program.payer(), &lb_pair_state.token_x_mint);
+        let owner_token_x = get_associated_token_address(&owner, &lb_pair_state.token_x_mint);
 
         match program.rpc().get_account(&owner_token_x) {
             std::result::Result::Ok(value) => {
@@ -76,7 +76,7 @@ async fn get_or_create_position<C: Deref<Target = impl Signer> + Clone>(
                     .instruction(create_associated_token_account(
                         &program.payer(),
                         &owner,
-                        &lp_pair_state.token_x_mint,
+                        &lb_pair_state.token_x_mint,
                         &spl_token::ID,
                     ))
                     .instruction(spl_token::instruction::transfer(
@@ -143,7 +143,7 @@ pub struct SeedLiquidityByOperatorParameters {
     pub min_price: f64,
     pub max_price: f64,
     pub base_pubkey: Pubkey,
-    pub owner: Pubkey,
+    pub position_owner: Pubkey,
     pub fee_owner: Pubkey,
     pub lock_release_point: u64,
     pub curvature: f64,
@@ -161,7 +161,7 @@ pub async fn seed_liquidity_by_operator<C: Deref<Target = impl Signer> + Clone>(
         amount,
         min_price,
         max_price,
-        owner,
+        position_owner,
         fee_owner,
         lock_release_point,
         base_pubkey,
@@ -280,7 +280,7 @@ pub async fn seed_liquidity_by_operator<C: Deref<Target = impl Signer> + Clone>(
             lower_bin_id,
             upper_bin_id,
             width,
-            owner,
+            position_owner,
             fee_owner,
             lock_release_point,
             transaction_config,
