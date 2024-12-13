@@ -4290,31 +4290,31 @@ export class DLMM {
  * The `seedLiquidity` function create multiple grouped instructions. The grouped instructions will be either [initialize bin array + initialize position instructions] or [deposit instruction] combination.
  * @param
  *    - `owner`: The public key of the positions owner.
- *    - `tokenXSeedAmount`: Token X lamport amount to be seeded to the pool.
- *    - `tokenYSeedAmount`: Token Y lamport amount to be seeded to the pool.
- *    - `tokenXBpsDistribution`: Token X amount distribution in bin in bps.
- *    - `tokenYBpsDistribution`: Token Y amount distribution in bin in bps.
- *    - `price`: Price in UI format
  *    - `base`: Base key
- *    - `roundingUp`: 
+ *    - `seedAmount`: Lamport amount to be seeded to the pool.
+ *    - `isTokenX`: Indicate that the seed amount will be 100 percent token X or token Y.
+ *    - `price`: TokenX/TokenY Price in UI format
+ *    - `roundingUp`: Whether to round up the price
+ *    - `feeOwner`: Position fee owner
+ *    - `operator`: Operator of the position. Operator able to manage the position on behalf of the position owner. However, liquidity withdrawal issue by the operator can only send to the position owner.
+ *    - `lockReleasePoint`: The lock release point of the position.
+ * 
+ * The returned instructions need to be executed sequentially if it was separated into multiple transactions.
  * @returns {Promise<TransactionInstruction[]>}
  */
   public async seedLiquiditySingleBin(
     owner: PublicKey,
     base: PublicKey,
-    tokenXSeedAmount: BN,
-    tokenYSeedAmount: BN,
-    tokenXBpsDistribution: number,
-    tokenYBpsDistribution: number,
+    seedAmount: BN,
+    isTokenX: boolean,
     price: number,
-    roundingUp: boolean
+    roundingUp: boolean,
+    feeOwner: PublicKey,
+    operator: PublicKey,
+    lockReleasePoint: BN
   ): Promise<TransactionInstruction[]> {
     const pricePerLamport = DLMM.getPricePerLamport(this.tokenX.decimal, this.tokenY.decimal, price);
     const binIdNumber = DLMM.getBinIdFromPrice(pricePerLamport, this.lbPair.binStep, !roundingUp);
-
-    if (tokenXBpsDistribution + tokenYBpsDistribution != 10000) {
-      throw new Error(`sum of tokenXBpsDistribution and tokenYBpsDistribution must equal to 10000`);
-    }
 
     const binId = new BN(binIdNumber);
     const lowerBinArrayIndex = binIdToBinArrayIndex(binId);
@@ -4323,6 +4323,17 @@ export class DLMM {
     const [lowerBinArray] = deriveBinArray(this.pubkey, lowerBinArrayIndex, this.program.programId);
     const [upperBinArray] = deriveBinArray(this.pubkey, upperBinArrayIndex, this.program.programId);
     const [positionPda] = derivePosition(this.pubkey, base, binId, new BN(1), this.program.programId);
+    const operatorTokenX = getAssociatedTokenAddressSync(
+      this.lbPair.tokenXMint,
+      operator,
+      true
+    );
+
+    const ownerTokenX = getAssociatedTokenAddressSync(
+      this.lbPair.tokenXMint,
+      owner,
+      true
+    );
 
     const preInstructions = [];
 
@@ -4399,13 +4410,16 @@ export class DLMM {
     if (!positionAccount) {
       preInstructions.push(
         await this.program.methods
-          .initializePositionPda(binId.toNumber(), 1)
+          .initializePositionByOperator(binId.toNumber(), 1, feeOwner, lockReleasePoint)
           .accounts({
+            payer: owner,
+            base,
             position: positionPda,
             lbPair: this.pubkey,
-            base,
             owner,
-            payer: owner,
+            operator,
+            operatorTokenX,
+            ownerTokenX,
           })
           .instruction()
       );
@@ -4413,13 +4427,13 @@ export class DLMM {
 
     const binLiquidityDist: BinLiquidityDistribution = {
       binId: binIdNumber,
-      distributionX: tokenXBpsDistribution,
-      distributionY: tokenYBpsDistribution
+      distributionX: isTokenX ? 10000 : 0,
+      distributionY: isTokenX ? 0 : 10000,
     };
 
     const addLiquidityParams: LiquidityParameter = {
-      amountX: tokenXSeedAmount,
-      amountY: tokenYSeedAmount,
+      amountX: isTokenX ? seedAmount : new BN(0),
+      amountY: isTokenX ? new BN(0) : seedAmount,
       binLiquidityDist: [binLiquidityDist]
     };
 
@@ -4476,26 +4490,6 @@ export class DLMM {
         );
       }
     }
-
-    return ixs;
-  }
-
-  /**
- * Initializes bin arrays for the given bin array bitmap extension if it wasn't initialized.
- *
- * @param {PublicKey} binArrayBitmapExtension - The public key of the bin array bitmap extension
- * @param {PublicKey} funder - The public key of the funder.
- * @return {Promise<TransactionInstruction[]>} An array of transaction instructions to initialize the bin arrays.
- */
-  public async initializeBinArrayBitMapExtension(binArrayBitmapExtension: PublicKey, funder: PublicKey): Promise<TransactionInstruction[]> {
-    const ixs: TransactionInstruction[] = [];
-
-    const initializeBinArrayBitmapExtensionIx = await this.program.methods.initializeBinArrayBitmapExtension().accounts({
-      binArrayBitmapExtension,
-      funder,
-      lbPair: this.pubkey,
-    }).instruction();
-    ixs.push(initializeBinArrayBitmapExtensionIx)
 
     return ixs;
   }

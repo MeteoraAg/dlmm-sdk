@@ -176,11 +176,12 @@ describe("Single Bin Seed Liquidity Test", () => {
         owner.publicKey,
         baseKeypair.publicKey,
         wenSeedAmount,
-        new BN(0),
-        10000,
-        0,
+        true,
         initialPrice,
-        true
+        true,
+        owner.publicKey,
+        owner.publicKey,
+        new BN(0)
       );
 
       const { blockhash, lastValidBlockHeight } =
