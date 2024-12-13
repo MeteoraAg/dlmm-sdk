@@ -176,7 +176,6 @@ describe("Single Bin Seed Liquidity Test", () => {
         owner.publicKey,
         baseKeypair.publicKey,
         wenSeedAmount,
-        true,
         initialPrice,
         true,
         owner.publicKey,
