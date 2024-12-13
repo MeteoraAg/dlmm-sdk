@@ -21,6 +21,7 @@ import {
 import { Bin, ClmmProgram, GetOrCreateATAResponse } from "../types";
 import { Rounding, mulShr, shlDiv } from "./math";
 import { getSimulationComputeUnits } from "@solana-developers/helpers";
+import { MAX_CU_BUFFER, MIN_CU_BUFFER } from "./computeUnit";
 
 export * from "./derive";
 export * from "./binArray";
@@ -201,7 +202,9 @@ export async function chunkedGetMultipleAccountInfos(
 /**
  * Gets the estimated compute unit usage with a buffer.
  * @param connection A Solana connection object.
- * @param buffer The buffer to add to the estimated compute unit usage. Max value is 1. Default value is 0.1 if not provided.
+ * @param instructions The instructions of the transaction to simulate.
+ * @param feePayer The public key of the fee payer.
+ * @param buffer The buffer to add to the estimated compute unit usage. Max value is 1. Default value is 0.1 if not provided, and will be capped between 50k - 200k.
  * @returns The estimated compute unit usage with the buffer.
  */
 export const getEstimatedComputeUnitUsageWithBuffer = async (
@@ -225,12 +228,14 @@ export const getEstimatedComputeUnitUsageWithBuffer = async (
     []
   );
 
-  const estimatedComputeUnitUsageWithBuffer = Math.min(
-    estimatedComputeUnitUsage * (1 + buffer),
-    1_400_000
-  );
+  let extraComputeUnitBuffer = estimatedComputeUnitUsage * buffer;
+  if (extraComputeUnitBuffer > MAX_CU_BUFFER) {
+    extraComputeUnitBuffer = MAX_CU_BUFFER;
+  } else if (extraComputeUnitBuffer < MIN_CU_BUFFER) {
+    extraComputeUnitBuffer = MIN_CU_BUFFER;
+  }
 
-  return estimatedComputeUnitUsageWithBuffer;
+  return estimatedComputeUnitUsage + extraComputeUnitBuffer;
 };
 
 /**
@@ -239,7 +244,7 @@ export const getEstimatedComputeUnitUsageWithBuffer = async (
  * @param connection A Solana connection object.
  * @param instructions The instructions of the transaction to simulate.
  * @param feePayer The public key of the fee payer.
- * @param buffer The buffer to add to the estimated compute unit usage. Max value is 1. Default value is 0.1 if not provided.
+ * @param buffer The buffer to add to the estimated compute unit usage. Max value is 1. Default value is 0.1 if not provided, and will be capped between 50k - 200k.
  * @returns A SetComputeUnitLimit instruction with the estimated compute unit usage.
  */
 export const getEstimatedComputeUnitIxWithBuffer = async (
