@@ -73,10 +73,6 @@ import {
   wrapSOLInstruction,
 } from "./helpers";
 import {
-  DEFAULT_ADD_LIQUIDITY_CU,
-  DEFAULT_REMOVE_LIQUIDITY_CU,
-} from "./helpers/computeUnit";
-import {
   Rounding,
   compressBinAmount,
   computeBaseFactorFromFeeBps,
@@ -139,6 +135,7 @@ import {
   sParameters,
   vParameters,
 } from "./types";
+import { DEFAULT_ADD_LIQUIDITY_CU } from "./helpers/computeUnit";
 
 type Opt = {
   cluster?: Cluster | "localhost";
@@ -2893,8 +2890,7 @@ export class DLMM {
     const setCUIx = await getEstimatedComputeUnitIxWithBuffer(
       this.program.provider.connection,
       [addLiqIx],
-      user,
-      DEFAULT_ADD_LIQUIDITY_CU
+      user
     );
 
     const mainInstructions = [setCUIx, addLiqIx];
@@ -3140,8 +3136,7 @@ export class DLMM {
     const setCUIx = await getEstimatedComputeUnitIxWithBuffer(
       this.program.provider.connection,
       instructions,
-      user,
-      DEFAULT_REMOVE_LIQUIDITY_CU
+      user
     );
 
     instructions.unshift(setCUIx);

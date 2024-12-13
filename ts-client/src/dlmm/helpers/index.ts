@@ -239,7 +239,6 @@ export const getEstimatedComputeUnitUsageWithBuffer = async (
  * @param connection A Solana connection object.
  * @param instructions The instructions of the transaction to simulate.
  * @param feePayer The public key of the fee payer.
- * @param fallbackUnit The fallback compute unit limit.
  * @param buffer The buffer to add to the estimated compute unit usage. Max value is 1. Default value is 0.1 if not provided.
  * @returns A SetComputeUnitLimit instruction with the estimated compute unit usage.
  */
@@ -247,7 +246,6 @@ export const getEstimatedComputeUnitIxWithBuffer = async (
   connection: Connection,
   instructions: TransactionInstruction[],
   feePayer: PublicKey,
-  fallbackUnit?: number,
   buffer?: number
 ) => {
   const units = await getEstimatedComputeUnitUsageWithBuffer(
@@ -257,10 +255,7 @@ export const getEstimatedComputeUnitIxWithBuffer = async (
     buffer
   ).catch((error) => {
     console.error("Error::getEstimatedComputeUnitUsageWithBuffer", error);
-    if (fallbackUnit) {
-      return fallbackUnit;
-    }
-    throw error;
+    return 1_400_000;
   });
 
   return ComputeBudgetProgram.setComputeUnitLimit({ units });
