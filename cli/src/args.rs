@@ -333,9 +333,9 @@ pub enum Command {
         /// Curvature
         #[clap(long)]
         curvature: f64,
-        /// owner
+        /// position owner
         #[clap(long)]
-        owner: Pubkey,
+        position_owner: Pubkey,
         /// fee owner
         #[clap(long)]
         fee_owner: Pubkey,
@@ -365,6 +365,36 @@ pub enum Command {
         /// Position owner
         #[clap(long)]
         position_owner_path: String,
+        /// Selective rounding
+        #[clap(long)]
+        selective_rounding: SelectiveRounding,
+    },
+
+    SeedLiquiditySingleBinByOperator {
+        /// Address of the pair
+        #[clap(long)]
+        lb_pair: Pubkey,
+        /// Base position path
+        #[clap(long)]
+        base_position_path: String,
+        /// Base position pubkey
+        #[clap(long)]
+        base_pubkey: Pubkey,
+        /// amount of x
+        #[clap(long)]
+        amount: u64,
+        /// price
+        #[clap(long)]
+        price: f64,
+        /// Position owner
+        #[clap(long)]
+        position_owner: Pubkey,
+        /// lock release point
+        #[clap(long)]
+        lock_release_point: u64,
+        /// fee owner
+        #[clap(long)]
+        fee_owner: Pubkey,
         /// Selective rounding
         #[clap(long)]
         selective_rounding: SelectiveRounding,

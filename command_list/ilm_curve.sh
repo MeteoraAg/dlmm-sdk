@@ -1,51 +1,29 @@
 #!/bin/bash
 
-cluster="https://api.mainnet-beta.solana.com"
+cluster="https://api.devnet.solana.com"
 # cluster="http://localhost:8899"
 
-# ILM parameters
-bin_step=80
-base_fee_bps=300
+# Get from initialize pair
+pair="[LB pair public key]"
+
 min_price=0.003
 max_price=0.03
-curvature=0.8
-
-# Activation type. 0 = Slot, 1 = Timestamp
-activation_type=0
-# Pool start trading time/slot
-activation_point=200000
-
-# Pool token mints
-base_mint="ENPCBkoLSxAXcqu916pc1wrfVfqP6Fu5qbr9nJLnKFsV"
-quote_mint="So11111111111111111111111111111111111111112"
+curvature=0.6
 
 # Liquidity for seeding. UI amount.
 amount=150000000
 
 # Keypair paths
 # Position owner keypair path
-position_owner_path="../keys/localnet/admin-bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1.json"
+position_owner_path="[Position owner keypair path]"
 
 # Base position keypair path
-base_position_path="../keys/localnet/admin-bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1.json"
+base_position_path="[Base keypair path]"
 
 # Get base_position_path pubkey by solana-keygen pubkey <base_position_path>
-base_position_key="bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1"
+base_position_key="[Base public key]"
 
 priority_fee_microlamport=100000
-
-# Initialize pair without alpha vault
-../target/debug/cli initialize-customizable-permissionless-lb-pair --bin-step $bin_step --token-mint-x $base_mint --token-mint-y $quote_mint --initial-price $min_price \
- --base-fee-bps $base_fee_bps --activation-type $activation_type --selective-rounding "up" --activation-point $activation_point \
- --provider.cluster $cluster --provider.wallet $position_owner_path --priority-fee $priority_fee_microlamport
-
-# Initialize pair with alpha vault
-../target/debug/cli initialize-customizable-permissionless-lb-pair --bin-step $bin_step --token-mint-x $base_mint --token-mint-y $quote_mint --initial-price $min_price \
- --base-fee-bps $base_fee_bps --activation-type $activation_type --selective-rounding "up" --activation-point $activation_point --has-alpha-vault \
- --provider.cluster $cluster --provider.wallet $position_owner_path --priority-fee $priority_fee_microlamport
-
-# Get from initialize pair
-pair="3ZcwH1XJTeozxrr3gbK3GYuNPpeG6SPZcwM9vpgPJj7b"
 
 max_retries=1000
 

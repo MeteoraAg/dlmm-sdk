@@ -27,6 +27,9 @@ use instructions::seed_liquidity_from_operator::{
 use instructions::seed_liquidity_single_bin::{
     seed_liquidity_single_bin, SeedLiquiditySingleBinParameters,
 };
+use instructions::seed_liquidity_single_bin_by_operator::{
+    seed_liquidity_single_bin_by_operator, SeedLiquiditySingleBinByOperatorParameters,
+};
 use lb_clmm::state::preset_parameters::PresetParameter;
 
 use crate::instructions::initialize_bin_array_with_bin_range::{
@@ -433,7 +436,7 @@ async fn main() -> Result<()> {
             max_price,
             base_pubkey,
             curvature,
-            owner,
+            position_owner,
             fee_owner,
             lock_release_point,
             max_retries,
@@ -450,7 +453,7 @@ async fn main() -> Result<()> {
                     min_price,
                     max_price,
                     base_pubkey,
-                    owner,
+                    position_owner,
                     fee_owner,
                     lock_release_point,
                     curvature,
@@ -500,6 +503,39 @@ async fn main() -> Result<()> {
                 selective_rounding,
             };
             seed_liquidity_single_bin(
+                params,
+                &amm_program,
+                transaction_config,
+                compute_unit_price_ix,
+            )
+            .await?;
+        }
+        Command::SeedLiquiditySingleBinByOperator {
+            lb_pair,
+            base_position_path,
+            base_pubkey,
+            amount,
+            price,
+            position_owner,
+            fee_owner,
+            lock_release_point,
+            selective_rounding,
+        } => {
+            let position_base_kp = read_keypair_file(base_position_path)
+                .expect("position base keypair file not found");
+
+            let params = SeedLiquiditySingleBinByOperatorParameters {
+                lb_pair,
+                position_base_kp,
+                amount,
+                price,
+                base_pubkey,
+                position_owner,
+                fee_owner,
+                lock_release_point,
+                selective_rounding,
+            };
+            seed_liquidity_single_bin_by_operator(
                 params,
                 &amm_program,
                 transaction_config,

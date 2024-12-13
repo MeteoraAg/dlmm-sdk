@@ -1,5 +1,6 @@
 [workspace]
 members = ["programs/*", "cli", "market_making", "commons"]
+resolver = "2"
 
 [workspace.dependencies]
 anchor-lang = "0.28.0"
