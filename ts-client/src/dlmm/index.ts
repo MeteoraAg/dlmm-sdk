@@ -4425,7 +4425,7 @@ export class DLMM {
 
     const binLiquidityDist: BinLiquidityDistribution = {
       binId: binIdNumber,
-      distributionX: 10000,
+      distributionX: BASIS_POINT_MAX,
       distributionY: 0,
     };
 
