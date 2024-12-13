@@ -4291,8 +4291,7 @@ export class DLMM {
  * @param
  *    - `owner`: The public key of the positions owner.
  *    - `base`: Base key
- *    - `seedAmount`: Lamport amount to be seeded to the pool.
- *    - `isTokenX`: Indicate that the seed amount will be 100 percent token X or token Y.
+ *    - `seedAmount`: Token X lamport amount to be seeded to the pool.
  *    - `price`: TokenX/TokenY Price in UI format
  *    - `roundingUp`: Whether to round up the price
  *    - `feeOwner`: Position fee owner
@@ -4306,7 +4305,6 @@ export class DLMM {
     owner: PublicKey,
     base: PublicKey,
     seedAmount: BN,
-    isTokenX: boolean,
     price: number,
     roundingUp: boolean,
     feeOwner: PublicKey,
@@ -4427,13 +4425,13 @@ export class DLMM {
 
     const binLiquidityDist: BinLiquidityDistribution = {
       binId: binIdNumber,
-      distributionX: isTokenX ? 10000 : 0,
-      distributionY: isTokenX ? 0 : 10000,
+      distributionX: BASIS_POINT_MAX,
+      distributionY: 0,
     };
 
     const addLiquidityParams: LiquidityParameter = {
-      amountX: isTokenX ? seedAmount : new BN(0),
-      amountY: isTokenX ? new BN(0) : seedAmount,
+      amountX: seedAmount,
+      amountY: new BN(0),
       binLiquidityDist: [binLiquidityDist]
     };
 
