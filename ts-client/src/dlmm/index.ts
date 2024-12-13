@@ -2174,23 +2174,23 @@ export class DLMM {
     const programMethod =
       this.program.methods.addLiquidityByStrategy(liquidityParams);
 
-    let createPositionTx = await programMethod
+    const createPositionIx = await programMethod
       .accounts(addLiquidityAccounts)
-      .preInstructions(preInstructions)
-      .postInstructions(postInstructions)
-      .transaction();
+      .instruction();
+
+    const instructions = [
+      ...preInstructions,
+      createPositionIx,
+      ...postInstructions,
+    ];
 
     const setCUIx = await getEstimatedComputeUnitIxWithBuffer(
       this.program.provider.connection,
-      createPositionTx.instructions,
+      instructions,
       user
     );
 
-    createPositionTx = await programMethod
-      .accounts(addLiquidityAccounts)
-      .preInstructions([setCUIx, ...preInstructions])
-      .postInstructions(postInstructions)
-      .transaction();
+    instructions.unshift(setCUIx);
 
     const { blockhash, lastValidBlockHeight } =
       await this.program.provider.connection.getLatestBlockhash("confirmed");
@@ -2198,7 +2198,7 @@ export class DLMM {
       blockhash,
       lastValidBlockHeight,
       feePayer: user,
-    }).add(createPositionTx);
+    }).add(...instructions);
   }
 
   /**
@@ -2408,27 +2408,21 @@ export class DLMM {
       : this.program.methods.addLiquidityByWeight(liquidityParams);
 
     if (xYAmountDistribution.length < MAX_BIN_LENGTH_ALLOWED_IN_ONE_TX) {
-      let addLiqTx = await programMethod
+      const addLiqIx = await programMethod
         .accounts(
           isOneSideDeposit ? oneSideAddLiquidityAccounts : addLiquidityAccounts
         )
-        .preInstructions(preInstructions)
-        .postInstructions(postInstructions)
-        .transaction();
+        .instruction();
+
+      const instructions = [...preInstructions, addLiqIx, ...postInstructions];
 
       const setCUIx = await getEstimatedComputeUnitIxWithBuffer(
         this.program.provider.connection,
-        addLiqTx.instructions,
+        instructions,
         user
       );
 
-      addLiqTx = await programMethod
-        .accounts(
-          isOneSideDeposit ? oneSideAddLiquidityAccounts : addLiquidityAccounts
-        )
-        .preInstructions([setCUIx, ...preInstructions])
-        .postInstructions(postInstructions)
-        .transaction();
+      instructions.unshift(setCUIx);
 
       const { blockhash, lastValidBlockHeight } =
         await this.program.provider.connection.getLatestBlockhash("confirmed");
@@ -2436,32 +2430,28 @@ export class DLMM {
         blockhash,
         lastValidBlockHeight,
         feePayer: user,
-      }).add(addLiqTx);
+      }).add(...instructions);
     }
 
-    let addLiqTx = await programMethod
+    const addLiqIx = await programMethod
       .accounts(
         isOneSideDeposit ? oneSideAddLiquidityAccounts : addLiquidityAccounts
       )
-      .transaction();
+      .instruction();
 
     const setCUIx = await getEstimatedComputeUnitIxWithBuffer(
       this.program.provider.connection,
-      addLiqTx.instructions,
+      [addLiqIx],
       user,
       DEFAULT_ADD_LIQUIDITY_CU // The function return multiple transactions that dependent on each other, simulation will fail
     );
 
-    addLiqTx = await programMethod
-      .accounts(
-        isOneSideDeposit ? oneSideAddLiquidityAccounts : addLiquidityAccounts
-      )
-      .preInstructions([setCUIx])
-      .transaction();
+    const mainInstructions = [setCUIx, addLiqIx];
 
     const transactions: Transaction[] = [];
     const { blockhash, lastValidBlockHeight } =
       await this.program.provider.connection.getLatestBlockhash("confirmed");
+
     if (preInstructions.length) {
       const preInstructionsTx = new Transaction({
         blockhash,
@@ -2475,7 +2465,7 @@ export class DLMM {
       blockhash,
       lastValidBlockHeight,
       feePayer: user,
-    }).add(addLiqTx);
+    }).add(...mainInstructions);
     transactions.push(mainTx);
 
     if (postInstructions.length) {
@@ -2636,23 +2626,23 @@ export class DLMM {
     const programMethod =
       this.program.methods.addLiquidityByStrategy(liquidityParams);
 
-    let createPositionTx = await programMethod
+    const createPositionIx = await programMethod
       .accounts(addLiquidityAccounts)
-      .preInstructions(preInstructions)
-      .postInstructions(postInstructions)
-      .transaction();
+      .instruction();
+
+    const instructions = [
+      ...preInstructions,
+      createPositionIx,
+      ...postInstructions,
+    ];
 
     const setCUIx = await getEstimatedComputeUnitIxWithBuffer(
       this.program.provider.connection,
-      createPositionTx.instructions,
+      instructions,
       user
     );
 
-    createPositionTx = await programMethod
-      .accounts(addLiquidityAccounts)
-      .preInstructions([setCUIx, ...preInstructions])
-      .postInstructions(postInstructions)
-      .transaction();
+    instructions.unshift(setCUIx);
 
     const { blockhash, lastValidBlockHeight } =
       await this.program.provider.connection.getLatestBlockhash("confirmed");
@@ -2660,7 +2650,7 @@ export class DLMM {
       blockhash,
       lastValidBlockHeight,
       feePayer: user,
-    }).add(createPositionTx);
+    }).add(...instructions);
   }
 
   /**
@@ -2867,27 +2857,21 @@ export class DLMM {
       : this.program.methods.addLiquidityByWeight(liquidityParams);
 
     if (xYAmountDistribution.length < MAX_BIN_LENGTH_ALLOWED_IN_ONE_TX) {
-      let addLiqTx = await programMethod
+      const addLiqIx = await programMethod
         .accounts(
           isOneSideDeposit ? oneSideAddLiquidityAccounts : addLiquidityAccounts
         )
-        .preInstructions(preInstructions)
-        .postInstructions(postInstructions)
-        .transaction();
+        .instruction();
+
+      const instructions = [...preInstructions, addLiqIx, ...postInstructions];
 
       const setCUIx = await getEstimatedComputeUnitIxWithBuffer(
         this.program.provider.connection,
-        addLiqTx.instructions,
+        instructions,
         user
       );
 
-      addLiqTx = await programMethod
-        .accounts(
-          isOneSideDeposit ? oneSideAddLiquidityAccounts : addLiquidityAccounts
-        )
-        .preInstructions([setCUIx, ...preInstructions])
-        .postInstructions(postInstructions)
-        .transaction();
+      instructions.unshift(setCUIx);
 
       const { blockhash, lastValidBlockHeight } =
         await this.program.provider.connection.getLatestBlockhash("confirmed");
@@ -2895,28 +2879,23 @@ export class DLMM {
         blockhash,
         lastValidBlockHeight,
         feePayer: user,
-      }).add(addLiqTx);
+      }).add(...instructions);
     }
 
-    let addLiqTx = await programMethod
+    const addLiqIx = await programMethod
       .accounts(
         isOneSideDeposit ? oneSideAddLiquidityAccounts : addLiquidityAccounts
       )
-      .transaction();
+      .instruction();
 
     const setCUIx = await getEstimatedComputeUnitIxWithBuffer(
       this.program.provider.connection,
-      addLiqTx.instructions,
+      [addLiqIx],
       user,
       DEFAULT_ADD_LIQUIDITY_CU
     );
 
-    addLiqTx = await programMethod
-      .accounts(
-        isOneSideDeposit ? oneSideAddLiquidityAccounts : addLiquidityAccounts
-      )
-      .preInstructions([setCUIx])
-      .transaction();
+    const mainInstructions = [setCUIx, addLiqIx];
 
     const transactions: Transaction[] = [];
     const { blockhash, lastValidBlockHeight } =
@@ -2934,7 +2913,7 @@ export class DLMM {
       blockhash,
       lastValidBlockHeight,
       feePayer: user,
-    }).add(addLiqTx);
+    }).add(...mainInstructions);
     transactions.push(mainTx);
 
     if (postInstructions.length) {
@@ -3130,7 +3109,7 @@ export class DLMM {
       ? deriveBinArrayBitmapExtension(this.pubkey, this.program.programId)[0]
       : null;
 
-    let removeLiquidityTx = await this.program.methods
+    const removeLiquidityIx = await this.program.methods
       .removeLiquidityByRange(minBinId, maxBinId, bps.toNumber())
       .accounts({
         position,
@@ -3148,38 +3127,22 @@ export class DLMM {
         tokenYProgram: TOKEN_PROGRAM_ID,
         sender: user,
       })
-      .preInstructions(preInstructions)
-      .postInstructions(postInstructions)
-      .transaction();
+      .instruction();
+
+    const instructions = [
+      ...preInstructions,
+      removeLiquidityIx,
+      ...postInstructions,
+    ];
 
     const setCUIx = await getEstimatedComputeUnitIxWithBuffer(
       this.program.provider.connection,
-      removeLiquidityTx.instructions,
+      instructions,
       user,
       DEFAULT_REMOVE_LIQUIDITY_CU
     );
 
-    removeLiquidityTx = await this.program.methods
-      .removeLiquidityByRange(minBinId, maxBinId, bps.toNumber())
-      .accounts({
-        position,
-        lbPair,
-        userTokenX,
-        userTokenY,
-        reserveX,
-        reserveY,
-        tokenXMint,
-        tokenYMint,
-        binArrayLower,
-        binArrayUpper,
-        binArrayBitmapExtension,
-        tokenXProgram: TOKEN_PROGRAM_ID,
-        tokenYProgram: TOKEN_PROGRAM_ID,
-        sender: user,
-      })
-      .preInstructions([setCUIx, ...preInstructions])
-      .postInstructions(postInstructions)
-      .transaction();
+    instructions.unshift(setCUIx);
 
     const { blockhash, lastValidBlockHeight } =
       await this.program.provider.connection.getLatestBlockhash("confirmed");
@@ -3201,7 +3164,7 @@ export class DLMM {
         blockhash,
         lastValidBlockHeight,
         feePayer: user,
-      }).add(removeLiquidityTx);
+      }).add(...instructions);
 
       return [mainTx, claimRewardsTx];
     } else {
@@ -3209,7 +3172,7 @@ export class DLMM {
         blockhash,
         lastValidBlockHeight,
         feePayer: user,
-      }).add(removeLiquidityTx);
+      }).add(...instructions);
     }
   }
 
@@ -3616,7 +3579,7 @@ export class DLMM {
       };
     });
 
-    let swapTx = await this.program.methods
+    const swapIx = await this.program.methods
       .swapExactOut(maxInAmount, outAmount)
       .accounts({
         lbPair,
@@ -3636,39 +3599,17 @@ export class DLMM {
         hostFeeIn: null,
       })
       .remainingAccounts(binArrays)
-      .preInstructions(preInstructions)
-      .postInstructions(postInstructions)
-      .transaction();
+      .instruction();
+
+    const instructions = [...preInstructions, swapIx, ...postInstructions];
 
     const setCUIx = await getEstimatedComputeUnitIxWithBuffer(
       this.program.provider.connection,
-      swapTx.instructions,
+      instructions,
       user
     );
 
-    swapTx = await this.program.methods
-      .swapExactOut(maxInAmount, outAmount)
-      .accounts({
-        lbPair,
-        reserveX,
-        reserveY,
-        tokenXMint,
-        tokenYMint,
-        tokenXProgram: TOKEN_PROGRAM_ID,
-        tokenYProgram: TOKEN_PROGRAM_ID,
-        user,
-        userTokenIn,
-        userTokenOut,
-        binArrayBitmapExtension: this.binArrayBitmapExtension
-          ? this.binArrayBitmapExtension.publicKey
-          : null,
-        oracle,
-        hostFeeIn: null,
-      })
-      .remainingAccounts(binArrays)
-      .preInstructions([setCUIx, ...preInstructions])
-      .postInstructions(postInstructions)
-      .transaction();
+    instructions.unshift(setCUIx);
 
     const { blockhash, lastValidBlockHeight } =
       await this.program.provider.connection.getLatestBlockhash("confirmed");
@@ -3676,7 +3617,7 @@ export class DLMM {
       blockhash,
       lastValidBlockHeight,
       feePayer: user,
-    }).add(swapTx);
+    }).add(...instructions);
   }
 
   /**
@@ -3753,7 +3694,7 @@ export class DLMM {
       };
     });
 
-    let swapTx = await this.program.methods
+    const swapIx = await this.program.methods
       .swapWithPriceImpact(
         inAmount,
         this.lbPair.activeId,
@@ -3777,43 +3718,17 @@ export class DLMM {
         hostFeeIn: null,
       })
       .remainingAccounts(binArrays)
-      .preInstructions(preInstructions)
-      .postInstructions(postInstructions)
-      .transaction();
+      .instruction();
+
+    const instructions = [...preInstructions, swapIx, ...postInstructions];
 
     const setCUIx = await getEstimatedComputeUnitIxWithBuffer(
       this.program.provider.connection,
-      swapTx.instructions,
+      instructions,
       user
     );
 
-    swapTx = await this.program.methods
-      .swapWithPriceImpact(
-        inAmount,
-        this.lbPair.activeId,
-        priceImpact.toNumber()
-      )
-      .accounts({
-        lbPair,
-        reserveX,
-        reserveY,
-        tokenXMint,
-        tokenYMint,
-        tokenXProgram: TOKEN_PROGRAM_ID,
-        tokenYProgram: TOKEN_PROGRAM_ID,
-        user,
-        userTokenIn,
-        userTokenOut,
-        binArrayBitmapExtension: this.binArrayBitmapExtension
-          ? this.binArrayBitmapExtension.publicKey
-          : null,
-        oracle,
-        hostFeeIn: null,
-      })
-      .remainingAccounts(binArrays)
-      .preInstructions([setCUIx, ...preInstructions])
-      .postInstructions(postInstructions)
-      .transaction();
+    instructions.unshift(setCUIx);
 
     const { blockhash, lastValidBlockHeight } =
       await this.program.provider.connection.getLatestBlockhash("confirmed");
@@ -3821,7 +3736,7 @@ export class DLMM {
       blockhash,
       lastValidBlockHeight,
       feePayer: user,
-    }).add(swapTx);
+    }).add(...instructions);
   }
 
   /**
@@ -3898,7 +3813,7 @@ export class DLMM {
       };
     });
 
-    let swapTx = await this.program.methods
+    const swapIx = await this.program.methods
       .swap(inAmount, minOutAmount)
       .accounts({
         lbPair,
@@ -3918,39 +3833,17 @@ export class DLMM {
         hostFeeIn: null,
       })
       .remainingAccounts(binArrays)
-      .preInstructions(preInstructions)
-      .postInstructions(postInstructions)
-      .transaction();
+      .instruction();
+
+    const instructions = [...preInstructions, swapIx, ...postInstructions];
 
     const setCUIx = await getEstimatedComputeUnitIxWithBuffer(
       this.program.provider.connection,
-      swapTx.instructions,
+      instructions,
       user
     );
 
-    swapTx = await this.program.methods
-      .swap(inAmount, minOutAmount)
-      .accounts({
-        lbPair,
-        reserveX,
-        reserveY,
-        tokenXMint,
-        tokenYMint,
-        tokenXProgram: TOKEN_PROGRAM_ID,
-        tokenYProgram: TOKEN_PROGRAM_ID,
-        user,
-        userTokenIn,
-        userTokenOut,
-        binArrayBitmapExtension: this.binArrayBitmapExtension
-          ? this.binArrayBitmapExtension.publicKey
-          : null,
-        oracle,
-        hostFeeIn: null,
-      })
-      .remainingAccounts(binArrays)
-      .preInstructions([setCUIx, ...preInstructions])
-      .postInstructions(postInstructions)
-      .transaction();
+    instructions.unshift(setCUIx);
 
     const { blockhash, lastValidBlockHeight } =
       await this.program.provider.connection.getLatestBlockhash("confirmed");
@@ -3958,7 +3851,7 @@ export class DLMM {
       blockhash,
       lastValidBlockHeight,
       feePayer: user,
-    }).add(swapTx);
+    }).add(...instructions);
   }
 
   /**
@@ -4852,7 +4745,7 @@ export class DLMM {
       true
     );
 
-    let initializePositionByOperatorTx = await this.program.methods
+    const initializePositionByOperatorTx = await this.program.methods
       .initializePositionByOperator(
         lowerBinId.toNumber(),
         MAX_BIN_PER_POSITION.toNumber(),
