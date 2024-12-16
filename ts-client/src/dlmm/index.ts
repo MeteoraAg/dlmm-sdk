@@ -2173,13 +2173,13 @@ export class DLMM {
     const programMethod =
       this.program.methods.addLiquidityByStrategy(liquidityParams);
 
-    const createPositionIx = await programMethod
+    const addLiquidityIx = await programMethod
       .accounts(addLiquidityAccounts)
       .instruction();
 
     const instructions = [
       ...preInstructions,
-      createPositionIx,
+      addLiquidityIx,
       ...postInstructions,
     ];
 
@@ -2625,13 +2625,13 @@ export class DLMM {
     const programMethod =
       this.program.methods.addLiquidityByStrategy(liquidityParams);
 
-    const createPositionIx = await programMethod
+    const addLiquidityIx = await programMethod
       .accounts(addLiquidityAccounts)
       .instruction();
 
     const instructions = [
       ...preInstructions,
-      createPositionIx,
+      addLiquidityIx,
       ...postInstructions,
     ];
 
