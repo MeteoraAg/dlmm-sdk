@@ -38,6 +38,9 @@ const programId = new PublicKey(LBCLMM_PROGRAM_IDS["localhost"]);
 describe("Single Bin Seed Liquidity Test", () => {
   describe("TokenX decimals < TokenY decimals", () => {
     const baseKeypair = Keypair.generate();
+    const positionOwnerKeypair = Keypair.generate();
+    const feeOwnerKeypair = Keypair.generate();
+
     const wenDecimal = 5;
     const usdcDecimal = 6;
     const feeBps = new BN(500);
@@ -114,7 +117,7 @@ describe("Single Bin Seed Liquidity Test", () => {
         WEN,
         userWEN,
         owner.publicKey,
-        wenSeedAmount.toNumber(),
+        wenSeedAmount.toNumber() + 1,
         [],
         {
           commitment: "confirmed",
@@ -178,7 +181,8 @@ describe("Single Bin Seed Liquidity Test", () => {
         wenSeedAmount,
         initialPrice,
         true,
-        owner.publicKey,
+        positionOwnerKeypair.publicKey,
+        feeOwnerKeypair.publicKey,
         owner.publicKey,
         new BN(0)
       );
@@ -207,7 +211,8 @@ describe("Single Bin Seed Liquidity Test", () => {
         .getTokenAccountBalance(userWEN)
         .then((i) => new BN(i.value.amount));
 
-      const actualDepositedAmount = beforeTokenXBalance.sub(afterTokenXBalance);
+      // minus 1 send to positionOwnerTokenX account
+      const actualDepositedAmount = beforeTokenXBalance.sub(afterTokenXBalance).sub(new BN(1));
       expect(actualDepositedAmount.toString()).toEqual(wenSeedAmount.toString());
     })
 
