@@ -4381,23 +4381,6 @@ export class DLMM {
       true
     );
 
-    const positionOwnerTokenXAccount = await this.program.provider.connection.getAccountInfo(positionOwnerTokenX);
-    if (positionOwnerTokenXAccount) {
-      const account = AccountLayout.decode(positionOwnerTokenXAccount.data);
-      if (account.amount == BigInt(0)) {
-        // send 1 lamport to position owner token X to prove ownership
-        const transferIx = createTransferInstruction(operatorTokenX, positionOwnerTokenX, payer, 1);
-        preInstructions.push(transferIx);
-      }
-    } else {
-      const createPositionOwnerTokenXIx = createAssociatedTokenAccountInstruction(payer, positionOwnerTokenX, positionOwner, this.lbPair.tokenXMint);
-      preInstructions.push(createPositionOwnerTokenXIx);
-
-      // send 1 lamport to position owner token X to prove ownership
-      const transferIx = createTransferInstruction(operatorTokenX, positionOwnerTokenX, payer, 1);
-      preInstructions.push(transferIx);
-    }
-
     const lowerBinArrayAccount = accounts[0];
     const upperBinArrayAccount = accounts[1];
     const positionAccount = accounts[2];
