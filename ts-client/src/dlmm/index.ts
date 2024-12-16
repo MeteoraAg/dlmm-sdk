@@ -3141,15 +3141,15 @@ export class DLMM {
 
     instructions.unshift(setCUIx);
 
-    const { blockhash, lastValidBlockHeight } =
-      await this.program.provider.connection.getLatestBlockhash("confirmed");
-
     if (secondTransactionsIx.length) {
       const setCUIx = await getEstimatedComputeUnitIxWithBuffer(
         this.program.provider.connection,
         secondTransactionsIx,
         user
       );
+
+      const { blockhash, lastValidBlockHeight } =
+        await this.program.provider.connection.getLatestBlockhash("confirmed");
 
       const claimRewardsTx = new Transaction({
         blockhash,
@@ -3165,6 +3165,9 @@ export class DLMM {
 
       return [mainTx, claimRewardsTx];
     } else {
+      const { blockhash, lastValidBlockHeight } =
+        await this.program.provider.connection.getLatestBlockhash("confirmed");
+
       return new Transaction({
         blockhash,
         lastValidBlockHeight,
@@ -4032,13 +4035,14 @@ export class DLMM {
       owner
     );
 
+    const { blockhash, lastValidBlockHeight } =
+      await this.program.provider.connection.getLatestBlockhash("confirmed");
+
     return Promise.all(
       chunkedClaimAllTx.map(async (claimAllTx) => {
-        const { recentBlockhash, lastValidBlockHeight } = claimAllTx[0];
-
         return new Transaction({
           feePayer: owner,
-          blockhash: recentBlockhash,
+          blockhash,
           lastValidBlockHeight,
         })
           .add(setCUIx)
