@@ -117,6 +117,8 @@ import {
   MintLayout,
   NATIVE_MINT,
   TOKEN_PROGRAM_ID,
+  createAssociatedTokenAccountInstruction,
+  createTransferInstruction,
   getAssociatedTokenAddressSync,
 } from "@solana/spl-token";
 import {
@@ -149,7 +151,7 @@ export class DLMM {
     public tokenY: TokenReserve,
     public clock: Clock,
     private opt?: Opt
-  ) {}
+  ) { }
 
   /** Static public method */
 
@@ -461,7 +463,7 @@ export class DLMM {
           reserveAndTokenMintAccountsInfo[reservePublicKeys.length + index * 2];
         const tokenYMintAccountInfo =
           reserveAndTokenMintAccountsInfo[
-            reservePublicKeys.length + index * 2 + 1
+          reservePublicKeys.length + index * 2 + 1
           ];
 
         if (!reserveXAccountInfo || !reserveYAccountInfo)
@@ -679,13 +681,13 @@ export class DLMM {
       let i = binArrayPubkeyArray.length + lbPairArray.length;
       i <
       binArrayPubkeyArray.length +
-        lbPairArray.length +
-        binArrayPubkeyArrayV2.length;
+      lbPairArray.length +
+      binArrayPubkeyArrayV2.length;
       i++
     ) {
       const binArrayPubkey =
         binArrayPubkeyArrayV2[
-          i - (binArrayPubkeyArray.length + lbPairArray.length)
+        i - (binArrayPubkeyArray.length + lbPairArray.length)
         ];
       const binArrayAccInfoBufferV2 = binArraysAccInfo[i];
       if (!binArrayAccInfoBufferV2)
@@ -710,10 +712,10 @@ export class DLMM {
     ) {
       const lbPairPubkey =
         lbPairArrayV2[
-          i -
-            (binArrayPubkeyArray.length +
-              lbPairArray.length +
-              binArrayPubkeyArrayV2.length)
+        i -
+        (binArrayPubkeyArray.length +
+          lbPairArray.length +
+          binArrayPubkeyArrayV2.length)
         ];
       const lbPairAccInfoBufferV2 = binArraysAccInfo[i];
       if (!lbPairAccInfoBufferV2)
@@ -1708,35 +1710,35 @@ export class DLMM {
     const promiseResults = await Promise.all([
       this.getActiveBin(),
       userPubKey &&
-        this.program.account.position.all([
-          {
-            memcmp: {
-              bytes: bs58.encode(userPubKey.toBuffer()),
-              offset: 8 + 32,
-            },
+      this.program.account.position.all([
+        {
+          memcmp: {
+            bytes: bs58.encode(userPubKey.toBuffer()),
+            offset: 8 + 32,
           },
-          {
-            memcmp: {
-              bytes: bs58.encode(this.pubkey.toBuffer()),
-              offset: 8,
-            },
+        },
+        {
+          memcmp: {
+            bytes: bs58.encode(this.pubkey.toBuffer()),
+            offset: 8,
           },
-        ]),
+        },
+      ]),
       userPubKey &&
-        this.program.account.positionV2.all([
-          {
-            memcmp: {
-              bytes: bs58.encode(userPubKey.toBuffer()),
-              offset: 8 + 32,
-            },
+      this.program.account.positionV2.all([
+        {
+          memcmp: {
+            bytes: bs58.encode(userPubKey.toBuffer()),
+            offset: 8 + 32,
           },
-          {
-            memcmp: {
-              bytes: bs58.encode(this.pubkey.toBuffer()),
-              offset: 8,
-            },
+        },
+        {
+          memcmp: {
+            bytes: bs58.encode(this.pubkey.toBuffer()),
+            offset: 8,
           },
-        ]),
+        },
+      ]),
     ]);
 
     const [activeBin, positions, positionsV2] = promiseResults;
@@ -4293,29 +4295,33 @@ export class DLMM {
   }
 
   /**
-   * The `seedLiquidity` function create multiple grouped instructions. The grouped instructions will be either [initialize bin array + initialize position instructions] or [deposit instruction] combination.
-   * @param
-   *    - `owner`: The public key of the positions owner.
-   *    - `base`: Base key
-   *    - `seedAmount`: Token X lamport amount to be seeded to the pool.
-   *    - `price`: TokenX/TokenY Price in UI format
-   *    - `roundingUp`: Whether to round up the price
-   *    - `feeOwner`: Position fee owner
-   *    - `operator`: Operator of the position. Operator able to manage the position on behalf of the position owner. However, liquidity withdrawal issue by the operator can only send to the position owner.
-   *    - `lockReleasePoint`: The lock release point of the position.
-   *
-   * The returned instructions need to be executed sequentially if it was separated into multiple transactions.
-   * @returns {Promise<TransactionInstruction[]>}
-   */
+ * The `seedLiquidity` function create multiple grouped instructions. The grouped instructions will be either [initialize bin array + initialize position instructions] or [deposit instruction] combination.
+ * @param
+ *    - `payer`: The public key of the tx payer.
+ *    - `base`: Base key
+ *    - `seedAmount`: Token X lamport amount to be seeded to the pool.
+ *    - `price`: TokenX/TokenY Price in UI format
+ *    - `roundingUp`: Whether to round up the price
+ *    - `positionOwner`: The owner of the position
+ *    - `feeOwner`: Position fee owner
+ *    - `operator`: Operator of the position. Operator able to manage the position on behalf of the position owner. However, liquidity withdrawal issue by the operator can only send to the position owner.
+ *    - `lockReleasePoint`: The lock release point of the position.
+ *    - `shouldSeedPositionOwner` (optional): Whether to send 1 lamport amount of token X to the position owner to prove ownership.
+ * 
+ * The returned instructions need to be executed sequentially if it was separated into multiple transactions.
+ * @returns {Promise<TransactionInstruction[]>}
+ */
   public async seedLiquiditySingleBin(
-    owner: PublicKey,
+    payer: PublicKey,
     base: PublicKey,
     seedAmount: BN,
     price: number,
     roundingUp: boolean,
+    positionOwner: PublicKey,
     feeOwner: PublicKey,
     operator: PublicKey,
-    lockReleasePoint: BN
+    lockReleasePoint: BN,
+    shouldSeedPositionOwner: boolean = false
   ): Promise<TransactionInstruction[]> {
     const pricePerLamport = DLMM.getPricePerLamport(
       this.tokenX.decimal,
@@ -4332,34 +4338,9 @@ export class DLMM {
     const lowerBinArrayIndex = binIdToBinArrayIndex(binId);
     const upperBinArrayIndex = lowerBinArrayIndex.add(new BN(1));
 
-    const [lowerBinArray] = deriveBinArray(
-      this.pubkey,
-      lowerBinArrayIndex,
-      this.program.programId
-    );
-    const [upperBinArray] = deriveBinArray(
-      this.pubkey,
-      upperBinArrayIndex,
-      this.program.programId
-    );
-    const [positionPda] = derivePosition(
-      this.pubkey,
-      base,
-      binId,
-      new BN(1),
-      this.program.programId
-    );
-    const operatorTokenX = getAssociatedTokenAddressSync(
-      this.lbPair.tokenXMint,
-      operator,
-      true
-    );
-
-    const ownerTokenX = getAssociatedTokenAddressSync(
-      this.lbPair.tokenXMint,
-      owner,
-      true
-    );
+    const [lowerBinArray] = deriveBinArray(this.pubkey, lowerBinArrayIndex, this.program.programId);
+    const [upperBinArray] = deriveBinArray(this.pubkey, upperBinArrayIndex, this.program.programId);
+    const [positionPda] = derivePosition(this.pubkey, base, binId, new BN(1), this.program.programId);
 
     const preInstructions = [];
 
@@ -4370,15 +4351,18 @@ export class DLMM {
       getOrCreateATAInstruction(
         this.program.provider.connection,
         this.tokenX.publicKey,
-        owner
+        operator,
+        payer
       ),
       getOrCreateATAInstruction(
         this.program.provider.connection,
         this.tokenY.publicKey,
-        owner
+        operator,
+        payer
       ),
     ]);
 
+    // create userTokenX and userTokenY accounts
     createPayerTokenXIx && preInstructions.push(createPayerTokenXIx);
     createPayerTokenYIx && preInstructions.push(createPayerTokenYIx);
 
@@ -4397,19 +4381,44 @@ export class DLMM {
     if (isOverflowDefaultBinArrayBitmap(lowerBinArrayIndex)) {
       const bitmapExtensionAccount = accounts[3];
       if (!bitmapExtensionAccount) {
-        preInstructions.push(
-          await this.program.methods
-            .initializeBinArrayBitmapExtension()
-            .accounts({
-              binArrayBitmapExtension,
-              funder: owner,
-              lbPair: this.pubkey,
-            })
-            .instruction()
-        );
+        preInstructions.push(await this.program.methods.initializeBinArrayBitmapExtension().accounts({
+          binArrayBitmapExtension,
+          funder: payer,
+          lbPair: this.pubkey
+        }).instruction());
       }
     } else {
       binArrayBitmapExtension = this.program.programId;
+    }
+
+    const operatorTokenX = getAssociatedTokenAddressSync(
+      this.lbPair.tokenXMint,
+      operator,
+      true
+    );
+    const positionOwnerTokenX = getAssociatedTokenAddressSync(
+      this.lbPair.tokenXMint,
+      positionOwner,
+      true
+    );
+
+    if (shouldSeedPositionOwner) {
+      const positionOwnerTokenXAccount = await this.program.provider.connection.getAccountInfo(positionOwnerTokenX);
+      if (positionOwnerTokenXAccount) {
+        const account = AccountLayout.decode(positionOwnerTokenXAccount.data);
+        if (account.amount == BigInt(0)) {
+          // send 1 lamport to position owner token X to prove ownership
+          const transferIx = createTransferInstruction(operatorTokenX, positionOwnerTokenX, payer, 1);
+          preInstructions.push(transferIx);
+        }
+      } else {
+        const createPositionOwnerTokenXIx = createAssociatedTokenAccountInstruction(payer, positionOwnerTokenX, positionOwner, this.lbPair.tokenXMint);
+        preInstructions.push(createPositionOwnerTokenXIx);
+
+        // send 1 lamport to position owner token X to prove ownership
+        const transferIx = createTransferInstruction(operatorTokenX, positionOwnerTokenX, payer, 1);
+        preInstructions.push(transferIx);
+      }
     }
 
     const lowerBinArrayAccount = accounts[0];
@@ -4422,7 +4431,7 @@ export class DLMM {
           .initializeBinArray(lowerBinArrayIndex)
           .accounts({
             binArray: lowerBinArray,
-            funder: owner,
+            funder: payer,
             lbPair: this.pubkey,
           })
           .instruction()
@@ -4435,7 +4444,7 @@ export class DLMM {
           .initializeBinArray(upperBinArrayIndex)
           .accounts({
             binArray: upperBinArray,
-            funder: owner,
+            funder: payer,
             lbPair: this.pubkey,
           })
           .instruction()
@@ -4452,14 +4461,14 @@ export class DLMM {
             lockReleasePoint
           )
           .accounts({
-            payer: owner,
+            payer,
             base,
             position: positionPda,
             lbPair: this.pubkey,
-            owner,
+            owner: positionOwner,
             operator,
             operatorTokenX,
-            ownerTokenX,
+            ownerTokenX: positionOwnerTokenX,
           })
           .instruction()
       );
@@ -4477,25 +4486,22 @@ export class DLMM {
       binLiquidityDist: [binLiquidityDist],
     };
 
-    const depositLiquidityIx = await this.program.methods
-      .addLiquidity(addLiquidityParams)
-      .accounts({
-        position: positionPda,
-        lbPair: this.pubkey,
-        binArrayBitmapExtension,
-        userTokenX,
-        userTokenY,
-        reserveX: this.lbPair.reserveX,
-        reserveY: this.lbPair.reserveY,
-        tokenXMint: this.lbPair.tokenXMint,
-        tokenYMint: this.lbPair.tokenYMint,
-        binArrayLower: lowerBinArray,
-        binArrayUpper: upperBinArray,
-        sender: owner,
-        tokenXProgram: TOKEN_PROGRAM_ID,
-        tokenYProgram: TOKEN_PROGRAM_ID,
-      })
-      .instruction();
+    const depositLiquidityIx = await this.program.methods.addLiquidity(addLiquidityParams).accounts({
+      position: positionPda,
+      lbPair: this.pubkey,
+      binArrayBitmapExtension,
+      userTokenX,
+      userTokenY,
+      reserveX: this.lbPair.reserveX,
+      reserveY: this.lbPair.reserveY,
+      tokenXMint: this.lbPair.tokenXMint,
+      tokenYMint: this.lbPair.tokenYMint,
+      binArrayLower: lowerBinArray,
+      binArrayUpper: upperBinArray,
+      sender: operator,
+      tokenXProgram: TOKEN_PROGRAM_ID,
+      tokenYProgram: TOKEN_PROGRAM_ID,
+    }).instruction();
 
     return [...preInstructions, depositLiquidityIx];
   }
@@ -5076,7 +5082,7 @@ export class DLMM {
 
       const activationPoint =
         !this.lbPair.preActivationSwapAddress.equals(PublicKey.default) &&
-        this.lbPair.preActivationSwapAddress.equals(swapInitiator)
+          this.lbPair.preActivationSwapAddress.equals(swapInitiator)
           ? preActivationSwapPoint
           : this.lbPair.activationPoint;
 
@@ -5720,7 +5726,7 @@ export class DLMM {
       if (elapsed < sParameter.decayPeriod) {
         const decayedVolatilityReference = Math.floor(
           (vParameter.volatilityAccumulator * sParameter.reductionFactor) /
-            BASIS_POINT_MAX
+          BASIS_POINT_MAX
         );
         vParameter.volatilityReference = decayedVolatilityReference;
       } else {
