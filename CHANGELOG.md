@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.3.2] - PR #134
+
+### Changed
+
+- Close wrap SOL ATA when SOL is swap in direction.
+
 ## lb_clmm [0.8.2] - PR #115
 
 ### Added
