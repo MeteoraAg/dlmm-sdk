@@ -184,14 +184,14 @@ describe("Single Bin Seed Liquidity Test", () => {
     });
 
     it("seed liquidity single bin", async () => {
-      const positionOwnerTokenXAccount = await connection.getAccountInfo(positionOwnerTokenX);
+      try {
+        const positionOwnerTokenXBalance = await connection.getTokenAccountBalance(positionOwnerTokenX)
 
-      if (positionOwnerTokenXAccount) {
-        const account = AccountLayout.decode(positionOwnerTokenXAccount.data);
-        if (account.amount == BigInt(0)) {
+        if (positionOwnerTokenXBalance.value.amount == "0") {
           await transfer(connection, owner, userWEN, positionOwnerTokenX, owner, 1);
+
         }
-      } else {
+      } catch (err) {
         await createAssociatedTokenAccount(connection, owner, WEN, positionOwnerKeypair.publicKey);
         await transfer(connection, owner, userWEN, positionOwnerTokenX, owner, 1);
       }
