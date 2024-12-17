@@ -5322,6 +5322,7 @@ export class DLMM {
         const [lowerBinId] = getBinArrayLowerUpperBinId(index);
         return bins.map((b, i) => [lowerBinId.toNumber() + i, b] as [number, Bin]);
       }));
+    const version = binArrays.length !== 0 ? binArrays[0].version : 1;
 
     return Array.from(enumerateBins(
       binsById,
@@ -5330,6 +5331,7 @@ export class DLMM {
       this.lbPair.binStep,
       baseTokenDecimal,
       quoteTokenDecimal,
+      version,
     ));
   }
 

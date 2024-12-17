@@ -196,7 +196,7 @@ export module BinLiquidity {
     binStep: number,
     baseTokenDecimal: number,
     quoteTokenDecimal: number,
-    version?: number,
+    version: number
   ): BinLiquidity {
     const pricePerLamport = getPriceOfBinByBinId(
       binId,
@@ -208,7 +208,7 @@ export module BinLiquidity {
       yAmount: bin.amountY,
       supply: bin.liquiditySupply,
       price: pricePerLamport,
-      version: version ?? 1,
+      version,
       pricePerToken: new Decimal(pricePerLamport)
         .mul(new Decimal(10 ** (baseTokenDecimal - quoteTokenDecimal)))
         .toString(),
@@ -220,7 +220,7 @@ export module BinLiquidity {
     binStep: number,
     baseTokenDecimal: number,
     quoteTokenDecimal: number,
-    version?: number,
+    version: number
   ): BinLiquidity {
     const pricePerLamport = getPriceOfBinByBinId(
       binId,
@@ -232,7 +232,7 @@ export module BinLiquidity {
       yAmount: new BN(0),
       supply: new BN(0),
       price: pricePerLamport,
-      version: version ?? 1,
+      version,
       pricePerToken: new Decimal(pricePerLamport)
         .mul(new Decimal(10 ** (baseTokenDecimal - quoteTokenDecimal)))
         .toString(),

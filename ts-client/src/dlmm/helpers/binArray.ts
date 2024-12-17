@@ -372,14 +372,15 @@ export function* enumerateBins(
   upperBinId: number,
   binStep: number,
   baseTokenDecimal: number,
-  quoteTokenDecimal: number
+  quoteTokenDecimal: number,
+  version: number
 ) {
   for (let currentBinId = lowerBinId; currentBinId <= upperBinId; currentBinId++) {
     const bin = binsById.get(currentBinId);
     if (bin != null) {
-      yield BinLiquidity.fromBin(bin, currentBinId, binStep, baseTokenDecimal, quoteTokenDecimal);
+      yield BinLiquidity.fromBin(bin, currentBinId, binStep, baseTokenDecimal, quoteTokenDecimal, version);
     } else {
-      yield BinLiquidity.empty(currentBinId, binStep, baseTokenDecimal, quoteTokenDecimal);
+      yield BinLiquidity.empty(currentBinId, binStep, baseTokenDecimal, quoteTokenDecimal, version);
     }
   }
 }
