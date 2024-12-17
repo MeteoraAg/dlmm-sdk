@@ -434,6 +434,8 @@ describe("SDK test", () => {
         BigInt(1)
       );
 
+      console.log("Initialize position by operator");
+
       const initializePositionByOperatorTx = await program.methods
         .initializePositionByOperator(
           lowerBinId.toNumber(),
@@ -464,6 +466,8 @@ describe("SDK test", () => {
       });
 
       await pair.refetchStates();
+
+      console.log("Add liquidity by weight");
 
       let addLiquidityTxs = await pair.addLiquidityByWeight({
         positionPubKey: customFeeOwnerPosition,
@@ -1621,6 +1625,7 @@ describe("SDK test", () => {
         console.log("Create bin arrays, position, and add liquidity", txHash);
       }
     } else {
+      // console.log(rawTxs.instructions);
       const txHash = await sendAndConfirmTransaction(connection, rawTxs, [
         keypair,
         positionKeypair,
