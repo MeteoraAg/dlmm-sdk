@@ -19,6 +19,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.3.4] - PR #127
+
+### Changed
+
+- Use estimated compute unit instead of 1.4m compute unit for instructions.
+
+## @meteora-ag/dlmm [1.3.3] - PR #133
+
+### Changed
+
+- Update parameters for `ts-client` function `seedLiquiditySingleBin`
+
+## @meteora-ag/dlmm [1.3.2] - PR #134
+
+### Changed
+
+- Close wrap SOL ATA when SOL is swap in direction.
+
 ## lb_clmm [0.8.2] - PR #115
 
 ### Added

@@ -68,6 +68,7 @@ export type LiquidityParameterByStrategy =
   IdlTypes<LbClmm>["LiquidityParameterByStrategy"];
 export type LiquidityParameterByStrategyOneSide =
   IdlTypes<LbClmm>["LiquidityParameterByStrategyOneSide"];
+export type LiquidityParameter = IdlTypes<LbClmm>["LiquidityParameter"];
 
 export type ProgramStrategyParameter = IdlTypes<LbClmm>["StrategyParameters"];
 export type ProgramStrategyType = IdlTypes<LbClmm>["StrategyType"];
