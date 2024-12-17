@@ -6,6 +6,7 @@ import {
   ProgramAccount,
 } from "@coral-xyz/anchor";
 import { LbClmm } from "../idl";
+import { getPriceOfBinByBinId } from "../helpers";
 import { PublicKey, TransactionInstruction } from "@solana/web3.js";
 import Decimal from "decimal.js";
 import { u64, i64, struct } from "@coral-xyz/borsh";
@@ -187,6 +188,57 @@ export interface BinLiquidity {
   version: number;
   price: string;
   pricePerToken: string;
+}
+
+export module BinLiquidity {
+  export function fromBin(
+    bin: Bin,
+    binId: number,
+    binStep: number,
+    baseTokenDecimal: number,
+    quoteTokenDecimal: number,
+    version: number
+  ): BinLiquidity {
+    const pricePerLamport = getPriceOfBinByBinId(
+      binId,
+      binStep
+    ).toString();
+    return {
+      binId,
+      xAmount: bin.amountX,
+      yAmount: bin.amountY,
+      supply: bin.liquiditySupply,
+      price: pricePerLamport,
+      version,
+      pricePerToken: new Decimal(pricePerLamport)
+        .mul(new Decimal(10 ** (baseTokenDecimal - quoteTokenDecimal)))
+        .toString(),
+    };
+  }
+
+  export function empty(
+    binId: number,
+    binStep: number,
+    baseTokenDecimal: number,
+    quoteTokenDecimal: number,
+    version: number
+  ): BinLiquidity {
+    const pricePerLamport = getPriceOfBinByBinId(
+      binId,
+      binStep
+    ).toString();
+    return {
+      binId,
+      xAmount: new BN(0),
+      yAmount: new BN(0),
+      supply: new BN(0),
+      price: pricePerLamport,
+      version,
+      pricePerToken: new Decimal(pricePerLamport)
+        .mul(new Decimal(10 ** (baseTokenDecimal - quoteTokenDecimal)))
+        .toString(),
+    };
+  }
 }
 
 export interface SwapQuote {
