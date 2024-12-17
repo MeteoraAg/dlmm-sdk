@@ -89,7 +89,7 @@ app.post("/dlmm/create-customizable-permissionless-lb-pair", async (req, res) =>
     const tokenY = new PublicKey(req.body.tokenY);
     const activeId = new BN(req.body.activeId);
     const feeBps = new BN(req.body.feeBps);
-    const activationType = req.body.activationType;
+    const activationType = parseInt(req.body.activationType);
     const hasAlphaVault = Boolean(req.body.hasAlphaVault);
     const creatorKey = new PublicKey(req.body.creatorKey);
     const activationPoint = req.body.activationPoint !== null ? new BN(req.body.activationPoint) : null;

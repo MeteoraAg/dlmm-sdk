@@ -4,7 +4,7 @@ from typing import Dict, List, Optional
 from solana.transaction import Transaction
 from solders.pubkey import Pubkey
 from .utils import convert_to_transaction
-from .types import ActiveBin, FeeInfo, GetBins, GetPositionByUser, Position, PositionInfo, StrategyParameters, SwapQuote, LBPair, TokenReserve, DlmmHttpError as HTTPError
+from .types import ActivationType, ActiveBin, FeeInfo, GetBins, GetPositionByUser, Position, PositionInfo, StrategyParameters, SwapQuote, LBPair, TokenReserve, DlmmHttpError as HTTPError
 
 API_URL = "localhost:3000"
 
@@ -790,7 +790,7 @@ class DLMM_CLIENT:
         token_y: Pubkey,
         active_id: int,
         fee_bps: int,
-        activation_type: str,
+        activation_type: int,
         has_alpha_vault: bool,
         creator_key: Pubkey,
         activation_point: Optional[int] = None
@@ -811,8 +811,8 @@ class DLMM_CLIENT:
         if(type(fee_bps) != int):
             raise TypeError("fee_bps must be of type `int`")
         
-        if(type(activation_type) != str):
-            raise TypeError("activation_type must be of type `str`")
+        if(type(activation_type) != int):
+            raise TypeError("activation_type must be of type `int`")
         
         if(type(has_alpha_vault) != bool):
             raise TypeError("has_alpha_vault must be of type `bool`")
