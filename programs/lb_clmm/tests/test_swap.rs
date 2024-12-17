@@ -32,43 +32,53 @@ async fn test_swap() {
     let bin_array_1 = Pubkey::from_str("5Sm2ecMeqohRkNpFJPWSqHL1BkA7AEW4ck8TmdF1gD4t").unwrap();
     let bin_array_2 = Pubkey::from_str("E6gur9Jw8675DCR7GpJVhoSrkruRgt8EdEVqLAc5RLUt").unwrap();
 
-    test.add_account_with_file_data(lb_pair, 10 * LAMPORTS_PER_SOL, lb_clmm::id(), "lb_pair.bin");
+    test.add_account_with_file_data(
+        lb_pair,
+        10 * LAMPORTS_PER_SOL,
+        lb_clmm::id(),
+        "EtAdVRLFH22rjWh3mcUasKFF27WtHhsaCvK27tPFFWig/lb_pair.bin",
+    );
 
-    test.add_account_with_file_data(oracle, 10 * LAMPORTS_PER_SOL, lb_clmm::id(), "oracle.bin");
+    test.add_account_with_file_data(
+        oracle,
+        10 * LAMPORTS_PER_SOL,
+        lb_clmm::id(),
+        "EtAdVRLFH22rjWh3mcUasKFF27WtHhsaCvK27tPFFWig/oracle.bin",
+    );
 
     test.add_account_with_file_data(
         bin_array_1,
         10 * LAMPORTS_PER_SOL,
         lb_clmm::id(),
-        "bin_array_1.bin",
+        "EtAdVRLFH22rjWh3mcUasKFF27WtHhsaCvK27tPFFWig/bin_array_1.bin",
     );
 
     test.add_account_with_file_data(
         bin_array_2,
         10 * LAMPORTS_PER_SOL,
         lb_clmm::id(),
-        "bin_array_2.bin",
+        "EtAdVRLFH22rjWh3mcUasKFF27WtHhsaCvK27tPFFWig/bin_array_2.bin",
     );
 
     test.add_account_with_file_data(
         token_x_mint,
         10 * LAMPORTS_PER_SOL,
         spl_token::id(),
-        "token_x_mint.bin",
+        "EtAdVRLFH22rjWh3mcUasKFF27WtHhsaCvK27tPFFWig/token_x_mint.bin",
     );
 
     test.add_account_with_file_data(
         reserve_x,
         10 * LAMPORTS_PER_SOL,
         spl_token::id(),
-        "reserve_x.bin",
+        "EtAdVRLFH22rjWh3mcUasKFF27WtHhsaCvK27tPFFWig/reserve_x.bin",
     );
 
     test.add_account_with_file_data(
         reserve_y,
         10 * LAMPORTS_PER_SOL,
         spl_token::id(),
-        "reserve_y.bin",
+        "EtAdVRLFH22rjWh3mcUasKFF27WtHhsaCvK27tPFFWig/reserve_y.bin",
     );
 
     let (mut banks_client, payer, _recent_blockhash) = test.start().await;
