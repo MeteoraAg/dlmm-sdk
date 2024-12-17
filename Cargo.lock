@@ -2273,7 +2273,9 @@ dependencies = [
  "anchor-spl",
  "assert_matches",
  "async-trait",
+ "bincode",
  "bytemuck",
+ "commons",
  "mpl-token-metadata",
  "num-integer",
  "num-traits",
@@ -2284,6 +2286,7 @@ dependencies = [
  "solana-program",
  "solana-program-test",
  "solana-sdk",
+ "spl-associated-token-account",
  "uint",
 ]
 
