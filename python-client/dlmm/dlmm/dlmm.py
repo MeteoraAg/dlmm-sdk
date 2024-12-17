@@ -4,7 +4,7 @@ from typing import Dict, List, Optional
 from solana.transaction import Transaction
 from solders.pubkey import Pubkey
 from .utils import convert_to_transaction
-from .types import ActiveBin, FeeInfo, GetBins, GetPositionByUser, Position, PositionInfo, StrategyParameters, SwapQuote, LBPair, TokenReserve, DlmmHttpError as HTTPError
+from .types import ActivationType, ActiveBin, FeeInfo, GetBins, GetPositionByUser, Position, PositionInfo, StrategyParameters, SwapQuote, LBPair, TokenReserve, DlmmHttpError as HTTPError
 
 API_URL = "localhost:3000"
 
@@ -780,5 +780,65 @@ class DLMM_CLIENT:
             return {key: PositionInfo(value) for key, value in result.items()}
         except requests.exceptions.HTTPError as e:
             raise HTTPError(f"Error getting all lb pair positions by user: {e}")
+        except requests.exceptions.ConnectionError as e:
+            raise HTTPError(f"Error connecting to DLMM: {e}")
+        
+    @staticmethod
+    def create_customizable_permissionless_lb_pair(
+        bin_step: int,
+        token_x: Pubkey,
+        token_y: Pubkey,
+        active_id: int,
+        fee_bps: int,
+        activation_type: int,
+        has_alpha_vault: bool,
+        creator_key: Pubkey,
+        activation_point: Optional[int] = None
+    ) -> Transaction:
+        
+        if(type(bin_step) != int):
+            raise TypeError("bin_step must be of type `int`")
+        
+        if(type(token_x) != Pubkey):
+            raise TypeError("token_x must be of type `solders.pubkey.Pubkey`")
+        
+        if(type(token_y) != Pubkey):
+            raise TypeError("token_y must be of type `solders.pubkey.Pubkey`")
+        
+        if(type(active_id) != int):
+            raise TypeError("active_id must be of type `int`")
+        
+        if(type(fee_bps) != int):
+            raise TypeError("fee_bps must be of type `int`")
+        
+        if(type(activation_type) != int):
+            raise TypeError("activation_type must be of type `int`")
+        
+        if(type(has_alpha_vault) != bool):
+            raise TypeError("has_alpha_vault must be of type `bool`")
+        
+        if(type(creator_key) != Pubkey):
+            raise TypeError("creator_key must be of type `solders.pubkey.Pubkey`")
+        
+        if(activation_point is not None and type(activation_point) != int):
+            raise TypeError("activation_point must be of type `int`")
+        
+        try:
+            data = json.dumps({
+                "binStep": bin_step,
+                "tokenX": str(token_x),
+                "tokenY": str(token_y),
+                "activeId": active_id,
+                "feeBps": fee_bps,
+                "activationType": activation_type,
+                "hasAlphaVault": has_alpha_vault,
+                "creatorKey": str(creator_key),
+                "activationPoint": activation_point
+            })
+            result = requests.post(f"{API_URL}/dlmm/create-customizable-permissionless-lb-pair", data=data).json()
+            return convert_to_transaction(result)
+
+        except requests.exceptions.HTTPError as e:
+            raise HTTPError(f"Error creating customizable permissionless lb pair: {e}")
         except requests.exceptions.ConnectionError as e:
             raise HTTPError(f"Error connecting to DLMM: {e}")

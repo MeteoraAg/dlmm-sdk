@@ -80,7 +80,38 @@ app.get('/dlmm/get-all-lb-pair-positions-by-user', async (req, res) => {
     console.log(error)
     return res.status(400).send(error)
   }
+})
 
+app.post("/dlmm/create-customizable-permissionless-lb-pair", async (req, res) => {
+  try {
+    const binStep = new BN(req.body.binStep);
+    const tokenX = new PublicKey(req.body.tokenX);
+    const tokenY = new PublicKey(req.body.tokenY);
+    const activeId = new BN(req.body.activeId);
+    const feeBps = new BN(req.body.feeBps);
+    const activationType = parseInt(req.body.activationType);
+    const hasAlphaVault = Boolean(req.body.hasAlphaVault);
+    const creatorKey = new PublicKey(req.body.creatorKey);
+    const activationPoint = req.body.activationPoint !== null ? new BN(req.body.activationPoint) : null;
+    const transaction = DLMM.createCustomizablePermissionlessLbPair(
+      req.connect,
+      binStep,
+      tokenX,
+      tokenY,
+      activeId,
+      feeBps,
+      activationType,
+      hasAlphaVault,
+      creatorKey,
+      activationPoint
+    )
+    return res.status(200).send(safeStringify(transaction));
+
+  }
+  catch (error) {
+    console.log(error)
+    return res.status(400).send(error)
+  }
 })
 
 app.get("/dlmm/get-active-bin", async (req, res) => {
