@@ -1,88 +1,31 @@
-use std::rc::Rc;
-use std::time::Duration;
-
 use anchor_client::solana_sdk::compute_budget::ComputeBudgetInstruction;
 use anchor_client::solana_sdk::instruction::Instruction;
 use anchor_client::Client;
+use anchor_client::Program;
 use anchor_client::{
     solana_client::rpc_config::RpcSendTransactionConfig,
+    solana_sdk::pubkey::Pubkey,
     solana_sdk::{
         commitment_config::CommitmentConfig,
         signer::{keypair::*, Signer},
     },
 };
+use anchor_lang::prelude::AccountMeta;
 use anyhow::*;
 use clap::*;
+use commons::*;
+use std::ops::Deref;
+use std::rc::Rc;
+use std::time::Duration;
 
 mod args;
 mod instructions;
 mod math;
 
 use args::*;
-use instructions::initialize_customizable_permissionless_lb_pair::InitCustomizablePermissionlessLbPairParameters;
-use instructions::initialize_lb_pair::*;
-use instructions::seed_liquidity_from_operator::{
-    seed_liquidity_by_operator, SeedLiquidityByOperatorParameters,
-};
-use instructions::seed_liquidity_single_bin::{
-    seed_liquidity_single_bin, SeedLiquiditySingleBinParameters,
-};
-use instructions::seed_liquidity_single_bin_by_operator::{
-    seed_liquidity_single_bin_by_operator, SeedLiquiditySingleBinByOperatorParameters,
-};
-use lb_clmm::state::preset_parameters::PresetParameter;
-
-use crate::instructions::initialize_bin_array_with_bin_range::{
-    initialize_bin_array_with_bin_range, InitBinArrayWithBinRangeParameters,
-};
-use crate::instructions::initialize_position_with_price_range::{
-    initialize_position_with_price_range, InitPositionWithPriceRangeParameters,
-};
-use crate::instructions::initialize_preset_parameter::InitPresetParameters;
-use crate::{
-    args::Command,
-    instructions::{
-        add_liquidity::{add_liquidity, AddLiquidityParam},
-        check_my_balance::{check_my_balance, CheckMyBalanceParameters},
-        claim_fee::claim_fee,
-        claim_reward::*,
-        close_position::close_position,
-        close_preset_parameter::close_preset_parameter,
-        fund_reward::*,
-        increase_length::{increase_length, IncreaseLengthParams},
-        initialize_bin_array::{initialize_bin_array, InitBinArrayParameters},
-        initialize_bin_array_with_price_range::{
-            initialize_bin_array_with_price_range, InitBinArrayWithPriceRangeParameters,
-        },
-        initialize_customizable_permissionless_lb_pair::initialize_customizable_permissionless_lb_pair,
-        initialize_permission_lb_pair::{
-            initialize_permission_lb_pair, InitPermissionLbPairParameters,
-        },
-        initialize_position::{initialize_position, InitPositionParameters},
-        initialize_preset_parameter::initialize_preset_parameter,
-        initialize_reward::*,
-        list_all_binstep::list_all_binstep,
-        remove_liquidity::{remove_liquidity, RemoveLiquidityParameters},
-        remove_liquidity_by_price_range::{
-            remove_liquidity_by_price_range, RemoveLiquidityByPriceRangeParameters,
-        },
-        seed_liquidity::{seed_liquidity, SeedLiquidityParameters},
-        set_activation_point::*,
-        set_pre_activation_duration::{set_pre_activation_duration, SetPreactivationDurationParam},
-        set_pre_activation_swap_address::{
-            set_pre_activation_swap_address, SetPreactivationSwapAddressParam,
-        },
-        show_pair::show_pair,
-        simulate_swap_demand::{simulate_swap_demand, SimulateSwapDemandParameters},
-        swap_exact_in::{swap, SwapExactInParameters},
-        swap_exact_out::{swap_exact_out, SwapExactOutParameters},
-        swap_with_price_impact::{swap_with_price_impact, SwapWithPriceImpactParameters},
-        toggle_pair_status::toggle_pool_status,
-        update_reward_duration::*,
-        update_reward_funder::*,
-        withdraw_protocol_fee::{withdraw_protocol_fee, WithdrawProtocolFeeParams},
-    },
-};
+use commons::rpc_client_extension::*;
+use dlmm_interface::*;
+use instructions::*;
 
 fn get_set_compute_unit_price_ix(micro_lamports: u64) -> Option<Instruction> {
     if micro_lamports > 0 {
@@ -104,13 +47,16 @@ async fn main() -> Result<()> {
     println!("Wallet {:#?}", payer.pubkey());
 
     let commitment_config = CommitmentConfig::confirmed();
+
     let client = Client::new_with_options(
         cli.config_override.cluster,
         Rc::new(Keypair::from_bytes(&payer.to_bytes())?),
         commitment_config,
     );
 
-    let amm_program = client.program(lb_clmm::ID).unwrap();
+    let amm_program = client.program(dlmm_interface::ID).unwrap();
+
+    let rpc_client = amm_program.async_rpc();
 
     let transaction_config: RpcSendTransactionConfig = RpcSendTransactionConfig {
         skip_preflight: false,
@@ -213,7 +159,7 @@ async fn main() -> Result<()> {
                 bin_liquidity_distribution,
                 position,
             };
-            add_liquidity(params, &amm_program, transaction_config).await?;
+            execute_add_liquidity(params, &amm_program, transaction_config).await?;
         }
         Command::RemoveLiquidity {
             lb_pair,
@@ -244,9 +190,23 @@ async fn main() -> Result<()> {
             show_pair(lb_pair, &amm_program).await?;
         }
         Command::ShowPosition { position } => {
-            let position: lb_clmm::state::position::Position =
-                amm_program.account(position).await?;
-            println!("{:#?}", position);
+            let position_account = rpc_client.get_account(&position).await?;
+
+            let disc = &position_account.data[0..8];
+
+            let position_state = match disc {
+                POSITION_ACCOUNT_DISCM => PositionAccount::deserialize(&position_account.data)?,
+                POSITION_V2_ACCOUNT_DISCM => {
+                    PositionV2Account::deserialize(&position_account.data)?
+                }
+                POSITION_V3_ACCOUNT_DISCM => DynamicPosition::deserialize(&position_account.data)?,
+                _ => {
+                    println!("Not a valid position account");
+                    return Ok(());
+                }
+            };
+
+            println!("{:#?}", position_state);
         }
 
         Command::ClaimReward {
@@ -303,7 +263,22 @@ async fn main() -> Result<()> {
         }
 
         Command::ShowPresetParameter { preset_parameter } => {
-            let preset_param_state: PresetParameter = amm_program.account(preset_parameter).await?;
+            let preset_param_state =
+                rpc_client
+                    .get_account(&preset_parameter)
+                    .await
+                    .and_then(|account| {
+                        let disc = &account.data[0..8];
+                        match disc {
+                            PRESET_PARAMETER_ACCOUNT_DISCM => {
+                                Ok(PresetParameterAccount::deserialize(&account.data)?.0)
+                            }
+                            PRESET_PARAMETER2_ACCOUNT_DISCM => {
+                                Ok(PresetParameter2Account::deserialize(&account.data)?.0)
+                            }
+                            _ => Err(anyhow::anyhow!("Not a valid preset parameter account")),
+                        }
+                    })?;
             println!("{:#?}", preset_param_state);
         }
 

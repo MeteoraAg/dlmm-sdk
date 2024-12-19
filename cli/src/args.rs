@@ -453,17 +453,6 @@ pub enum AdminCommand {
         max_price: f64,
     },
 
-    CheckMyBalance {
-        /// Address of the pair
-        lb_pair: Pubkey,
-        // base position path
-        base_position_key: Pubkey,
-        /// min price
-        min_price: f64,
-        /// max price
-        max_price: f64,
-    },
-
     SetActivationPoint {
         /// Address of the pair
         lb_pair: Pubkey,
