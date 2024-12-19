@@ -6043,7 +6043,7 @@ export class DLMM {
         const [lowerBinId] = getBinArrayLowerUpperBinId(index);
         return bins.map((b, i) => [lowerBinId.toNumber() + i, b] as [number, Bin]);
       }));
-    const version = binArrays.length !== 0 ? binArrays[0].version : 1;
+    const version = binArrays.find(binArray => binArray != null)?.version ?? 1;
 
     return Array.from(enumerateBins(
       binsById,

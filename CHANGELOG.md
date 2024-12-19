@@ -19,11 +19,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-## @meteora-ag/dlmm [1.3.5] - PR #137
+## @meteora-ag/dlmm [1.3.6] - PR #137
 
 ### Changed
 
 - Add `ts-client` function `seedLiquidityByOperator`.
+
+## @meteora-ag/dlmm [1.3.5] - PR #136
+
+### Fixed
+
+- Fixed the `getBins` method to handle the corner case when no bin arrays created for the requested bin ids.
+
 
 ## @meteora-ag/dlmm [1.3.4] - PR #127
 
