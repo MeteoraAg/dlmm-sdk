@@ -394,6 +394,12 @@ export interface SeedLiquidityResponse {
   addLiquidityIxs: TransactionInstruction[][];
 }
 
+export interface SeedLiquidityByOperatorResponse {
+  preflightIxs: TransactionInstruction[];
+  initializeBinArraysAndPositionIxs: TransactionInstruction[][];
+  addLiquidityIxs: TransactionInstruction[][];
+}
+
 export interface Clock {
   slot: BN;
   epochStartTimestamp: BN;

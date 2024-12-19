@@ -123,6 +123,7 @@ import {
   PositionV2,
   PositionVersion,
   ProgramStrategyParameter,
+  SeedLiquidityByOperatorResponse,
   SeedLiquidityResponse,
   SwapExactOutParams,
   SwapFee,
@@ -4475,7 +4476,7 @@ export class DLMM {
     operator: PublicKey,
     lockReleasePoint: BN,
     shouldSeedPositionOwner: boolean = false
-  ): Promise<SeedLiquidityResponse> {
+  ): Promise<SeedLiquidityByOperatorResponse> {
     const toLamportMultiplier = new Decimal(
       10 ** (this.tokenY.decimal - this.tokenX.decimal)
     );
@@ -4533,9 +4534,21 @@ export class DLMM {
     // This amount will be deposited to the last bin without compression
     const positionCount = getPositionCount(minBinId, maxBinId.sub(new BN(1)));
 
-    const initializeBinArraysAndPositionIxs = [];
+    const preflightIxs: Array<TransactionInstruction> = [];
+    const initializeBinArraysAndPositionIxs: Array<Array<TransactionInstruction>> = [];
     const addLiquidityIxs = [];
     const appendedInitBinArrayIx = new Set();
+
+    const { ataPubKey: userTokenX, ix: createPayerTokenXIx } =
+      await getOrCreateATAInstruction(
+        this.program.provider.connection,
+        this.lbPair.tokenXMint,
+        operator,
+        payer
+      );
+
+    // create userTokenX account
+    createPayerTokenXIx && preflightIxs.push(createPayerTokenXIx);
 
     const operatorTokenX = getAssociatedTokenAddressSync(
       this.lbPair.tokenXMint,
@@ -4555,15 +4568,15 @@ export class DLMM {
         if (account.amount == BigInt(0)) {
           // send 1 lamport to position owner token X to prove ownership
           const transferIx = createTransferInstruction(operatorTokenX, positionOwnerTokenX, payer, 1);
-          initializeBinArraysAndPositionIxs.push(transferIx);
+          preflightIxs.push(transferIx);
         }
       } else {
         const createPositionOwnerTokenXIx = createAssociatedTokenAccountInstruction(payer, positionOwnerTokenX, positionOwner, this.lbPair.tokenXMint);
-        initializeBinArraysAndPositionIxs.push(createPositionOwnerTokenXIx);
+        preflightIxs.push(createPositionOwnerTokenXIx);
 
         // send 1 lamport to position owner token X to prove ownership
         const transferIx = createTransferInstruction(operatorTokenX, positionOwnerTokenX, payer, 1);
-        initializeBinArraysAndPositionIxs.push(transferIx);
+        preflightIxs.push(transferIx);
       }
     }
 
@@ -4712,7 +4725,7 @@ export class DLMM {
               binArrayBitmapExtension: this.binArrayBitmapExtension
                 ? this.binArrayBitmapExtension.publicKey
                 : this.program.programId,
-              userToken: positionOwnerTokenX,
+              userToken: userTokenX,
               reserve: this.lbPair.reserveX,
               tokenMint: this.lbPair.tokenXMint,
               binArrayLower: lowerBinArray,
@@ -4743,7 +4756,7 @@ export class DLMM {
                 binArrayBitmapExtension: this.binArrayBitmapExtension
                   ? this.binArrayBitmapExtension.publicKey
                   : this.program.programId,
-                userToken: positionOwnerTokenX,
+                userToken: userTokenX,
                 reserve: this.lbPair.reserveX,
                 tokenMint: this.lbPair.tokenXMint,
                 binArrayLower: lowerBinArray,
@@ -4764,6 +4777,7 @@ export class DLMM {
     }
 
     return {
+      preflightIxs,
       initializeBinArraysAndPositionIxs,
       addLiquidityIxs,
     };
