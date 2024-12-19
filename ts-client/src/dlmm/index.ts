@@ -1700,6 +1700,28 @@ export class DLMM {
       ]
     );
 
+    if (!lowerBinArrayAccInfo || !upperBinArrayAccInfo) {
+      return {
+        publicKey: positionPubKey,
+        positionData: {
+          totalXAmount: '0',
+          totalYAmount: '0',
+          positionBinData: [],
+          lastUpdatedAt: new BN(0),
+          upperBinId,
+          lowerBinId,
+          feeX: new BN(0),
+          feeY: new BN(0),
+          rewardOne: new BN(0),
+          rewardTwo: new BN(0),
+          feeOwner,
+          totalClaimedFeeXAmount: new BN(0),
+          totalClaimedFeeYAmount: new BN(0),
+        },
+        version: PositionVersion.V2,
+      }
+    }
+
     const onChainTimestamp = new BN(
       clockAccInfo.data.readBigInt64LE(32).toString()
     ).toNumber();
