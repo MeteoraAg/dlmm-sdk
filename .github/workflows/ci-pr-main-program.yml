@@ -25,6 +25,7 @@ jobs:
         with:
           files: |
             programs/lb_clmm
+            artifacts
 
   lb_clmm_anchor_build:
     runs-on: ubuntu-latest
