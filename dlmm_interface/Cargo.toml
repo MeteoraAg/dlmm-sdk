@@ -7,7 +7,7 @@ edition = "2021"
 version = "^0.10"
 
 [dependencies.bytemuck]
-features = ["derive"]
+features = ["derive", "min_const_generics"]
 version = "^1.0"
 
 [dependencies.num-derive]

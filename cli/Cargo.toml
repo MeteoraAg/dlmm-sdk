@@ -16,9 +16,8 @@ clap = { workspace = true, features = ["derive"] }
 anyhow = { workspace = true }
 shellexpand = { workspace = true }
 rust_decimal = { workspace = true, features = ["maths"] }
-lb_clmm = { path = "../programs/lb_clmm", features = ["cpi"] }
+dlmm_interface = { path = "../dlmm_interface" }
 spl-associated-token-account = { workspace = true }
-mpl-token-metadata = { workspace = true }
 rand = { workspace = true }
 tokio = { workspace = true, features = ["full", "parking_lot"] }
 bincode = { workspace = true }
