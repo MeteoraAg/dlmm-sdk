@@ -1,4 +1,3 @@
-#![cfg(feature = "test-bpf")]
 mod helpers;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::{instruction::Instruction, pubkey::Pubkey};
@@ -20,7 +19,7 @@ use utils::*;
 #[tokio::test]
 async fn test_swap() {
     let mut test = ProgramTest::default();
-
+    test.prefer_bpf(true);
     test.add_program("./tests/artifacts/lb_clmm_prod", lb_clmm::id(), None);
 
     let lb_pair = Pubkey::from_str("EtAdVRLFH22rjWh3mcUasKFF27WtHhsaCvK27tPFFWig").unwrap();
