@@ -1,15 +1,7 @@
+use crate::*;
 use anchor_client::solana_sdk::pubkey::Pubkey;
-use anyhow::{ensure, Context, Result};
-use lb_clmm::{
-    pair_action_access::ActivationType,
-    state::{
-        bin::{Bin, BinArray, SwapResult},
-        bin_array_bitmap_extension::BinArrayBitmapExtension,
-        lb_pair::{LbPair, PairStatus, PairType},
-    },
-    utils::pda::derive_bin_array_pda,
-};
-use std::collections::HashMap;
+use core::result::Result::Ok;
+use std::{collections::HashMap, ops::Deref};
 
 #[derive(Debug)]
 pub struct SwapExactInQuote {
@@ -35,8 +27,8 @@ fn validate_swap_activation(
 
     let pair_type = lb_pair.pair_type()?;
     if pair_type.eq(&PairType::Permission) {
-        let activation_type = ActivationType::try_from(lb_pair.activation_type)?;
-        let current_point = match activation_type {
+        let activation_type = lb_pair.activation_type()?;
+        let current_point = match activation_type.deref() {
             ActivationType::Slot => current_slot,
             ActivationType::Timestamp => current_timestamp,
         };
@@ -277,7 +269,6 @@ pub fn get_bin_array_pubkeys_for_swap(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use anchor_client::anchor_lang::AccountDeserialize;
     use anchor_client::solana_sdk::clock::Clock;
     use anchor_client::{
         solana_client::nonblocking::rpc_client::RpcClient,
@@ -302,16 +293,11 @@ mod tests {
         // RPC client. No gPA is required.
         let rpc_client = RpcClient::new(Cluster::Mainnet.url().to_string());
 
-        let client = Client::new(
-            Cluster::Custom(rpc_client.url(), rpc_client.url()),
-            Rc::new(Keypair::new()),
-        );
-
-        let program = client.program(lb_clmm::ID).unwrap();
-
         let SOL_USDC = Pubkey::from_str("HTvjzsfX3yU6BUodCjZ5vZkUrAxMDTrBs3CJaq43ashR").unwrap();
 
-        let lb_pair = program.account::<LbPair>(SOL_USDC).await.unwrap();
+        let lb_pair_account = rpc_client.get_account(&SOL_USDC).await.unwrap();
+
+        let lb_pair = LbPairAccount::deserialize(&lb_pair_account.data).unwrap().0;
 
         // 3 bin arrays to left, and right is enough to cover most of the swap, and stay under 1.4m CU constraint.
         // Get 3 bin arrays to the left from the active bin
@@ -339,7 +325,9 @@ mod tests {
             .map(|(account, key)| {
                 (
                     key,
-                    BinArray::try_deserialize(&mut account.unwrap().data.as_ref()).unwrap(),
+                    BinArrayAccount::deserialize(&account.unwrap().data)
+                        .unwrap()
+                        .0,
                 )
             })
             .collect::<HashMap<_, _>>();
@@ -437,11 +425,13 @@ mod tests {
             Rc::new(Keypair::new()),
         );
 
-        let program = client.program(lb_clmm::ID).unwrap();
+        let program = client.program(dlmm_interface::ID).unwrap();
 
         let SOL_USDC = Pubkey::from_str("HTvjzsfX3yU6BUodCjZ5vZkUrAxMDTrBs3CJaq43ashR").unwrap();
 
-        let lb_pair = program.account::<LbPair>(SOL_USDC).await.unwrap();
+        let lb_pair_account = rpc_client.get_account(&SOL_USDC).await.unwrap();
+
+        let lb_pair = LbPairAccount::deserialize(&lb_pair_account.data).unwrap().0;
 
         // 3 bin arrays to left, and right is enough to cover most of the swap, and stay under 1.4m CU constraint.
         // Get 3 bin arrays to the left from the active bin
@@ -469,7 +459,9 @@ mod tests {
             .map(|(account, key)| {
                 (
                     key,
-                    BinArray::try_deserialize(&mut account.unwrap().data.as_ref()).unwrap(),
+                    BinArrayAccount::deserialize(&account.unwrap().data)
+                        .unwrap()
+                        .0,
                 )
             })
             .collect::<HashMap<_, _>>();

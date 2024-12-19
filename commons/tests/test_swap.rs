@@ -1,15 +1,13 @@
 mod helpers;
-use anchor_lang::prelude::*;
-use anchor_lang::solana_program::{instruction::Instruction, pubkey::Pubkey};
-use anchor_lang::InstructionData;
-use anchor_lang::ToAccountMetas;
+use anchor_client::anchor_lang::AccountDeserialize;
 use anchor_spl::token::{spl_token, TokenAccount};
+use commons::derive_event_authority_pda;
+use dlmm_interface::{BinArrayAccount, LbPairAccount, SwapIxArgs, SWAP_IX_ACCOUNTS_LEN};
 use helpers::*;
-use lb_clmm::state::bin::BinArray;
-use lb_clmm::state::lb_pair::LbPair;
-use lb_clmm::utils::pda::derive_event_authority_pda;
 use solana_program_test::*;
+use solana_sdk::instruction::{AccountMeta, Instruction};
 use solana_sdk::native_token::LAMPORTS_PER_SOL;
+use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::Signer;
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -20,7 +18,7 @@ use utils::*;
 async fn test_swap() {
     let mut test = ProgramTest::default();
     test.prefer_bpf(true);
-    test.add_program("./tests/artifacts/lb_clmm_prod", lb_clmm::id(), None);
+    test.add_program("./tests/artifacts/lb_clmm_prod", dlmm_interface::id(), None);
 
     let lb_pair = Pubkey::from_str("EtAdVRLFH22rjWh3mcUasKFF27WtHhsaCvK27tPFFWig").unwrap();
     let reserve_x = Pubkey::from_str("BmW4cCRpJwwL8maFB1AoAuEQf96t64Eq5gUvXikZardM").unwrap();
@@ -34,28 +32,28 @@ async fn test_swap() {
     test.add_account_with_file_data(
         lb_pair,
         10 * LAMPORTS_PER_SOL,
-        lb_clmm::id(),
+        dlmm_interface::id(),
         "EtAdVRLFH22rjWh3mcUasKFF27WtHhsaCvK27tPFFWig/lb_pair.bin",
     );
 
     test.add_account_with_file_data(
         oracle,
         10 * LAMPORTS_PER_SOL,
-        lb_clmm::id(),
+        dlmm_interface::id(),
         "EtAdVRLFH22rjWh3mcUasKFF27WtHhsaCvK27tPFFWig/oracle.bin",
     );
 
     test.add_account_with_file_data(
         bin_array_1,
         10 * LAMPORTS_PER_SOL,
-        lb_clmm::id(),
+        dlmm_interface::id(),
         "EtAdVRLFH22rjWh3mcUasKFF27WtHhsaCvK27tPFFWig/bin_array_1.bin",
     );
 
     test.add_account_with_file_data(
         bin_array_2,
         10 * LAMPORTS_PER_SOL,
-        lb_clmm::id(),
+        dlmm_interface::id(),
         "EtAdVRLFH22rjWh3mcUasKFF27WtHhsaCvK27tPFFWig/bin_array_2.bin",
     );
 
@@ -94,20 +92,36 @@ async fn test_swap() {
 
     let (event_authority, _bump) = derive_event_authority_pda();
 
-    let lb_pair_state: LbPair = banks_client
-        .get_account_with_anchor_seder(lb_pair)
+    let lb_pair_account = banks_client
+        .get_account(lb_pair)
         .await
+        .ok()
+        .flatten()
         .unwrap();
 
-    let bin_array_1_state: BinArray = banks_client
-        .get_account_with_anchor_seder(bin_array_1)
+    let lb_pair_state = LbPairAccount::deserialize(&lb_pair_account.data).unwrap().0;
+
+    let bin_array_1_account = banks_client
+        .get_account(bin_array_1)
         .await
+        .ok()
+        .flatten()
         .unwrap();
 
-    let bin_array_2_state: BinArray = banks_client
-        .get_account_with_anchor_seder(bin_array_2)
+    let bin_array_1_state = BinArrayAccount::deserialize(&bin_array_1_account.data)
+        .unwrap()
+        .0;
+
+    let bin_array_2_account = banks_client
+        .get_account(bin_array_2)
         .await
+        .ok()
+        .flatten()
         .unwrap();
+
+    let bin_array_2_state = BinArrayAccount::deserialize(&bin_array_2_account.data)
+        .unwrap()
+        .0;
 
     let mut bin_arrays = HashMap::new();
     bin_arrays.insert(bin_array_1, bin_array_1_state);
@@ -129,51 +143,65 @@ async fn test_swap() {
 
     println!("quote_result {:?}", quote_result);
 
-    let user_token_out_state_before: TokenAccount = banks_client
-        .get_account_with_anchor_seder(user_token_out)
+    let user_token_out_account_before = banks_client
+        .get_account(user_token_out)
         .await
+        .ok()
+        .flatten()
         .unwrap();
 
-    let mut accounts = lb_clmm::accounts::Swap {
+    let user_token_out_state_before =
+        TokenAccount::try_deserialize(&mut user_token_out_account_before.data.as_ref()).unwrap();
+
+    let main_accounts: [AccountMeta; SWAP_IX_ACCOUNTS_LEN] = dlmm_interface::SwapKeys {
         lb_pair,
         oracle,
-        bin_array_bitmap_extension: None,
+        bin_array_bitmap_extension: dlmm_interface::ID,
         reserve_x,
         reserve_y,
         user_token_in,
         user_token_out,
         token_x_mint,
         token_y_mint,
-        host_fee_in: None,
+        host_fee_in: dlmm_interface::ID,
         user: payer.pubkey(),
         token_x_program: spl_token::id(),
         token_y_program: spl_token::id(),
-        program: lb_clmm::id(),
+        program: dlmm_interface::id(),
         event_authority,
     }
-    .to_account_metas(None);
+    .into();
+
+    let mut all_accounts = main_accounts.to_vec();
+
     let mut remaining_accounts = vec![
         AccountMeta::new(bin_array_1, false),
         AccountMeta::new(bin_array_2, false),
     ];
-    accounts.append(&mut remaining_accounts);
+    all_accounts.append(&mut remaining_accounts);
 
     let swap_ix = Instruction {
-        program_id: lb_clmm::id(),
-        accounts,
-        data: lb_clmm::instruction::Swap {
+        program_id: dlmm_interface::id(),
+        accounts: all_accounts,
+        data: dlmm_interface::SwapIxData(SwapIxArgs {
             amount_in,
             min_amount_out: 0,
-        }
-        .data(),
+        })
+        .try_to_vec()
+        .unwrap(),
     };
 
     process_and_assert_ok(&[swap_ix], &payer, &[&payer], &mut banks_client).await;
 
-    let user_token_out_state_after: TokenAccount = banks_client
-        .get_account_with_anchor_seder(user_token_out)
+    let user_token_out_account_after = banks_client
+        .get_account(user_token_out)
         .await
+        .ok()
+        .flatten()
         .unwrap();
+
+    let user_token_out_state_after =
+        TokenAccount::try_deserialize(&mut user_token_out_account_after.data.as_ref()).unwrap();
 
     assert_eq!(
         user_token_out_state_after.amount - user_token_out_state_before.amount,
