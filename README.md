@@ -3,8 +3,7 @@
 #### Quote Testing
 
 ```
-cd programs/lb_clmm/
-cargo test-bpf
+cargo t -p commons --test '*'
 ```
 
 #### SDK Testing
