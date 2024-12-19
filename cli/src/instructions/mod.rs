@@ -1,4 +1,6 @@
 pub mod add_liquidity;
+pub use add_liquidity::*;
+
 pub mod check_my_balance;
 pub mod claim_fee;
 pub mod claim_reward;
@@ -34,5 +36,6 @@ pub mod swap_with_price_impact;
 pub mod toggle_pair_status;
 pub mod update_reward_duration;
 pub mod update_reward_funder;
-pub mod utils;
+mod utils;
+pub use utils::*;
 pub mod withdraw_protocol_fee;
