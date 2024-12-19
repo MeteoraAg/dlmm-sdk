@@ -21,7 +21,7 @@ use utils::*;
 async fn test_swap() {
     let mut test = ProgramTest::default();
 
-    test.add_program("../../artifacts/lb_clmm", lb_clmm::id(), None);
+    test.add_program("./tests/artifacts/lb_clmm_prod", lb_clmm::id(), None);
 
     let lb_pair = Pubkey::from_str("EtAdVRLFH22rjWh3mcUasKFF27WtHhsaCvK27tPFFWig").unwrap();
     let reserve_x = Pubkey::from_str("BmW4cCRpJwwL8maFB1AoAuEQf96t64Eq5gUvXikZardM").unwrap();
