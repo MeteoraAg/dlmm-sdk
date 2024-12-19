@@ -1,11 +1,10 @@
-use anchor_lang::solana_program::{instruction::Instruction, pubkey::Pubkey};
-use anchor_lang::AccountDeserialize;
 use anchor_spl::associated_token::*;
 use anchor_spl::token::spl_token;
 use assert_matches::assert_matches;
-use async_trait::async_trait;
 use solana_program_test::BanksClient;
 use solana_sdk::{
+    instruction::Instruction,
+    pubkey::Pubkey,
     signature::{Keypair, Signer},
     transaction::Transaction,
 };
@@ -28,24 +27,6 @@ pub async fn process_and_assert_ok(
     );
 
     assert_matches!(banks_client.process_transaction(tx).await, Ok(()));
-}
-
-#[async_trait]
-pub trait AnchorAdapter {
-    async fn get_account_with_anchor_seder<T: AccountDeserialize>(
-        &mut self,
-        address: Pubkey,
-    ) -> Option<T>;
-}
-#[async_trait]
-impl AnchorAdapter for BanksClient {
-    async fn get_account_with_anchor_seder<T: AccountDeserialize>(
-        &mut self,
-        address: Pubkey,
-    ) -> Option<T> {
-        let account = self.get_account(address).await.unwrap()?;
-        T::try_deserialize(&mut account.data.as_ref()).ok()
-    }
 }
 
 pub async fn get_or_create_ata(
