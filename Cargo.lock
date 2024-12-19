@@ -1140,9 +1140,17 @@ name = "commons"
 version = "0.3.0"
 dependencies = [
  "anchor-client",
+ "anchor-lang",
+ "anchor-spl",
  "anyhow",
+ "assert_matches",
+ "async-trait",
  "bincode",
  "lb_clmm",
+ "solana-program",
+ "solana-program-test",
+ "solana-sdk",
+ "spl-associated-token-account",
  "tokio",
 ]
 
