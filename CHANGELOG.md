@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.3.5] - PR #137
+
+### Changed
+
+- Add `ts-client` function `seedLiquidityByOperator`.
+
 ## @meteora-ag/dlmm [1.3.4] - PR #127
 
 ### Changed

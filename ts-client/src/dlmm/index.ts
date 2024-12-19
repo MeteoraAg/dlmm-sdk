@@ -4447,6 +4447,22 @@ export class DLMM {
     };
   }
 
+  /**
+  * The `seedLiquidityByOperator` function create multiple grouped instructions. The grouped instructions will be either [initialize bin array + initialize position instructions] or [deposit instruction] combination.
+ * @param payer: The public key of the tx payer.
+ * @param base: Base public key.
+ * @param seedAmount: Token X lamport amount to be seeded to the pool.
+ * @param curvature: Seed liquidity curve ratio.
+ * @param minPrice: Minimum pool price in TokenX/TokenY ratio.
+ * @param maxPrice: Maximum pool price in TokenX/TokenY ratio.
+ * @param positionOwner: The owner of the position.
+ * @param feeOwner: Position fee owner.
+ * @param operator: Operator of the position. Operator able to manage the position on behalf of the position owner. However, liquidity withdrawal issue by the operator can only send to the position owner.
+ * @param lockReleasePoint: The time that the position liquidity can be withdrawn. 
+ * @param shouldSeedPositionOwner (optional): Whether to send 1 lamport amount of token X to the position owner to prove ownership.
+ * 
+  * @returns {Promise<SeedLiquidityResponse>}
+  */
   public async seedLiquidityByOperator(
     payer: PublicKey,
     base: PublicKey,
@@ -4755,17 +4771,16 @@ export class DLMM {
 
   /**
  * The `seedLiquiditySingleBin` function create multiple grouped instructions. The grouped instructions will be either [initialize bin array + initialize position instructions] or [deposit instruction] combination.
- * @param
- *    - `payer`: The public key of the tx payer.
- *    - `base`: Base key
- *    - `seedAmount`: Token X lamport amount to be seeded to the pool.
- *    - `price`: TokenX/TokenY Price in UI format
- *    - `roundingUp`: Whether to round up the price
- *    - `positionOwner`: The owner of the position
- *    - `feeOwner`: Position fee owner
- *    - `operator`: Operator of the position. Operator able to manage the position on behalf of the position owner. However, liquidity withdrawal issue by the operator can only send to the position owner.
- *    - `lockReleasePoint`: The lock release point of the position.
- *    - `shouldSeedPositionOwner` (optional): Whether to send 1 lamport amount of token X to the position owner to prove ownership.
+ * @param payer: The public key of the tx payer.
+ * @param base: Base public key.
+ * @param seedAmount: Token X lamport amount to be seeded to the pool.
+ * @param price: TokenX/TokenY Price in UI format.
+ * @param roundingUp: Whether to round up the price.
+ * @param positionOwner: The owner of the position.
+ * @param feeOwner: Position fee owner.
+ * @param operator: Operator of the position. Operator able to manage the position on behalf of the position owner. However, liquidity withdrawal issue by the operator can only send to the position owner.
+ * @param lockReleasePoint: The time that the position liquidity can be withdrawn. 
+ * @param shouldSeedPositionOwner (optional): Whether to send 1 lamport amount of token X to the position owner to prove ownership.
  * 
  * The returned instructions need to be executed sequentially if it was separated into multiple transactions.
  * @returns {Promise<TransactionInstruction[]>}
