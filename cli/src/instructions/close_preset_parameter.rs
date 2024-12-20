@@ -1,31 +1,29 @@
-use std::ops::Deref;
+use crate::*;
 
-use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
-use anchor_client::{solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, Program};
-
-use anchor_lang::ToAccountMetas;
-use anyhow::*;
-use lb_clmm::accounts;
-use lb_clmm::instruction;
-
-pub async fn close_preset_parameter<C: Deref<Target = impl Signer> + Clone>(
+pub async fn execute_close_preset_parameter<C: Deref<Target = impl Signer> + Clone>(
     preset_parameter: Pubkey,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
 ) -> Result<Pubkey> {
-    let accounts = accounts::ClosePresetParameter {
-        admin: program.payer(),
-        rent_receiver: program.payer(),
-        preset_parameter,
-    }
-    .to_account_metas(None);
+    let accounts: [AccountMeta; CLOSE_PRESET_PARAMETER_IX_ACCOUNTS_LEN] =
+        ClosePresetParameterKeys {
+            admin: program.payer(),
+            rent_receiver: program.payer(),
+            preset_parameter,
+        }
+        .into();
 
-    let ix = instruction::ClosePresetParameter {};
+    let data = ClosePresetParameter2IxData;
+
+    let instruction = Instruction {
+        program_id: dlmm_interface::ID,
+        accounts: accounts.to_vec(),
+        data: data.try_to_vec()?,
+    };
 
     let request_builder = program.request();
     let signature = request_builder
-        .accounts(accounts)
-        .args(ix)
+        .instruction(instruction)
         .send_with_spinner_and_config(transaction_config)
         .await;
 
