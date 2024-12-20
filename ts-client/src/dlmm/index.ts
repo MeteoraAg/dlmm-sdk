@@ -610,15 +610,13 @@ export class DLMM {
           i
         ];
       const binArrayAccInfoBufferV2 = binArraysAccInfo[i];
-      if (!binArrayAccInfoBufferV2)
-        throw new Error(
-          `Bin Array account ${binArrayPubkey.toBase58()} not found`
+      if (binArrayAccInfoBufferV2) {
+        const binArrayAccInfo = program.coder.accounts.decode(
+          "binArray",
+          binArrayAccInfoBufferV2.data
         );
-      const binArrayAccInfo = program.coder.accounts.decode(
-        "binArray",
-        binArrayAccInfoBufferV2.data
-      );
-      positionBinArraysMapV2.set(binArrayPubkey.toBase58(), binArrayAccInfo);
+        positionBinArraysMapV2.set(binArrayPubkey.toBase58(), binArrayAccInfo);
+      }
     }
 
     const lbPairArraysMapV2 = new Map<string, LbPair>();
@@ -738,6 +736,7 @@ export class DLMM {
       const upperBinArray = positionBinArraysMapV2.get(
         upperBinArrayPubKey.toBase58()
       );
+
       const lbPairAcc = lbPairArraysMapV2.get(lbPair.toBase58());
       const [baseTokenDecimal, quoteTokenDecimal] = await Promise.all([
         getTokenDecimals(program.provider.connection, lbPairAcc.tokenXMint),
@@ -759,7 +758,7 @@ export class DLMM {
         amount: reserveYBalance,
         decimal: quoteTokenDecimal,
       };
-      const positionData = await DLMM.processPosition(
+      const positionData = !!lowerBinArray && !!upperBinArray ? await DLMM.processPosition(
         program,
         PositionVersion.V2,
         lbPairAcc,
@@ -770,7 +769,21 @@ export class DLMM {
         lowerBinArray,
         upperBinArray,
         feeOwner
-      );
+      ) : {
+          totalXAmount: '0',
+          totalYAmount: '0',
+          positionBinData: [],
+          lastUpdatedAt: new BN(0),
+          upperBinId,
+          lowerBinId,
+          feeX: new BN(0),
+          feeY: new BN(0),
+          rewardOne: new BN(0),
+          rewardTwo: new BN(0),
+          feeOwner,
+          totalClaimedFeeXAmount: new BN(0),
+          totalClaimedFeeYAmount: new BN(0),
+        };
 
       if (positionData) {
         positionsMap.set(lbPair.toBase58(), {
