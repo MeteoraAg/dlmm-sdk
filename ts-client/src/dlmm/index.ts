@@ -1744,7 +1744,9 @@ export class DLMM {
       ]),
     ]);
 
-    const [activeBin, positions, positionsV2] = promiseResults;
+    const activeBin = promiseResults[0];
+    let positions = promiseResults[1];
+    let positionsV2 = promiseResults[2];
 
     if (!activeBin) {
       throw new Error("Error fetching active bin");
@@ -1784,7 +1786,7 @@ export class DLMM {
     );
 
     const binArrayPubkeySetV2 = new Set<string>();
-    positionsV2.forEach(({ account: { upperBinId, lowerBinId, lbPair } }) => {
+    positionsV2.forEach(({ account: { upperBinId, lowerBinId } }) => {
       const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(lowerBinId));
       const upperBinArrayIndex = binIdToBinArrayIndex(new BN(upperBinId));
 
@@ -1805,18 +1807,32 @@ export class DLMM {
       (pubkey) => new PublicKey(pubkey)
     );
 
-    const lbPairAndBinArrays = await chunkedGetMultipleAccountInfos(
+    const positionPubKeys = [...positions, ...positionsV2].map(
+      ({ publicKey }) => publicKey
+    );
+    const binArrayPubKeys = [...binArrayPubkeyArray, ...binArrayPubkeyArrayV2];
+
+    const lbPairAndBinArraysAndPositions = await chunkedGetMultipleAccountInfos(
       this.program.provider.connection,
-      [
-        this.pubkey,
-        SYSVAR_CLOCK_PUBKEY,
-        ...binArrayPubkeyArray,
-        ...binArrayPubkeyArrayV2,
-      ]
+      [this.pubkey, SYSVAR_CLOCK_PUBKEY, ...binArrayPubKeys, ...positionPubKeys]
     );
 
-    const [lbPairAccInfo, clockAccInfo, ...binArraysAccInfo] =
-      lbPairAndBinArrays;
+    const lbPairAccInfo = lbPairAndBinArraysAndPositions[0];
+    const clockAccInfo = lbPairAndBinArraysAndPositions[1];
+    const binArraysAccInfo = lbPairAndBinArraysAndPositions.slice(
+      2,
+      2 + binArrayPubKeys.length
+    );
+    const positionsAccInfo = lbPairAndBinArraysAndPositions.slice(
+      2 + binArrayPubKeys.length
+    );
+
+    positions = positionsAccInfo
+      .slice(0, positions.length)
+      .map(({ data }) => this.program.coder.accounts.decode("position", data));
+    positionsV2 = positionsAccInfo
+      .slice(positions.length)
+      .map(({ data }) => this.program.coder.accounts.decode("position", data));
 
     const positionBinArraysMap = new Map();
     for (let i = 0; i < binArrayPubkeyArray.length; i++) {
