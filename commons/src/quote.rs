@@ -309,18 +309,20 @@ mod tests {
 
         let program = client.program(lb_clmm::ID).unwrap();
 
-        let SOL_USDC = Pubkey::from_str("HTvjzsfX3yU6BUodCjZ5vZkUrAxMDTrBs3CJaq43ashR").unwrap();
+        let sol_usdc = Pubkey::from_str("HTvjzsfX3yU6BUodCjZ5vZkUrAxMDTrBs3CJaq43ashR").unwrap();
 
-        let lb_pair = program.account::<LbPair>(SOL_USDC).await.unwrap();
+        // Get account data and deserialize properly
+        let account = rpc_client.get_account(&sol_usdc).await.unwrap();
+        let lb_pair = LbPair::try_deserialize(&mut &account.data[..]).unwrap();
 
         // 3 bin arrays to left, and right is enough to cover most of the swap, and stay under 1.4m CU constraint.
         // Get 3 bin arrays to the left from the active bin
         let left_bin_array_pubkeys =
-            get_bin_array_pubkeys_for_swap(SOL_USDC, &lb_pair, None, true, 3).unwrap();
+            get_bin_array_pubkeys_for_swap(sol_usdc, &lb_pair, None, true, 3).unwrap();
 
-        // Get 3 bin arrays to the right the from active bin
+        // Get 3 bin arrays to the right from active bin
         let right_bin_array_pubkeys =
-            get_bin_array_pubkeys_for_swap(SOL_USDC, &lb_pair, None, false, 3).unwrap();
+            get_bin_array_pubkeys_for_swap(sol_usdc, &lb_pair, None, false, 3).unwrap();
 
         // Fetch bin arrays
         let bin_array_pubkeys = left_bin_array_pubkeys
@@ -336,11 +338,13 @@ mod tests {
         let bin_arrays = accounts
             .into_iter()
             .zip(bin_array_pubkeys.into_iter())
-            .map(|(account, key)| {
-                (
-                    key,
-                    BinArray::try_deserialize(&mut account.unwrap().data.as_ref()).unwrap(),
-                )
+            .filter_map(|(account, key)| {
+                account.map(|acc| {
+                    (
+                        key,
+                        BinArray::try_deserialize(&mut &acc.data[..]).unwrap(),
+                    )
+                })
             })
             .collect::<HashMap<_, _>>();
 
@@ -439,18 +443,20 @@ mod tests {
 
         let program = client.program(lb_clmm::ID).unwrap();
 
-        let SOL_USDC = Pubkey::from_str("HTvjzsfX3yU6BUodCjZ5vZkUrAxMDTrBs3CJaq43ashR").unwrap();
+        let sol_usdc = Pubkey::from_str("HTvjzsfX3yU6BUodCjZ5vZkUrAxMDTrBs3CJaq43ashR").unwrap();
 
-        let lb_pair = program.account::<LbPair>(SOL_USDC).await.unwrap();
+        // Get account data and deserialize properly
+        let account = rpc_client.get_account(&sol_usdc).await.unwrap();
+        let lb_pair = LbPair::try_deserialize(&mut &account.data[..]).unwrap();
 
         // 3 bin arrays to left, and right is enough to cover most of the swap, and stay under 1.4m CU constraint.
         // Get 3 bin arrays to the left from the active bin
         let left_bin_array_pubkeys =
-            get_bin_array_pubkeys_for_swap(SOL_USDC, &lb_pair, None, true, 3).unwrap();
+            get_bin_array_pubkeys_for_swap(sol_usdc, &lb_pair, None, true, 3).unwrap();
 
-        // Get 3 bin arrays to the right the from active bin
+        // Get 3 bin arrays to the right from active bin
         let right_bin_array_pubkeys =
-            get_bin_array_pubkeys_for_swap(SOL_USDC, &lb_pair, None, false, 3).unwrap();
+            get_bin_array_pubkeys_for_swap(sol_usdc, &lb_pair, None, false, 3).unwrap();
 
         // Fetch bin arrays
         let bin_array_pubkeys = left_bin_array_pubkeys
@@ -466,11 +472,13 @@ mod tests {
         let bin_arrays = accounts
             .into_iter()
             .zip(bin_array_pubkeys.into_iter())
-            .map(|(account, key)| {
-                (
-                    key,
-                    BinArray::try_deserialize(&mut account.unwrap().data.as_ref()).unwrap(),
-                )
+            .filter_map(|(account, key)| {
+                account.map(|acc| {
+                    (
+                        key,
+                        BinArray::try_deserialize(&mut &acc.data[..]).unwrap(),
+                    )
+                })
             })
             .collect::<HashMap<_, _>>();
 
