@@ -2700,15 +2700,11 @@ export class DLMM {
   }): Promise<Transaction | Transaction[]> {
     const lowerBinIdToRemove = Math.min(...binIds);
     const upperBinIdToRemove = Math.max(...binIds);
-    const [lowerBinArrayPubKey] = deriveBinArray(this.pubkey, binIdToBinArrayIndex(new BN(binIds[0])), this.program.programId)
-    const [upperBinArrayPubKey] = deriveBinArray(this.pubkey, binIdToBinArrayIndex(new BN(binIds[binIds.length - 1])), this.program.programId)
-    const [positionAccInfo, lbPairAccInfo, upperBinArrayInfoAcc, lowerBinArrayInfoAcc] = await this.program.provider.connection.getMultipleAccountsInfo([
+    const [positionAccInfo, lbPairAccInfo] = await this.program.provider.connection.getMultipleAccountsInfo([
       position,
       this.pubkey,
-      upperBinArrayPubKey,
-      lowerBinArrayPubKey,
     ])
-    const { lbPair, owner, feeOwner, upperBinId: positionUpperBinId, lowerBinId: positionLowerBinId } = this.program.coder.accounts.decode(
+    const { lbPair, owner, feeOwner, lowerBinId: positionLowerBinId, liquidityShares } = this.program.coder.accounts.decode(
       "positionV2",
       positionAccInfo.data
     ) as PositionV2;
@@ -2716,21 +2712,8 @@ export class DLMM {
       "lbPair",
       lbPairAccInfo.data
     ) as LbPair;
-    const upperBinArray = this.program.coder.accounts.decode("binArray", upperBinArrayInfoAcc.data);
-    const lowerBinArray = this.program.coder.accounts.decode("binArray", lowerBinArrayInfoAcc.data);
 
-    const bins = await this.getBins(
-      this.pubkey,
-      positionLowerBinId,
-      positionUpperBinId,
-      this.tokenX.decimal,
-      this.tokenY.decimal,
-      lowerBinArray,
-      upperBinArray,
-    )
-
-    const positionHasNoLiquidity = bins.every(({ supply }) => supply.isZero());
-      if (positionHasNoLiquidity) {
+      if (liquidityShares.every((share) => share.isZero())) {
         throw new Error("No liquidity to remove");
       }
 
