@@ -822,19 +822,19 @@ mod core_test {
             mode: MarketMakingMode::ModeBoth,
         }];
 
+        let mut all_position = AllPosition::new(&config);
+        // Initialize required state
+        all_position.all_positions.get_mut(&lp_pair).unwrap().lb_pair_state = LbPair::default();
+
         let core = &Core {
             provider: Cluster::from_str(&cluster).unwrap(),
             wallet: Some(wallet),
             owner: payer.pubkey(),
             config: config.clone(),
-            state: Arc::new(Mutex::new(AllPosition::new(&config))),
+            state: Arc::new(Mutex::new(all_position)),
         };
 
-        core.refresh_state().await.unwrap();
-
         let state = core.get_position_state(lp_pair);
-
-        // withdraw
         core.withdraw(&state, true).await.unwrap();
     }
 
@@ -853,18 +853,19 @@ mod core_test {
             mode: MarketMakingMode::ModeBoth,
         }];
 
+        let mut all_position = AllPosition::new(&config);
+        // Initialize required state
+        all_position.all_positions.get_mut(&lp_pair).unwrap().lb_pair_state = LbPair::default();
+        
         let core = &Core {
             provider: Cluster::from_str(&cluster).unwrap(),
             wallet: Some(wallet),
             owner: payer.pubkey(),
             config: config.clone(),
-            state: Arc::new(Mutex::new(AllPosition::new(&config))),
+            state: Arc::new(Mutex::new(all_position)),
         };
 
-        core.refresh_state().await.unwrap();
-
         let state = core.get_position_state(lp_pair);
-
         core.swap(&state, 1000000, true, true).await.unwrap();
     }
 }

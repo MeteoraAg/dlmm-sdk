@@ -48,15 +48,14 @@ mod config_test {
     use std::env;
     #[test]
     fn test_get_get_config_from_file() {
-        let mut owned_string: String = env::current_dir()
+        let config_path = env::current_dir()
             .unwrap()
-            .into_os_string()
-            .into_string()
-            .unwrap();
-        let borrowed_string: &str = "/src/pair_config.json";
-        owned_string.push_str(borrowed_string);
+            .join("src/config.json")
+            .to_str()
+            .unwrap()
+            .to_string();
 
-        let config = get_config_from_file(&owned_string).unwrap();
+        let config = get_config_from_file(&config_path).unwrap();
         println!("{:?}", config);
     }
 }
