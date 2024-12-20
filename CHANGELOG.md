@@ -19,6 +19,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.3.6] - PR #116
+
+### Changed
+
+- Refactored; remove `position(V1)` interaction from SDK
+- Throw error in `removeLiquidity` function if position doesn't have any liquidity 
+
+### Added
+
+- Function `getPosition` to retrieve a single position data
+
 ## @meteora-ag/dlmm [1.3.5] - PR #136
 
 ### Fixed
