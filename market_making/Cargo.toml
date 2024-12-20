@@ -25,4 +25,5 @@ spl-associated-token-account = {workspace=true}
 solana-transaction-status={workspace=true}
 bs58 = {workspace=true}
 chrono={workspace=true}
+tempfile = "3.2"
 
