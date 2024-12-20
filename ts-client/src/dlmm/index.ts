@@ -2700,18 +2700,7 @@ export class DLMM {
   }): Promise<Transaction | Transaction[]> {
     const lowerBinIdToRemove = Math.min(...binIds);
     const upperBinIdToRemove = Math.max(...binIds);
-    const [positionAccInfo, lbPairAccInfo] = await this.program.provider.connection.getMultipleAccountsInfo([
-      position,
-      this.pubkey,
-    ])
-    const { lbPair, owner, feeOwner, lowerBinId: positionLowerBinId, liquidityShares } = this.program.coder.accounts.decode(
-      "positionV2",
-      positionAccInfo.data
-    ) as PositionV2;
-    const { reserveX, reserveY, tokenXMint, tokenYMint } = this.program.coder.accounts.decode(
-      "lbPair",
-      lbPairAccInfo.data
-    ) as LbPair;
+    const { lbPair, owner, feeOwner, lowerBinId: positionLowerBinId, liquidityShares } = await this.program.account.positionV2.fetch(position);
 
       if (liquidityShares.every((share) => share.isZero())) {
         throw new Error("No liquidity to remove");
@@ -2788,8 +2777,8 @@ export class DLMM {
           lbPair: this.pubkey,
           sender: user,
           position,
-          reserveX,
-          reserveY,
+          reserveX: this.lbPair.reserveX,
+          reserveY: this.lbPair.reserveY,
           tokenProgram: TOKEN_PROGRAM_ID,
           tokenXMint: this.tokenX.publicKey,
           tokenYMint: this.tokenY.publicKey,
@@ -2873,10 +2862,10 @@ export class DLMM {
         lbPair,
         userTokenX,
         userTokenY,
-        reserveX,
-        reserveY,
-        tokenXMint,
-        tokenYMint,
+        reserveX: this.lbPair.reserveX,
+        reserveY: this.lbPair.reserveY,
+        tokenXMint: this.tokenX.publicKey,
+        tokenYMint: this.tokenY.publicKey,
         binArrayLower,
         binArrayUpper,
         binArrayBitmapExtension,
