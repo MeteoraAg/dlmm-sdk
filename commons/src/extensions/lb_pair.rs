@@ -1,5 +1,9 @@
 use crate::*;
+use anchor_spl::token::spl_token;
+use anchor_spl::token_2022::spl_token_2022;
 use ruint::aliases::U1024;
+use solana_sdk::pubkey::Pubkey;
+use std::ops::Deref;
 use std::ops::Shl;
 use std::ops::Shr;
 
@@ -14,6 +18,7 @@ pub trait LbPairExtension {
     fn get_total_fee(&self) -> Result<u128>;
     fn get_base_fee(&self) -> Result<u128>;
     fn get_variable_fee(&self) -> Result<u128>;
+    fn get_token_programs(&self) -> Result<[Pubkey; 2]>;
     fn compute_variable_fee(&self, volatility_accumulator: u32) -> Result<u128>;
     fn compute_protocol_fee(&self, fee_amount: u64) -> Result<u64>;
     fn compute_fee_from_amount(&self, amount_with_fees: u64) -> Result<u64>;
@@ -32,6 +37,27 @@ pub trait LbPairExtension {
 impl LbPairExtension for LbPair {
     fn status(&self) -> Result<PairStatusWrapper> {
         Ok(self.status.try_into()?)
+    }
+
+    fn get_token_programs(&self) -> Result<[Pubkey; 2]> {
+        let mut token_programs_id = [Pubkey::default(); 2];
+
+        for (i, token_program_flag) in [
+            self.token_mint_x_program_flag,
+            self.token_mint_y_program_flag,
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let flag: TokenProgramFlagWrapper = token_program_flag.try_into()?;
+            let token_program_id = match flag.deref() {
+                TokenProgramFlags::TokenProgram => spl_token::ID,
+                TokenProgramFlags::TokenProgram2022 => spl_token_2022::ID,
+            };
+            token_programs_id[i] = token_program_id;
+        }
+
+        Ok(token_programs_id)
     }
 
     fn pair_type(&self) -> Result<PairTypeWrapper> {

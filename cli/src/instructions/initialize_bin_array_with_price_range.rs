@@ -1,18 +1,6 @@
-use std::ops::Deref;
-
-use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
-use anchor_client::{solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, Program};
-
-use anyhow::*;
-use lb_clmm::math::u128x128_math::Rounding;
-use lb_clmm::state::lb_pair::LbPair;
+use crate::*;
+use instructions::*;
 use rust_decimal::Decimal;
-
-use crate::math::get_id_from_price;
-
-use super::initialize_bin_array_with_bin_range::{
-    initialize_bin_array_with_bin_range, InitBinArrayWithBinRangeParameters,
-};
 
 #[derive(Debug)]
 pub struct InitBinArrayWithPriceRangeParameters {
@@ -21,7 +9,9 @@ pub struct InitBinArrayWithPriceRangeParameters {
     pub upper_price: f64,
 }
 
-pub async fn initialize_bin_array_with_price_range<C: Deref<Target = impl Signer> + Clone>(
+pub async fn execute_initialize_bin_array_with_price_range<
+    C: Deref<Target = impl Signer> + Clone,
+>(
     params: InitBinArrayWithPriceRangeParameters,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
@@ -32,7 +22,12 @@ pub async fn initialize_bin_array_with_price_range<C: Deref<Target = impl Signer
         upper_price,
     } = params;
 
-    let lb_pair_state = program.account::<LbPair>(lb_pair).await?;
+    let rpc_client = program.async_rpc();
+    let lb_pair_state = rpc_client
+        .get_account_and_deserialize(&lb_pair, |account| {
+            Ok(LbPairAccount::deserialize(&account.data)?.0)
+        })
+        .await?;
 
     let lower_bin_id = get_id_from_price(
         lb_pair_state.bin_step,
@@ -54,5 +49,5 @@ pub async fn initialize_bin_array_with_price_range<C: Deref<Target = impl Signer
         upper_bin_id,
     };
 
-    initialize_bin_array_with_bin_range(params, program, transaction_config).await
+    execute_initialize_bin_array_with_bin_range(params, program, transaction_config).await
 }
