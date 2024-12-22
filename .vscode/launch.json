@@ -1,0 +1,15 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "Debug Cargo Tests",
+        "type": "lldb",
+        "request": "launch",
+        "cargo": {
+          "args": ["test", "--no-run"]
+        },
+        "args": []
+      }
+    ]
+  }
+  

@@ -814,27 +814,28 @@ mod core_test {
     use std::io::Write;
     use tempfile::tempdir;
 
-    fn setup_test_env() -> (String, String) {
+    fn setup_test_env() -> (String, String, tempfile::TempDir) {
         // Create temp keypair file
-        let dir = tempdir().unwrap();
+        let dir = tempdir().unwrap(); // Temporary directory
         let keypair = Keypair::new();
         let keypair_file = dir.path().join("test-keypair.json");
         let mut file = File::create(&keypair_file).unwrap();
         write!(file, "{:?}", keypair.to_bytes()).unwrap();
-        
+    
         // Set test environment variables
         env::set_var("MM_WALLET", keypair_file.to_str().unwrap());
-        env::set_var("MM_CLUSTER", "localnet");
-        
+        env::set_var("MM_CLUSTER", "https://api.devnet.solana.com");
+        // Return the directory handle to keep it alive
         (
             env::var("MM_WALLET").unwrap(),
-            env::var("MM_CLUSTER").unwrap()
+            env::var("MM_CLUSTER").unwrap(),
+            dir, // Return the TempDir handle
         )
-    }
+    }    
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_withdraw() {
-        let (wallet, cluster) = setup_test_env();
+        let (wallet, cluster, _dir) = setup_test_env(); // Include `_dir` to hold the TempDir instance
         let payer = read_keypair_file(&wallet).unwrap();
         let lp_pair = Pubkey::from_str("FoSDw2L5DmTuQTFe55gWPDXf88euaxAEKFre74CnvQbX").unwrap();
 
@@ -860,9 +861,10 @@ mod core_test {
         core.withdraw(&state, true).await.unwrap();
     }
 
+
     #[tokio::test(flavor = "multi_thread")]
     async fn test_swap() {
-        let (wallet, cluster) = setup_test_env();
+        let (wallet, cluster, _dir) = setup_test_env(); // Include `_dir` to hold the TempDir instance
         let payer = read_keypair_file(&wallet).unwrap();
         let lp_pair = Pubkey::from_str("FoSDw2L5DmTuQTFe55gWPDXf88euaxAEKFre74CnvQbX").unwrap();
 
@@ -875,7 +877,7 @@ mod core_test {
 
         let mut all_position = AllPosition::new(&config);
         all_position.all_positions.get_mut(&lp_pair).unwrap().lb_pair_state = LbPair::default();
-        
+
         let core = &Core {
             provider: Cluster::from_str(&cluster).unwrap(),
             wallet: Some(wallet),
@@ -887,4 +889,5 @@ mod core_test {
         let state = core.get_position_state(lp_pair);
         core.swap(&state, 1000000, true, true).await.unwrap();
     }
+
 }

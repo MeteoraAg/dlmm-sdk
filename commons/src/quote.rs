@@ -355,7 +355,7 @@ mod tests {
         let clock = get_clock(rpc_client).await.unwrap();
 
         let quote_result = quote_exact_out(
-            SOL_USDC,
+            sol_usdc,
             &lb_pair,
             out_sol_amount,
             false,
@@ -374,7 +374,7 @@ mod tests {
         );
 
         let quote_result = quote_exact_in(
-            SOL_USDC,
+            sol_usdc,
             &lb_pair,
             in_amount,
             false,
@@ -394,7 +394,7 @@ mod tests {
         let out_usdc_amount = 200_000_000;
 
         let quote_result = quote_exact_out(
-            SOL_USDC,
+            sol_usdc,
             &lb_pair,
             out_usdc_amount,
             true,
@@ -413,7 +413,7 @@ mod tests {
         );
 
         let quote_result = quote_exact_in(
-            SOL_USDC,
+            sol_usdc,
             &lb_pair,
             in_amount,
             true,
@@ -488,7 +488,7 @@ mod tests {
         let clock = get_clock(rpc_client).await.unwrap();
 
         let quote_result = quote_exact_in(
-            SOL_USDC,
+            sol_usdc,
             &lb_pair,
             in_sol_amount,
             true,
@@ -508,7 +508,7 @@ mod tests {
         let in_usdc_amount = 100_000_000;
 
         let quote_result = quote_exact_in(
-            SOL_USDC,
+            sol_usdc,
             &lb_pair,
             in_usdc_amount,
             false,
