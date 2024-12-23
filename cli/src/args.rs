@@ -1,3 +1,4 @@
+use crate::instructions::*;
 use anchor_client::solana_sdk::pubkey::Pubkey;
 use anchor_client::Cluster;
 use clap::*;
@@ -25,7 +26,7 @@ pub struct ConfigOverride {
     pub priority_fee: u64,
 }
 
-fn parse_bin_liquidity_removal(src: &str) -> Result<(i32, f64), Error> {
+pub fn parse_bin_liquidity_removal(src: &str) -> Result<(i32, f64), Error> {
     let mut parsed_str: Vec<&str> = src.split(',').collect();
 
     let bps_to_remove = parsed_str
@@ -41,7 +42,7 @@ fn parse_bin_liquidity_removal(src: &str) -> Result<(i32, f64), Error> {
     Ok((bin_id, bps_to_remove))
 }
 
-fn parse_bin_liquidity_distribution(src: &str) -> Result<(i32, f64, f64), Error> {
+pub fn parse_bin_liquidity_distribution(src: &str) -> Result<(i32, f64, f64), Error> {
     let mut parsed_str: Vec<&str> = src.split(',').collect();
 
     let dist_y = parsed_str
@@ -70,170 +71,43 @@ pub enum SelectiveRounding {
 }
 
 #[derive(Parser, Debug)]
-pub enum Command {
+pub enum DLMMCommand {
     /// Create a new liquidity pair.
-    InitializePair {
-        /// Preset parameter pubkey. Get the pubkey from list_all_binstep command.
-        preset_parameter: Pubkey,
-        /// Token X mint of the liquidity pair. Eg: BTC. This should be the base token.
-        token_mint_x: Pubkey,
-        /// Token Y mint of the liquidity pair. Eg: USDC. This should be the quote token.
-        token_mint_y: Pubkey,
-        /// The initial price of the liquidity pair. Eg: 24123.12312412 USDC per 1 BTC.
-        initial_price: f64,
-    },
+    InitializePair(InitLbPairParams),
     /// Initialize bin array for the given liquidity pair. Use InitializeBinArrayWithPriceRange or InitializeBinArrayWithBinRange for a more user friendly version.
-    InitializeBinArray {
-        /// Index of the bin array.
-        #[clap(long, allow_negative_numbers = true)]
-        bin_array_index: i64,
-        /// Address of the liquidity pair.
-        lb_pair: Pubkey,
-    },
+    InitializeBinArray(InitBinArrayParams),
     /// Initialize bin array for the given liquidity pair based on price range. For example: Initialize bin arrays for BTC/USDC from 20000 -> 30000 price.
-    InitializeBinArrayWithPriceRange {
-        /// Address of the liquidity pair.
-        lb_pair: Pubkey,
-        /// Lower bound of the price.
-        lower_price: f64,
-        /// Upper bound of the price.
-        upper_price: f64,
-    },
+    InitializeBinArrayWithPriceRange(InitBinArrayWithPriceRangeParams),
     /// Initialize bin array for the given liquidity pair based on bin range. For example: Initialize bin arrays for BTC/USDC from bin 5660 -> 6600.
-    InitializeBinArrayWithBinRange {
-        /// Address of the liquidity pair.
-        lb_pair: Pubkey,
-        /// Lower bound of the bin range.
-        #[clap(long, allow_negative_numbers = true)]
-        lower_bin_id: i32,
-        /// Upper bound of the bin range.
-        #[clap(long, allow_negative_numbers = true)]
-        upper_bin_id: i32,
-    },
+    InitializeBinArrayWithBinRange(InitBinArrayWithBinRangeParams),
     /// Initialize position for the given liquidity pair based on price range.
-    InitializePositionWithPriceRange {
-        /// Address of the liquidity pair.
-        lb_pair: Pubkey,
-        /// Lower bound of the price.
-        lower_price: f64,
-        /// Width of the position. Start with 1 until 70.
-        width: i32,
-        /// NFT mint for alpha access
-        nft_mint: Option<Pubkey>,
-    },
+    InitializePositionWithPriceRange(InitPositionWithPriceRangeParams),
     /// Initialize position for the given liquidity pair based on bin range.
-    InitializePosition {
-        /// Address of the liquidity pair.
-        lb_pair: Pubkey,
-        /// Lower bound of the bin range.
-        #[clap(long, allow_negative_numbers = true)]
-        lower_bin_id: i32,
-        /// Width of the position. Start with 1 until 70.
-        width: i32,
-        /// NFT mint for alpha access
-        nft_mint: Option<Pubkey>,
-    },
+    InitializePosition(InitPositionParams),
     /// Deposit liquidity to the position of the given liquidity pair.
-    AddLiquidity {
-        /// Address of the liquidity pair.
-        lb_pair: Pubkey,
-        /// Position for the deposit.
-        position: Pubkey,
-        /// Amount of token X to be deposited.
-        amount_x: u64,
-        /// Amount of token Y to be deposited.
-        amount_y: u64,
-        /// Liquidity distribution to the bins. "<DELTA_ID,DIST_X,DIST_Y, DELTA_ID,DIST_X,DIST_Y, ...>" where
-        /// DELTA_ID = Number of bins surrounding the active bin. This decide which bin the token is going to deposit to. For example: if the current active id is 5555, delta_ids is 1, the user will be depositing to bin 5554, 5555, and 5556.
-        /// DIST_X = Percentage of amount_x to be deposited to the bins. Must not > 1.0
-        /// DIST_Y = Percentage of amount_y to be deposited to the bins. Must not > 1.0
-        /// For example: --bin-liquidity-distribution "-1,0.0,0.25 0,0.75,0.75 1,0.25,0.0"
-        #[clap(long, value_parser = parse_bin_liquidity_distribution, value_delimiter = ' ', allow_hyphen_values = true)]
-        bin_liquidity_distribution: Vec<(i32, f64, f64)>,
-    },
+    AddLiquidity(AddLiquidityParams),
     /// Remove liquidity from the position of the given liquidity pair.
-    RemoveLiquidity {
-        /// Address of the liquidity pair.
-        lb_pair: Pubkey,
-        /// Bin liquidity information to be remove. "<BIN_ID,BPS_TO_REMOVE, BIN_ID,BPS_TO_REMOVE, ...>" where
-        /// BIN_ID = bin id to withdraw
-        /// BPS_TO_REMOVE = Percentage of position owned share to be removed. Maximum is 1.0f, which equivalent to 100%.
-        #[clap(long, value_parser = parse_bin_liquidity_removal, value_delimiter = ' ', allow_hyphen_values = true)]
-        bin_liquidity_removal: Vec<(i32, f64)>,
-        /// Position to be withdraw.
-        position: Pubkey,
-    },
+    RemoveLiquidity(RemoveLiquidityParams),
     /// Trade token X -> Y, or vice versa.
-    SwapExactIn {
-        /// Address of the liquidity pair.
-        lb_pair: Pubkey,
-        /// Amount of token to be sell.
-        amount_in: u64,
-        /// Buy direction. true = buy token Y, false = buy token X.
-        #[clap(long)]
-        swap_for_y: bool,
-    },
-    SwapExactOut {
-        /// Address of the liquidity pair.
-        lb_pair: Pubkey,
-        /// Amount of token to be buy.
-        amount_out: u64,
-        /// Buy direction. true = buy token Y, false = buy token X.
-        #[clap(long)]
-        swap_for_y: bool,
-    },
-    SwapWithPriceImpact {
-        /// Address of the liquidity pair.
-        lb_pair: Pubkey,
-        /// Amount of token to be sell.
-        amount_in: u64,
-        /// Buy direction. true = buy token Y, false = buy token X.
-        #[clap(long)]
-        swap_for_y: bool,
-        /// Allowed price impact in bps.
-        price_impact_bps: u16,
-    },
+    SwapExactIn(SwapExactInParams),
+    SwapExactOut(SwapExactOutParams),
+    SwapWithPriceImpact(SwapWithPriceImpactParams),
     /// Show information of the given liquidity pair.
-    ShowPair {
-        lb_pair: Pubkey,
-    },
+    ShowPair(ShowPairParams),
     /// Show information of the given position.
     ShowPosition {
         position: Pubkey,
     },
 
-    ClaimReward {
-        lb_pair: Pubkey,
-        reward_index: u64,
-        position: Pubkey,
-    },
-    UpdateRewardDuration {
-        lb_pair: Pubkey,
-        reward_index: u64,
-        reward_duration: u64,
-    },
-    UpdateRewardFunder {
-        lb_pair: Pubkey,
-        reward_index: u64,
-        funder: Pubkey,
-    },
+    ClaimReward(ClaimRewardParams),
+    UpdateRewardDuration(UpdateRewardDurationParams),
+    UpdateRewardFunder(UpdateRewardFunderParams),
     /// Close liquidity position.
-    ClosePosition {
-        /// Address of the position.
-        position: Pubkey,
-    },
+    ClosePosition(ClosePositionParams),
     /// Claim fee
-    ClaimFee {
-        /// Address of the position.
-        position: Pubkey,
-    },
+    ClaimFee(ClaimFeeParams),
     /// Increase an oracle observation sample length
-    IncreaseLength {
-        /// Address of the pair
-        lb_pair: Pubkey,
-        /// Length to add
-        length_to_add: u64,
-    },
+    IncreaseLength(IncreaseLengthParams),
 
     ShowPresetParameter {
         /// Preset parameter pubkey. Get from ListAllBinStep
@@ -242,42 +116,7 @@ pub enum Command {
 
     ListAllBinStep,
 
-    SimulateSwapDemand {
-        lb_pair: Pubkey,
-        x_amount: f64, // ex: 10 jup
-        y_amount: f64, // ex: 1k usdc
-        side_ratio: u64,
-    },
-
-    InitializeCustomizablePermissionlessLbPair {
-        /// Token X address
-        #[clap(long)]
-        token_mint_x: Pubkey,
-        /// Token Y address
-        #[clap(long)]
-        token_mint_y: Pubkey,
-        /// Bin step
-        #[clap(long)]
-        bin_step: u16,
-        /// Pool starting price
-        #[clap(long)]
-        initial_price: f64,
-        /// Base fee rate
-        #[clap(long)]
-        base_fee_bps: u16,
-        /// Pool activation (start trading) type. 0 = Slot based, 1 = Timestamp based
-        #[clap(long)]
-        activation_type: u8,
-        /// Indicate whether the launch pool have alpha vault
-        #[clap(long)]
-        has_alpha_vault: bool,
-        /// Initial price rounding
-        #[clap(long)]
-        selective_rounding: SelectiveRounding,
-        /// Pool activation point. None = Now
-        #[clap(long)]
-        activation_point: Option<u64>,
-    },
+    InitializeCustomizablePermissionlessLbPair(InitCustomizablePermissionlessLbPairParam),
 
     /// Seed liquidity
     SeedLiquidity {
@@ -410,7 +249,7 @@ pub struct Cli {
     #[clap(flatten)]
     pub config_override: ConfigOverride,
     #[clap(subcommand)]
-    pub command: Command,
+    pub command: DLMMCommand,
 }
 
 #[derive(Debug, Parser)]
@@ -429,8 +268,6 @@ pub enum AdminCommand {
         base_keypair_path: String,
         /// Base fee bps
         base_fee_bps: u16,
-        /// Lock duration for bootstrap liquidity position
-        lock_duration: u64,
         /// Activation type
         activation_type: u8,
     },
@@ -443,17 +280,6 @@ pub enum AdminCommand {
 
     /// Remove liquidity by price range
     RemoveLiquidityByPriceRange {
-        /// Address of the pair
-        lb_pair: Pubkey,
-        // base position path
-        base_position_key: Pubkey,
-        /// min price
-        min_price: f64,
-        /// max price
-        max_price: f64,
-    },
-
-    CheckMyBalance {
         /// Address of the pair
         lb_pair: Pubkey,
         // base position path
@@ -512,6 +338,8 @@ pub enum AdminCommand {
         max_bin_id: i32,
         /// Portion of swap fees retained by the protocol by controlling protocol_share parameter. protocol_swap_fee = protocol_share * total_swap_fee
         protocol_share: u16,
+        /// Base fee power factor
+        base_fee_power_factor: u8,
     },
     ClosePresetParameter {
         /// Preset parameter pubkey. Get from ListAllBinStep

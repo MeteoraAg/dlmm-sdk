@@ -1,23 +1,7 @@
-use crate::instructions::utils::get_or_create_ata;
-use crate::math::{get_id_from_price, price_per_token_to_per_lamport};
-use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
-use anchor_client::solana_sdk::compute_budget::ComputeBudgetInstruction;
-use anchor_client::solana_sdk::instruction::Instruction;
-use anchor_client::{solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, Program};
-use anchor_lang::InstructionData;
-use anchor_lang::ToAccountMetas;
-use anchor_spl::token::Mint;
-use anyhow::*;
-use lb_clmm::accounts;
-use lb_clmm::constants::MAX_BIN_PER_POSITION;
-use lb_clmm::instruction;
-use lb_clmm::math::u128x128_math::Rounding;
-use lb_clmm::state::bin::BinArray;
-use lb_clmm::state::lb_pair::LbPair;
-use lb_clmm::state::position::Position;
-use lb_clmm::utils::pda::*;
-use std::ops::Deref;
-use std::result::Result::Ok;
+use crate::*;
+use anchor_spl::token_2022::spl_token_2022::state::Mint;
+use instructions::*;
+use solana_sdk::program_pack::Pack;
 
 #[derive(Debug)]
 pub struct RemoveLiquidityByPriceRangeParameters {
@@ -27,7 +11,7 @@ pub struct RemoveLiquidityByPriceRangeParameters {
     pub max_price: f64,
 }
 
-pub async fn remove_liquidity_by_price_range<C: Deref<Target = impl Signer> + Clone>(
+pub async fn execute_remove_liquidity_by_price_range<C: Deref<Target = impl Signer> + Clone>(
     params: RemoveLiquidityByPriceRangeParameters,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
@@ -39,11 +23,26 @@ pub async fn remove_liquidity_by_price_range<C: Deref<Target = impl Signer> + Cl
         max_price,
     } = params;
 
-    let lb_pair_state: LbPair = program.account(lb_pair).await?;
-    let bin_step = lb_pair_state.bin_step;
+    let rpc_client = program.async_rpc();
 
-    let token_mint_base: Mint = program.account(lb_pair_state.token_x_mint).await?;
-    let token_mint_quote: Mint = program.account(lb_pair_state.token_y_mint).await?;
+    let lb_pair_state = rpc_client
+        .get_account_and_deserialize(&lb_pair, |account| {
+            Ok(LbPairAccount::deserialize(&account.data)?.0)
+        })
+        .await?;
+
+    let bin_step = lb_pair_state.bin_step;
+    let [token_x_program, token_y_program] = lb_pair_state.get_token_programs()?;
+
+    let mut accounts = rpc_client
+        .get_multiple_accounts(&[lb_pair_state.token_x_mint, lb_pair_state.token_y_mint])
+        .await?;
+
+    let token_mint_base_account = accounts[0].take().context("token_mint_base not found")?;
+    let token_mint_quote_account = accounts[1].take().context("token_mint_quote not found")?;
+
+    let token_mint_base = Mint::unpack(&token_mint_base_account.data)?;
+    let token_mint_quote = Mint::unpack(&token_mint_quote_account.data)?;
 
     let min_price_per_lamport = price_per_token_to_per_lamport(
         min_price,
@@ -51,6 +50,7 @@ pub async fn remove_liquidity_by_price_range<C: Deref<Target = impl Signer> + Cl
         token_mint_quote.decimals,
     )
     .context("price_per_token_to_per_lamport overflow")?;
+
     let min_active_id = get_id_from_price(bin_step, &min_price_per_lamport, Rounding::Up)
         .context("get_id_from_price overflow")?;
 
@@ -60,123 +60,172 @@ pub async fn remove_liquidity_by_price_range<C: Deref<Target = impl Signer> + Cl
         token_mint_quote.decimals,
     )
     .context("price_per_token_to_per_lamport overflow")?;
+
     let max_active_id = get_id_from_price(bin_step, &max_price_per_lamport, Rounding::Up)
         .context("get_id_from_price overflow")?;
 
     assert!(min_active_id < max_active_id);
 
-    println!("go here");
-    let width = MAX_BIN_PER_POSITION as i32;
+    let user_token_x = get_or_create_ata(
+        program,
+        transaction_config,
+        lb_pair_state.token_x_mint,
+        program.payer(),
+    )
+    .await?;
+
+    let user_token_y = get_or_create_ata(
+        program,
+        transaction_config,
+        lb_pair_state.token_y_mint,
+        program.payer(),
+    )
+    .await?;
+
+    let (event_authority, _bump) = derive_event_authority_pda();
+
+    let (bin_array_bitmap_extension, _bump) = derive_bin_array_bitmap_extension(lb_pair);
+    let bin_array_bitmap_extension = rpc_client
+        .get_account(&bin_array_bitmap_extension)
+        .await
+        .map(|_| bin_array_bitmap_extension)
+        .unwrap_or(dlmm_interface::ID);
+
+    let width = DEFAULT_BIN_PER_POSITION as i32;
+
+    let mut remaining_accounts_info = RemainingAccountsInfo { slices: vec![] };
+    let mut transfer_hook_remaining_accounts = vec![];
+
+    if let Some((slices, remaining_accounts)) =
+        get_potential_token_2022_related_ix_data_and_accounts(
+            &lb_pair_state,
+            program.async_rpc(),
+            ActionType::LiquidityProvision,
+        )
+        .await?
+    {
+        remaining_accounts_info.slices = slices;
+        transfer_hook_remaining_accounts.extend(remaining_accounts);
+    };
+
     for i in min_active_id..=max_active_id {
         let (position, _bump) = derive_position_pda(lb_pair, base_position_key, i, width);
 
-        // if program.rpc().get_account_data(&position).is_ok() {
-        //     let position_state: Position = program.account(position)?;
-        //     println!("{position_state:?}");
-        // }
-        // continue;
+        let position_account = rpc_client.get_account(&position).await;
+        if let std::result::Result::Ok(account) = position_account {
+            let position_state = DynamicPosition::deserialize(account.data.as_ref())?;
 
-        match program.account::<Position>(position).await {
-            Ok(position_state) => {
-                let lower_bin_array_idx =
-                    BinArray::bin_id_to_bin_array_index(position_state.lower_bin_id)?;
-                let upper_bin_array_idx =
-                    lower_bin_array_idx.checked_add(1).context("MathOverflow")?;
+            let bin_arrays_account_meta = position_state
+                .global_data
+                .get_bin_array_accounts_meta_coverage()?;
 
-                let (bin_array_lower, _bump) =
-                    derive_bin_array_pda(lb_pair, lower_bin_array_idx.into());
-                let (bin_array_upper, _bump) =
-                    derive_bin_array_pda(lb_pair, upper_bin_array_idx.into());
-                let user_token_x = get_or_create_ata(
-                    program,
-                    transaction_config,
-                    lb_pair_state.token_x_mint,
-                    program.payer(),
-                )
-                .await?;
+            let remaining_accounts = [
+                transfer_hook_remaining_accounts.clone(),
+                bin_arrays_account_meta,
+            ]
+            .concat();
 
-                let user_token_y = get_or_create_ata(
-                    program,
-                    transaction_config,
-                    lb_pair_state.token_y_mint,
-                    program.payer(),
-                )
-                .await?;
-                let (event_authority, _bump) = derive_event_authority_pda();
+            let mut instructions =
+                vec![ComputeBudgetInstruction::set_compute_unit_limit(1_400_000)];
 
-                let instructions = vec![
-                    ComputeBudgetInstruction::set_compute_unit_limit(1_400_000),
-                    Instruction {
-                        program_id: lb_clmm::ID,
-                        accounts: accounts::ModifyLiquidity {
-                            bin_array_lower,
-                            bin_array_upper,
-                            lb_pair,
-                            bin_array_bitmap_extension: None,
-                            position,
-                            reserve_x: lb_pair_state.reserve_x,
-                            reserve_y: lb_pair_state.reserve_y,
-                            token_x_mint: lb_pair_state.token_x_mint,
-                            token_y_mint: lb_pair_state.token_y_mint,
-                            sender: program.payer(),
-                            user_token_x,
-                            user_token_y,
-                            token_x_program: anchor_spl::token::ID,
-                            token_y_program: anchor_spl::token::ID,
-                            event_authority,
-                            program: lb_clmm::ID,
-                        }
-                        .to_account_metas(None),
-                        data: instruction::RemoveAllLiquidity {}.data(),
-                    },
-                    Instruction {
-                        program_id: lb_clmm::ID,
-                        accounts: accounts::ClaimFee {
-                            bin_array_lower,
-                            bin_array_upper,
-                            lb_pair,
-                            sender: program.payer(),
-                            position,
-                            reserve_x: lb_pair_state.reserve_x,
-                            reserve_y: lb_pair_state.reserve_y,
-                            token_program: anchor_spl::token::ID,
-                            token_x_mint: lb_pair_state.token_x_mint,
-                            token_y_mint: lb_pair_state.token_y_mint,
-                            user_token_x,
-                            user_token_y,
-                            event_authority,
-                            program: lb_clmm::ID,
-                        }
-                        .to_account_metas(None),
-                        data: instruction::ClaimFee {}.data(),
-                    },
-                    Instruction {
-                        program_id: lb_clmm::ID,
-                        accounts: accounts::ClosePosition {
-                            lb_pair,
-                            position,
-                            bin_array_lower,
-                            bin_array_upper,
-                            rent_receiver: program.payer(),
-                            sender: program.payer(),
-                            event_authority,
-                            program: lb_clmm::ID,
-                        }
-                        .to_account_metas(None),
-                        data: instruction::ClosePosition {}.data(),
-                    },
-                ];
+            let main_accounts: [AccountMeta; REMOVE_LIQUIDITY_BY_RANGE2_IX_ACCOUNTS_LEN] =
+                RemoveLiquidityByRange2Keys {
+                    position,
+                    lb_pair,
+                    bin_array_bitmap_extension,
+                    user_token_x,
+                    user_token_y,
+                    reserve_x: lb_pair_state.reserve_x,
+                    reserve_y: lb_pair_state.reserve_y,
+                    token_x_mint: lb_pair_state.token_x_mint,
+                    token_y_mint: lb_pair_state.token_y_mint,
+                    sender: program.payer(),
+                    token_x_program,
+                    token_y_program,
+                    memo_program: spl_memo::ID,
+                    event_authority,
+                    program: dlmm_interface::ID,
+                }
+                .into();
 
-                let builder = program.request();
-                let builder = instructions
-                    .into_iter()
-                    .fold(builder, |bld, ix| bld.instruction(ix));
-                let signature = builder
-                    .send_with_spinner_and_config(transaction_config)
-                    .await?;
-                println!("close popsition min_bin_id {i} {signature}");
+            let data = RemoveLiquidityByRange2IxData(RemoveLiquidityByRange2IxArgs {
+                from_bin_id: position_state.global_data.lower_bin_id,
+                to_bin_id: position_state.global_data.upper_bin_id,
+                bps_to_remove: BASIS_POINT_MAX as u16,
+                remaining_accounts_info: remaining_accounts_info.clone(),
+            })
+            .try_to_vec()?;
+
+            let accounts = [main_accounts.to_vec(), remaining_accounts.clone()].concat();
+
+            let withdraw_all_ix = Instruction {
+                program_id: dlmm_interface::ID,
+                accounts,
+                data,
+            };
+
+            instructions.push(withdraw_all_ix);
+
+            let main_accounts: [AccountMeta; CLAIM_FEE2_IX_ACCOUNTS_LEN] = ClaimFee2Keys {
+                lb_pair,
+                position,
+                sender: program.payer(),
+                reserve_x: lb_pair_state.reserve_x,
+                reserve_y: lb_pair_state.reserve_y,
+                token_x_mint: lb_pair_state.token_x_mint,
+                token_y_mint: lb_pair_state.token_y_mint,
+                token_program_x: token_x_program,
+                token_program_y: token_y_program,
+                memo_program: spl_memo::ID,
+                event_authority,
+                program: dlmm_interface::ID,
+                user_token_x,
+                user_token_y,
             }
-            Err(_err) => continue,
+            .into();
+
+            let data = ClaimFee2IxData(ClaimFee2IxArgs {
+                min_bin_id: position_state.global_data.lower_bin_id,
+                max_bin_id: position_state.global_data.upper_bin_id,
+                remaining_accounts_info: remaining_accounts_info.clone(),
+            })
+            .try_to_vec()?;
+
+            let accounts = [main_accounts.to_vec(), remaining_accounts.clone()].concat();
+
+            let claim_fee_ix = Instruction {
+                program_id: dlmm_interface::ID,
+                accounts,
+                data,
+            };
+
+            instructions.push(claim_fee_ix);
+
+            let accounts: [AccountMeta; CLOSE_POSITION2_IX_ACCOUNTS_LEN] = ClosePosition2Keys {
+                position,
+                sender: program.payer(),
+                rent_receiver: program.payer(),
+                event_authority,
+                program: dlmm_interface::ID,
+            }
+            .into();
+
+            let data = ClosePosition2IxData.try_to_vec()?;
+
+            let close_position_ix = Instruction {
+                program_id: dlmm_interface::ID,
+                accounts: accounts.to_vec(),
+                data,
+            };
+
+            instructions.push(close_position_ix);
+
+            println!(
+                "Close position {}. Min bin id {}, Max bin id {}",
+                position,
+                position_state.global_data.lower_bin_id,
+                position_state.global_data.upper_bin_id
+            );
         }
     }
     Ok(())

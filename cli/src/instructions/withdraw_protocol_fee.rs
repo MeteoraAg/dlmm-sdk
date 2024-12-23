@@ -1,17 +1,6 @@
-use std::ops::Deref;
+use anchor_spl::associated_token::get_associated_token_address_with_program_id;
 
-use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
-
-use anchor_client::solana_sdk::compute_budget::ComputeBudgetInstruction;
-use anchor_client::{solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, Program};
-use anchor_spl::associated_token::get_associated_token_address;
-
-use anyhow::*;
-use lb_clmm::accounts;
-use lb_clmm::instruction;
-
-use lb_clmm::state::lb_pair::LbPair;
-
+use crate::*;
 #[derive(Debug)]
 pub struct WithdrawProtocolFeeParams {
     pub lb_pair: Pubkey,
@@ -19,7 +8,7 @@ pub struct WithdrawProtocolFeeParams {
     pub amount_y: u64,
 }
 
-pub async fn withdraw_protocol_fee<C: Deref<Target = impl Signer> + Clone>(
+pub async fn execute_withdraw_protocol_fee<C: Deref<Target = impl Signer> + Clone>(
     params: WithdrawProtocolFeeParams,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
@@ -30,36 +19,79 @@ pub async fn withdraw_protocol_fee<C: Deref<Target = impl Signer> + Clone>(
         amount_y,
     } = params;
 
-    let lb_pair_state: LbPair = program.account(lb_pair).await?;
+    let rpc_client = program.async_rpc();
 
-    let receiver_token_x =
-        get_associated_token_address(&program.payer(), &lb_pair_state.token_x_mint);
+    let lb_pair_state = rpc_client
+        .get_account_and_deserialize(&lb_pair, |account| {
+            Ok(LbPairAccount::deserialize(&account.data)?.0)
+        })
+        .await?;
 
-    let receiver_token_y =
-        get_associated_token_address(&program.payer(), &lb_pair_state.token_y_mint);
+    let [token_x_program, token_y_program] = lb_pair_state.get_token_programs()?;
 
-    let accounts = accounts::WithdrawProtocolFee {
-        lb_pair,
-        reserve_x: lb_pair_state.reserve_x,
-        reserve_y: lb_pair_state.reserve_y,
-        token_x_mint: lb_pair_state.token_x_mint,
-        token_y_mint: lb_pair_state.token_y_mint,
-        token_x_program: anchor_spl::token::ID,
-        token_y_program: anchor_spl::token::ID,
-        fee_owner: program.payer(),
-        receiver_token_x,
-        receiver_token_y,
+    let receiver_token_x = get_associated_token_address_with_program_id(
+        &program.payer(),
+        &lb_pair_state.token_x_mint,
+        &token_x_program,
+    );
+
+    let receiver_token_y = get_associated_token_address_with_program_id(
+        &program.payer(),
+        &lb_pair_state.token_y_mint,
+        &token_y_program,
+    );
+
+    let main_accounts: [AccountMeta; WITHDRAW_PROTOCOL_FEE_IX_ACCOUNTS_LEN] =
+        WithdrawProtocolFeeKeys {
+            lb_pair,
+            reserve_x: lb_pair_state.reserve_x,
+            reserve_y: lb_pair_state.reserve_y,
+            token_x_mint: lb_pair_state.token_x_mint,
+            token_y_mint: lb_pair_state.token_y_mint,
+            token_x_program,
+            token_y_program,
+            receiver_token_x,
+            receiver_token_y,
+            memo_program: spl_memo::ID,
+        }
+        .into();
+
+    let mut remaining_accounts_info = RemainingAccountsInfo { slices: vec![] };
+    let mut remaining_accounts = vec![];
+
+    if let Some((slices, transfer_hook_remaining_accounts)) =
+        get_potential_token_2022_related_ix_data_and_accounts(
+            &lb_pair_state,
+            program.async_rpc(),
+            ActionType::LiquidityProvision,
+        )
+        .await?
+    {
+        remaining_accounts_info.slices = slices;
+        remaining_accounts.extend(transfer_hook_remaining_accounts);
     };
 
-    let ix = instruction::WithdrawProtocolFee { amount_x, amount_y };
+    let data = WithdrawProtocolFeeIxData(WithdrawProtocolFeeIxArgs {
+        amount_x,
+        amount_y,
+        remaining_accounts_info,
+    })
+    .try_to_vec()?;
 
-    let compute_budget_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
+    let accounts = [main_accounts.to_vec(), remaining_accounts].concat();
+
+    let withdraw_ix = Instruction {
+        program_id: dlmm_interface::ID,
+        accounts,
+        data,
+    };
+
+    let compute_budget_ix = ComputeBudgetInstruction::set_compute_unit_limit(200_000);
 
     let request_builder = program.request();
     let signature = request_builder
         .instruction(compute_budget_ix)
-        .accounts(accounts)
-        .args(ix)
+        .instruction(withdraw_ix)
         .send_with_spinner_and_config(transaction_config)
         .await;
 

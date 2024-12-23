@@ -1,36 +1,13 @@
-use std::ops::Deref;
-
-use anchor_client::{
-    solana_client::rpc_config::RpcSendTransactionConfig,
-    solana_sdk::{
-        compute_budget::ComputeBudgetInstruction, instruction::Instruction, pubkey::Pubkey,
-        signature::Keypair, signer::Signer,
-    },
-    Program,
+use crate::*;
+use anchor_lang::system_program;
+use anchor_spl::{
+    associated_token::get_associated_token_address_with_program_id,
+    token_2022::spl_token_2022::state::Mint,
 };
-use anchor_lang::InstructionData;
-use anchor_lang::ToAccountMetas;
-use anchor_spl::token::{spl_token, Mint};
-use anyhow::{Context, Result};
-use lb_clmm::{
-    accounts, instruction,
-    instructions::deposit::{BinLiquidityDistribution, LiquidityParameter},
-    math::u128x128_math::Rounding,
-    state::bin::BinArray,
-    utils::pda::{
-        derive_bin_array_bitmap_extension, derive_bin_array_pda, derive_event_authority_pda,
-    },
-};
-use lb_clmm::{state::lb_pair::LbPair, utils::pda::derive_position_pda};
-use spl_associated_token_account::{
-    get_associated_token_address, instruction::create_associated_token_account,
-};
-
-use crate::{
-    instructions::{seed_liquidity::to_wei_amount, utils::get_or_create_ata},
-    math::{get_id_from_price, get_precise_id_from_price, price_per_token_to_per_lamport},
-    SelectiveRounding,
-};
+use instructions::*;
+use seed_liquidity::to_wei_amount;
+use solana_sdk::{account_info::IntoAccountInfo, program_pack::Pack, sysvar};
+use spl_associated_token_account::instruction::create_associated_token_account;
 
 pub struct SeedLiquiditySingleBinByOperatorParameters {
     pub lb_pair: Pubkey,
@@ -44,7 +21,9 @@ pub struct SeedLiquiditySingleBinByOperatorParameters {
     pub selective_rounding: SelectiveRounding,
 }
 
-pub async fn seed_liquidity_single_bin_by_operator<C: Deref<Target = impl Signer> + Clone>(
+pub async fn execute_seed_liquidity_single_bin_by_operator<
+    C: Deref<Target = impl Signer> + Clone,
+>(
     params: SeedLiquiditySingleBinByOperatorParameters,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
@@ -68,12 +47,26 @@ pub async fn seed_liquidity_single_bin_by_operator<C: Deref<Target = impl Signer
         "Invalid position base key"
     );
 
-    let lb_pair_state: LbPair = program.account(lb_pair).await?;
+    let rpc_client = program.async_rpc();
+
+    let lb_pair_state = rpc_client
+        .get_account_and_deserialize(&lb_pair, |account| {
+            Ok(LbPairAccount::deserialize(&account.data)?.0)
+        })
+        .await?;
 
     let bin_step = lb_pair_state.bin_step;
+    let [token_x_program, token_y_program] = lb_pair_state.get_token_programs()?;
 
-    let token_mint_base: Mint = program.account(lb_pair_state.token_x_mint).await?;
-    let token_mint_quote: Mint = program.account(lb_pair_state.token_y_mint).await?;
+    let mut accounts = rpc_client
+        .get_multiple_accounts(&[lb_pair_state.token_x_mint, lb_pair_state.token_y_mint])
+        .await?;
+
+    let token_mint_base_account = accounts[0].take().context("token_mint_base not found")?;
+    let token_mint_quote_account = accounts[1].take().context("token_mint_quote not found")?;
+
+    let token_mint_base = Mint::unpack(&token_mint_base_account.data)?;
+    let token_mint_quote = Mint::unpack(&token_mint_quote_account.data)?;
 
     let native_amount = to_wei_amount(amount, token_mint_base.decimals)?;
 
@@ -134,153 +127,211 @@ pub async fn seed_liquidity_single_bin_by_operator<C: Deref<Target = impl Signer
     let (bin_array_bitmap_extension, _bump) = derive_bin_array_bitmap_extension(lb_pair);
 
     if overflow_internal_bitmap_range {
-        let bitmap_extension_account = program.rpc().get_account(&bin_array_bitmap_extension);
+        let bitmap_extension_account = rpc_client.get_account(&bin_array_bitmap_extension).await;
         if bitmap_extension_account.is_err() {
-            let initialize_bitmap_extension = Instruction {
-                program_id: lb_clmm::ID,
-                accounts: accounts::InitializeBinArrayBitmapExtension {
+            let accounts: [AccountMeta; INITIALIZE_BIN_ARRAY_BITMAP_EXTENSION_IX_ACCOUNTS_LEN] =
+                InitializeBinArrayBitmapExtensionKeys {
                     lb_pair,
                     bin_array_bitmap_extension,
                     funder: program.payer(),
-                    system_program: anchor_lang::system_program::ID,
-                    rent: anchor_lang::solana_program::sysvar::rent::ID,
+                    system_program: system_program::ID,
+                    rent: sysvar::rent::ID,
                 }
-                .to_account_metas(None),
-                data: instruction::InitializeBinArrayBitmapExtension {}.data(),
+                .into();
+
+            let data = InitializeBinArrayBitmapExtensionIxData.try_to_vec()?;
+
+            let initialize_bitmap_extension_ix = Instruction {
+                accounts: accounts.to_vec(),
+                program_id: dlmm_interface::ID,
+                data,
             };
-            instructions.push(initialize_bitmap_extension);
+
+            instructions.push(initialize_bitmap_extension_ix);
         }
     }
 
     let bin_array_bitmap_extension = if overflow_internal_bitmap_range {
-        Some(bin_array_bitmap_extension)
+        bin_array_bitmap_extension
     } else {
-        Some(lb_clmm::ID)
+        dlmm_interface::ID
     };
 
     for (bin_array, bin_array_index) in [
         (lower_bin_array, lower_bin_array_index),
         (upper_bin_array, upper_bin_array_index),
     ] {
-        if program.rpc().get_account(&lower_bin_array).is_err() {
-            let initialize_bin_array_ix = Instruction {
-                program_id: lb_clmm::ID,
-                accounts: accounts::InitializeBinArray {
+        if rpc_client.get_account(&lower_bin_array).await.is_err() {
+            let account: [AccountMeta; INITIALIZE_BIN_ARRAY_IX_ACCOUNTS_LEN] =
+                InitializeBinArrayKeys {
                     lb_pair,
                     bin_array,
                     funder: program.payer(),
-                    system_program: anchor_lang::system_program::ID,
+                    system_program: system_program::ID,
                 }
-                .to_account_metas(None),
-                data: instruction::InitializeBinArray {
-                    index: bin_array_index.into(),
-                }
-                .data(),
+                .into();
+
+            let data = InitializeBinArrayIxData(InitializeBinArrayIxArgs {
+                index: bin_array_index.into(),
+            })
+            .try_to_vec()?;
+
+            let initialize_bin_array_ix = Instruction {
+                accounts: account.to_vec(),
+                program_id: dlmm_interface::ID,
+                data,
             };
 
             instructions.push(initialize_bin_array_ix);
         }
     }
 
-    let operator_token_x =
-        get_associated_token_address(&program.payer(), &lb_pair_state.token_x_mint);
-    let owner_token_x = get_associated_token_address(&position_owner, &lb_pair_state.token_x_mint);
+    let operator_token_x = get_associated_token_address_with_program_id(
+        &program.payer(),
+        &lb_pair_state.token_x_mint,
+        &token_x_program,
+    );
 
-    match program.rpc().get_account(&owner_token_x) {
-        std::result::Result::Ok(value) => {
-            let bytes = value.data;
-            let mut amount_bytes = [0u8; 8];
-            amount_bytes.copy_from_slice(&bytes[64..72]);
-            let amount = u64::from_le_bytes(amount_bytes);
+    let owner_token_x = get_associated_token_address_with_program_id(
+        &position_owner,
+        &lb_pair_state.token_x_mint,
+        &token_x_program,
+    );
+
+    match rpc_client.get_account(&owner_token_x).await {
+        std::result::Result::Ok(account) => {
+            let mut key_with_account = (owner_token_x, account);
+            let account_info = key_with_account.into_account_info();
+            let amount = anchor_spl::token::accessor::amount(&account_info)?;
             if amount == 0 {
-                instructions.push(spl_token::instruction::transfer(
-                    &spl_token::ID,
-                    &operator_token_x,
-                    &owner_token_x,
-                    &program.payer(),
-                    &[],
+                let transfer_ix = get_transfer_instruction(
+                    operator_token_x,
+                    owner_token_x,
+                    lb_pair_state.token_x_mint,
+                    program.payer(),
+                    program.async_rpc(),
                     1, // send 1 lamport to prove ownership
-                )?);
+                )
+                .await?;
+
+                instructions.push(transfer_ix);
             }
         }
         Err(_) => {
-            instructions.push(create_associated_token_account(
+            let create_ata_ix = create_associated_token_account(
                 &program.payer(),
                 &position_owner,
                 &lb_pair_state.token_x_mint,
-                &spl_token::ID,
-            ));
-            instructions.push(spl_token::instruction::transfer(
-                &spl_token::ID,
-                &operator_token_x,
-                &owner_token_x,
-                &program.payer(),
-                &[],
+                &token_x_program,
+            );
+
+            let transfer_ix = get_transfer_instruction(
+                operator_token_x,
+                owner_token_x,
+                lb_pair_state.token_x_mint,
+                program.payer(),
+                program.async_rpc(),
                 1, // send 1 lamport to prove ownership
-            )?)
+            )
+            .await?;
+
+            instructions.push(create_ata_ix);
+            instructions.push(transfer_ix);
         }
     }
 
-    let initialize_position_ix: Instruction = Instruction {
-        program_id: lb_clmm::ID,
-        accounts: accounts::InitializePositionByOperator {
+    let accounts: [AccountMeta; INITIALIZE_POSITION_BY_OPERATOR_IX_ACCOUNTS_LEN] =
+        InitializePositionByOperatorKeys {
             lb_pair,
             base: base_pubkey,
             owner: position_owner,
             operator: program.payer(),
             payer: program.payer(),
             position,
-            system_program: anchor_client::solana_sdk::system_program::ID,
+            system_program: system_program::ID,
             event_authority,
             operator_token_x,
             owner_token_x,
-            program: lb_clmm::ID,
+            program: dlmm_interface::ID,
         }
-        .to_account_metas(None),
-        data: instruction::InitializePositionByOperator {
-            lower_bin_id: bin_id,
-            width: 1,
-            fee_owner,
-            lock_release_point,
-        }
-        .data(),
+        .into();
+
+    let data = InitializePositionByOperatorIxData(InitializePositionByOperatorIxArgs {
+        lower_bin_id: bin_id,
+        width: 1,
+        fee_owner,
+        lock_release_point,
+    })
+    .try_to_vec()?;
+
+    let initialize_position_ix = Instruction {
+        program_id: dlmm_interface::ID,
+        accounts: accounts.to_vec(),
+        data,
     };
 
     instructions.push(initialize_position_ix);
 
+    let mut remaining_accounts_info = RemainingAccountsInfo { slices: vec![] };
+    let mut remaining_accounts = vec![];
+
+    if let Some((slice, transfer_hook_remaining_accounts)) =
+        get_potential_token_2022_related_ix_data_and_accounts(
+            &lb_pair_state,
+            program.async_rpc(),
+            ActionType::LiquidityProvision,
+        )
+        .await?
+    {
+        remaining_accounts_info.slices = slice;
+        remaining_accounts.extend(transfer_hook_remaining_accounts);
+    }
+
+    remaining_accounts.extend(
+        [lower_bin_array, upper_bin_array]
+            .into_iter()
+            .map(|key| AccountMeta::new(key, false)),
+    );
+
+    let main_accounts: [AccountMeta; ADD_LIQUIDITY2_IX_ACCOUNTS_LEN] = AddLiquidity2Keys {
+        position,
+        lb_pair,
+        bin_array_bitmap_extension,
+        user_token_x,
+        user_token_y,
+        reserve_x: lb_pair_state.reserve_x,
+        reserve_y: lb_pair_state.reserve_y,
+        token_x_mint: lb_pair_state.token_x_mint,
+        token_y_mint: lb_pair_state.token_y_mint,
+        sender: program.payer(),
+        token_x_program,
+        token_y_program,
+        event_authority,
+        program: dlmm_interface::ID,
+        memo_program: spl_memo::ID,
+    }
+    .into();
+
+    let data = AddLiquidity2IxData(AddLiquidity2IxArgs {
+        liquidity_parameter: LiquidityParameter {
+            amount_x: native_amount,
+            amount_y: 0,
+            bin_liquidity_dist: vec![BinLiquidityDistribution {
+                bin_id,
+                distribution_x: 10000,
+                distribution_y: 0,
+            }],
+        },
+        remaining_accounts_info,
+    })
+    .try_to_vec()?;
+
+    let accounts = [main_accounts.to_vec(), remaining_accounts].concat();
+
     let deposit_ix = Instruction {
-        program_id: lb_clmm::ID,
-        accounts: accounts::ModifyLiquidity {
-            position,
-            lb_pair,
-            bin_array_bitmap_extension,
-            user_token_x,
-            user_token_y,
-            reserve_x: lb_pair_state.reserve_x,
-            reserve_y: lb_pair_state.reserve_y,
-            token_x_mint: lb_pair_state.token_x_mint,
-            token_y_mint: lb_pair_state.token_y_mint,
-            bin_array_lower: lower_bin_array,
-            bin_array_upper: upper_bin_array,
-            sender: program.payer(),
-            token_x_program: anchor_spl::token::ID,
-            token_y_program: anchor_spl::token::ID,
-            event_authority,
-            program: lb_clmm::ID,
-        }
-        .to_account_metas(None),
-        data: instruction::AddLiquidity {
-            liquidity_parameter: LiquidityParameter {
-                amount_x: native_amount,
-                amount_y: 0,
-                bin_liquidity_dist: vec![BinLiquidityDistribution {
-                    bin_id,
-                    distribution_x: 10000,
-                    distribution_y: 0,
-                }],
-            },
-        }
-        .data(),
+        program_id: dlmm_interface::ID,
+        accounts,
+        data,
     };
 
     instructions.push(deposit_ix);

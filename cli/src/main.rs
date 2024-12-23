@@ -1,88 +1,32 @@
-use std::rc::Rc;
-use std::time::Duration;
-
 use anchor_client::solana_sdk::compute_budget::ComputeBudgetInstruction;
 use anchor_client::solana_sdk::instruction::Instruction;
-use anchor_client::Client;
+use anchor_client::*;
 use anchor_client::{
     solana_client::rpc_config::RpcSendTransactionConfig,
+    solana_sdk::pubkey::Pubkey,
     solana_sdk::{
         commitment_config::CommitmentConfig,
         signer::{keypair::*, Signer},
     },
 };
+use anchor_lang::prelude::AccountMeta;
 use anyhow::*;
 use clap::*;
+use commons::*;
+use solana_account_decoder::*;
+use std::ops::Deref;
+use std::rc::Rc;
+use std::time::Duration;
 
 mod args;
 mod instructions;
 mod math;
 
 use args::*;
-use instructions::initialize_customizable_permissionless_lb_pair::InitCustomizablePermissionlessLbPairParameters;
-use instructions::initialize_lb_pair::*;
-use instructions::seed_liquidity_from_operator::{
-    seed_liquidity_by_operator, SeedLiquidityByOperatorParameters,
-};
-use instructions::seed_liquidity_single_bin::{
-    seed_liquidity_single_bin, SeedLiquiditySingleBinParameters,
-};
-use instructions::seed_liquidity_single_bin_by_operator::{
-    seed_liquidity_single_bin_by_operator, SeedLiquiditySingleBinByOperatorParameters,
-};
-use lb_clmm::state::preset_parameters::PresetParameter;
-
-use crate::instructions::initialize_bin_array_with_bin_range::{
-    initialize_bin_array_with_bin_range, InitBinArrayWithBinRangeParameters,
-};
-use crate::instructions::initialize_position_with_price_range::{
-    initialize_position_with_price_range, InitPositionWithPriceRangeParameters,
-};
-use crate::instructions::initialize_preset_parameter::InitPresetParameters;
-use crate::{
-    args::Command,
-    instructions::{
-        add_liquidity::{add_liquidity, AddLiquidityParam},
-        check_my_balance::{check_my_balance, CheckMyBalanceParameters},
-        claim_fee::claim_fee,
-        claim_reward::*,
-        close_position::close_position,
-        close_preset_parameter::close_preset_parameter,
-        fund_reward::*,
-        increase_length::{increase_length, IncreaseLengthParams},
-        initialize_bin_array::{initialize_bin_array, InitBinArrayParameters},
-        initialize_bin_array_with_price_range::{
-            initialize_bin_array_with_price_range, InitBinArrayWithPriceRangeParameters,
-        },
-        initialize_customizable_permissionless_lb_pair::initialize_customizable_permissionless_lb_pair,
-        initialize_permission_lb_pair::{
-            initialize_permission_lb_pair, InitPermissionLbPairParameters,
-        },
-        initialize_position::{initialize_position, InitPositionParameters},
-        initialize_preset_parameter::initialize_preset_parameter,
-        initialize_reward::*,
-        list_all_binstep::list_all_binstep,
-        remove_liquidity::{remove_liquidity, RemoveLiquidityParameters},
-        remove_liquidity_by_price_range::{
-            remove_liquidity_by_price_range, RemoveLiquidityByPriceRangeParameters,
-        },
-        seed_liquidity::{seed_liquidity, SeedLiquidityParameters},
-        set_activation_point::*,
-        set_pre_activation_duration::{set_pre_activation_duration, SetPreactivationDurationParam},
-        set_pre_activation_swap_address::{
-            set_pre_activation_swap_address, SetPreactivationSwapAddressParam,
-        },
-        show_pair::show_pair,
-        simulate_swap_demand::{simulate_swap_demand, SimulateSwapDemandParameters},
-        swap_exact_in::{swap, SwapExactInParameters},
-        swap_exact_out::{swap_exact_out, SwapExactOutParameters},
-        swap_with_price_impact::{swap_with_price_impact, SwapWithPriceImpactParameters},
-        toggle_pair_status::toggle_pool_status,
-        update_reward_duration::*,
-        update_reward_funder::*,
-        withdraw_protocol_fee::{withdraw_protocol_fee, WithdrawProtocolFeeParams},
-    },
-};
+use commons::rpc_client_extension::*;
+use dlmm_interface::*;
+use instructions::*;
+use math::*;
 
 fn get_set_compute_unit_price_ix(micro_lamports: u64) -> Option<Instruction> {
     if micro_lamports > 0 {
@@ -104,13 +48,16 @@ async fn main() -> Result<()> {
     println!("Wallet {:#?}", payer.pubkey());
 
     let commitment_config = CommitmentConfig::confirmed();
+
     let client = Client::new_with_options(
         cli.config_override.cluster,
         Rc::new(Keypair::from_bytes(&payer.to_bytes())?),
         commitment_config,
     );
 
-    let amm_program = client.program(lb_clmm::ID).unwrap();
+    let program = client.program(dlmm_interface::ID).unwrap();
+
+    let rpc_client = program.async_rpc();
 
     let transaction_config: RpcSendTransactionConfig = RpcSendTransactionConfig {
         skip_preflight: false,
@@ -123,263 +70,121 @@ async fn main() -> Result<()> {
     let compute_unit_price_ix = get_set_compute_unit_price_ix(cli.config_override.priority_fee);
 
     match cli.command {
-        Command::InitializePair {
-            initial_price,
-            token_mint_x,
-            token_mint_y,
-            preset_parameter,
-        } => {
-            let params = InitLbPairParameters {
-                token_mint_x,
-                token_mint_y,
-                preset_parameter,
-                initial_price,
-            };
-            initialize_lb_pair(params, &amm_program, transaction_config).await?;
+        DLMMCommand::InitializePair(params) => {
+            execute_initialize_lb_pair(params, &program, transaction_config).await?;
         }
-        Command::InitializeBinArray {
-            bin_array_index,
-            lb_pair,
-        } => {
-            let params = InitBinArrayParameters {
-                bin_array_index,
-                lb_pair,
-            };
-            initialize_bin_array(params, &amm_program, transaction_config).await?;
+        DLMMCommand::InitializeBinArray(params) => {
+            execute_initialize_bin_array(params, &program, transaction_config).await?;
         }
-        Command::InitializeBinArrayWithPriceRange {
-            lower_price,
-            upper_price,
-            lb_pair,
-        } => {
-            let params = InitBinArrayWithPriceRangeParameters {
-                lb_pair,
-                lower_price,
-                upper_price,
-            };
-            initialize_bin_array_with_price_range(params, &amm_program, transaction_config).await?;
+        DLMMCommand::InitializeBinArrayWithPriceRange(params) => {
+            execute_initialize_bin_array_with_price_range(params, &program, transaction_config)
+                .await?;
         }
-        Command::InitializeBinArrayWithBinRange {
-            lb_pair,
-            lower_bin_id,
-            upper_bin_id,
-        } => {
-            let params = InitBinArrayWithBinRangeParameters {
-                lb_pair,
-                lower_bin_id,
-                upper_bin_id,
-            };
-            initialize_bin_array_with_bin_range(params, &amm_program, transaction_config).await?;
+        DLMMCommand::InitializeBinArrayWithBinRange(params) => {
+            execute_initialize_bin_array_with_bin_range(params, &program, transaction_config)
+                .await?;
         }
-        Command::InitializePositionWithPriceRange {
-            lb_pair,
-            lower_price,
-            width,
-            nft_mint,
-        } => {
-            let params = InitPositionWithPriceRangeParameters {
-                lb_pair,
-                lower_price,
-                width,
-                nft_mint,
-            };
-            initialize_position_with_price_range(params, &amm_program, transaction_config).await?;
+        DLMMCommand::InitializePositionWithPriceRange(params) => {
+            execute_initialize_position_with_price_range(params, &program, transaction_config)
+                .await?;
         }
-        Command::InitializePosition {
-            lb_pair,
-            lower_bin_id,
-            width,
-            nft_mint,
-        } => {
-            let params = InitPositionParameters {
-                lb_pair,
-                lower_bin_id,
-                nft_mint,
-                width,
-            };
-            initialize_position(params, &amm_program, transaction_config).await?;
+        DLMMCommand::InitializePosition(params) => {
+            execute_initialize_position(params, &program, transaction_config).await?;
         }
-        Command::AddLiquidity {
-            lb_pair,
-            position,
-            amount_x,
-            amount_y,
-            bin_liquidity_distribution,
-        } => {
-            let params = AddLiquidityParam {
-                lb_pair,
-                amount_x,
-                amount_y,
-                bin_liquidity_distribution,
-                position,
-            };
-            add_liquidity(params, &amm_program, transaction_config).await?;
+        DLMMCommand::AddLiquidity(params) => {
+            execute_add_liquidity(params, &program, transaction_config).await?;
         }
-        Command::RemoveLiquidity {
-            lb_pair,
-            position,
-            bin_liquidity_removal,
-        } => {
-            let params = RemoveLiquidityParameters {
-                lb_pair,
-                position,
-                bin_liquidity_removal,
-            };
-            remove_liquidity(params, &amm_program, transaction_config).await?;
+        DLMMCommand::RemoveLiquidity(params) => {
+            execute_remove_liquidity(params, &program, transaction_config).await?;
         }
-        Command::SwapExactIn {
-            lb_pair,
-            amount_in,
-            swap_for_y,
-        } => {
-            let params = SwapExactInParameters {
-                amount_in,
-                lb_pair,
-                swap_for_y,
-            };
-            swap(params, &amm_program, transaction_config).await?;
+        DLMMCommand::SwapExactIn(params) => {
+            execute_swap(params, &program, transaction_config).await?;
         }
 
-        Command::ShowPair { lb_pair } => {
-            show_pair(lb_pair, &amm_program).await?;
+        DLMMCommand::ShowPair(params) => {
+            execute_show_pair(params, &program).await?;
         }
-        Command::ShowPosition { position } => {
-            let position: lb_clmm::state::position::Position =
-                amm_program.account(position).await?;
-            println!("{:#?}", position);
+        DLMMCommand::ShowPosition { position } => {
+            let position_account = rpc_client.get_account(&position).await?;
+
+            let mut disc = [0u8; 8];
+            disc.copy_from_slice(&position_account.data[..8]);
+
+            match disc {
+                POSITION_ACCOUNT_DISCM => {
+                    let position_state = PositionAccount::deserialize(&position_account.data)?.0;
+                    println!("{:#?}", position_state);
+                }
+                POSITION_V2_ACCOUNT_DISCM => {
+                    let position_state = PositionV2Account::deserialize(&position_account.data)?.0;
+                    println!("{:#?}", position_state);
+                }
+                POSITION_V3_ACCOUNT_DISCM => {
+                    let position_state = DynamicPosition::deserialize(&position_account.data)?;
+                    println!("{:#?}", position_state);
+                }
+                _ => {
+                    bail!("Not a valid position account");
+                }
+            };
         }
 
-        Command::ClaimReward {
-            lb_pair,
-            reward_index,
-            position,
-        } => {
-            let params = ClaimRewardParams {
-                lb_pair,
-                reward_index,
-                position,
-            };
-            claim_reward(params, &amm_program, transaction_config).await?;
+        DLMMCommand::ClaimReward(params) => {
+            execute_claim_reward(params, &program, transaction_config).await?;
         }
-        Command::UpdateRewardDuration {
-            lb_pair,
-            reward_index,
-            reward_duration,
-        } => {
-            let params = UpdateRewardDurationParams {
-                lb_pair,
-                reward_index,
-                reward_duration,
-            };
-            update_reward_duration(params, &amm_program, transaction_config).await?;
+        DLMMCommand::UpdateRewardDuration(params) => {
+            execute_update_reward_duration(params, &program, transaction_config).await?;
         }
-        Command::UpdateRewardFunder {
-            lb_pair,
-            reward_index,
-            funder,
-        } => {
-            let params = UpdateRewardFunderParams {
-                lb_pair,
-                reward_index,
-                funder,
-            };
-            update_reward_funder(params, &amm_program, transaction_config).await?;
+        DLMMCommand::UpdateRewardFunder(params) => {
+            execute_update_reward_funder(params, &program, transaction_config).await?;
         }
-        Command::ClosePosition { position } => {
-            close_position(position, &amm_program, transaction_config).await?;
+        DLMMCommand::ClosePosition(params) => {
+            execute_close_position(params, &program, transaction_config).await?;
         }
-        Command::ClaimFee { position } => {
-            claim_fee(position, &amm_program, transaction_config).await?;
+        DLMMCommand::ClaimFee(params) => {
+            execute_claim_fee(params, &program, transaction_config).await?;
         }
-        Command::IncreaseLength {
-            lb_pair,
-            length_to_add,
-        } => {
-            let params = IncreaseLengthParams {
-                lb_pair,
-                length_to_add,
-            };
-            increase_length(params, &amm_program, transaction_config).await?;
+        DLMMCommand::IncreaseLength(params) => {
+            execute_increase_length(params, &program, transaction_config).await?;
         }
 
-        Command::ShowPresetParameter { preset_parameter } => {
-            let preset_param_state: PresetParameter = amm_program.account(preset_parameter).await?;
-            println!("{:#?}", preset_param_state);
+        DLMMCommand::ShowPresetParameter { preset_parameter } => {
+            let account = rpc_client.get_account(&preset_parameter).await?;
+
+            let mut disc = [0u8; 8];
+            disc.copy_from_slice(&account.data[..8]);
+
+            match disc {
+                PRESET_PARAMETER_ACCOUNT_DISCM => {
+                    let preset_param_state = PresetParameterAccount::deserialize(&account.data)?.0;
+                    println!("{:#?}", preset_param_state);
+                }
+                PRESET_PARAMETER2_ACCOUNT_DISCM => {
+                    let preset_param_state = PresetParameter2Account::deserialize(&account.data)?.0;
+                    println!("{:#?}", preset_param_state);
+                }
+                _ => bail!("Not a valid preset parameter account"),
+            }
         }
 
-        Command::ListAllBinStep => {
-            list_all_binstep(&amm_program).await?;
+        DLMMCommand::ListAllBinStep => {
+            execute_list_all_bin_step(&program).await?;
         }
-        Command::SimulateSwapDemand {
-            lb_pair,
-            x_amount,
-            y_amount,
-            side_ratio,
-        } => {
-            let params = SimulateSwapDemandParameters {
-                lb_pair,
-                x_amount,
-                y_amount,
-                side_ratio,
-            };
-            simulate_swap_demand(params, &amm_program, transaction_config).await?;
+        DLMMCommand::SwapExactOut(params) => {
+            execute_swap_exact_out(params, &program, transaction_config).await?;
         }
-        Command::SwapExactOut {
-            lb_pair,
-            amount_out,
-            swap_for_y,
-        } => {
-            let params = SwapExactOutParameters {
-                lb_pair,
-                amount_out,
-                swap_for_y,
-            };
-            swap_exact_out(params, &amm_program, transaction_config).await?;
+        DLMMCommand::SwapWithPriceImpact(params) => {
+            execute_swap_with_price_impact(params, &program, transaction_config).await?;
         }
-        Command::SwapWithPriceImpact {
-            lb_pair,
-            amount_in,
-            swap_for_y,
-            price_impact_bps,
-        } => {
-            let params = SwapWithPriceImpactParameters {
-                lb_pair,
-                amount_in,
-                swap_for_y,
-                price_impact_bps,
-            };
-            swap_with_price_impact(params, &amm_program, transaction_config).await?;
-        }
-        Command::InitializeCustomizablePermissionlessLbPair {
-            token_mint_x,
-            token_mint_y,
-            bin_step,
-            initial_price,
-            base_fee_bps,
-            activation_type,
-            has_alpha_vault,
-            activation_point,
-            selective_rounding,
-        } => {
-            let params = InitCustomizablePermissionlessLbPairParameters {
-                token_mint_x,
-                token_mint_y,
-                bin_step,
-                initial_price,
-                base_fee_bps,
-                activation_point,
-                has_alpha_vault,
-                activation_type,
-                selective_rounding,
-            };
-            initialize_customizable_permissionless_lb_pair(
+        DLMMCommand::InitializeCustomizablePermissionlessLbPair(params) => {
+            execute_initialize_customizable_permissionless_lb_pair(
                 params,
-                &amm_program,
+                &program,
                 transaction_config,
             )
             .await?;
         }
-        Command::SeedLiquidity {
+        DLMMCommand::SeedLiquidity {
             lb_pair,
             base_position_path,
             amount,
@@ -408,9 +213,9 @@ async fn main() -> Result<()> {
                     position_owner_kp,
                     curvature,
                 };
-                if let Err(err) = seed_liquidity(
+                if let Err(err) = execute_seed_liquidity(
                     params,
-                    &amm_program,
+                    &program,
                     transaction_config,
                     compute_unit_price_ix.clone(),
                 )
@@ -428,7 +233,7 @@ async fn main() -> Result<()> {
                 }
             }
         }
-        Command::SeedLiquidityByOperator {
+        DLMMCommand::SeedLiquidityByOperator {
             lb_pair,
             base_position_path,
             amount,
@@ -458,9 +263,9 @@ async fn main() -> Result<()> {
                     lock_release_point,
                     curvature,
                 };
-                if let Err(err) = seed_liquidity_by_operator(
+                if let Err(err) = execute_seed_liquidity_by_operator(
                     params,
-                    &amm_program,
+                    &program,
                     transaction_config,
                     compute_unit_price_ix.clone(),
                 )
@@ -478,7 +283,7 @@ async fn main() -> Result<()> {
                 }
             }
         }
-        Command::SeedLiquiditySingleBin {
+        DLMMCommand::SeedLiquiditySingleBin {
             lb_pair,
             base_position_path,
             base_pubkey,
@@ -502,15 +307,15 @@ async fn main() -> Result<()> {
                 position_owner_kp,
                 selective_rounding,
             };
-            seed_liquidity_single_bin(
+            execute_seed_liquidity_single_bin(
                 params,
-                &amm_program,
+                &program,
                 transaction_config,
                 compute_unit_price_ix,
             )
             .await?;
         }
-        Command::SeedLiquiditySingleBinByOperator {
+        DLMMCommand::SeedLiquiditySingleBinByOperator {
             lb_pair,
             base_position_path,
             base_pubkey,
@@ -535,15 +340,15 @@ async fn main() -> Result<()> {
                 lock_release_point,
                 selective_rounding,
             };
-            seed_liquidity_single_bin_by_operator(
+            execute_seed_liquidity_single_bin_by_operator(
                 params,
-                &amm_program,
+                &program,
                 transaction_config,
                 compute_unit_price_ix,
             )
             .await?;
         }
-        Command::Admin(admin_command) => match admin_command {
+        DLMMCommand::Admin(command) => match command {
             AdminCommand::InitializePermissionPair {
                 bin_step,
                 token_mint_x,
@@ -551,7 +356,6 @@ async fn main() -> Result<()> {
                 initial_price,
                 base_keypair_path,
                 base_fee_bps,
-                lock_duration,
                 activation_type,
             } => {
                 let base_keypair =
@@ -563,13 +367,12 @@ async fn main() -> Result<()> {
                     token_mint_x,
                     token_mint_y,
                     base_fee_bps,
-                    lock_duration,
                     activation_type,
                 };
-                initialize_permission_lb_pair(params, &amm_program, transaction_config).await?;
+                execute_initialize_permission_lb_pair(params, &program, transaction_config).await?;
             }
             AdminCommand::TogglePoolStatus { lb_pair } => {
-                toggle_pool_status(lb_pair, &amm_program, transaction_config).await?;
+                execute_toggle_pool_status(lb_pair, &program, transaction_config).await?;
             }
             AdminCommand::RemoveLiquidityByPriceRange {
                 lb_pair,
@@ -583,21 +386,8 @@ async fn main() -> Result<()> {
                     min_price,
                     max_price,
                 };
-                remove_liquidity_by_price_range(params, &amm_program, transaction_config).await?;
-            }
-            AdminCommand::CheckMyBalance {
-                lb_pair,
-                base_position_key,
-                min_price,
-                max_price,
-            } => {
-                let params = CheckMyBalanceParameters {
-                    lb_pair,
-                    base_position_key,
-                    min_price,
-                    max_price,
-                };
-                check_my_balance(params, &amm_program).await?;
+                execute_remove_liquidity_by_price_range(params, &program, transaction_config)
+                    .await?;
             }
             AdminCommand::SetActivationPoint {
                 activation_point,
@@ -607,10 +397,11 @@ async fn main() -> Result<()> {
                     activation_point,
                     lb_pair,
                 };
-                set_activation_point(params, &amm_program, transaction_config).await?;
+                execute_set_activation_point(params, &program, transaction_config).await?;
             }
             AdminCommand::ClosePresetParameter { preset_parameter } => {
-                close_preset_parameter(preset_parameter, &amm_program, transaction_config).await?;
+                execute_close_preset_parameter(preset_parameter, &program, transaction_config)
+                    .await?;
             }
             AdminCommand::InitializePresetParameter {
                 bin_step,
@@ -623,21 +414,20 @@ async fn main() -> Result<()> {
                 min_bin_id,
                 max_bin_id,
                 protocol_share,
+                base_fee_power_factor,
             } => {
                 let params = InitPresetParameters {
                     base_factor,
                     bin_step,
                     decay_period,
                     filter_period,
-                    max_bin_id,
                     max_volatility_accumulator,
-
-                    min_bin_id,
                     protocol_share,
                     reduction_factor,
                     variable_fee_control,
+                    base_fee_power_factor,
                 };
-                initialize_preset_parameter(params, &amm_program, transaction_config).await?;
+                execute_initialize_preset_parameter(params, &program, transaction_config).await?;
             }
             AdminCommand::WithdrawProtocolFee {
                 lb_pair,
@@ -649,7 +439,7 @@ async fn main() -> Result<()> {
                     amount_x,
                     amount_y,
                 };
-                withdraw_protocol_fee(params, &amm_program, transaction_config).await?;
+                execute_withdraw_protocol_fee(params, &program, transaction_config).await?;
             }
             AdminCommand::FundReward {
                 lb_pair,
@@ -661,7 +451,7 @@ async fn main() -> Result<()> {
                     reward_index,
                     funding_amount,
                 };
-                fund_reward(params, &amm_program, transaction_config).await?;
+                execute_fund_reward(params, &program, transaction_config).await?;
             }
             AdminCommand::InitializeReward {
                 lb_pair,
@@ -677,7 +467,7 @@ async fn main() -> Result<()> {
                     reward_duration,
                     funder,
                 };
-                initialize_reward(params, &amm_program, transaction_config).await?;
+                execute_initialize_reward(params, &program, transaction_config).await?;
             }
             AdminCommand::SetPreActivationSwapAddress {
                 lb_pair,
@@ -687,7 +477,8 @@ async fn main() -> Result<()> {
                     lb_pair,
                     pre_activation_swap_address,
                 };
-                set_pre_activation_swap_address(params, &amm_program, transaction_config).await?;
+                execute_set_pre_activation_swap_address(params, &program, transaction_config)
+                    .await?;
             }
             AdminCommand::SetPreActivationDuration {
                 lb_pair,
@@ -697,7 +488,7 @@ async fn main() -> Result<()> {
                     lb_pair,
                     pre_activation_duration,
                 };
-                set_pre_activation_duration(params, &amm_program, transaction_config).await?;
+                execute_set_pre_activation_duration(params, &program, transaction_config).await?;
             }
         },
     };

@@ -1,11 +1,7 @@
-use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
-use anchor_client::{solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, Program};
-use lb_clmm::utils::pda::derive_event_authority_pda;
-use std::ops::Deref;
+use anchor_spl::token_2022::spl_token_2022::state::Mint;
+use solana_sdk::program_pack::Pack;
 
-use anyhow::*;
-use lb_clmm::accounts;
-use lb_clmm::instruction;
+use crate::*;
 
 #[derive(Debug)]
 pub struct InitializeRewardParams {
@@ -16,7 +12,7 @@ pub struct InitializeRewardParams {
     pub funder: Pubkey,
 }
 
-pub async fn initialize_reward<C: Deref<Target = impl Signer> + Clone>(
+pub async fn execute_initialize_reward<C: Deref<Target = impl Signer> + Clone>(
     params: InitializeRewardParams,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
@@ -29,35 +25,50 @@ pub async fn initialize_reward<C: Deref<Target = impl Signer> + Clone>(
         funder,
     } = params;
 
-    let (reward_vault, _bump) = Pubkey::find_program_address(
-        &[lb_pair.as_ref(), reward_index.to_le_bytes().as_ref()],
-        &lb_clmm::ID,
-    );
-
+    let (reward_vault, _bump) = derive_reward_vault_pda(lb_pair, reward_index);
     let (event_authority, _bump) = derive_event_authority_pda();
 
-    let accounts = accounts::InitializeReward {
+    let rpc_client = program.async_rpc();
+    let reward_mint_account = rpc_client.get_account(&reward_mint).await?;
+
+    let (token_badge, _bump) = derive_token_badge_pda(reward_mint);
+    let token_badge = rpc_client
+        .get_account(&token_badge)
+        .await
+        .ok()
+        .map(|_| token_badge)
+        .unwrap_or(dlmm_interface::ID);
+
+    let accounts: [AccountMeta; INITIALIZE_REWARD_IX_ACCOUNTS_LEN] = InitializeRewardKeys {
         lb_pair,
         reward_vault,
         reward_mint,
         admin: program.payer(),
-        token_program: anchor_spl::token::ID,
-        rent: anchor_client::solana_sdk::sysvar::rent::ID,
-        system_program: anchor_client::solana_sdk::system_program::ID,
+        token_program: reward_mint_account.owner,
+        token_badge,
+        rent: solana_sdk::sysvar::rent::ID,
+        system_program: solana_sdk::system_program::ID,
         event_authority,
-        program: lb_clmm::ID,
-    };
+        program: dlmm_interface::ID,
+    }
+    .into();
 
-    let ix: instruction::InitializeReward = instruction::InitializeReward {
+    let data = InitializeRewardIxData(InitializeRewardIxArgs {
         reward_index,
         reward_duration,
         funder,
+    })
+    .try_to_vec()?;
+
+    let instruction = Instruction {
+        program_id: dlmm_interface::ID,
+        accounts: accounts.to_vec(),
+        data,
     };
 
     let request_builder = program.request();
     let signature = request_builder
-        .accounts(accounts)
-        .args(ix)
+        .instruction(instruction)
         .send_with_spinner_and_config(transaction_config)
         .await;
 
