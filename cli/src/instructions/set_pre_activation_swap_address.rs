@@ -1,19 +1,12 @@
-use std::ops::Deref;
+use crate::*;
 
-use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
-use anchor_client::{solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, Program};
-
-use anchor_lang::solana_program::instruction::Instruction;
-use anchor_lang::{InstructionData, ToAccountMetas};
-use anyhow::*;
-
-#[derive(Debug)]
+#[derive(Debug, Parser)]
 pub struct SetPreactivationSwapAddressParam {
     pub lb_pair: Pubkey,
     pub pre_activation_swap_address: Pubkey,
 }
 
-pub async fn set_pre_activation_swap_address<C: Deref<Target = impl Signer> + Clone>(
+pub async fn execute_set_pre_activation_swap_address<C: Deref<Target = impl Signer> + Clone>(
     params: SetPreactivationSwapAddressParam,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
@@ -23,21 +16,22 @@ pub async fn set_pre_activation_swap_address<C: Deref<Target = impl Signer> + Cl
         pre_activation_swap_address,
     } = params;
 
-    let accounts = lb_clmm::accounts::SetPreActivationInfo {
-        creator: program.payer(),
-        lb_pair,
-    }
-    .to_account_metas(None);
+    let accounts: [AccountMeta; SET_PRE_ACTIVATION_SWAP_ADDRESS_IX_ACCOUNTS_LEN] =
+        SetPreActivationSwapAddressKeys {
+            creator: program.payer(),
+            lb_pair,
+        }
+        .into();
 
-    let ix_data = lb_clmm::instruction::SetPreActivationSwapAddress {
+    let data = SetPreActivationSwapAddressIxData(SetPreActivationSwapAddressIxArgs {
         pre_activation_swap_address,
-    }
-    .data();
+    })
+    .try_to_vec()?;
 
     let set_pre_activation_swap_address_ix = Instruction {
-        accounts,
-        data: ix_data,
-        program_id: lb_clmm::ID,
+        accounts: accounts.to_vec(),
+        data,
+        program_id: dlmm_interface::ID,
     };
 
     let request_builder = program.request();
