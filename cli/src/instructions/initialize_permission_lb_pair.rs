@@ -1,35 +1,26 @@
-use std::ops::Deref;
+use crate::*;
+use anchor_lang::AccountDeserialize;
+use anchor_spl::token_interface::Mint;
 
-use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
-use anchor_client::solana_sdk::signature::Keypair;
-use anchor_client::{solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, Program};
-
-use anchor_spl::token::Mint;
-use anyhow::*;
-use lb_clmm::accounts;
-use lb_clmm::instruction;
-use lb_clmm::instructions::initialize_pool::initialize_permission_lb_pair::InitPermissionPairIx;
-use lb_clmm::math::u128x128_math::Rounding;
-use lb_clmm::utils::pda::*;
-
-use crate::math::{
-    compute_base_factor_from_fee_bps, find_swappable_min_max_bin_id, get_id_from_price,
-    price_per_token_to_per_lamport,
-};
-
-#[derive(Debug)]
+#[derive(Debug, Parser)]
 pub struct InitPermissionLbPairParameters {
-    pub token_mint_x: Pubkey,
-    pub token_mint_y: Pubkey,
+    /// Bin step of the liquidity pair. It decide the bps when between bins.
     pub bin_step: u16,
+    /// Token X mint of the liquidity pair. Eg: BTC. This should be the base token.
+    pub token_mint_x: Pubkey,
+    /// Token Y mint of the liquidity pair. Eg: USDC. This should be the quote token.
+    pub token_mint_y: Pubkey,
+    /// The initial price of the liquidity pair. Eg: 24123.12312412 USDC per 1 BTC.
     pub initial_price: f64,
+    /// Base keypair path
+    pub base_keypair_path: String,
+    /// Base fee bps
     pub base_fee_bps: u16,
-    pub base_keypair: Keypair,
-    pub lock_duration: u64,
+    /// Activation type
     pub activation_type: u8,
 }
 
-pub async fn initialize_permission_lb_pair<C: Deref<Target = impl Signer> + Clone>(
+pub async fn execute_initialize_permission_lb_pair<C: Deref<Target = impl Signer> + Clone>(
     params: InitPermissionLbPairParameters,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
@@ -39,14 +30,24 @@ pub async fn initialize_permission_lb_pair<C: Deref<Target = impl Signer> + Clon
         token_mint_x,
         token_mint_y,
         initial_price,
+        base_keypair_path,
         base_fee_bps,
-        base_keypair,
-        lock_duration,
         activation_type,
     } = params;
 
-    let token_mint_base: Mint = program.account(token_mint_x).await?;
-    let token_mint_quote: Mint = program.account(token_mint_y).await?;
+    let base_keypair = read_keypair_file(base_keypair_path).expect("base keypair file not found");
+
+    let rpc_client = program.async_rpc();
+
+    let mut accounts = rpc_client
+        .get_multiple_accounts(&[token_mint_x, token_mint_y])
+        .await?;
+
+    let token_mint_base_account = accounts[0].take().context("token_mint_base not found")?;
+    let token_mint_quote_account = accounts[1].take().context("token_mint_quote not found")?;
+
+    let token_mint_base = Mint::try_deserialize(&mut token_mint_base_account.data.as_ref())?;
+    let token_mint_quote = Mint::try_deserialize(&mut token_mint_quote_account.data.as_ref())?;
 
     let price_per_lamport = price_per_token_to_per_lamport(
         initial_price,
@@ -71,42 +72,67 @@ pub async fn initialize_permission_lb_pair<C: Deref<Target = impl Signer> + Clon
 
     let (event_authority, _bump) = derive_event_authority_pda();
 
-    let accounts = accounts::InitializePermissionLbPair {
-        lb_pair,
-        bin_array_bitmap_extension: None,
-        reserve_x,
-        reserve_y,
-        token_mint_x,
-        token_mint_y,
-        oracle,
-        admin: program.payer(),
-        rent: anchor_client::solana_sdk::sysvar::rent::ID,
-        system_program: anchor_client::solana_sdk::system_program::ID,
-        token_program: anchor_spl::token::ID,
-        event_authority,
-        program: lb_clmm::ID,
-        base: base_keypair.pubkey(),
-    };
+    let (token_badge_x, _bump) = derive_token_badge_pda(token_mint_x);
+    let (token_badge_y, _bump) = derive_token_badge_pda(token_mint_y);
 
-    let (min_bin_id, max_bin_id) = find_swappable_min_max_bin_id(bin_step)?;
+    let accounts = rpc_client
+        .get_multiple_accounts(&[token_badge_x, token_badge_y])
+        .await?;
 
-    let ix = instruction::InitializePermissionLbPair {
+    let token_badge_x = accounts[0]
+        .as_ref()
+        .map(|_| token_badge_x)
+        .unwrap_or(dlmm_interface::ID);
+
+    let token_badge_y = accounts[1]
+        .as_ref()
+        .map(|_| token_badge_y)
+        .unwrap_or(dlmm_interface::ID);
+
+    let accounts: [AccountMeta; INITIALIZE_PERMISSION_LB_PAIR_IX_ACCOUNTS_LEN] =
+        InitializePermissionLbPairKeys {
+            lb_pair,
+            bin_array_bitmap_extension: dlmm_interface::ID,
+            reserve_x,
+            reserve_y,
+            token_mint_x,
+            token_mint_y,
+            token_badge_x,
+            token_badge_y,
+            token_program_x: token_mint_base_account.owner,
+            token_program_y: token_mint_quote_account.owner,
+            oracle,
+            admin: program.payer(),
+            rent: solana_sdk::sysvar::rent::ID,
+            system_program: solana_sdk::system_program::ID,
+            event_authority,
+            program: dlmm_interface::ID,
+            base: base_keypair.pubkey(),
+        }
+        .into();
+
+    let data = InitializePermissionLbPairIxData(InitializePermissionLbPairIxArgs {
         ix_data: InitPermissionPairIx {
             active_id: computed_active_id,
             bin_step,
             base_factor: compute_base_factor_from_fee_bps(bin_step, base_fee_bps)?,
-            max_bin_id,
-            min_bin_id,
-            lock_duration,
             activation_type,
+            base_fee_power_factor: 0, // TODO: Implement this
+            protocol_share: ILM_PROTOCOL_SHARE,
         },
+    })
+    .try_to_vec()?;
+
+    let init_pair_ix = Instruction {
+        program_id: dlmm_interface::ID,
+        accounts: accounts.to_vec(),
+        data,
     };
 
     let request_builder = program.request();
     let signature = request_builder
-        .accounts(accounts)
+        .instruction(init_pair_ix)
         .signer(&base_keypair)
-        .args(ix)
         .send_with_spinner_and_config(transaction_config)
         .await;
 
