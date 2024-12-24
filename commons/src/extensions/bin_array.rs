@@ -10,6 +10,7 @@ pub trait BinArrayExtension {
     fn bin_id_to_bin_array_index(bin_id: i32) -> Result<i32>;
 
     fn get_bin_mut<'a>(&'a mut self, bin_id: i32) -> Result<&'a mut Bin>;
+    fn get_bin<'a>(&'a self, bin_id: i32) -> Result<&'a Bin>;
 }
 
 impl BinArrayExtension for BinArray {
@@ -36,6 +37,10 @@ impl BinArrayExtension for BinArray {
 
     fn get_bin_mut<'a>(&'a mut self, bin_id: i32) -> Result<&'a mut Bin> {
         Ok(&mut self.bins[self.get_bin_index_in_array(bin_id)?])
+    }
+
+    fn get_bin<'a>(&'a self, bin_id: i32) -> Result<&'a Bin> {
+        Ok(&self.bins[self.get_bin_index_in_array(bin_id)?])
     }
 
     fn get_bin_index_in_array(&self, bin_id: i32) -> Result<usize> {
