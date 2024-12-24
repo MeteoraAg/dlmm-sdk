@@ -1,20 +1,13 @@
-use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
-use anchor_client::{solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, Program};
-use anyhow::*;
-use lb_clmm::accounts;
-use lb_clmm::instruction;
-use lb_clmm::utils::pda::derive_event_authority_pda;
+use crate::*;
 
-use std::ops::Deref;
-
-#[derive(Debug)]
+#[derive(Debug, Parser)]
 pub struct UpdateRewardFunderParams {
     pub lb_pair: Pubkey,
     pub reward_index: u64,
     pub funder: Pubkey,
 }
 
-pub async fn update_reward_funder<C: Deref<Target = impl Signer> + Clone>(
+pub async fn execute_update_reward_funder<C: Deref<Target = impl Signer> + Clone>(
     params: UpdateRewardFunderParams,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
@@ -27,22 +20,29 @@ pub async fn update_reward_funder<C: Deref<Target = impl Signer> + Clone>(
 
     let (event_authority, _bump) = derive_event_authority_pda();
 
-    let accounts = accounts::UpdateRewardFunder {
+    let accounts: [AccountMeta; UPDATE_REWARD_FUNDER_IX_ACCOUNTS_LEN] = UpdateRewardFunderKeys {
         lb_pair,
         admin: program.payer(),
         event_authority,
-        program: lb_clmm::ID,
-    };
+        program: dlmm_interface::ID,
+    }
+    .into();
 
-    let ix = instruction::UpdateRewardFunder {
+    let data = UpdateRewardFunderIxData(UpdateRewardFunderIxArgs {
         reward_index,
         new_funder: funder,
+    })
+    .try_to_vec()?;
+
+    let ix = Instruction {
+        program_id: dlmm_interface::ID,
+        accounts: accounts.to_vec(),
+        data,
     };
 
     let request_builder = program.request();
     let signature = request_builder
-        .accounts(accounts)
-        .args(ix)
+        .instruction(ix)
         .send_with_spinner_and_config(transaction_config)
         .await;
 

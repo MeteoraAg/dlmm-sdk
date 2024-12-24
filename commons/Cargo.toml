@@ -5,10 +5,12 @@ edition = "2021"
 description = "Common libraries for DLMM"
 authors = ["tian <tian@racoons.dev>"]
 
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 anchor-client = { workspace = true, features = ["async"] }
+anchor-spl = { workspace = true }
 anyhow = { workspace = true }
 dlmm_interface = { path = "../dlmm_interface" }
 tokio = { workspace = true, features = ["full", "parking_lot"] }
@@ -17,10 +19,11 @@ solana-sdk = { workspace = true }
 ruint = { workspace = true }
 num-traits = { workspace = true }
 num-integer = { workspace = true }
+bytemuck = { workspace = true }
+async-trait = { workspace = true }
 
 [dev-dependencies]
-anchor-spl = { workspace = true }
 spl-associated-token-account = { workspace = true }
-solana-program-test = "1.16.0"
+solana-program-test = "1.17.0"
 assert_matches = "1.5.0"
-solana-program = "1.16.0"
+solana-program = "1.17.0"

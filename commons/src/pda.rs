@@ -1,6 +1,4 @@
-use super::seeds::{
-    self, BIN_ARRAY, BIN_ARRAY_BITMAP_SEED, ILM_BASE_KEY, ORACLE, PRESET_PARAMETER,
-};
+use super::seeds::*;
 use anchor_client::solana_sdk::pubkey::Pubkey;
 use std::{cmp::max, cmp::min};
 
@@ -76,7 +74,7 @@ pub fn derive_position_pda(
 ) -> (Pubkey, u8) {
     Pubkey::find_program_address(
         &[
-            seeds::POSITION.as_ref(),
+            POSITION,
             lb_pair.as_ref(),
             base.as_ref(),
             lower_bin_id.to_le_bytes().as_ref(),
@@ -139,4 +137,15 @@ pub fn derive_preset_parameter_pda2(bin_step: u16, base_factor: u16) -> (Pubkey,
         ],
         &dlmm_interface::ID,
     )
+}
+
+pub fn derive_preset_parameter_pda_v2(index: u16) -> (Pubkey, u8) {
+    Pubkey::find_program_address(
+        &[PRESET_PARAMETER2, &index.to_le_bytes()],
+        &dlmm_interface::ID,
+    )
+}
+
+pub fn derive_token_badge_pda(mint: Pubkey) -> (Pubkey, u8) {
+    Pubkey::find_program_address(&[TOKEN_BADGE, mint.as_ref()], &dlmm_interface::ID)
 }

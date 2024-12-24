@@ -1,16 +1,11 @@
-use std::ops::Deref;
+use solana_client::{
+    rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig},
+    rpc_filter::{Memcmp, RpcFilterType},
+};
 
-use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
-use anchor_client::{solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, Program};
+use crate::*;
 
-use anchor_lang::ToAccountMetas;
-use anyhow::*;
-use lb_clmm::accounts;
-use lb_clmm::instruction;
-use lb_clmm::instructions::admin::initialize_preset_parameters::InitPresetParametersIx;
-use lb_clmm::utils::pda::derive_preset_parameter_pda2;
-
-#[derive(Debug)]
+#[derive(Debug, Parser)]
 pub struct InitPresetParameters {
     /// Bin step. Represent the price increment / decrement.
     pub bin_step: u16,
@@ -26,15 +21,13 @@ pub struct InitPresetParameters {
     pub variable_fee_control: u32,
     /// Maximum number of bin crossed can be accumulated. Used to cap volatile fee rate.
     pub max_volatility_accumulator: u32,
-    /// Min bin id supported by the pool based on the configured bin step.
-    pub min_bin_id: i32,
-    /// Max bin id supported by the pool based on the configured bin step.
-    pub max_bin_id: i32,
     /// Portion of swap fees retained by the protocol by controlling protocol_share parameter. protocol_swap_fee = protocol_share * total_swap_fee
     pub protocol_share: u16,
+    /// Base fee power factor  
+    pub base_fee_power_factor: u8,
 }
 
-pub async fn initialize_preset_parameter<C: Deref<Target = impl Signer> + Clone>(
+pub async fn execute_initialize_preset_parameter<C: Deref<Target = impl Signer> + Clone>(
     params: InitPresetParameters,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
@@ -44,26 +37,53 @@ pub async fn initialize_preset_parameter<C: Deref<Target = impl Signer> + Clone>
         bin_step,
         decay_period,
         filter_period,
-        max_bin_id,
         max_volatility_accumulator,
-        min_bin_id,
         protocol_share,
         reduction_factor,
         variable_fee_control,
+        base_fee_power_factor,
     } = params;
 
-    let (preset_parameter, _bump) = derive_preset_parameter_pda2(bin_step, base_factor);
+    let rpc_client = program.async_rpc();
 
-    let accounts = accounts::InitializePresetParameter {
-        preset_parameter,
-        admin: program.payer(),
-        rent: anchor_client::solana_sdk::sysvar::rent::ID,
-        system_program: anchor_client::solana_sdk::system_program::ID,
-    }
-    .to_account_metas(None);
+    let preset_parameter_v2_count = rpc_client
+        .get_program_accounts_with_config(
+            &dlmm_interface::ID,
+            RpcProgramAccountsConfig {
+                filters: Some(vec![RpcFilterType::Memcmp(Memcmp::new_base58_encoded(
+                    0,
+                    &PRESET_PARAMETER2_ACCOUNT_DISCM,
+                ))]),
+                account_config: RpcAccountInfoConfig {
+                    encoding: Some(UiAccountEncoding::Base64),
+                    data_slice: Some(UiDataSliceConfig {
+                        offset: 0,
+                        length: 0,
+                    }),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+        )
+        .await?
+        .len();
 
-    let ix = instruction::InitializePresetParameter {
-        ix: InitPresetParametersIx {
+    let index = preset_parameter_v2_count as u16;
+
+    let (preset_parameter, _bump) =
+        derive_preset_parameter_pda_v2(preset_parameter_v2_count as u16);
+
+    let accounts: [AccountMeta; INITIALIZE_PRESET_PARAMETER2_IX_ACCOUNTS_LEN] =
+        InitializePresetParameter2Keys {
+            preset_parameter,
+            admin: program.payer(),
+            system_program: solana_sdk::system_program::ID,
+        }
+        .into();
+
+    let data = InitializePresetParameter2IxData(InitializePresetParameter2IxArgs {
+        ix: InitPresetParameters2Ix {
+            index,
             bin_step,
             base_factor,
             filter_period,
@@ -71,16 +91,21 @@ pub async fn initialize_preset_parameter<C: Deref<Target = impl Signer> + Clone>
             reduction_factor,
             variable_fee_control,
             max_volatility_accumulator,
-            min_bin_id,
-            max_bin_id,
             protocol_share,
+            base_fee_power_factor,
         },
+    })
+    .try_to_vec()?;
+
+    let init_preset_param_ix = Instruction {
+        program_id: dlmm_interface::ID,
+        accounts: accounts.to_vec(),
+        data,
     };
 
     let request_builder = program.request();
     let signature = request_builder
-        .accounts(accounts)
-        .args(ix)
+        .instruction(init_preset_param_ix)
         .send_with_spinner_and_config(transaction_config)
         .await;
 

@@ -20,7 +20,7 @@ pub async fn process_and_assert_ok(
     all_signers.extend_from_slice(signers);
 
     let tx = Transaction::new_signed_with_payer(
-        &instructions,
+        instructions,
         Some(&payer.pubkey()),
         &all_signers,
         recent_blockhash,
@@ -35,9 +35,17 @@ pub async fn get_or_create_ata(
     authority: &Pubkey,
     banks_client: &mut BanksClient,
 ) -> Pubkey {
-    let ata_address = get_associated_token_address(authority, token_mint);
+    let token_mint_owner = banks_client
+        .get_account(*token_mint)
+        .await
+        .ok()
+        .flatten()
+        .unwrap()
+        .owner;
+    let ata_address =
+        get_associated_token_address_with_program_id(authority, token_mint, &token_mint_owner);
     let ata_account = banks_client.get_account(ata_address).await.unwrap();
-    if let None = ata_account {
+    if ata_account.is_none() {
         create_associated_token_account(payer, token_mint, authority, banks_client).await;
     }
     ata_address
@@ -52,8 +60,8 @@ pub async fn create_associated_token_account(
     let ins = vec![
         spl_associated_token_account::instruction::create_associated_token_account(
             &payer.pubkey(),
-            &authority,
-            &token_mint,
+            authority,
+            token_mint,
             &spl_token::id(),
         ),
     ];
