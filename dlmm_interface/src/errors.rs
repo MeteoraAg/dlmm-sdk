@@ -1,5 +1,7 @@
 use solana_program::{
-    decode_error::DecodeError, msg, program_error::{PrintProgramError, ProgramError},
+    decode_error::DecodeError,
+    msg,
+    program_error::{PrintProgramError, ProgramError},
 };
 use thiserror::Error;
 #[derive(Clone, Copy, Debug, Eq, Error, num_derive::FromPrimitive, PartialEq)]
@@ -154,9 +156,7 @@ pub enum LbClmmError {
     DuplicatedRemainingAccountTypes = 6073,
     #[error("Missing remaining account for transfer hook")]
     MissingRemainingAccountForTransferHook = 6074,
-    #[error(
-        "Remaining account was passed for transfer hook but there's no hook program"
-    )]
+    #[error("Remaining account was passed for transfer hook but there's no hook program")]
     NoTransferHookProgram = 6075,
     #[error("Zero funded amount")]
     ZeroFundedAmount = 6076,
@@ -180,9 +180,12 @@ impl<T> DecodeError<T> for LbClmmError {
 impl PrintProgramError for LbClmmError {
     fn print<E>(&self)
     where
-        E: 'static + std::error::Error + DecodeError<E> + PrintProgramError
+        E: 'static
+            + std::error::Error
+            + DecodeError<E>
+            + PrintProgramError
             + num_traits::FromPrimitive,
     {
-        msg!(& self.to_string());
+        msg!(&self.to_string());
     }
 }
