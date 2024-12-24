@@ -5,6 +5,7 @@ pub trait BinExtension {
     fn is_empty(&self, is_x: bool) -> bool;
     fn get_max_amount_out(&self, swap_for_y: bool) -> u64;
     fn get_max_amount_in(&self, price: u128, swap_for_y: bool) -> Result<u64>;
+    fn calculate_out_amount(&self, liquidity_share: u128) -> Result<(u64, u64)>;
 
     fn swap(
         &mut self,
@@ -66,6 +67,23 @@ impl BinExtension for Bin {
         } else {
             safe_shl_div_cast(amount_in.into(), price, SCALE_OFFSET, Rounding::Down)
         }
+    }
+
+    fn calculate_out_amount(&self, liquidity_share: u128) -> Result<(u64, u64)> {
+        let out_amount_x = safe_mul_div_cast(
+            liquidity_share,
+            self.amount_x.into(),
+            self.liquidity_supply,
+            Rounding::Down,
+        )?;
+
+        let out_amount_y = safe_mul_div_cast(
+            liquidity_share,
+            self.amount_y.into(),
+            self.liquidity_supply,
+            Rounding::Down,
+        )?;
+        Ok((out_amount_x, out_amount_y))
     }
 
     fn swap(
