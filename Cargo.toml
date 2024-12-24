@@ -45,6 +45,8 @@ chrono = "0.4.31"
 
 ureq = "2.0.0"
 
+itertools = "0.10.0"
+
 commons = { path = "./commons" }
 
 [profile.release]
