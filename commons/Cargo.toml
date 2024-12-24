@@ -21,6 +21,7 @@ num-traits = { workspace = true }
 num-integer = { workspace = true }
 bytemuck = { workspace = true }
 async-trait = { workspace = true }
+spl-transfer-hook-interface = { workspace = true }
 
 [dev-dependencies]
 spl-associated-token-account = { workspace = true }

@@ -1,6 +1,5 @@
-use solana_sdk::{instruction::AccountMeta, pubkey::Pubkey};
-
 use crate::*;
+use solana_sdk::{instruction::AccountMeta, pubkey::Pubkey};
 
 pub trait PositionV3Extension {
     fn get_bin_array_indexes_coverage(&self) -> Result<(i32, i32)>;

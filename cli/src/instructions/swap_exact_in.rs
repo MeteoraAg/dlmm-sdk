@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use crate::*;
 use anchor_spl::associated_token::get_associated_token_address_with_program_id;
-use instructions::*;
 use solana_sdk::{clock::Clock, sysvar::SysvarId};
 
 #[derive(Debug, Parser)]
