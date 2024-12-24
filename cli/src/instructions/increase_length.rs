@@ -1,22 +1,13 @@
-use std::ops::Deref;
+use crate::*;
+use anchor_client::solana_sdk;
 
-use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
-use anchor_client::{
-    solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, solana_sdk::system_program, Program,
-};
-
-use anyhow::*;
-use lb_clmm::accounts;
-use lb_clmm::instruction;
-use lb_clmm::utils::pda::{derive_event_authority_pda, derive_oracle_pda};
-
-#[derive(Debug)]
+#[derive(Debug, Parser)]
 pub struct IncreaseLengthParams {
     pub lb_pair: Pubkey,
     pub length_to_add: u64,
 }
 
-pub async fn increase_length<C: Deref<Target = impl Signer> + Clone>(
+pub async fn execute_increase_length<C: Deref<Target = impl Signer> + Clone>(
     params: IncreaseLengthParams,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
@@ -29,20 +20,28 @@ pub async fn increase_length<C: Deref<Target = impl Signer> + Clone>(
     let (oracle, _) = derive_oracle_pda(lb_pair);
     let (event_authority, _bump) = derive_event_authority_pda();
 
-    let accounts = accounts::IncreaseOracleLength {
-        funder: program.payer(),
-        oracle,
-        system_program: system_program::ID,
-        event_authority,
-        program: lb_clmm::ID,
-    };
+    let accounts: [AccountMeta; INCREASE_ORACLE_LENGTH_IX_ACCOUNTS_LEN] =
+        IncreaseOracleLengthKeys {
+            funder: program.payer(),
+            oracle,
+            system_program: solana_sdk::system_program::ID,
+            event_authority,
+            program: dlmm_interface::ID,
+        }
+        .into();
 
-    let ix = instruction::IncreaseOracleLength { length_to_add };
+    let data =
+        IncreaseOracleLengthIxData(IncreaseOracleLengthIxArgs { length_to_add }).try_to_vec()?;
+
+    let increase_length_ix = Instruction {
+        program_id: dlmm_interface::ID,
+        accounts: accounts.to_vec(),
+        data,
+    };
 
     let request_builder = program.request();
     let signature = request_builder
-        .accounts(accounts)
-        .args(ix)
+        .instruction(increase_length_ix)
         .send_with_spinner_and_config(transaction_config)
         .await;
 

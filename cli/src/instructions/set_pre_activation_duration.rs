@@ -1,19 +1,12 @@
-use std::ops::Deref;
+use crate::*;
 
-use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
-use anchor_client::{solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, Program};
-
-use anchor_lang::solana_program::instruction::Instruction;
-use anchor_lang::{InstructionData, ToAccountMetas};
-use anyhow::*;
-
-#[derive(Debug)]
+#[derive(Debug, Parser)]
 pub struct SetPreactivationDurationParam {
     pub lb_pair: Pubkey,
     pub pre_activation_duration: u16,
 }
 
-pub async fn set_pre_activation_duration<C: Deref<Target = impl Signer> + Clone>(
+pub async fn execute_set_pre_activation_duration<C: Deref<Target = impl Signer> + Clone>(
     params: SetPreactivationDurationParam,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
@@ -23,21 +16,22 @@ pub async fn set_pre_activation_duration<C: Deref<Target = impl Signer> + Clone>
         pre_activation_duration,
     } = params;
 
-    let accounts = lb_clmm::accounts::SetPreActivationInfo {
-        creator: program.payer(),
-        lb_pair,
-    }
-    .to_account_metas(None);
+    let accounts: [AccountMeta; SET_PRE_ACTIVATION_DURATION_IX_ACCOUNTS_LEN] =
+        SetPreActivationSwapAddressKeys {
+            creator: program.payer(),
+            lb_pair,
+        }
+        .into();
 
-    let ix_data = lb_clmm::instruction::SetPreActivationDuration {
-        pre_activation_duration,
-    }
-    .data();
+    let data = SetPreActivationDurationIxData(SetPreActivationDurationIxArgs {
+        pre_activation_duration: pre_activation_duration as u64,
+    })
+    .try_to_vec()?;
 
     let set_pre_activation_slot_duration_ix = Instruction {
-        accounts,
-        data: ix_data,
-        program_id: lb_clmm::ID,
+        accounts: accounts.to_vec(),
+        data,
+        program_id: dlmm_interface::ID,
     };
 
     let request_builder = program.request();

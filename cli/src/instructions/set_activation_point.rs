@@ -1,19 +1,14 @@
-use std::ops::Deref;
+use crate::*;
 
-use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
-use anchor_client::{solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, Program};
-
-use anchor_lang::solana_program::instruction::Instruction;
-use anchor_lang::{InstructionData, ToAccountMetas};
-use anyhow::*;
-
-#[derive(Debug)]
+#[derive(Debug, Parser)]
 pub struct SetActivationPointParam {
+    /// Address of the pair
     pub lb_pair: Pubkey,
+    /// Activation point
     pub activation_point: u64,
 }
 
-pub async fn set_activation_point<C: Deref<Target = impl Signer> + Clone>(
+pub async fn execute_set_activation_point<C: Deref<Target = impl Signer> + Clone>(
     params: SetActivationPointParam,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
@@ -23,18 +18,19 @@ pub async fn set_activation_point<C: Deref<Target = impl Signer> + Clone>(
         activation_point,
     } = params;
 
-    let accounts = lb_clmm::accounts::SetActivationPoint {
+    let accounts: [AccountMeta; SET_ACTIVATION_POINT_IX_ACCOUNTS_LEN] = SetActivationPointKeys {
         admin: program.payer(),
         lb_pair,
     }
-    .to_account_metas(None);
+    .into();
 
-    let ix_data = lb_clmm::instruction::SetActivationPoint { activation_point }.data();
+    let data =
+        SetActivationPointIxData(SetActivationPointIxArgs { activation_point }).try_to_vec()?;
 
     let set_activation_point_ix = Instruction {
-        accounts,
-        data: ix_data,
-        program_id: lb_clmm::ID,
+        accounts: accounts.to_vec(),
+        data,
+        program_id: dlmm_interface::ID,
     };
 
     let request_builder = program.request();

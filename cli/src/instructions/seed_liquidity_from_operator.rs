@@ -1,32 +1,22 @@
 use std::collections::HashMap;
-use std::ops::Deref;
 
-use crate::instructions::seed_liquidity::{
+use crate::*;
+use anchor_lang::AccountDeserialize;
+use anchor_spl::{
+    associated_token::get_associated_token_address_with_program_id, token_interface::Mint,
+};
+use instructions::*;
+use seed_liquidity::{
     convert_min_max_ui_price_to_min_max_bin_id, create_position_bin_array_if_not_exists, deposit,
     deposit_amount_to_deposit_parameter, generate_amount_for_bins,
     generate_redistribute_amount_to_position_based_on_ratio,
     get_number_of_position_required_to_cover_range, get_on_chain_bins_amount_x,
     get_ui_price_from_id, read_dust_deposit_state, to_wei_amount, write_dust_deposit_state,
 };
-use crate::instructions::utils::get_or_create_ata;
-use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
-use anchor_client::solana_sdk::instruction::Instruction;
-use anchor_client::solana_sdk::signature::Keypair;
-use anchor_client::{solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, Program};
-use anchor_lang::InstructionData;
-use anchor_lang::ToAccountMetas;
-use anchor_spl::token::{spl_token, Mint};
-use anyhow::*;
-use lb_clmm::accounts;
-use lb_clmm::constants::MAX_BIN_PER_POSITION;
-use lb_clmm::instruction;
-use lb_clmm::instructions::deposit::BinLiquidityDistribution;
-use lb_clmm::state::lb_pair::LbPair;
-use lb_clmm::state::position::PositionV2;
-use lb_clmm::utils::pda::*;
-use spl_associated_token_account::get_associated_token_address;
+use solana_sdk::{account_info::IntoAccountInfo, system_program};
 use spl_associated_token_account::instruction::create_associated_token_account;
 
+#[allow(clippy::too_many_arguments)]
 async fn get_or_create_position<C: Deref<Target = impl Signer> + Clone>(
     program: &Program<C>,
     lb_pair: Pubkey,
@@ -39,90 +29,118 @@ async fn get_or_create_position<C: Deref<Target = impl Signer> + Clone>(
     lock_release_point: u64,
     transaction_config: RpcSendTransactionConfig,
     compute_unit_price_ix: Option<Instruction>,
-) -> Result<PositionV2> {
+) -> Result<DynamicPosition> {
     let (event_authority, _bump) = derive_event_authority_pda();
     let base = base_keypair.pubkey();
 
+    let rpc_client = program.async_rpc();
+
     let (position, _bump) = derive_position_pda(lb_pair, base, lower_bin_id, width);
 
-    let lb_pair_state: LbPair = program.account(lb_pair).await?;
+    let lb_pair_state = rpc_client
+        .get_account_and_deserialize(&lb_pair, |account| {
+            Ok(LbPairAccount::deserialize(&account.data)?.0)
+        })
+        .await?;
 
-    if program.rpc().get_account_data(&position).is_err() {
+    let [token_x_program, _token_y_program] = lb_pair_state.get_token_programs()?;
+
+    if rpc_client.get_account_data(&position).await.is_err() {
         let mut builder = program.request();
 
-        let operator_token_x =
-            get_associated_token_address(&program.payer(), &lb_pair_state.token_x_mint);
-        let owner_token_x = get_associated_token_address(&owner, &lb_pair_state.token_x_mint);
+        if let Some(compute_unit_price_ix) = compute_unit_price_ix {
+            builder = builder.instruction(compute_unit_price_ix);
+        }
 
-        match program.rpc().get_account(&owner_token_x) {
-            std::result::Result::Ok(value) => {
-                let bytes = value.data;
-                let mut amount_bytes = [0u8; 8];
-                amount_bytes.copy_from_slice(&bytes[64..72]);
-                let amount = u64::from_le_bytes(amount_bytes);
+        let operator_token_x = get_associated_token_address_with_program_id(
+            &program.payer(),
+            &lb_pair_state.token_x_mint,
+            &token_x_program,
+        );
+
+        let owner_token_x = get_associated_token_address_with_program_id(
+            &owner,
+            &lb_pair_state.token_x_mint,
+            &token_x_program,
+        );
+
+        match rpc_client.get_account(&owner_token_x).await {
+            std::result::Result::Ok(account) => {
+                let mut key_with_account = (owner_token_x, account);
+                let account_info = key_with_account.into_account_info();
+                let amount = anchor_spl::token::accessor::amount(&account_info)?;
                 if amount == 0 {
-                    builder = builder.instruction(spl_token::instruction::transfer(
-                        &spl_token::ID,
-                        &operator_token_x,
-                        &owner_token_x,
-                        &program.payer(),
-                        &[],
+                    let transfer_ix = get_transfer_instruction(
+                        operator_token_x,
+                        owner_token_x,
+                        lb_pair_state.token_x_mint,
+                        program.payer(),
+                        program.async_rpc(),
                         1, // send 1 lamport to prove ownership
-                    )?);
+                    )
+                    .await?;
+                    builder = builder.instruction(transfer_ix);
                 }
             }
             Err(_) => {
-                builder = builder
-                    .instruction(create_associated_token_account(
-                        &program.payer(),
-                        &owner,
-                        &lb_pair_state.token_x_mint,
-                        &spl_token::ID,
-                    ))
-                    .instruction(spl_token::instruction::transfer(
-                        &spl_token::ID,
-                        &operator_token_x,
-                        &owner_token_x,
-                        &program.payer(),
-                        &[],
-                        1, // send 1 lamport to prove ownership
-                    )?);
+                let create_ata_ix = create_associated_token_account(
+                    &program.payer(),
+                    &owner,
+                    &lb_pair_state.token_x_mint,
+                    &token_x_program,
+                );
+
+                let transfer_ix = get_transfer_instruction(
+                    operator_token_x,
+                    owner_token_x,
+                    lb_pair_state.token_x_mint,
+                    program.payer(),
+                    program.async_rpc(),
+                    1, // send 1 lamport to prove ownership
+                )
+                .await?;
+
+                builder = builder.instruction(create_ata_ix).instruction(transfer_ix);
             }
         }
 
-        let ix: Instruction = Instruction {
-            program_id: lb_clmm::ID,
-            accounts: accounts::InitializePositionByOperator {
+        let accounts: [AccountMeta; INITIALIZE_POSITION_BY_OPERATOR_IX_ACCOUNTS_LEN] =
+            InitializePositionByOperatorKeys {
                 lb_pair,
                 base,
                 owner,
                 operator: program.payer(),
                 payer: program.payer(),
                 position,
-                system_program: anchor_client::solana_sdk::system_program::ID,
-                event_authority,
+                system_program: system_program::ID,
                 operator_token_x,
                 owner_token_x,
-                program: lb_clmm::ID,
+                event_authority,
+                program: dlmm_interface::ID,
             }
-            .to_account_metas(None),
-            data: instruction::InitializePositionByOperator {
-                lower_bin_id,
-                width,
-                fee_owner,
-                lock_release_point,
-            }
-            .data(),
+            .into();
+
+        let data = InitializePositionByOperatorIxData(InitializePositionByOperatorIxArgs {
+            lower_bin_id,
+            width,
+            fee_owner,
+            lock_release_point,
+        })
+        .try_to_vec()?;
+
+        let init_position_ix = Instruction {
+            program_id: dlmm_interface::ID,
+            accounts: accounts.to_vec(),
+            data,
         };
 
-        if let Some(compute_unit_price_ix) = compute_unit_price_ix {
-            builder = builder.instruction(compute_unit_price_ix);
-        }
+        builder = builder.instruction(init_position_ix);
+        builder = builder.signer(base_keypair);
 
-        builder = builder.instruction(ix).signer(base_keypair);
         let signature = builder
             .send_with_spinner_and_config(transaction_config)
             .await;
+
         println!(
             "Create position: lower bin id {lower_bin_id} upper bin id {upper_bin_id} position {position}. signature {:#?}",
             signature
@@ -130,26 +148,53 @@ async fn get_or_create_position<C: Deref<Target = impl Signer> + Clone>(
         signature?;
     }
 
-    let position_state: PositionV2 = program.account(position).await?;
+    let position_state = rpc_client
+        .get_account_and_deserialize(&position, |account| {
+            Ok(DynamicPosition::deserialize(&account.data)?)
+        })
+        .await?;
 
     Ok(position_state)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Parser, Clone)]
 pub struct SeedLiquidityByOperatorParameters {
+    /// Address of the pair
+    #[clap(long)]
     pub lb_pair: Pubkey,
-    pub position_base_kp: Keypair,
+    /// Base position path
+    #[clap(long)]
+    pub base_position_path: String,
+    /// Amount of x
+    #[clap(long)]
     pub amount: u64,
+    /// Min price
+    #[clap(long)]
     pub min_price: f64,
+    /// Max price
+    #[clap(long)]
     pub max_price: f64,
+    /// Base pubkey
+    #[clap(long)]
     pub base_pubkey: Pubkey,
-    pub position_owner: Pubkey,
-    pub fee_owner: Pubkey,
-    pub lock_release_point: u64,
+    /// Curvature
+    #[clap(long)]
     pub curvature: f64,
+    /// position owner
+    #[clap(long)]
+    pub position_owner: Pubkey,
+    /// fee owner
+    #[clap(long)]
+    pub fee_owner: Pubkey,
+    /// lock release point
+    #[clap(long)]
+    pub lock_release_point: u64,
+    /// Max retries
+    #[clap(long)]
+    pub max_retries: u16,
 }
 
-pub async fn seed_liquidity_by_operator<C: Deref<Target = impl Signer> + Clone>(
+pub async fn execute_seed_liquidity_by_operator<C: Deref<Target = impl Signer> + Clone>(
     params: SeedLiquidityByOperatorParameters,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
@@ -157,17 +202,22 @@ pub async fn seed_liquidity_by_operator<C: Deref<Target = impl Signer> + Clone>(
 ) -> Result<()> {
     let SeedLiquidityByOperatorParameters {
         lb_pair,
-        position_base_kp,
+        base_position_path,
         amount,
         min_price,
         max_price,
+        base_pubkey,
+        curvature,
         position_owner,
         fee_owner,
         lock_release_point,
-        base_pubkey,
-        curvature,
+        ..
     } = params;
 
+    let position_base_kp = read_keypair_file(base_position_path.clone())
+        .expect("position base keypair file not found");
+
+    let rpc_client = program.async_rpc();
     let progress_file_path = format!("{}_progress.json", lb_pair);
 
     let mut dust_deposit_state = read_dust_deposit_state(&progress_file_path)?;
@@ -187,11 +237,24 @@ pub async fn seed_liquidity_by_operator<C: Deref<Target = impl Signer> + Clone>(
         "Invalid position base key"
     );
 
-    let lb_pair_state: LbPair = program.account(lb_pair).await?;
+    let lb_pair_state = rpc_client
+        .get_account_and_deserialize(&lb_pair, |account| {
+            Ok(LbPairAccount::deserialize(&account.data)?.0)
+        })
+        .await?;
+
     let bin_step = lb_pair_state.bin_step;
 
-    let token_mint_base: Mint = program.account(lb_pair_state.token_x_mint).await?;
-    let token_mint_quote: Mint = program.account(lb_pair_state.token_y_mint).await?;
+    let mut accounts = rpc_client
+        .get_multiple_accounts(&[lb_pair_state.token_x_mint, lb_pair_state.token_y_mint])
+        .await?;
+
+    let token_mint_base_account = accounts[0].take().context("token_mint_base not found")?;
+    let token_mint_quote_account = accounts[1].take().context("token_mint_quote not found")?;
+
+    // TODO: Check unpack error
+    let token_mint_base = Mint::try_deserialize(&mut token_mint_base_account.data.as_ref())?;
+    let token_mint_quote = Mint::try_deserialize(&mut token_mint_quote_account.data.as_ref())?;
 
     let fund_amount = to_wei_amount(amount, token_mint_base.decimals)?;
 
@@ -257,11 +320,11 @@ pub async fn seed_liquidity_by_operator<C: Deref<Target = impl Signer> + Clone>(
         .map(|(bin_id, amount_x)| (*bin_id, *amount_x))
         .collect();
 
-    let width = MAX_BIN_PER_POSITION as i32;
+    let width = DEFAULT_BIN_PER_POSITION as i32;
 
     for i in 0..position_number {
-        let lower_bin_id = min_bin_id + (MAX_BIN_PER_POSITION as i32 * i);
-        let upper_bin_id = lower_bin_id + MAX_BIN_PER_POSITION as i32 - 1;
+        let lower_bin_id = min_bin_id + (DEFAULT_BIN_PER_POSITION as i32 * i);
+        let upper_bin_id = lower_bin_id + DEFAULT_BIN_PER_POSITION as i32 - 1;
 
         create_position_bin_array_if_not_exists(
             program,
@@ -296,11 +359,11 @@ pub async fn seed_liquidity_by_operator<C: Deref<Target = impl Signer> + Clone>(
         }
 
         assert_eq!(
-            position_state.lower_bin_id, lower_bin_id,
+            position_state.global_data.lower_bin_id, lower_bin_id,
             "Position lower bin id not equals"
         );
         assert_eq!(
-            position_state.upper_bin_id, upper_bin_id,
+            position_state.global_data.upper_bin_id, upper_bin_id,
             "Position upper bin id not equals"
         );
 
@@ -346,13 +409,23 @@ pub async fn seed_liquidity_by_operator<C: Deref<Target = impl Signer> + Clone>(
             dust_deposit_state.dust_amount = leftover;
 
             for i in 0..position_number {
-                let lower_bin_id = min_bin_id + (MAX_BIN_PER_POSITION as i32 * i);
+                let lower_bin_id = min_bin_id + (DEFAULT_BIN_PER_POSITION as i32 * i);
 
                 let (position, _bump) =
                     derive_position_pda(lb_pair, position_base_kp.pubkey(), lower_bin_id, width);
 
-                let position_state = program.account::<PositionV2>(position).await?;
-                let position_liquidity_shares = position_state.liquidity_shares.to_vec();
+                let position_state = rpc_client
+                    .get_account_and_deserialize(&position, |account| {
+                        Ok(DynamicPosition::deserialize(&account.data)?)
+                    })
+                    .await?;
+
+                let position_liquidity_shares = position_state
+                    .position_bin_data
+                    .iter()
+                    .map(|position_bin_data| position_bin_data.liquidity_share)
+                    .collect();
+
                 dust_deposit_state
                     .position_shares
                     .insert(position, position_liquidity_shares);
@@ -383,20 +456,25 @@ pub async fn seed_liquidity_by_operator<C: Deref<Target = impl Signer> + Clone>(
         );
 
         for i in 0..position_number {
-            let lower_bin_id = min_bin_id + (MAX_BIN_PER_POSITION as i32 * i);
+            let lower_bin_id = min_bin_id + (DEFAULT_BIN_PER_POSITION as i32 * i);
 
             let (position, _bump) =
                 derive_position_pda(lb_pair, position_base_kp.pubkey(), lower_bin_id, width);
 
-            let position_state: PositionV2 = program.account(position).await?;
+            let position_state = rpc_client
+                .get_account_and_deserialize(&position, |account| {
+                    Ok(DynamicPosition::deserialize(&account.data)?)
+                })
+                .await?;
 
             let position_share_snapshot =
                 position_share.get(&position).context("Missing snapshot")?;
 
             let mut dust_deposited = false;
-            for (i, share) in position_state.liquidity_shares.iter().enumerate() {
+            for (i, position_bin_data) in position_state.position_bin_data.iter().enumerate() {
+                let share = position_bin_data.liquidity_share;
                 let snapshot_share = position_share_snapshot[i];
-                if snapshot_share != *share {
+                if snapshot_share != share {
                     dust_deposited = true;
                     break;
                 }
@@ -407,7 +485,8 @@ pub async fn seed_liquidity_by_operator<C: Deref<Target = impl Signer> + Clone>(
             }
 
             // Don't deposit to the last bin because c(last_bin + 1) - c(last_bin) will > amount
-            let upper_bin_id = std::cmp::min(position_state.upper_bin_id, max_bin_id - 1);
+            let upper_bin_id =
+                std::cmp::min(position_state.global_data.upper_bin_id, max_bin_id - 1);
 
             assert!(
                 upper_bin_id < max_bin_id,
@@ -449,14 +528,19 @@ pub async fn seed_liquidity_by_operator<C: Deref<Target = impl Signer> + Clone>(
     // Shall be dust after redistribute
     if leftover > 0 {
         println!("Deposit dust {} to last semi bin", leftover);
-        let lower_bin_id = min_bin_id + (MAX_BIN_PER_POSITION as i32 * (position_number - 1));
+        let lower_bin_id = min_bin_id + (DEFAULT_BIN_PER_POSITION as i32 * (position_number - 1));
 
         let (position, _bump) =
             derive_position_pda(lb_pair, position_base_kp.pubkey(), lower_bin_id, width);
 
-        let position_state: PositionV2 = program.account(position).await?;
+        let position_state = rpc_client
+            .get_account_and_deserialize(&position, |account| {
+                Ok(DynamicPosition::deserialize(&account.data)?)
+            })
+            .await?;
+
         // Don't deposit to the last bin because c(last_bin + 1) - c(last_bin) will > amount
-        let upper_bin_id = std::cmp::min(position_state.upper_bin_id, max_bin_id - 1);
+        let upper_bin_id = std::cmp::min(position_state.global_data.upper_bin_id, max_bin_id - 1);
 
         assert!(upper_bin_id < max_bin_id, "Funding to last bin id");
 
