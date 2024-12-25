@@ -30,3 +30,6 @@ pub use update_reward_funder::*;
 
 pub mod withdraw_protocol_fee;
 pub use withdraw_protocol_fee::*;
+
+pub mod initialize_token_badge;
+pub use initialize_token_badge::*;
