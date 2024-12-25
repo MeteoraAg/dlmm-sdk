@@ -111,13 +111,16 @@ pub async fn execute_initialize_permission_lb_pair<C: Deref<Target = impl Signer
         }
         .into();
 
+    let (base_factor, base_fee_power_factor) =
+        compute_base_factor_from_fee_bps(bin_step, base_fee_bps)?;
+
     let data = InitializePermissionLbPairIxData(InitializePermissionLbPairIxArgs {
         ix_data: InitPermissionPairIx {
             active_id: computed_active_id,
             bin_step,
-            base_factor: compute_base_factor_from_fee_bps(bin_step, base_fee_bps)?,
+            base_factor,
             activation_type,
-            base_fee_power_factor: 0, // TODO: Implement this
+            base_fee_power_factor,
             protocol_share: ILM_PROTOCOL_SHARE,
         },
     })

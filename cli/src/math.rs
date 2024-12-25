@@ -7,28 +7,48 @@ use rust_decimal::{
     Decimal,
 };
 
-pub fn compute_base_factor_from_fee_bps(bin_step: u16, fee_bps: u16) -> Result<u16> {
+pub fn compute_base_factor_from_fee_bps(bin_step: u16, fee_bps: u16) -> Result<(u16, u8)> {
     let computed_base_factor = fee_bps as f64 * 10_000.0f64 / bin_step as f64;
 
-    // Sanity check
-    let casted_base_factor = computed_base_factor as u16 as f64;
-    if casted_base_factor != computed_base_factor {
-        if casted_base_factor == u16::MAX as f64 {
-            return Err(anyhow!("overflow"));
+    if computed_base_factor > u16::MAX as f64 {
+        let mut truncated_base_factor = computed_base_factor;
+        let mut base_power_factor = 0u8;
+        loop {
+            if truncated_base_factor < u16::MAX as f64 {
+                break;
+            }
+
+            let remainder = truncated_base_factor % 10.0;
+            if remainder == 0.0 {
+                base_power_factor += 1;
+                truncated_base_factor /= 10.0;
+            } else {
+                return Err(anyhow!("have decimals"));
+            }
         }
 
-        if casted_base_factor == 0.0f64 {
-            return Err(anyhow!("underflow"));
+        Ok((truncated_base_factor as u16, base_power_factor))
+    } else {
+        // Sanity check
+        let casted_base_factor = computed_base_factor as u16 as f64;
+        if casted_base_factor != computed_base_factor {
+            if casted_base_factor == u16::MAX as f64 {
+                return Err(anyhow!("overflow"));
+            }
+
+            if casted_base_factor == 0.0f64 {
+                return Err(anyhow!("underflow"));
+            }
+
+            if computed_base_factor.fract() != 0.0 {
+                return Err(anyhow!("have decimals"));
+            }
+
+            return Err(anyhow!("unknown error"));
         }
 
-        if computed_base_factor.fract() != 0.0 {
-            return Err(anyhow!("have decimals"));
-        }
-
-        return Err(anyhow!("unknown error"));
+        Ok((computed_base_factor as u16, 0u8))
     }
-
-    Ok(computed_base_factor as u16)
 }
 
 pub fn get_precise_id_from_price(bin_step: u16, price: &Decimal) -> Option<i32> {
