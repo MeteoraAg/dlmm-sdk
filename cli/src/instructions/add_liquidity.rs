@@ -30,8 +30,11 @@ pub async fn execute_add_liquidity<C: Deref<Target = impl Signer> + Clone>(
         position,
         amount_x,
         amount_y,
-        bin_liquidity_distribution,
+        mut bin_liquidity_distribution,
     } = params;
+
+    // Sort by bin id
+    bin_liquidity_distribution.sort_by(|a, b| a.0.cmp(&b.0));
 
     let rpc_client = program.async_rpc();
 
@@ -58,9 +61,19 @@ pub async fn execute_add_liquidity<C: Deref<Target = impl Signer> + Clone>(
         })
         .await?;
 
+    let min_bin_id = bin_liquidity_distribution
+        .first()
+        .map(|bld| bld.bin_id)
+        .context("No bin liquidity distribution provided")?;
+
+    let max_bin_id = bin_liquidity_distribution
+        .last()
+        .map(|bld| bld.bin_id)
+        .context("No bin liquidity distribution provided")?;
+
     let bin_arrays_account_meta = position_state
         .global_data
-        .get_bin_array_accounts_meta_coverage()?;
+        .get_bin_array_accounts_meta_coverage_by_chunk(min_bin_id, max_bin_id)?;
 
     let user_token_x = get_or_create_ata(
         program,

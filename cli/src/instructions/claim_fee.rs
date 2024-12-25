@@ -3,6 +3,7 @@ use instructions::*;
 
 #[derive(Debug, Parser)]
 pub struct ClaimFeeParams {
+    /// Position address
     pub position: Pubkey,
 }
 
@@ -42,10 +43,6 @@ pub async fn execute_claim_fee<C: Deref<Target = impl Signer> + Clone>(
     )
     .await?;
 
-    let bin_arrays_account_meta = position_state
-        .global_data
-        .get_bin_array_accounts_meta_coverage()?;
-
     let [token_program_x, token_program_y] = lb_pair_state.get_token_programs()?;
 
     let (event_authority, _bump) = derive_event_authority_pda();
@@ -69,7 +66,7 @@ pub async fn execute_claim_fee<C: Deref<Target = impl Signer> + Clone>(
     .into();
 
     let mut remaining_accounts_info = RemainingAccountsInfo { slices: vec![] };
-    let mut remaining_accounts = vec![];
+    let mut token_2022_remaining_accounts = vec![];
 
     if let Some((slices, transfer_hook_remaining_accounts)) =
         get_potential_token_2022_related_ix_data_and_accounts(
@@ -80,35 +77,47 @@ pub async fn execute_claim_fee<C: Deref<Target = impl Signer> + Clone>(
         .await?
     {
         remaining_accounts_info.slices = slices;
-        remaining_accounts.extend(transfer_hook_remaining_accounts);
+        token_2022_remaining_accounts.extend(transfer_hook_remaining_accounts);
     };
 
-    remaining_accounts.extend(bin_arrays_account_meta);
+    for (min_bin_id, max_bin_id) in position_bin_range_chunks(
+        position_state.global_data.lower_bin_id,
+        position_state.global_data.upper_bin_id,
+    ) {
+        let data = ClaimFee2IxData(ClaimFee2IxArgs {
+            min_bin_id,
+            max_bin_id,
+            remaining_accounts_info: remaining_accounts_info.clone(),
+        })
+        .try_to_vec()?;
 
-    let accounts = [main_accounts.to_vec(), remaining_accounts].concat();
+        let bin_arrays_account_meta = position_state
+            .global_data
+            .get_bin_array_accounts_meta_coverage_by_chunk(min_bin_id, max_bin_id)?;
 
-    let data = ClaimFee2IxData(ClaimFee2IxArgs {
-        min_bin_id: position_state.global_data.lower_bin_id,
-        max_bin_id: position_state.global_data.upper_bin_id, // TODO: Pass in bin id from args, or dynamically check based on position
-        remaining_accounts_info,
-    })
-    .try_to_vec()?;
+        let accounts = [
+            main_accounts.to_vec(),
+            token_2022_remaining_accounts.clone(),
+            bin_arrays_account_meta,
+        ]
+        .concat();
 
-    let claim_fee_ix = Instruction {
-        program_id: dlmm_interface::ID,
-        accounts,
-        data,
-    };
+        let claim_fee_ix = Instruction {
+            program_id: dlmm_interface::ID,
+            accounts,
+            data,
+        };
 
-    let request_builder = program.request();
-    let signature = request_builder
-        .instruction(claim_fee_ix)
-        .send_with_spinner_and_config(transaction_config)
-        .await;
+        let request_builder = program.request();
+        let signature = request_builder
+            .instruction(claim_fee_ix)
+            .send_with_spinner_and_config(transaction_config)
+            .await;
 
-    println!("Claim fee. Signature: {:#?}", signature);
+        println!("Claim fee. Signature: {:#?}", signature);
 
-    signature?;
+        signature?;
+    }
 
     Ok(())
 }

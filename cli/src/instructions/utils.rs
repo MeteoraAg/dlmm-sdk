@@ -6,9 +6,30 @@ use anchor_spl::{
     token::spl_token,
     token_2022::spl_token_2022::extension::{transfer_hook, StateWithExtensions},
 };
+use num_integer::Integer;
 use solana_sdk::program_pack::Pack;
 use spl_associated_token_account::instruction::create_associated_token_account;
 use spl_transfer_hook_interface::offchain::add_extra_account_metas_for_execute;
+
+pub fn position_bin_range_chunks(lower_bin_id: i32, upper_bin_id: i32) -> Vec<(i32, i32)> {
+    let mut chunked_bin_range = vec![];
+    let bin_range = upper_bin_id - lower_bin_id + 1;
+
+    let (quotient, remainder) = bin_range.div_rem(&(DEFAULT_BIN_PER_POSITION as i32));
+    let chunk = quotient + (remainder != 0) as i32;
+
+    for i in 0..chunk {
+        let min_bin_id = lower_bin_id + DEFAULT_BIN_PER_POSITION as i32 * i;
+        let max_bin_id = std::cmp::min(
+            min_bin_id + DEFAULT_BIN_PER_POSITION as i32 - 1,
+            upper_bin_id,
+        );
+
+        chunked_bin_range.push((min_bin_id, max_bin_id));
+    }
+
+    chunked_bin_range
+}
 
 pub async fn get_transfer_instruction(
     from: Pubkey,
