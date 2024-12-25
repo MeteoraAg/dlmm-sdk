@@ -61,6 +61,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## @meteora-ag/dlmm [1.3.8] - PR #144
 
+## cli [0.5.0]
+
+- File structure refactoring
+- Switched all the existing functions to support dynamic position and token 2022
+- Added admin function `initialize_token_badge` to initialize token badge for token 2022
+- Added permissionless function `increase_position_length` to increase dynamic position length
+- Added permissionless function `decrease_position_length` to decrease dynamic position length
+
+## lb_clmm [0.7.0]
+
+- DEPRECATED. Use `dlmm_interface` for types and `commons` for related account functions.
+
+## dlmm_interface [0.9.0]
+
+- Program interface generated using `solores`
+
+## commons [0.3.0]
+
+- Added token 2022 supportive functions.
+- Added dynamic position account supportive functions.
+
 ### Fixed
 
 - Fix `getOrCreateATAInstruction` to use `createAssociatedTokenAccountIdempotentInstruction`
