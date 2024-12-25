@@ -16,8 +16,8 @@ pub use fund_reward::*;
 pub mod get_all_positions;
 pub use get_all_positions::*;
 
-pub mod increase_length;
-pub use increase_length::*;
+pub mod increase_oracle_length;
+pub use increase_oracle_length::*;
 
 pub mod initialize_bin_array;
 pub use initialize_bin_array::*;
@@ -68,6 +68,12 @@ pub mod show_preset_parameters;
 pub use show_preset_parameters::*;
 
 pub mod set_pair_status_permissionless;
+
+pub mod increase_position_length;
+pub use increase_position_length::*;
+
+pub mod decrease_position_length;
+pub use decrease_position_length::*;
 
 pub mod admin;
 pub use admin::*;
