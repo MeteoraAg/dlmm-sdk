@@ -123,16 +123,19 @@ pub async fn execute_initialize_customizable_permissionless_lb_pair<
         }
         .into();
 
+    let (base_factor, base_fee_power_factor) =
+        compute_base_factor_from_fee_bps(bin_step, base_fee_bps)?;
+
     let data = InitializeCustomizablePermissionlessLbPair2IxData(
         InitializeCustomizablePermissionlessLbPair2IxArgs {
             params: CustomizableParams {
                 active_id: computed_active_id,
                 bin_step,
-                base_factor: compute_base_factor_from_fee_bps(bin_step, base_fee_bps)?,
+                base_factor,
                 activation_type,
                 activation_point,
                 has_alpha_vault,
-                base_fee_power_factor: 0, // TODO: Take this into consideration when compute_base_factor_from_fee_bps
+                base_fee_power_factor,
                 padding: [0u8; 63],
             },
         },
