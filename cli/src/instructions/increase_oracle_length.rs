@@ -2,17 +2,17 @@ use crate::*;
 use anchor_client::solana_sdk;
 
 #[derive(Debug, Parser)]
-pub struct IncreaseLengthParams {
+pub struct IncreaseOracleLengthParams {
     pub lb_pair: Pubkey,
     pub length_to_add: u64,
 }
 
-pub async fn execute_increase_length<C: Deref<Target = impl Signer> + Clone>(
-    params: IncreaseLengthParams,
+pub async fn execute_increase_oracle_length<C: Deref<Target = impl Signer> + Clone>(
+    params: IncreaseOracleLengthParams,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
 ) -> Result<()> {
-    let IncreaseLengthParams {
+    let IncreaseOracleLengthParams {
         lb_pair,
         length_to_add,
     } = params;
