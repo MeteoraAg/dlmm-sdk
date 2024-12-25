@@ -120,8 +120,8 @@ async fn main() -> Result<()> {
         DLMMCommand::ClaimFee(params) => {
             execute_claim_fee(params, &program, transaction_config).await?;
         }
-        DLMMCommand::IncreaseLength(params) => {
-            execute_increase_length(params, &program, transaction_config).await?;
+        DLMMCommand::IncreaseOracleLength(params) => {
+            execute_increase_oracle_length(params, &program, transaction_config).await?;
         }
         DLMMCommand::ShowPresetParameter(params) => {
             execute_show_preset_parameters(params, &program).await?;
@@ -200,6 +200,12 @@ async fn main() -> Result<()> {
             )
             .await?;
         }
+        DLMMCommand::DecreasePositionLength(params) => {
+            execute_decrease_position_length(params, &program, transaction_config).await?;
+        }
+        DLMMCommand::IncreasePositionLength(params) => {
+            execute_increase_position_length(params, &program, transaction_config).await?;
+        }
         DLMMCommand::Admin(command) => match command {
             AdminCommand::InitializePermissionPair(params) => {
                 execute_initialize_permission_lb_pair(params, &program, transaction_config).await?;
@@ -235,6 +241,9 @@ async fn main() -> Result<()> {
             }
             AdminCommand::SetPreActivationDuration(params) => {
                 execute_set_pre_activation_duration(params, &program, transaction_config).await?;
+            }
+            AdminCommand::InitializeTokenBadge(params) => {
+                execute_initialize_token_badge(params, &program, transaction_config).await?;
             }
         },
     };
