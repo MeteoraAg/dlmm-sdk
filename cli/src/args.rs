@@ -103,21 +103,18 @@ pub enum DLMMCommand {
     /// Claim fee
     ClaimFee(ClaimFeeParams),
     /// Increase an oracle observation sample length
-    IncreaseLength(IncreaseLengthParams),
+    IncreaseOracleLength(IncreaseOracleLengthParams),
     ShowPresetParameter(ShowPresetAccountParams),
     ListAllBinStep,
     InitializeCustomizablePermissionlessLbPair(InitCustomizablePermissionlessLbPairParam),
-
     /// Seed liquidity
     SeedLiquidity(SeedLiquidityParameters),
-
     /// Seed liquidity by operator
     SeedLiquidityByOperator(SeedLiquidityByOperatorParameters),
-
     SeedLiquiditySingleBin(SeedLiquiditySingleBinParameters),
-
     SeedLiquiditySingleBinByOperator(SeedLiquiditySingleBinByOperatorParameters),
-
+    IncreasePositionLength(IncreasePositionLengthParams),
+    DecreasePositionLength(DecreasePositionLengthParams),
     #[clap(flatten)]
     Admin(AdminCommand),
 }
@@ -147,4 +144,5 @@ pub enum AdminCommand {
     ClosePresetParameter(ClosePresetAccountParams),
     SetPreActivationDuration(SetPreactivationDurationParam),
     SetPreActivationSwapAddress(SetPreactivationSwapAddressParam),
+    InitializeTokenBadge(InitializeTokenBadgeParams),
 }
