@@ -1,6 +1,6 @@
-use num_integer::Integer;
-
 use crate::*;
+use num_integer::Integer;
+use solana_sdk::pubkey::Pubkey;
 
 pub trait BinArrayExtension {
     fn is_bin_id_within_range(&self, bin_id: i32) -> Result<bool>;
@@ -8,6 +8,7 @@ pub trait BinArrayExtension {
 
     fn get_bin_array_lower_upper_bin_id(index: i32) -> Result<(i32, i32)>;
     fn bin_id_to_bin_array_index(bin_id: i32) -> Result<i32>;
+    fn bin_id_to_bin_array_key(lb_pair: Pubkey, bin_id: i32) -> Result<Pubkey>;
 
     fn get_bin_mut<'a>(&'a mut self, bin_id: i32) -> Result<&'a mut Bin>;
     fn get_bin<'a>(&'a self, bin_id: i32) -> Result<&'a Bin>;
@@ -58,5 +59,10 @@ impl BinArrayExtension for BinArray {
         } else {
             Ok(idx)
         }
+    }
+
+    fn bin_id_to_bin_array_key(lb_pair: Pubkey, bin_id: i32) -> Result<Pubkey> {
+        let bin_array_index = Self::bin_id_to_bin_array_index(bin_id)?;
+        Ok(derive_bin_array_pda(lb_pair, bin_array_index.into()).0)
     }
 }

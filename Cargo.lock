@@ -1176,6 +1176,7 @@ dependencies = [
  "clap 4.4.7",
  "commons",
  "dlmm_interface",
+ "num-integer",
  "rand 0.8.5",
  "rust_decimal",
  "serde",
