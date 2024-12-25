@@ -1,6 +1,5 @@
-use ruint::aliases::U512;
-
 use crate::*;
+use ruint::aliases::U512;
 
 pub trait BinArrayBitmapExtExtension {
     fn bitmap_range() -> (i32, i32);
