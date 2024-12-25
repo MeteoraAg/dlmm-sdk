@@ -252,7 +252,6 @@ pub async fn execute_seed_liquidity_by_operator<C: Deref<Target = impl Signer> +
     let token_mint_base_account = accounts[0].take().context("token_mint_base not found")?;
     let token_mint_quote_account = accounts[1].take().context("token_mint_quote not found")?;
 
-    // TODO: Check unpack error
     let token_mint_base = Mint::try_deserialize(&mut token_mint_base_account.data.as_ref())?;
     let token_mint_quote = Mint::try_deserialize(&mut token_mint_quote_account.data.as_ref())?;
 
