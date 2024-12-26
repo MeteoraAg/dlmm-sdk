@@ -5869,17 +5869,23 @@ export class DLMM {
     }
   }
 
-  // TODO: chunk?
   private async createClaimBuildMethod({
     owner,
     position,
     shouldIncludePreIx = true,
+    binRange,
   }: {
     owner: PublicKey;
     position: LbPosition;
     shouldIncludePreIx?: boolean;
+    binRange?: {
+      minBinId: BN;
+      maxBinId: BN;
+    };
   }) {
-    const { lowerBinId, upperBinId } = position.positionData;
+    const [lowerBinId, upperBinId] = binRange
+      ? [binRange.minBinId.toNumber(), binRange.maxBinId.toNumber()]
+      : [position.positionData.lowerBinId, position.positionData.upperBinId];
 
     const binArrayAccountsMeta = getBinArrayAccountMetasCoverage(
       new BN(lowerBinId),
@@ -5933,13 +5939,22 @@ export class DLMM {
     position,
     shouldIncludePretIx = true,
     shouldIncludePostIx = true,
+    binRange,
   }: {
     owner: PublicKey;
     position: LbPosition;
     shouldIncludePretIx?: boolean;
     shouldIncludePostIx?: boolean;
+    binRange?: {
+      minBinId: BN;
+      maxBinId: BN;
+    };
   }) {
-    const { lowerBinId, upperBinId, feeOwner } = position.positionData;
+    const [lowerBinId, upperBinId] = binRange
+      ? [binRange.minBinId.toNumber(), binRange.maxBinId.toNumber()]
+      : [position.positionData.lowerBinId, position.positionData.upperBinId];
+
+    const { feeOwner } = position.positionData;
 
     const binArrayAccountsMeta = getBinArrayAccountMetasCoverage(
       new BN(lowerBinId),
