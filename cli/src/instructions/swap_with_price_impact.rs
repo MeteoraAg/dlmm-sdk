@@ -150,7 +150,7 @@ pub async fn execute_swap_with_price_impact<C: Deref<Target = impl Signer> + Clo
         get_potential_token_2022_related_ix_data_and_accounts(
             &lb_pair_state,
             program.async_rpc(),
-            ActionType::LiquidityProvision,
+            ActionType::Liquidity,
         )
         .await?
     {

@@ -72,7 +72,7 @@ pub async fn execute_claim_reward<C: Deref<Target = impl Signer> + Clone>(
         get_potential_token_2022_related_ix_data_and_accounts(
             &lb_pair_state,
             program.async_rpc(),
-            ActionType::LiquidityMining(reward_index as usize),
+            ActionType::Reward(reward_index as usize),
         )
         .await?
     {
