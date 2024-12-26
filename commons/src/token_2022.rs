@@ -9,8 +9,8 @@ use solana_sdk::{instruction::AccountMeta, pubkey::Pubkey};
 use spl_transfer_hook_interface::offchain::add_extra_account_metas_for_execute;
 
 pub enum ActionType {
-    LiquidityProvision,
-    LiquidityMining(usize),
+    Liquidity,
+    Reward(usize),
 }
 
 pub async fn get_potential_token_2022_related_ix_data_and_accounts(
@@ -19,13 +19,13 @@ pub async fn get_potential_token_2022_related_ix_data_and_accounts(
     action_type: ActionType,
 ) -> Result<Option<(Vec<RemainingAccountsSlice>, Vec<AccountMeta>)>> {
     let potential_token_2022_mints = match action_type {
-        ActionType::LiquidityProvision => {
+        ActionType::Liquidity => {
             vec![
                 (lb_pair.token_x_mint, AccountsType::TransferHookX),
                 (lb_pair.token_y_mint, AccountsType::TransferHookY),
             ]
         }
-        ActionType::LiquidityMining(idx) => {
+        ActionType::Reward(idx) => {
             vec![(
                 lb_pair.reward_infos[idx].mint,
                 AccountsType::TransferHookReward,
