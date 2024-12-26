@@ -212,7 +212,7 @@ impl Core {
             get_potential_token_2022_related_ix_data_and_accounts(
                 &lb_pair_state,
                 RpcClient::new(self.provider.url().to_owned()),
-                ActionType::LiquidityProvision,
+                ActionType::Liquidity,
             )
             .await?
         {
@@ -438,7 +438,7 @@ impl Core {
             get_potential_token_2022_related_ix_data_and_accounts(
                 &lb_pair_state,
                 RpcClient::new(self.provider.url().to_owned()),
-                ActionType::LiquidityProvision,
+                ActionType::Liquidity,
             )
             .await?
         {
@@ -622,7 +622,7 @@ impl Core {
             get_potential_token_2022_related_ix_data_and_accounts(
                 &lb_pair_state,
                 RpcClient::new(self.provider.url().to_owned()),
-                ActionType::LiquidityProvision,
+                ActionType::Liquidity,
             )
             .await?
         {

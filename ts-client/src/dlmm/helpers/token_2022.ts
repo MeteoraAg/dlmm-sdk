@@ -5,7 +5,41 @@ import {
   TOKEN_PROGRAM_ID,
   unpackMint,
 } from "@solana/spl-token";
-import { AccountInfo, Connection, PublicKey } from "@solana/web3.js";
+import {
+  AccountInfo,
+  AccountMeta,
+  Connection,
+  PublicKey,
+} from "@solana/web3.js";
+
+export async function getMultipleMintsExtraAccountMetasForTransferHook(
+  connection: Connection,
+  mintAddressesWithAccountInfo: {
+    mintAddress: PublicKey;
+    mintAccountInfo: AccountInfo<Buffer>;
+  }[]
+): Promise<Map<String, AccountMeta[]>> {
+  const extraAccountMetas = await Promise.all(
+    mintAddressesWithAccountInfo.map(({ mintAddress, mintAccountInfo }) =>
+      getExtraAccountMetasForTransferHook(
+        connection,
+        mintAddress,
+        mintAccountInfo
+      )
+    )
+  );
+
+  const mintsWithHookAccountMap = new Map<String, AccountMeta[]>();
+
+  for (let i = 0; i < extraAccountMetas.length; i++) {
+    const { mintAddress } = mintAddressesWithAccountInfo[i];
+    const transferHooks = extraAccountMetas[i];
+
+    mintsWithHookAccountMap.set(mintAddress.toBase58(), transferHooks);
+  }
+
+  return mintsWithHookAccountMap;
+}
 
 export async function getExtraAccountMetasForTransferHook(
   connection: Connection,
