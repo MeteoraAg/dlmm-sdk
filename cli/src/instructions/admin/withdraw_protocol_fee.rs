@@ -63,7 +63,7 @@ pub async fn execute_withdraw_protocol_fee<C: Deref<Target = impl Signer> + Clon
         get_potential_token_2022_related_ix_data_and_accounts(
             &lb_pair_state,
             program.async_rpc(),
-            ActionType::LiquidityProvision,
+            ActionType::Liquidity,
         )
         .await?
     {
