@@ -23,7 +23,7 @@ import fs from "fs";
 import {
   BASIS_POINT_MAX,
   LBCLMM_PROGRAM_IDS,
-  MAX_BIN_PER_POSITION,
+  DEFAULT_BIN_PER_POSITION,
 } from "../dlmm/constants";
 import {
   binIdToBinArrayIndex,
@@ -389,8 +389,8 @@ describe("SDK test", () => {
     it("initialize position and add liquidity buy side", async () => {
       const program = pair.program;
       const baseKeypair = Keypair.generate();
-      const lowerBinId = DEFAULT_ACTIVE_ID.sub(MAX_BIN_PER_POSITION);
-      const width = MAX_BIN_PER_POSITION;
+      const lowerBinId = DEFAULT_ACTIVE_ID.sub(DEFAULT_BIN_PER_POSITION);
+      const width = DEFAULT_BIN_PER_POSITION;
 
       const lowerBinIdBytes = lowerBinId.isNeg()
         ? lowerBinId.toTwos(32).toArrayLike(Buffer, "le", 4)
@@ -837,7 +837,7 @@ describe("SDK test", () => {
         .mul(priceMultiplier);
 
       const maxPrice = getPriceOfBinByBinId(
-        pair.lbPair.activeId + 1 + MAX_BIN_PER_POSITION.toNumber() * 3,
+        pair.lbPair.activeId + 1 + DEFAULT_BIN_PER_POSITION.toNumber() * 3,
         pair.lbPair.binStep
       ).mul(priceMultiplier);
 
@@ -1017,7 +1017,7 @@ describe("SDK test", () => {
         .mul(priceMultiplier);
 
       const maxPrice = getPriceOfBinByBinId(
-        pair.lbPair.activeId + 1 + MAX_BIN_PER_POSITION.toNumber() * 3,
+        pair.lbPair.activeId + 1 + DEFAULT_BIN_PER_POSITION.toNumber() * 3,
         pair.lbPair.binStep
       ).mul(priceMultiplier);
 
@@ -1196,7 +1196,7 @@ describe("SDK test", () => {
         .mul(priceMultiplier);
 
       const maxPrice = getPriceOfBinByBinId(
-        pair.lbPair.activeId + 1 + MAX_BIN_PER_POSITION.toNumber() * 3,
+        pair.lbPair.activeId + 1 + DEFAULT_BIN_PER_POSITION.toNumber() * 3,
         pair.lbPair.binStep
       ).mul(priceMultiplier);
 

@@ -16,7 +16,10 @@ import {
 } from "@solana/web3.js";
 import Decimal from "decimal.js";
 import fs from "fs";
-import { LBCLMM_PROGRAM_IDS, MAX_BIN_PER_POSITION } from "../dlmm/constants";
+import {
+  LBCLMM_PROGRAM_IDS,
+  DEFAULT_BIN_PER_POSITION,
+} from "../dlmm/constants";
 import { derivePermissionLbPair, derivePosition } from "../dlmm/helpers";
 import { DLMM } from "../dlmm/index";
 import { ActivationType, StrategyType } from "../dlmm/types";
@@ -210,13 +213,13 @@ describe("Position by operator", () => {
       await pair.refetchStates();
 
       const lowerBinId = new BN(minBinId).sub(
-        MAX_BIN_PER_POSITION.div(new BN(2))
+        DEFAULT_BIN_PER_POSITION.div(new BN(2))
       );
-      const positionWidth = new BN(MAX_BIN_PER_POSITION);
+      const positionWidth = new BN(DEFAULT_BIN_PER_POSITION);
 
       const transaction = await pair.initializePositionByOperator({
         lowerBinId,
-        positionWidth: new BN(MAX_BIN_PER_POSITION),
+        positionWidth: new BN(DEFAULT_BIN_PER_POSITION),
         owner: mockMultisigKeypair.publicKey,
         feeOwner: mockMultisigKeypair.publicKey,
         operator: operatorKeypair.publicKey,
