@@ -1,7 +1,7 @@
 import { BN } from "@coral-xyz/anchor";
 import {
   BASIS_POINT_MAX,
-  MAX_BIN_PER_POSITION,
+  DEFAULT_BIN_PER_POSITION,
   SCALE_OFFSET,
 } from "../constants";
 import Decimal from "decimal.js";
@@ -38,23 +38,39 @@ export function computeBaseFactorFromFeeBps(binStep: BN, feeBps: BN) {
   const computedBaseFactor =
     (feeBps.toNumber() * BASIS_POINT_MAX) / binStep.toNumber();
 
-  // Sanity check
-  const computedBaseFactorFloor = Math.floor(computedBaseFactor);
-  if (computedBaseFactor != computedBaseFactorFloor) {
-    if (computedBaseFactorFloor >= U16_MAX) {
-      throw "base factor for the give fee bps overflow u16";
+  if (computedBaseFactor > U16_MAX) {
+    let truncatedBaseFactor = computedBaseFactor;
+    let base_power_factor = 0;
+    while (truncatedBaseFactor > U16_MAX) {
+      const remainder = truncatedBaseFactor % 10;
+      if (remainder == 0) {
+        base_power_factor += 1;
+        truncatedBaseFactor /= 10;
+      } else {
+        throw "have decimals";
+      }
     }
 
-    if (computedBaseFactorFloor == 0) {
-      throw "base factor for the give fee bps underflow";
+    return [new BN(truncatedBaseFactor), new BN(base_power_factor)];
+  } else {
+    // Sanity check
+    const computedBaseFactorFloor = Math.floor(computedBaseFactor);
+    if (computedBaseFactor != computedBaseFactorFloor) {
+      if (computedBaseFactorFloor >= U16_MAX) {
+        throw "base factor for the give fee bps overflow u16";
+      }
+
+      if (computedBaseFactorFloor == 0) {
+        throw "base factor for the give fee bps underflow";
+      }
+
+      if (computedBaseFactor % 1 != 0) {
+        throw "couldn't compute base factor for the exact fee bps";
+      }
     }
 
-    if (computedBaseFactor % 1 != 0) {
-      throw "couldn't compute base factor for the exact fee bps";
-    }
+    return [new BN(computedBaseFactor), new BN(0)];
   }
-
-  return new BN(computedBaseFactor);
 }
 
 export function getQPriceFromId(binId: BN, binStep: BN): BN {
@@ -172,7 +188,7 @@ export function distributeAmountToCompressedBinsByRatio(
 
 export function getPositionCount(minBinId: BN, maxBinId: BN) {
   const binDelta = maxBinId.sub(minBinId);
-  const positionCount = binDelta.div(MAX_BIN_PER_POSITION);
+  const positionCount = binDelta.div(DEFAULT_BIN_PER_POSITION);
   return positionCount.add(new BN(1));
 }
 
