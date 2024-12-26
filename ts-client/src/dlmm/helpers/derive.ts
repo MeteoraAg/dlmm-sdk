@@ -177,3 +177,17 @@ export function deriveReserve(
     programId
   );
 }
+
+export function deriveTokenBadge(mint: PublicKey, programId: PublicKey) {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("token_badge"), mint.toBuffer()],
+    programId
+  );
+}
+
+export function deriveEventAuthority(programId: PublicKey) {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("__event_authority")],
+    programId
+  );
+}
