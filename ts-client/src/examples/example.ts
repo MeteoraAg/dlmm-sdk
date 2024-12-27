@@ -12,7 +12,16 @@
 
 import { Connection, PublicKey } from "@solana/web3.js";
 import { DLMM } from "../dlmm";
-import { chunkedGetMultipleAccountInfos } from "../dlmm/helpers";
+import {
+  AccountLayout,
+  getAssociatedTokenAddressSync,
+  getTransferHookAccount,
+  MintLayout,
+  TOKEN_2022_PROGRAM_ID,
+  unpackMint,
+} from "@solana/spl-token";
+import { getExtraAccountMetasForTransferHook } from "../dlmm/helpers/token_2022";
+import { BN } from "bn.js";
 
 // const user = Keypair.fromSecretKey(
 //   new Uint8Array(bs58.decode(process.env.USER_PRIVATE_KEY))
@@ -305,7 +314,7 @@ async function main() {
     "5unTfT2kssBuNvHPY6LbJfJpLqEcdMxGYLWHwShaeTLi"
   );
 
-  const jlpHubSolPool = await DLMM.create(connection, poolKey, {
+  const [jlpHubSolPool] = await DLMM.createMultiple(connection, [poolKey], {
     cluster: "mainnet-beta",
   });
 
@@ -318,6 +327,17 @@ async function main() {
     console.log("RewardOne", position.positionData.rewardOne.toString());
     console.log("RewardTwo", position.positionData.rewardTwo.toString());
   }
+
+  const askBinArrays = await jlpHubSolPool.getBinArrayForSwap(true, 3);
+
+  const swapQuote = await jlpHubSolPool.swapQuote(
+    new BN(100000000),
+    true,
+    new BN(100),
+    askBinArrays
+  );
+
+  console.log(swapQuote.outAmount.toString());
 }
 
 main();
