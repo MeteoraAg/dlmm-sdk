@@ -15,6 +15,7 @@ import {
 } from "@solana/web3.js";
 import Decimal from "decimal.js";
 import { u64, i64, struct } from "@coral-xyz/borsh";
+import { Mint } from "@solana/spl-token";
 
 export interface FeeInfo {
   baseFeeRatePercentage: Decimal;
@@ -31,8 +32,8 @@ export interface BinAndAmount {
 export interface TokenReserve {
   publicKey: PublicKey;
   reserve: PublicKey;
+  mint: Mint;
   amount: bigint;
-  decimal: number;
   owner: PublicKey;
   transferHookAccountMetas: AccountMeta[];
 }
