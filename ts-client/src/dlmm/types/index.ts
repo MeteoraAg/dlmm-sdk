@@ -308,6 +308,12 @@ export interface PositionData {
   feeOwner: PublicKey;
   totalClaimedFeeXAmount: BN;
   totalClaimedFeeYAmount: BN;
+  feeXExcludeTransferFee: BN;
+  feeYExcludeTransferFee: BN;
+  rewardOneExcludeTransferFee: BN;
+  rewardTwoExcludeTransferFee: BN;
+  totalXAmountExcludeTransferFee: BN;
+  totalYAmountExcludeTransferFee: BN;
 }
 
 export interface SwapWithPriceImpactParams {
