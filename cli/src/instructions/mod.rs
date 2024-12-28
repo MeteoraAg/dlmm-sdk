@@ -28,11 +28,11 @@ pub use initialize_bin_array_with_bin_range::*;
 pub mod initialize_bin_array_with_price_range;
 pub use initialize_bin_array_with_price_range::*;
 
-pub mod initialize_customizable_permissionless_lb_pair;
-pub use initialize_customizable_permissionless_lb_pair::*;
+pub mod initialize_customizable_permissionless_lb_pair2;
+pub use initialize_customizable_permissionless_lb_pair2::*;
 
-pub mod initialize_lb_pair;
-pub use initialize_lb_pair::*;
+pub mod initialize_lb_pair2;
+pub use initialize_lb_pair2::*;
 
 pub mod initialize_position;
 pub use initialize_position::*;
@@ -81,3 +81,9 @@ pub use ilm::*;
 
 pub mod migrate_position_v3;
 pub use migrate_position_v3::*;
+
+pub mod initialize_customizable_permissionless_lb_pair;
+pub use initialize_customizable_permissionless_lb_pair::*;
+
+pub mod initialize_lb_pair;
+pub use initialize_lb_pair::*;
