@@ -322,22 +322,24 @@ async function main() {
 
   for (const position of positions.userPositions) {
     console.log("Position address", position.publicKey.toBase58());
+    console.log("AmountX", position.positionData.totalXAmount.toString());
+    console.log("AmountY", position.positionData.totalYAmount.toString());
     console.log("FeeX", position.positionData.feeX.toString());
     console.log("FeeY", position.positionData.feeY.toString());
     console.log("RewardOne", position.positionData.rewardOne.toString());
     console.log("RewardTwo", position.positionData.rewardTwo.toString());
   }
 
-  const askBinArrays = await jlpHubSolPool.getBinArrayForSwap(true, 3);
+  // const askBinArrays = await jlpHubSolPool.getBinArrayForSwap(true, 3);
 
-  const swapQuote = await jlpHubSolPool.swapQuote(
-    new BN(100000000),
-    true,
-    new BN(100),
-    askBinArrays
-  );
+  // const swapQuote = await jlpHubSolPool.swapQuote(
+  //   new BN(100000000),
+  //   true,
+  //   new BN(100),
+  //   askBinArrays
+  // );
 
-  console.log(swapQuote.outAmount.toString());
+  // console.log(swapQuote.outAmount.toString());
 }
 
 main();
