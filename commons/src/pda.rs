@@ -2,6 +2,21 @@ use super::seeds::*;
 use anchor_client::solana_sdk::pubkey::Pubkey;
 use std::{cmp::max, cmp::min};
 
+pub fn derive_lb_pair_with_preset_parameter_key(
+    preset_parameter: Pubkey,
+    token_x_mint: Pubkey,
+    token_y_mint: Pubkey,
+) -> (Pubkey, u8) {
+    Pubkey::find_program_address(
+        &[
+            preset_parameter.as_ref(),
+            min(token_x_mint, token_y_mint).as_ref(),
+            max(token_x_mint, token_y_mint).as_ref(),
+        ],
+        &dlmm_interface::ID,
+    )
+}
+
 pub fn derive_lb_pair_pda2(
     token_x_mint: Pubkey,
     token_y_mint: Pubkey,
