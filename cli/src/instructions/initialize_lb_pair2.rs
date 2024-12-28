@@ -3,7 +3,7 @@ use anchor_lang::AccountDeserialize;
 use anchor_spl::token_interface::Mint;
 
 #[derive(Debug, Parser)]
-pub struct InitLbPairParams {
+pub struct InitLbPair2Params {
     /// Preset parameter pubkey. Get the pubkey from list_all_binstep command.
     pub preset_parameter: Pubkey,
     /// Token X mint of the liquidity pair. Eg: BTC. This should be the base token.
@@ -14,12 +14,12 @@ pub struct InitLbPairParams {
     pub initial_price: f64,
 }
 
-pub async fn execute_initialize_lb_pair<C: Deref<Target = impl Signer> + Clone>(
-    params: InitLbPairParams,
+pub async fn execute_initialize_lb_pair2<C: Deref<Target = impl Signer> + Clone>(
+    params: InitLbPair2Params,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
 ) -> Result<Pubkey> {
-    let InitLbPairParams {
+    let InitLbPair2Params {
         preset_parameter,
         token_mint_x,
         token_mint_y,
@@ -47,7 +47,7 @@ pub async fn execute_initialize_lb_pair<C: Deref<Target = impl Signer> + Clone>(
 
     let preset_parameter_state = rpc_client
         .get_account_and_deserialize(&preset_parameter, |account| {
-            Ok(PresetParameterAccount::deserialize(&account.data)?.0)
+            Ok(PresetParameter2Account::deserialize(&account.data)?.0)
         })
         .await?;
 
@@ -56,12 +56,8 @@ pub async fn execute_initialize_lb_pair<C: Deref<Target = impl Signer> + Clone>(
     let computed_active_id = get_id_from_price(bin_step, &price_per_lamport, Rounding::Up)
         .context("get_id_from_price overflow")?;
 
-    let (lb_pair, _bump) = derive_lb_pair_pda2(
-        token_mint_x,
-        token_mint_y,
-        preset_parameter_state.bin_step,
-        preset_parameter_state.base_factor,
-    );
+    let (lb_pair, _bump) =
+        derive_lb_pair_with_preset_parameter_key(preset_parameter, token_mint_x, token_mint_y);
 
     if program.rpc().get_account_data(&lb_pair).is_ok() {
         return Ok(lb_pair);
@@ -72,8 +68,24 @@ pub async fn execute_initialize_lb_pair<C: Deref<Target = impl Signer> + Clone>(
     let (oracle, _bump) = derive_oracle_pda(lb_pair);
 
     let (event_authority, _bump) = derive_event_authority_pda();
+    let (token_badge_x, _bump) = derive_token_badge_pda(token_mint_x);
+    let (token_badge_y, _bump) = derive_token_badge_pda(token_mint_y);
 
-    let accounts: [AccountMeta; INITIALIZE_LB_PAIR_IX_ACCOUNTS_LEN] = InitializeLbPairKeys {
+    let accounts = rpc_client
+        .get_multiple_accounts(&[token_badge_x, token_badge_y])
+        .await?;
+
+    let token_badge_x = accounts[0]
+        .as_ref()
+        .map(|_| token_badge_x)
+        .unwrap_or(dlmm_interface::ID);
+
+    let token_badge_y = accounts[1]
+        .as_ref()
+        .map(|_| token_badge_y)
+        .unwrap_or(dlmm_interface::ID);
+
+    let accounts: [AccountMeta; INITIALIZE_LB_PAIR2_IX_ACCOUNTS_LEN] = InitializeLbPair2Keys {
         lb_pair,
         bin_array_bitmap_extension: dlmm_interface::ID,
         reserve_x,
@@ -82,18 +94,22 @@ pub async fn execute_initialize_lb_pair<C: Deref<Target = impl Signer> + Clone>(
         token_mint_y,
         oracle,
         funder: program.payer(),
-        token_program: token_mint_base_account.owner,
+        token_badge_x,
+        token_badge_y,
+        token_program_x: token_mint_base_account.owner,
+        token_program_y: token_mint_quote_account.owner,
         preset_parameter,
         system_program: solana_sdk::system_program::ID,
         event_authority,
         program: dlmm_interface::ID,
-        rent: solana_sdk::sysvar::rent::ID,
     }
     .into();
 
-    let data = InitializeLbPairIxData(InitializeLbPairIxArgs {
-        active_id: computed_active_id,
-        bin_step,
+    let data = InitializeLbPair2IxData(InitializeLbPair2IxArgs {
+        params: InitializeLbPair2Params {
+            active_id: computed_active_id,
+            padding: [0u8; 96],
+        },
     })
     .try_to_vec()?;
 
@@ -110,7 +126,7 @@ pub async fn execute_initialize_lb_pair<C: Deref<Target = impl Signer> + Clone>(
         .send_with_spinner_and_config(transaction_config)
         .await;
 
-    println!("Initialize LB pair {lb_pair}. Signature: {signature:#?}");
+    println!("Initialize LB pair2 {lb_pair}. Signature: {signature:#?}");
 
     signature?;
 
