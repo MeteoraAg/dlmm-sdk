@@ -4,7 +4,7 @@ use anchor_spl::token_interface::Mint;
 use instructions::*;
 
 #[derive(Debug, Parser)]
-pub struct InitCustomizablePermissionlessLbPairParam {
+pub struct InitCustomizablePermissionlessLbPair2Param {
     /// Token X address
     #[clap(long)]
     pub token_mint_x: Pubkey,
@@ -29,24 +29,19 @@ pub struct InitCustomizablePermissionlessLbPairParam {
     /// Initial price rounding
     #[clap(long)]
     pub selective_rounding: SelectiveRounding,
-<<<<<<< HEAD
-    pub creator_pool_on_off_control: bool,
-=======
     /// Pool activation point. None = Now
     #[clap(long)]
     pub activation_point: Option<u64>,
->>>>>>> 3298af4 (fix: cli to use v3 position and support token2022)
 }
 
-pub async fn execute_initialize_customizable_permissionless_lb_pair<
+pub async fn execute_initialize_customizable_permissionless_lb_pair2<
     C: Deref<Target = impl Signer> + Clone,
 >(
-    params: InitCustomizablePermissionlessLbPairParam,
+    params: InitCustomizablePermissionlessLbPair2Param,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
-    compute_unit_price: Option<Instruction>,
 ) -> Result<Pubkey> {
-    let InitCustomizablePermissionlessLbPairParam {
+    let InitCustomizablePermissionlessLbPair2Param {
         bin_step,
         token_mint_x,
         token_mint_y,
@@ -56,7 +51,6 @@ pub async fn execute_initialize_customizable_permissionless_lb_pair<
         activation_point,
         has_alpha_vault,
         selective_rounding,
-        creator_pool_on_off_control,
     } = params;
 
     let rpc_client = program.async_rpc();
@@ -98,17 +92,19 @@ pub async fn execute_initialize_customizable_permissionless_lb_pair<
 
     let (event_authority, _bump) = derive_event_authority_pda();
 
-    let user_token_x = get_or_create_ata(
-        program,
-        transaction_config,
-        token_mint_x,
-        program.payer(),
-        compute_unit_price.clone(),
-    )
-    .await?;
+    let user_token_x =
+        get_or_create_ata(program, transaction_config, token_mint_x, program.payer()).await?;
 
-    let accounts: [AccountMeta; INITIALIZE_CUSTOMIZABLE_PERMISSIONLESS_LB_PAIR_IX_ACCOUNTS_LEN] =
-        InitializeCustomizablePermissionlessLbPairKeys {
+    let token_badge_x = derive_token_badge_pda(token_mint_x).0;
+    let token_badge_x = rpc_client
+        .get_account(&token_badge_x)
+        .await
+        .ok()
+        .map(|_| token_badge_x)
+        .unwrap_or(dlmm_interface::ID);
+
+    let accounts: [AccountMeta; INITIALIZE_CUSTOMIZABLE_PERMISSIONLESS_LB_PAIR2_IX_ACCOUNTS_LEN] =
+        InitializeCustomizablePermissionlessLbPair2Keys {
             lb_pair,
             bin_array_bitmap_extension: dlmm_interface::ID,
             reserve_x,
@@ -118,19 +114,20 @@ pub async fn execute_initialize_customizable_permissionless_lb_pair<
             oracle,
             funder: program.payer(),
             system_program: solana_sdk::system_program::ID,
-            token_program: token_mint_base_account.owner,
+            token_program_x: token_mint_base_account.owner,
+            token_program_y: token_mint_quote_account.owner,
+            token_badge_x,
             event_authority,
             user_token_x,
             program: dlmm_interface::ID,
-            rent: solana_sdk::sysvar::rent::ID,
         }
         .into();
 
     let (base_factor, base_fee_power_factor) =
         compute_base_factor_from_fee_bps(bin_step, base_fee_bps)?;
 
-    let data = InitializeCustomizablePermissionlessLbPairIxData(
-        InitializeCustomizablePermissionlessLbPairIxArgs {
+    let data = InitializeCustomizablePermissionlessLbPair2IxData(
+        InitializeCustomizablePermissionlessLbPair2IxArgs {
             params: CustomizableParams {
                 active_id: computed_active_id,
                 bin_step,
