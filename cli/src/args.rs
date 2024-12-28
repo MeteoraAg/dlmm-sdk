@@ -72,6 +72,8 @@ pub enum SelectiveRounding {
 #[derive(Parser, Debug)]
 pub enum DLMMCommand {
     /// Create a new liquidity pair.
+    InitializePair2(InitLbPair2Params),
+    /// Create a new liquidity pair.
     InitializePair(InitLbPairParams),
     /// Initialize bin array for the given liquidity pair. Use InitializeBinArrayWithPriceRange or InitializeBinArrayWithBinRange for a more user friendly version.
     InitializeBinArray(InitBinArrayParams),
@@ -107,6 +109,7 @@ pub enum DLMMCommand {
     ShowPresetParameter(ShowPresetAccountParams),
     ListAllBinStep,
     InitializeCustomizablePermissionlessLbPair(InitCustomizablePermissionlessLbPairParam),
+    InitializeCustomizablePermissionlessLbPair2(InitCustomizablePermissionlessLbPair2Param),
     /// Seed liquidity
     SeedLiquidity(SeedLiquidityParameters),
     /// Seed liquidity by operator
