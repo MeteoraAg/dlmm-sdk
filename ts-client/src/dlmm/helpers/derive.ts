@@ -13,6 +13,32 @@ function sortTokenMints(tokenX: PublicKey, tokenY: PublicKey) {
 }
 /** private */
 
+export function derivePresetParameterWithIndex(
+  index: BN,
+  programId: PublicKey
+) {
+  return PublicKey.findProgramAddressSync(
+    [
+      Buffer.from("preset_parameter2"),
+      new Uint8Array(index.toArrayLike(Buffer, "le", 2)),
+    ],
+    programId
+  );
+}
+
+export function deriveLbPairWithPresetParamWithIndexKey(
+  presetParameterKey: PublicKey,
+  tokenX: PublicKey,
+  tokenY: PublicKey,
+  programId: PublicKey
+) {
+  const [minKey, maxKey] = sortTokenMints(tokenX, tokenY);
+  return PublicKey.findProgramAddressSync(
+    [presetParameterKey.toBuffer(), minKey.toBuffer(), maxKey.toBuffer()],
+    programId
+  );
+}
+
 /**
  *
  * @deprecated Use derivePresetParameter2
