@@ -2,7 +2,13 @@ import { BN } from "@coral-xyz/anchor";
 import gaussian, { Gaussian } from "gaussian";
 import { BASIS_POINT_MAX } from "../constants";
 import Decimal from "decimal.js";
-import { toAmountAskSide, toAmountBidSide, toAmountBothSide } from "./weightToAmounts";
+import {
+  toAmountAskSide,
+  toAmountBidSide,
+  toAmountBothSide,
+} from "./weightToAmounts";
+import { Mint } from "@solana/spl-token";
+import { Clock } from "../types";
 
 export function getPriceOfBinByBinId(binId: number, binStep: number): Decimal {
   const binStepNum = new Decimal(binStep).div(new Decimal(BASIS_POINT_MAX));
@@ -137,15 +143,15 @@ export function calculateSpotDistribution(
     const distributions =
       binIds[0] < activeBin
         ? binIds.map((binId) => ({
-          binId,
-          xAmountBpsOfTotal: new BN(0),
-          yAmountBpsOfTotal: dist,
-        }))
+            binId,
+            xAmountBpsOfTotal: new BN(0),
+            yAmountBpsOfTotal: dist,
+          }))
         : binIds.map((binId) => ({
-          binId,
-          xAmountBpsOfTotal: dist,
-          yAmountBpsOfTotal: new BN(0),
-        }));
+            binId,
+            xAmountBpsOfTotal: dist,
+            yAmountBpsOfTotal: new BN(0),
+          }));
 
     // Add the loss to the left most bin
     if (binIds[0] < activeBin) {
@@ -458,20 +464,57 @@ export function calculateNormalDistribution(
   });
 }
 
+/**
+ * Converts a weight distribution into token amounts for one side (either bid or ask).
+ *
+ * @param amount - The total amount of liquidity to distribute.
+ * @param distributions - The array of weight distributions for each bin.
+ * @param binStep - The step interval between bin ids.
+ * @param activeId - The id of the active bin.
+ * @param depositForY - Flag indicating if the deposit is for token Y (bid side).
+ * @param mint - Mint information for the token. Mint Y if depositForY is true, else Mint X. Get from DLMM instance.
+ * @param clock - Clock instance for the current epoch. Get from DLMM instance.
+ * @returns An array of objects containing binId and amount for each bin.
+ */
+
 export function fromWeightDistributionToAmountOneSide(
   amount: BN,
   distributions: { binId: number; weight: number }[],
   binStep: number,
   activeId: number,
   depositForY: boolean,
+  mint: Mint,
+  clock: Clock
 ): { binId: number; amount: BN }[] {
   if (depositForY) {
-    return toAmountBidSide(activeId, amount, distributions);
+    return toAmountBidSide(activeId, amount, distributions, mint, clock);
   } else {
-    return toAmountAskSide(activeId, binStep, amount, distributions);
+    return toAmountAskSide(
+      activeId,
+      binStep,
+      amount,
+      distributions,
+      mint,
+      clock
+    );
   }
 }
 
+/**
+ * Converts a weight distribution into token amounts for both bid and ask sides.
+ *
+ * @param amountX - The total amount of token X to distribute.
+ * @param amountY - The total amount of token Y to distribute.
+ * @param distributions - The array of weight distributions for each bin.
+ * @param binStep - The step interval between bin ids.
+ * @param activeId - The id of the active bin.
+ * @param amountXInActiveBin - The amount of token X in the active bin.
+ * @param amountYInActiveBin - The amount of token Y in the active bin.
+ * @param mintX - Mint information for token X. Get from DLMM instance.
+ * @param mintY - Mint information for token Y. Get from DLMM instance.
+ * @param clock - Clock instance for the current epoch. Get from DLMM instance.
+ * @returns An array of objects containing binId, amountX, and amountY for each bin.
+ */
 export function fromWeightDistributionToAmount(
   amountX: BN,
   amountY: BN,
@@ -479,7 +522,10 @@ export function fromWeightDistributionToAmount(
   binStep: number,
   activeId: number,
   amountXInActiveBin: BN,
-  amountYInActiveBin: BN
+  amountYInActiveBin: BN,
+  mintX: Mint,
+  mintY: Mint,
+  clock: Clock
 ): { binId: number; amountX: BN; amountY: BN }[] {
   // sort distribution
   var distributions = distributions.sort((n1, n2) => {
@@ -492,7 +538,13 @@ export function fromWeightDistributionToAmount(
 
   // only bid side
   if (activeId > distributions[distributions.length - 1].binId) {
-    let amounts = toAmountBidSide(activeId, amountY, distributions);
+    let amounts = toAmountBidSide(
+      activeId,
+      amountY,
+      distributions,
+      mintY,
+      clock
+    );
     return amounts.map((bin) => {
       return {
         binId: bin.binId,
@@ -504,7 +556,14 @@ export function fromWeightDistributionToAmount(
 
   // only ask side
   if (activeId < distributions[0].binId) {
-    let amounts = toAmountAskSide(activeId, binStep, amountX, distributions);
+    let amounts = toAmountAskSide(
+      activeId,
+      binStep,
+      amountX,
+      distributions,
+      mintX,
+      clock
+    );
     return amounts.map((bin) => {
       return {
         binId: bin.binId,
@@ -513,5 +572,16 @@ export function fromWeightDistributionToAmount(
       };
     });
   }
-  return toAmountBothSide(activeId, binStep, amountX, amountY, amountXInActiveBin, amountYInActiveBin, distributions);
+  return toAmountBothSide(
+    activeId,
+    binStep,
+    amountX,
+    amountY,
+    amountXInActiveBin,
+    amountYInActiveBin,
+    distributions,
+    mintX,
+    mintY,
+    clock
+  );
 }
