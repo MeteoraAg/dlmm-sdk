@@ -68,6 +68,9 @@ async fn main() -> Result<()> {
     let compute_unit_price_ix = get_set_compute_unit_price_ix(cli.config_override.priority_fee);
 
     match cli.command {
+        DLMMCommand::InitializePair2(params) => {
+            execute_initialize_lb_pair2(params, &program, transaction_config).await?;
+        }
         DLMMCommand::InitializePair(params) => {
             execute_initialize_lb_pair(params, &program, transaction_config).await?;
         }
@@ -135,6 +138,14 @@ async fn main() -> Result<()> {
         }
         DLMMCommand::SwapWithPriceImpact(params) => {
             execute_swap_with_price_impact(params, &program, transaction_config).await?;
+        }
+        DLMMCommand::InitializeCustomizablePermissionlessLbPair2(params) => {
+            execute_initialize_customizable_permissionless_lb_pair2(
+                params,
+                &program,
+                transaction_config,
+            )
+            .await?;
         }
         DLMMCommand::InitializeCustomizablePermissionlessLbPair(params) => {
             execute_initialize_customizable_permissionless_lb_pair(
