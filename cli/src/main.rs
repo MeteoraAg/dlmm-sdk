@@ -206,6 +206,9 @@ async fn main() -> Result<()> {
         DLMMCommand::IncreasePositionLength(params) => {
             execute_increase_position_length(params, &program, transaction_config).await?;
         }
+        DLMMCommand::MigratePositionToV3(params) => {
+            execute_migrate_position_v3(params, &program, transaction_config).await?;
+        }
         DLMMCommand::Admin(command) => match command {
             AdminCommand::InitializePermissionPair(params) => {
                 execute_initialize_permission_lb_pair(params, &program, transaction_config).await?;

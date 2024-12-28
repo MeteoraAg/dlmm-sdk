@@ -115,6 +115,7 @@ pub enum DLMMCommand {
     SeedLiquiditySingleBinByOperator(SeedLiquiditySingleBinByOperatorParameters),
     IncreasePositionLength(IncreasePositionLengthParams),
     DecreasePositionLength(DecreasePositionLengthParams),
+    MigratePositionToV3(MigratePositionV3Params),
     #[clap(flatten)]
     Admin(AdminCommand),
 }
