@@ -15,7 +15,6 @@ import {
 import {
   AccountMeta,
   Cluster,
-  ComputeBudgetProgram,
   Connection,
   PublicKey,
   SYSVAR_CLOCK_PUBKEY,
@@ -89,15 +88,7 @@ import {
   presetParameter2BinStepFilter,
 } from "./helpers/accountFilters";
 import { DEFAULT_ADD_LIQUIDITY_CU } from "./helpers/computeUnit";
-import {
-  Rounding,
-  compressBinAmount,
-  computeBaseFactorFromFeeBps,
-  distributeAmountToCompressedBinsByRatio,
-  generateAmountForBinRange,
-  getPositionCount,
-  mulShr,
-} from "./helpers/math";
+import { Rounding, computeBaseFactorFromFeeBps, mulShr } from "./helpers/math";
 import {
   DynamicPosition,
   IPosition,
@@ -123,11 +114,9 @@ import {
   BinArrayBitmapExtension,
   BinArrayBitmapExtensionAccount,
   BinLiquidity,
-  BinLiquidityDistribution,
   ClmmProgram,
   Clock,
   ClockLayout,
-  CompressedBinDepositAmounts,
   EmissionRate,
   FeeInfo,
   InitCustomizablePermissionlessPairIx,
@@ -137,7 +126,6 @@ import {
   LbPairAccount,
   LbPosition,
   LiquidityOneSideParameter,
-  LiquidityParameter,
   LiquidityParameterByStrategy,
   LiquidityParameterByWeight,
   PairLockInfo,
@@ -151,7 +139,6 @@ import {
   ProgramStrategyParameter,
   RemainingAccountsInfoSlice,
   ResizeSide,
-  SeedLiquidityResponse,
   SwapExactOutParams,
   SwapFee,
   SwapParams,
