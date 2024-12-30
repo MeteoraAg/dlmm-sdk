@@ -13,12 +13,14 @@ use anchor_lang::prelude::AccountMeta;
 use anyhow::*;
 use clap::*;
 use commons::*;
+use download_user_pool_files::execute_download_user_pool_files;
 use solana_account_decoder::*;
 use std::ops::Deref;
 use std::rc::Rc;
 use std::time::Duration;
 
 mod args;
+mod download_user_pool_files;
 mod instructions;
 mod math;
 
@@ -219,6 +221,9 @@ async fn main() -> Result<()> {
         }
         DLMMCommand::MigratePositionToV3(params) => {
             execute_migrate_position_v3(params, &program, transaction_config).await?;
+        }
+        DLMMCommand::DownloadUserPoolFiles(params) => {
+            execute_download_user_pool_files(params, program.async_rpc()).await?;
         }
         DLMMCommand::Admin(command) => match command {
             AdminCommand::InitializePermissionPair(params) => {
