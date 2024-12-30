@@ -3600,7 +3600,7 @@ export class DLMM {
         lbPair: this.pubkey,
         owner: positionState.owner,
         systemProgram: SystemProgram.programId,
-        rentReceiver: SYSVAR_RENT_PUBKEY,
+        rentReceiver: positionState.owner,
       })
       .instruction();
 
