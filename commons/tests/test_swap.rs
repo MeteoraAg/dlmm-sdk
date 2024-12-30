@@ -129,6 +129,20 @@ async fn test_swap() {
 
     let clock = get_clock(&mut banks_client).await;
 
+    let mint_x_account = banks_client
+        .get_account(lb_pair_state.token_x_mint)
+        .await
+        .ok()
+        .flatten()
+        .unwrap();
+
+    let mint_y_account = banks_client
+        .get_account(lb_pair_state.token_y_mint)
+        .await
+        .ok()
+        .flatten()
+        .unwrap();
+
     let quote_result = commons::quote::quote_exact_in(
         lb_pair,
         &lb_pair_state,
@@ -136,8 +150,9 @@ async fn test_swap() {
         false,
         bin_arrays,
         None,
-        clock.unix_timestamp as u64,
-        clock.slot,
+        &clock,
+        &mint_x_account,
+        &mint_y_account,
     )
     .unwrap();
 
