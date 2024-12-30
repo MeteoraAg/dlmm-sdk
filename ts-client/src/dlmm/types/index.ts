@@ -416,11 +416,6 @@ export enum BitmapType {
   U512,
 }
 
-export interface SeedLiquidityResponse {
-  initializeBinArraysAndPositionIxs: TransactionInstruction[][];
-  addLiquidityIxs: TransactionInstruction[][];
-}
-
 export interface Clock {
   slot: BN;
   epochStartTimestamp: BN;
