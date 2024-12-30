@@ -106,6 +106,17 @@ pub async fn execute_swap_with_price_impact<C: Deref<Target = impl Signer> + Clo
 
     let bin_array_keys = bin_arrays.iter().map(|(key, _)| *key).collect::<Vec<_>>();
 
+    let mut mint_accounts = rpc_client
+        .get_multiple_accounts(&[lb_pair_state.token_x_mint, lb_pair_state.token_y_mint])
+        .await?;
+
+    let mint_x_account = mint_accounts[0]
+        .take()
+        .context("Failed to fetch mint account")?;
+    let mint_y_account = mint_accounts[1]
+        .take()
+        .context("Failed to fetch mint account")?;
+
     let quote = quote_exact_in(
         lb_pair,
         &lb_pair_state,
@@ -113,8 +124,9 @@ pub async fn execute_swap_with_price_impact<C: Deref<Target = impl Signer> + Clo
         swap_for_y,
         bin_arrays,
         bitmap_extension.as_ref(),
-        clock.unix_timestamp as u64,
-        clock.slot,
+        &clock,
+        &mint_x_account,
+        &mint_y_account,
     )?;
 
     println!("{:#?}", quote);
