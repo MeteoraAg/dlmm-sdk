@@ -1,4 +1,4 @@
-use crate::instructions::*;
+use crate::{download_user_pool_files::DownloadUserPoolFilesParams, instructions::*};
 use anchor_client::Cluster;
 use clap::*;
 
@@ -138,6 +138,7 @@ pub enum DLMMCommand {
     IncreasePositionLength(IncreasePositionLengthParams),
     DecreasePositionLength(DecreasePositionLengthParams),
     MigratePositionToV3(MigratePositionV3Params),
+    DownloadUserPoolFiles(DownloadUserPoolFilesParams),
     #[clap(flatten)]
     Admin(AdminCommand),
 }
