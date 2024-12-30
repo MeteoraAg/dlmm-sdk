@@ -27,6 +27,7 @@ pub async fn execute_swap<C: Deref<Target = impl Signer> + Clone>(
     } = params;
 
     let rpc_client = program.async_rpc();
+
     let lb_pair_state = rpc_client
         .get_account_and_deserialize(&lb_pair, |account| {
             Ok(LbPairAccount::deserialize(&account.data)?.0)
@@ -100,6 +101,17 @@ pub async fn execute_swap<C: Deref<Target = impl Signer> + Clone>(
         Ok(clock)
     })??;
 
+    let mut mint_accounts = rpc_client
+        .get_multiple_accounts(&[lb_pair_state.token_x_mint, lb_pair_state.token_y_mint])
+        .await?;
+
+    let mint_x_account = mint_accounts[0]
+        .take()
+        .context("Failed to fetch mint account")?;
+    let mint_y_account = mint_accounts[1]
+        .take()
+        .context("Failed to fetch mint account")?;
+
     let bin_array_keys = bin_arrays.iter().map(|(key, _)| *key).collect::<Vec<_>>();
 
     let quote = quote_exact_in(
@@ -109,8 +121,9 @@ pub async fn execute_swap<C: Deref<Target = impl Signer> + Clone>(
         swap_for_y,
         bin_arrays,
         bitmap_extension.as_ref(),
-        clock.unix_timestamp as u64,
-        clock.slot,
+        &clock,
+        &mint_x_account,
+        &mint_y_account,
     )?;
 
     let (event_authority, _bump) = derive_event_authority_pda();
