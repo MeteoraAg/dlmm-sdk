@@ -1,9 +1,12 @@
-import Decimal from "decimal.js";
 import { BN } from "@coral-xyz/anchor";
-import { getPriceOfBinByBinId } from "./weight";
 import { Mint } from "@solana/spl-token";
-import { calculateTransferFeeIncludedAmount } from "./token_2022";
+import Decimal from "decimal.js";
 import { Clock } from "../types";
+import {
+  calculateTransferFeeExcludedAmount,
+  calculateTransferFeeIncludedAmount,
+} from "./token_2022";
+import { getPriceOfBinByBinId } from "./weight";
 
 /**
  * Distribute totalAmount to all bid side bins according to given distributions.
@@ -24,7 +27,7 @@ export function toAmountBidSide(
   binId: number;
   amount: BN;
 }[] {
-  totalAmount = calculateTransferFeeIncludedAmount(
+  totalAmount = calculateTransferFeeExcludedAmount(
     totalAmount,
     mintY,
     clock.epoch.toNumber()
@@ -78,7 +81,7 @@ export function toAmountAskSide(
   binId: number;
   amount: BN;
 }[] {
-  totalAmount = calculateTransferFeeIncludedAmount(
+  totalAmount = calculateTransferFeeExcludedAmount(
     totalAmount,
     mintX,
     clock.epoch.toNumber()
