@@ -26,7 +26,7 @@ async function initializeBinArrayExample() {
   const toUIPrice = 4.0;
 
   const toLamportMultiplier = new Decimal(
-    10 ** (dlmmPool.tokenY.decimal - dlmmPool.tokenX.decimal)
+    10 ** (dlmmPool.tokenX.mint.decimals - dlmmPool.tokenX.mint.decimals)
   );
 
   const minPricePerLamport = new Decimal(fromUIPrice).mul(toLamportMultiplier);
