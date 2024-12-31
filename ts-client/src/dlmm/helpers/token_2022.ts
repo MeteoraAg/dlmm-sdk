@@ -55,7 +55,9 @@ export async function getExtraAccountMetasForTransferHook(
   mintAccountInfo: AccountInfo<Buffer>
 ) {
   if (
-    ![TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID].includes(mintAccountInfo.owner)
+    ![TOKEN_PROGRAM_ID.toBase58(), TOKEN_2022_PROGRAM_ID.toBase58()].includes(
+      mintAccountInfo.owner.toBase58()
+    )
   ) {
     return [];
   }
@@ -143,7 +145,7 @@ function calculateInverseFee(transferFee: TransferFee, postFeeAmount: BN) {
   );
 }
 
-interface transferFeeIncludedAmount {
+interface TransferFeeIncludedAmount {
   amount: BN;
   transferFee: BN;
 }
@@ -152,7 +154,7 @@ export function calculateTransferFeeIncludedAmount(
   transferFeeExcludedAmount: BN,
   mint: Mint,
   currentEpoch: number
-): TransferFeeExcludedAmount {
+): TransferFeeIncludedAmount {
   if (transferFeeExcludedAmount.isZero()) {
     return {
       amount: new BN(0),

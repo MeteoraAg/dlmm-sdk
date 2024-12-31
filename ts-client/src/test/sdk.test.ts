@@ -10,7 +10,6 @@ import {
   transfer,
 } from "@solana/spl-token";
 import {
-  ComputeBudgetProgram,
   Connection,
   Keypair,
   LAMPORTS_PER_SOL,
@@ -20,7 +19,6 @@ import {
 import Decimal from "decimal.js";
 import fs from "fs";
 import {
-  BASIS_POINT_MAX,
   DEFAULT_BIN_PER_POSITION,
   LBCLMM_PROGRAM_IDS,
 } from "../dlmm/constants";
@@ -35,6 +33,7 @@ import {
   findSwappableMinMaxBinId,
   getQPriceFromId,
 } from "../dlmm/helpers/math";
+import { DynamicPosition } from "../dlmm/helpers/positions";
 import { IDL } from "../dlmm/idl";
 import { DLMM } from "../dlmm/index";
 import {
@@ -43,7 +42,6 @@ import {
   ResizeSide,
   StrategyType,
 } from "../dlmm/types";
-import { DynamicPosition, wrapPosition } from "../dlmm/helpers/positions";
 
 const keypairBuffer = fs.readFileSync(
   "../keys/localnet/admin-bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1.json",
