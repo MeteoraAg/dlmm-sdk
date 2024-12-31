@@ -20,6 +20,10 @@ program = "./artifacts/token_2022.so"
 address = "LbVRzDTvBDEcrthxfZ4RL6yiq3uZw8bS6MwtdY6UhFQ"
 program = "./artifacts/lb_clmm.so"
 
+[[test.genesis]]
+address = "EBZDYx7599krFc4m2govwBdZcicr4GgepqC78m71nsHS"
+program = "./artifacts/transfer_hook_counter.so"
+
 [scripts]
 test = "yarn run ts-mocha --sort --type-check --bail -p ./tsconfig.json -t 1000000 tests/*.ts"
 build-local = "anchor build"
