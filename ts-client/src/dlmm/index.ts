@@ -922,7 +922,7 @@ export class DLMM {
     >();
 
     lbPairKeys.forEach((lbPair, idx) => {
-      const index = idx * 4;
+      const index = idx * 6;
       const reserveXAccount = accountInfos[index];
       const reserveYAccount = accountInfos[index + 1];
 
@@ -3064,6 +3064,7 @@ export class DLMM {
       sender: user,
       tokenXProgram: this.tokenX.owner,
       tokenYProgram: this.tokenY.owner,
+      memoProgram: MEMO_PROGRAM_ID,
     };
 
     const { slices, accounts: transferHookAccounts } =
@@ -3106,7 +3107,7 @@ export class DLMM {
   }
 
   /**
-   * @deprecated Use `addLiquidityByStrategy`
+   * @deprecated Do not support dynamic position. Use `addLiquidityByStrategy`
    * The `addLiquidityByWeight` function is used to add liquidity to existing position
    * @param {TInitializePositionAndAddLiquidityParams}
    *    - `positionPubKey`: The public key of the position account. (usually use `new Keypair()`)
@@ -3385,7 +3386,8 @@ export class DLMM {
    * @param
    *    - `user`: The public key of the user account.
    *    - `position`: The public key of the position account.
-   *    - `binIds`: An array of numbers that represent the bin IDs to remove liquidity from.
+   *    - `fromBinId`: The ID of the starting bin to remove liquidity from. Must within position range.
+   *    - `toBinId`: The ID of the ending bin to remove liquidity from. Must within position range.
    *    - `liquiditiesBpsToRemove`: An array of numbers (percentage) that represent the liquidity to remove from each bin.
    *    - `shouldClaimAndClose`: A boolean flag that indicates whether to claim rewards and close the position.
    * @returns {Promise<Transaction|Transaction[]>}
@@ -3393,18 +3395,20 @@ export class DLMM {
   public async removeLiquidity({
     user,
     position,
-    binIds,
+    fromBinId,
+    toBinId,
     bps,
     shouldClaimAndClose = false,
   }: {
     user: PublicKey;
     position: PublicKey;
-    binIds: number[];
+    fromBinId: number;
+    toBinId: number;
     bps: BN;
     shouldClaimAndClose?: boolean;
   }): Promise<Transaction | Transaction[]> {
-    const lowerBinIdToRemove = Math.min(...binIds);
-    const upperBinIdToRemove = Math.max(...binIds);
+    const lowerBinIdToRemove = fromBinId;
+    const upperBinIdToRemove = toBinId;
 
     const positionAccount =
       await this.program.provider.connection.getAccountInfo(position);
@@ -3794,6 +3798,7 @@ export class DLMM {
     const resizePositionIx = await this.program.methods
       .increasePositionLength(lengthToAdd.toNumber(), side)
       .accounts({
+        lbPair: this.pubkey,
         funder: payer,
         position,
         owner: positionState.owner,
