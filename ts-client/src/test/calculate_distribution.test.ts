@@ -20,13 +20,11 @@ import {
   Transaction,
 } from "@solana/web3.js";
 import babar from "babar";
-import Decimal from "decimal.js";
 import fs from "fs";
 import {
   calculateBidAskDistribution,
   calculateNormalDistribution,
   calculateSpotDistribution,
-  getPriceOfBinByBinId,
   toAmountsBothSideByStrategy,
   toAmountsOneSideByStrategy,
   toWeightDistribution,
