@@ -212,13 +212,11 @@ async function removePositionLiquidity(dlmmPool: DLMM) {
   const removeLiquidityTxs = (
     await Promise.all(
       userPositions.map(({ publicKey, positionData }) => {
-        const binIdsToRemove = positionData.positionBinData.map(
-          (bin) => bin.binId
-        );
         return dlmmPool.removeLiquidity({
           position: publicKey,
           user: user.publicKey,
-          binIds: binIdsToRemove,
+          fromBinId: positionData.lowerBinId,
+          toBinId: positionData.upperBinId,
           bps: new BN(100 * 100),
           shouldClaimAndClose: true, // should claim swap fee and close position together
         });
