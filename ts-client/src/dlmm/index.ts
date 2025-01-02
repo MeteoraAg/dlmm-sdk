@@ -3157,6 +3157,7 @@ export class DLMM {
     let actualOutAmount: BN = new BN(0);
     let feeAmount: BN = new BN(0);
     let protocolFeeAmount: BN = new BN(0);
+    let lastFilledActiveBinId = activeId;
 
     while (!inAmountLeft.isZero()) {
       let binArrayAccountToSwap = findNextBinArrayWithLiquidity(
@@ -3211,6 +3212,8 @@ export class DLMM {
           if (!startBin) {
             startBin = bin;
           }
+
+          lastFilledActiveBinId = activeId;
         }
       }
 
@@ -3249,8 +3252,9 @@ export class DLMM {
     const minOutAmount = actualOutAmount
       .mul(new BN(BASIS_POINT_MAX).sub(allowedSlippage))
       .div(new BN(BASIS_POINT_MAX));
+      
     const endPrice = getPriceOfBinByBinId(
-      activeId.toNumber(),
+      lastFilledActiveBinId.toNumber(),
       this.lbPair.binStep
     );
 
