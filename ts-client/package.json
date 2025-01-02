@@ -15,6 +15,7 @@
     "test": "jest 'src/test/(ilm|sdk|position_managed_by_operator|decode|single_bin).test.ts'",
     "unit-test": "jest src/test/calculate_distribution.test.ts",
     "example": "dotenv -e .env npx ts-node src/example.ts",
+    "testing": "dotenv -e .env npx ts-node src/examples/test.ts",
     "start-server": "npx tsc && node dist/src/server/index.js"
   },
   "devDependencies": {
