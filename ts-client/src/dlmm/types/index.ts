@@ -320,6 +320,7 @@ export interface PositionData {
   rewardTwoExcludeTransferFee: BN;
   totalXAmountExcludeTransferFee: BN;
   totalYAmountExcludeTransferFee: BN;
+  owner: PublicKey;
 }
 
 export interface SwapWithPriceImpactParams {

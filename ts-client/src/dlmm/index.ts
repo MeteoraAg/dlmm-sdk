@@ -152,6 +152,11 @@ type Opt = {
   programId?: PublicKey;
 };
 
+interface MintKeyWithOwner {
+  mint: PublicKey;
+  owner: PublicKey;
+}
+
 export class DLMM {
   constructor(
     public pubkey: PublicKey,
@@ -240,24 +245,35 @@ export class DLMM {
         return lbPairKey;
       }
 
-      const presetParametersWthIndex =
+      const presetParametersWithIndex =
         await program.account.presetParameter2.all([
           presetParameter2BinStepFilter(binStep),
           presetParameter2BaseFactorFilter(baseFactor),
           presetParameter2BaseFeePowerFactor(baseFeePowerFactor),
         ]);
 
-      if (presetParametersWthIndex.length > 0) {
-        const [lbPairKey] = deriveLbPairWithPresetParamWithIndexKey(
-          presetParametersWthIndex[0].publicKey,
-          tokenX,
-          tokenY,
-          program.programId
+      if (presetParametersWithIndex.length > 0) {
+        const possibleLbPairKeys = presetParametersWithIndex.map((account) => {
+          return deriveLbPairWithPresetParamWithIndexKey(
+            account.publicKey,
+            tokenX,
+            tokenY,
+            program.programId
+          )[0];
+        });
+
+        const accounts = await chunkedGetMultipleAccountInfos(
+          program.provider.connection,
+          possibleLbPairKeys
         );
 
-        const account = await program.account.lbPair.fetchNullable(lbPairKey);
-        if (account) {
-          return lbPairKey;
+        for (let i = 0; i < possibleLbPairKeys.length; i++) {
+          const pairKey = possibleLbPairKeys[i];
+          const account = accounts[i];
+
+          if (account) {
+            return pairKey;
+          }
         }
       }
 
@@ -1258,7 +1274,12 @@ export class DLMM {
       padding: Array(64).fill(0),
     };
 
-    const userTokenX = getAssociatedTokenAddressSync(tokenX, creatorKey);
+    const userTokenX = getAssociatedTokenAddressSync(
+      tokenX,
+      creatorKey,
+      true,
+      tokenXAccount.owner
+    );
 
     return program.methods
       .initializeCustomizablePermissionlessLbPair2(ixData)
@@ -2358,12 +2379,14 @@ export class DLMM {
       getOrCreateATAInstruction(
         this.program.provider.connection,
         this.tokenX.publicKey,
-        user
+        user,
+        this.tokenX.owner
       ),
       getOrCreateATAInstruction(
         this.program.provider.connection,
         this.tokenY.publicKey,
-        user
+        user,
+        this.tokenY.owner
       ),
     ]);
     createPayerTokenXIx && preInstructions.push(createPayerTokenXIx);
@@ -2435,8 +2458,8 @@ export class DLMM {
       tokenYMint: this.lbPair.tokenYMint,
       binArrayBitmapExtension,
       sender: user,
-      tokenXProgram: TOKEN_PROGRAM_ID,
-      tokenYProgram: TOKEN_PROGRAM_ID,
+      tokenXProgram: this.tokenX.owner,
+      tokenYProgram: this.tokenY.owner,
       memoProgram: MEMO_PROGRAM_ID,
     };
 
@@ -2557,12 +2580,14 @@ export class DLMM {
       getOrCreateATAInstruction(
         this.program.provider.connection,
         this.tokenX.publicKey,
-        user
+        user,
+        this.tokenX.owner
       ),
       getOrCreateATAInstruction(
         this.program.provider.connection,
         this.tokenY.publicKey,
-        user
+        user,
+        this.tokenY.owner
       ),
     ]);
     createPayerTokenXIx && preInstructions.push(createPayerTokenXIx);
@@ -2800,15 +2825,6 @@ export class DLMM {
     const strategyParameters: LiquidityParameterByStrategy["strategyParameters"] =
       toStrategyParameters(strategy) as ProgramStrategyParameter;
 
-    const positionAccount =
-      await this.program.provider.connection.getAccountInfo(positionPubKey);
-
-    const position = wrapPosition(
-      this.program,
-      positionPubKey,
-      positionAccount
-    );
-
     const binArrayIndexes = getBinArrayIndexesCoverage(
       new BN(minBinId),
       new BN(maxBinId)
@@ -2834,14 +2850,17 @@ export class DLMM {
       getOrCreateATAInstruction(
         this.program.provider.connection,
         this.tokenX.publicKey,
-        user
+        user,
+        this.tokenX.owner
       ),
       getOrCreateATAInstruction(
         this.program.provider.connection,
         this.tokenY.publicKey,
-        user
+        user,
+        this.tokenY.owner
       ),
     ]);
+
     createPayerTokenXIx && preInstructions.push(createPayerTokenXIx);
     createPayerTokenYIx && preInstructions.push(createPayerTokenYIx);
 
@@ -3046,12 +3065,14 @@ export class DLMM {
       getOrCreateATAInstruction(
         this.program.provider.connection,
         this.tokenX.publicKey,
-        user
+        user,
+        this.tokenX.owner
       ),
       getOrCreateATAInstruction(
         this.program.provider.connection,
         this.tokenY.publicKey,
-        user
+        user,
+        this.tokenY.owner
       ),
     ]);
     createPayerTokenXIx && preInstructions.push(createPayerTokenXIx);
@@ -3282,25 +3303,29 @@ export class DLMM {
         this.program.provider.connection,
         this.tokenX.publicKey,
         owner,
-        user
+        user,
+        this.tokenX.owner
       ),
       getOrCreateATAInstruction(
         this.program.provider.connection,
         this.tokenY.publicKey,
         owner,
-        user
+        user,
+        this.tokenY.owner
       ),
       getOrCreateATAInstruction(
         this.program.provider.connection,
         this.tokenX.publicKey,
         walletToReceiveFee,
-        user
+        user,
+        this.tokenX.owner
       ),
       getOrCreateATAInstruction(
         this.program.provider.connection,
         this.tokenY.publicKey,
         walletToReceiveFee,
-        user
+        user,
+        this.tokenY.owner
       ),
     ]);
 
@@ -3346,7 +3371,8 @@ export class DLMM {
         const { ataPubKey, ix: rewardAtaIx } = await getOrCreateATAInstruction(
           this.program.provider.connection,
           rewardInfo.mint,
-          user
+          user,
+          this.rewards[i].owner
         );
         rewardAtaIx && preInstructions.push(rewardAtaIx);
 
@@ -3494,12 +3520,12 @@ export class DLMM {
    */
 
   public async decreasePositionLength({
-    lengthToAdd: lengthToReduce,
+    lengthToReduce,
     position,
     side,
     feePayer,
   }: {
-    lengthToAdd: BN;
+    lengthToReduce: BN;
     position: PublicKey;
     side: ResizeSide;
     feePayer: PublicKey;
@@ -3997,10 +4023,6 @@ export class DLMM {
       .div(new Decimal(outAmountWithoutSlippage.toString()))
       .mul(new Decimal(100));
 
-    const minOutAmount = totalOutAmount
-      .mul(new BN(BASIS_POINT_MAX).sub(allowedSlippage))
-      .div(new BN(BASIS_POINT_MAX));
-
     const endPrice = getPriceOfBinByBinId(
       lastFilledActiveBinId.toNumber(),
       this.lbPair.binStep
@@ -4011,6 +4033,10 @@ export class DLMM {
       outMint,
       this.clock.epoch.toNumber()
     ).amount;
+
+    const minOutAmount = transferFeeExcludedAmountOut
+      .mul(new BN(BASIS_POINT_MAX).sub(allowedSlippage))
+      .div(new BN(BASIS_POINT_MAX));
 
     return {
       consumedInAmount: transferFeeIncludedInAmount,
@@ -4046,12 +4072,14 @@ export class DLMM {
       getOrCreateATAInstruction(
         this.program.provider.connection,
         inToken,
-        user
+        user,
+        this.tokenX.owner
       ),
       getOrCreateATAInstruction(
         this.program.provider.connection,
         outToken,
-        user
+        user,
+        this.tokenY.owner
       ),
     ]);
     createInTokenAccountIx && preInstructions.push(createInTokenAccountIx);
@@ -4157,12 +4185,14 @@ export class DLMM {
       getOrCreateATAInstruction(
         this.program.provider.connection,
         inToken,
-        user
+        user,
+        this.tokenX.owner
       ),
       getOrCreateATAInstruction(
         this.program.provider.connection,
         outToken,
-        user
+        user,
+        this.tokenY.owner
       ),
     ]);
     createInTokenAccountIx && preInstructions.push(createInTokenAccountIx);
@@ -4269,6 +4299,12 @@ export class DLMM {
     const preInstructions: TransactionInstruction[] = [];
     const postInstructions: Array<TransactionInstruction> = [];
 
+    const [inTokenProgram, outTokenProgram] = inToken.equals(
+      this.lbPair.tokenXMint
+    )
+      ? [this.tokenX.owner, this.tokenY.owner]
+      : [this.tokenY.owner, this.tokenX.owner];
+
     const [
       { ataPubKey: userTokenIn, ix: createInTokenAccountIx },
       { ataPubKey: userTokenOut, ix: createOutTokenAccountIx },
@@ -4276,12 +4312,14 @@ export class DLMM {
       getOrCreateATAInstruction(
         this.program.provider.connection,
         inToken,
-        user
+        user,
+        inTokenProgram
       ),
       getOrCreateATAInstruction(
         this.program.provider.connection,
         outToken,
-        user
+        user,
+        outTokenProgram
       ),
     ]);
     createInTokenAccountIx && preInstructions.push(createInTokenAccountIx);
@@ -4482,19 +4520,39 @@ export class DLMM {
   public async claimSwapFee({
     owner,
     position,
+    binRange,
   }: {
     owner: PublicKey;
     position: LbPosition;
+    binRange?: {
+      minBinId: BN;
+      maxBinId: BN;
+    };
   }): Promise<Transaction> {
-    const claimFeeTx = await this.createClaimSwapFeeMethod({ owner, position });
+    const claimFeeTx = await this.createClaimSwapFeeMethod({
+      owner,
+      position,
+      shouldIncludePretIx: true,
+      shouldIncludePostIx: true,
+      binRange,
+    });
+
+    const setCUIx = await getEstimatedComputeUnitIxWithBuffer(
+      this.program.provider.connection,
+      claimFeeTx.instructions,
+      owner
+    );
+
+    const instructions = [setCUIx, ...claimFeeTx.instructions];
 
     const { blockhash, lastValidBlockHeight } =
       await this.program.provider.connection.getLatestBlockhash("confirmed");
+
     return new Transaction({
       blockhash,
       lastValidBlockHeight,
       feePayer: owner,
-    }).add(claimFeeTx);
+    }).add(...instructions);
   }
 
   /**
@@ -4507,7 +4565,8 @@ export class DLMM {
   public async claimAllSwapFee({
     owner,
     positions,
-  }: {
+  }: // todo: range
+  {
     owner: PublicKey;
     positions: LbPosition[];
   }): Promise<Transaction[]> {
@@ -4573,16 +4632,28 @@ export class DLMM {
   }): Promise<Transaction[]> {
     const preInstructions: TransactionInstruction[] = [];
 
-    const pairTokens = [this.tokenX.publicKey, this.tokenY.publicKey];
-    const tokensInvolved = [...pairTokens];
+    const pairTokens: MintKeyWithOwner[] = [
+      {
+        mint: this.tokenX.publicKey,
+        owner: this.tokenX.owner,
+      },
+      {
+        mint: this.tokenY.publicKey,
+        owner: this.tokenY.owner,
+      },
+    ];
+    const tokensInvolved: MintKeyWithOwner[] = [...pairTokens];
 
     for (let i = 0; i < 2; i++) {
       const rewardMint = this.lbPair.rewardInfos[i].mint;
       if (
-        !tokensInvolved.some((pubkey) => rewardMint.equals(pubkey)) &&
+        !tokensInvolved.some(({ mint }) => rewardMint.equals(mint)) &&
         !rewardMint.equals(PublicKey.default)
       ) {
-        tokensInvolved.push(this.lbPair.rewardInfos[i].mint);
+        tokensInvolved.push({
+          mint: this.rewards[i].publicKey,
+          owner: this.rewards[i].owner,
+        });
       }
     }
 
@@ -4594,11 +4665,12 @@ export class DLMM {
       tokensInvolved.map((token) => {
         // Single position. Swap fee only belongs to owner, or the customized fee owner.
 
-        if (pairTokens.some((t) => t.equals(token))) {
+        if (pairTokens.some((t) => t.mint.equals(token.mint))) {
           return getOrCreateATAInstruction(
             this.program.provider.connection,
-            token,
+            token.mint,
             feeOwner,
+            token.owner,
             owner
           );
         }
@@ -4606,8 +4678,9 @@ export class DLMM {
         // Reward
         return getOrCreateATAInstruction(
           this.program.provider.connection,
-          token,
-          owner
+          token.mint,
+          owner,
+          token.owner
         );
       })
     );
@@ -4631,7 +4704,7 @@ export class DLMM {
     );
 
     const postInstructions: TransactionInstruction[] = [];
-    if (tokensInvolved.some((pubkey) => pubkey.equals(NATIVE_MINT))) {
+    if (tokensInvolved.some(({ mint }) => mint.equals(NATIVE_MINT))) {
       const closeWrappedSOLIx = await unwrapSOLInstruction(owner);
       closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
     }
@@ -4748,13 +4821,15 @@ export class DLMM {
     const operatorTokenX = getAssociatedTokenAddressSync(
       this.lbPair.tokenXMint,
       operator,
-      true
+      true,
+      this.tokenX.owner
     );
 
     const ownerTokenX = getAssociatedTokenAddressSync(
       this.lbPair.tokenXMint,
       owner,
-      true
+      true,
+      this.tokenY.owner
     );
 
     const initializePositionByOperatorTx = await this.program.methods
@@ -4800,15 +4875,28 @@ export class DLMM {
     positions: LbPosition[];
   }): Promise<Transaction[]> {
     const preInstructions: TransactionInstruction[] = [];
-    const pairsToken = [this.tokenX.publicKey, this.tokenY.publicKey];
+    const pairsToken: MintKeyWithOwner[] = [
+      {
+        mint: this.tokenX.publicKey,
+        owner: this.tokenX.owner,
+      },
+      {
+        mint: this.tokenY.publicKey,
+        owner: this.tokenY.owner,
+      },
+    ];
+
     const tokensInvolved = [...pairsToken];
     for (let i = 0; i < 2; i++) {
       const rewardMint = this.lbPair.rewardInfos[i].mint;
       if (
-        !tokensInvolved.some((pubkey) => rewardMint.equals(pubkey)) &&
+        !tokensInvolved.some(({ mint }) => rewardMint.equals(mint)) &&
         !rewardMint.equals(PublicKey.default)
       ) {
-        tokensInvolved.push(this.lbPair.rewardInfos[i].mint);
+        tokensInvolved.push({
+          mint: this.rewards[i].publicKey,
+          owner: this.rewards[i].owner,
+        });
       }
     }
 
@@ -4834,12 +4922,13 @@ export class DLMM {
       tokensInvolved
         .map((token) => {
           // There's multiple positions, therefore swap fee ATA might includes account from owner, and customized fee owners
-          if (pairsToken.some((p) => p.equals(token))) {
+          if (pairsToken.some((p) => p.mint.equals(token.mint))) {
             return feeOwners.map((customOwner) =>
               getOrCreateATAInstruction(
                 this.program.provider.connection,
-                token,
+                token.mint,
                 customOwner,
+                token.owner,
                 owner
               )
             );
@@ -4848,8 +4937,9 @@ export class DLMM {
           return [
             getOrCreateATAInstruction(
               this.program.provider.connection,
-              token,
-              owner
+              token.mint,
+              owner,
+              token.owner
             ),
           ];
         })
@@ -4899,7 +4989,7 @@ export class DLMM {
     );
 
     const postInstructions: TransactionInstruction[] = [];
-    if (tokensInvolved.some((pubkey) => pubkey.equals(NATIVE_MINT))) {
+    if (tokensInvolved.some(({ mint }) => mint.equals(NATIVE_MINT))) {
       const closeWrappedSOLIx = await unwrapSOLInstruction(owner);
       closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
     }
@@ -5447,6 +5537,7 @@ export class DLMM {
       });
     });
 
+    // TODO: Merge it into above iteration and allow quote chunk swap fee
     const { feeX, feeY } = await this.getClaimableSwapFee(
       program,
       position,
@@ -5528,6 +5619,7 @@ export class DLMM {
       rewardTwoExcludeTransferFee,
       feeXExcludeTransferFee,
       feeYExcludeTransferFee,
+      owner: position.owner(),
     };
   }
 
@@ -5569,23 +5661,21 @@ export class DLMM {
       binArray.bins.forEach((bin, idx) => {
         const binId = lowerBinIdForBinArray.toNumber() + idx;
         if (binId >= lowerBinId && binId <= upperBinId) {
-          if (binId >= lowerBinId && binId <= upperBinId) {
-            const pricePerLamport = getPriceOfBinByBinId(
-              binId,
-              lbPair.binStep
-            ).toString();
-            bins.push({
-              binId,
-              xAmount: bin.amountX,
-              yAmount: bin.amountY,
-              supply: bin.liquiditySupply,
-              price: pricePerLamport,
-              version: binArray.version,
-              pricePerToken: new Decimal(pricePerLamport)
-                .mul(new Decimal(10 ** (baseTokenDecimal - quoteTokenDecimal)))
-                .toString(),
-            });
-          }
+          const pricePerLamport = getPriceOfBinByBinId(
+            binId,
+            lbPair.binStep
+          ).toString();
+          bins.push({
+            binId,
+            xAmount: bin.amountX,
+            yAmount: bin.amountY,
+            supply: bin.liquiditySupply,
+            price: pricePerLamport,
+            version: binArray.version,
+            pricePerToken: new Decimal(pricePerLamport)
+              .mul(new Decimal(10 ** (baseTokenDecimal - quoteTokenDecimal)))
+              .toString(),
+          });
         }
       });
     }
@@ -5829,7 +5919,7 @@ export class DLMM {
           position: position.publicKey,
           rewardVault: rewardInfo.vault,
           rewardMint: rewardInfo.mint,
-          tokenProgram: TOKEN_PROGRAM_ID,
+          tokenProgram: this.rewards[i].owner,
           userTokenAccount: ataPubKey,
           memoProgram: MEMO_PROGRAM_ID,
         })
@@ -5885,12 +5975,14 @@ export class DLMM {
         this.program.provider.connection,
         this.tokenX.publicKey,
         walletToReceiveFee,
+        this.tokenX.owner,
         owner
       ),
       getOrCreateATAInstruction(
         this.program.provider.connection,
         this.tokenY.publicKey,
         walletToReceiveFee,
+        this.tokenY.owner,
         owner
       ),
     ]);

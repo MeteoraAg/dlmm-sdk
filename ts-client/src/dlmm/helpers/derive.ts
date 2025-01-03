@@ -217,3 +217,14 @@ export function deriveEventAuthority(programId: PublicKey) {
     programId
   );
 }
+
+export function deriveRewardVault(
+  lbPair: PublicKey,
+  rewardIndex: BN,
+  programId: PublicKey
+) {
+  return PublicKey.findProgramAddressSync(
+    [lbPair.toBuffer(), rewardIndex.toArrayLike(Buffer, "le", 8)],
+    programId
+  );
+}

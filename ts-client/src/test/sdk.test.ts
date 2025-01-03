@@ -890,13 +890,11 @@ describe("SDK test", () => {
   });
 
   it("fetch all preset parameter", async () => {
-    const { presetParameter, presetParameter2 } =
-      await DLMM.getAllPresetParameters(connection, {
-        cluster: "localhost",
-      });
+    const { presetParameter } = await DLMM.getAllPresetParameters(connection, {
+      cluster: "localhost",
+    });
 
-    const length = presetParameter.length + presetParameter2.length;
-    expect(length).toBeGreaterThan(0);
+    expect(presetParameter.length).toBeGreaterThan(0);
   });
 
   it("create LB pair with bitmap extension", async () => {
