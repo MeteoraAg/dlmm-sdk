@@ -32,6 +32,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Refactored; remove `position(V1)` interaction from SDK
 - Throw error in `removeLiquidity` function if position doesn't have any liquidity 
 
+### Fixed
+
+- Removed unused rpc call in `swap`
+
 ### Added
 
 - Function `getPosition` to retrieve a single position data
