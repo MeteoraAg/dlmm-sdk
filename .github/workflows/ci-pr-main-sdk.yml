@@ -25,6 +25,7 @@ jobs:
         with:
           files: |
             ts-client
+            artifacts
 
   sdk_test:
     runs-on: ubuntu-latest
