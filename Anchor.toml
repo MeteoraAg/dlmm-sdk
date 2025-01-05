@@ -22,12 +22,8 @@ program = "./artifacts/lb_clmm.so"
 
 [scripts]
 test = "yarn run ts-mocha --sort --type-check --bail -p ./tsconfig.json -t 1000000 tests/*.ts"
-test-alpha-access = "anchor localnet -- --features alpha-access,localnet > /dev/null 2>&1 & sleep 2 && yarn run ts-mocha --type-check --bail -p ./tsconfig.json -t 1000000 tests/alpha_access/*.ts || kill $(pgrep solana-test-val)"
 build-local = "anchor build"
 deploy-local = "solana program deploy target/deploy/lb_clmm.so --keypair keys/localnet/admin-bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1.json --program-id keys/localnet/program-LbVRzDTvBDEcrthxfZ4RL6yiq3uZw8bS6MwtdY6UhFQ.json"
-
-[[test.validator.account_dir]]
-directory = "./artifacts/alpha-access"
 
 [test]
 startup_wait = 50000
