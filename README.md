@@ -1,4 +1,11 @@
-# Dynamic CLMM SDK
+# LB CLMM SDK
+
+#### Quote Testing
+
+```
+cd programs/lb_clmm/
+cargo test-bpf
+```
 
 #### SDK Testing
 

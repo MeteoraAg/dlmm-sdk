@@ -555,51 +555,14 @@ export class DLMM {
       provider
     );
 
-    const [positions, positionsV2] = await Promise.all([
-      program.account.position.all([
-        {
-          memcmp: {
-            bytes: bs58.encode(userPubKey.toBuffer()),
-            offset: 8 + 32,
-          },
+    const positionsV2 = await program.account.positionV2.all([
+      {
+        memcmp: {
+          bytes: bs58.encode(userPubKey.toBuffer()),
+          offset: 8 + 32,
         },
-      ]),
-      program.account.positionV2.all([
-        {
-          memcmp: {
-            bytes: bs58.encode(userPubKey.toBuffer()),
-            offset: 8 + 32,
-          },
-        },
-      ]),
+      },
     ]);
-
-    const binArrayPubkeySet = new Set<string>();
-    const lbPairSet = new Set<string>();
-    positions.forEach(({ account: { upperBinId, lowerBinId, lbPair } }) => {
-      const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(lowerBinId));
-      const upperBinArrayIndex = binIdToBinArrayIndex(new BN(upperBinId));
-
-      const [lowerBinArrayPubKey] = deriveBinArray(
-        lbPair,
-        lowerBinArrayIndex,
-        program.programId
-      );
-      const [upperBinArrayPubKey] = deriveBinArray(
-        lbPair,
-        upperBinArrayIndex,
-        program.programId
-      );
-      binArrayPubkeySet.add(lowerBinArrayPubKey.toBase58());
-      binArrayPubkeySet.add(upperBinArrayPubKey.toBase58());
-      lbPairSet.add(lbPair.toBase58());
-    });
-    const binArrayPubkeyArray = Array.from(binArrayPubkeySet).map(
-      (pubkey) => new PublicKey(pubkey)
-    );
-    const lbPairArray = Array.from(lbPairSet).map(
-      (pubkey) => new PublicKey(pubkey)
-    );
 
     const binArrayPubkeySetV2 = new Set<string>();
     const lbPairSetV2 = new Set<string>();
@@ -631,94 +594,41 @@ export class DLMM {
     const [clockAccInfo, ...binArraysAccInfo] =
       await chunkedGetMultipleAccountInfos(connection, [
         SYSVAR_CLOCK_PUBKEY,
-        ...binArrayPubkeyArray,
-        ...lbPairArray,
         ...binArrayPubkeyArrayV2,
         ...lbPairArrayV2,
       ]);
 
-    const positionBinArraysMap = new Map();
-    for (let i = 0; i < binArrayPubkeyArray.length; i++) {
-      const binArrayPubkey = binArrayPubkeyArray[i];
-      const binArrayAccInfoBuffer = binArraysAccInfo[i];
-      if (!binArrayAccInfoBuffer)
-        throw new Error(
-          `Bin Array account ${binArrayPubkey.toBase58()} not found`
-        );
-      const binArrayAccInfo = program.coder.accounts.decode(
-        "binArray",
-        binArrayAccInfoBuffer.data
-      );
-      positionBinArraysMap.set(binArrayPubkey.toBase58(), binArrayAccInfo);
-    }
-
-    const lbPairArraysMap = new Map<string, LbPair>();
-    for (
-      let i = binArrayPubkeyArray.length;
-      i < binArrayPubkeyArray.length + lbPairArray.length;
-      i++
-    ) {
-      const lbPairPubkey = lbPairArray[i - binArrayPubkeyArray.length];
-      const lbPairAccInfoBuffer = binArraysAccInfo[i];
-      if (!lbPairAccInfoBuffer)
-        throw new Error(`LB Pair account ${lbPairPubkey.toBase58()} not found`);
-      const lbPairAccInfo = program.coder.accounts.decode(
-        "lbPair",
-        lbPairAccInfoBuffer.data
-      );
-      lbPairArraysMap.set(lbPairPubkey.toBase58(), lbPairAccInfo);
-    }
-
-    const reservePublicKeys = Array.from(lbPairArraysMap.values())
-      .map(({ reserveX, reserveY, tokenXMint, tokenYMint }) => [
-        reserveX,
-        reserveY,
-        tokenXMint,
-        tokenYMint,
-      ])
-      .flat();
-
     const positionBinArraysMapV2 = new Map();
 
     for (
-      let i = binArrayPubkeyArray.length + lbPairArray.length;
-      i <
-      binArrayPubkeyArray.length +
-      lbPairArray.length +
-      binArrayPubkeyArrayV2.length;
+      let i = 0;
+      i < binArrayPubkeyArrayV2.length;
       i++
     ) {
       const binArrayPubkey =
         binArrayPubkeyArrayV2[
-        i - (binArrayPubkeyArray.length + lbPairArray.length)
+          i
         ];
       const binArrayAccInfoBufferV2 = binArraysAccInfo[i];
-      if (!binArrayAccInfoBufferV2)
-        throw new Error(
-          `Bin Array account ${binArrayPubkey.toBase58()} not found`
+      if (binArrayAccInfoBufferV2) {
+        const binArrayAccInfo = program.coder.accounts.decode(
+          "binArray",
+          binArrayAccInfoBufferV2.data
         );
-      const binArrayAccInfo = program.coder.accounts.decode(
-        "binArray",
-        binArrayAccInfoBufferV2.data
-      );
-      positionBinArraysMapV2.set(binArrayPubkey.toBase58(), binArrayAccInfo);
+        positionBinArraysMapV2.set(binArrayPubkey.toBase58(), binArrayAccInfo);
+      }
     }
 
     const lbPairArraysMapV2 = new Map<string, LbPair>();
     for (
       let i =
-        binArrayPubkeyArray.length +
-        lbPairArray.length +
         binArrayPubkeyArrayV2.length;
       i < binArraysAccInfo.length;
       i++
     ) {
       const lbPairPubkey =
         lbPairArrayV2[
-        i -
-        (binArrayPubkeyArray.length +
-          lbPairArray.length +
-          binArrayPubkeyArrayV2.length)
+          i - binArrayPubkeyArrayV2.length
         ];
       const lbPairAccInfoBufferV2 = binArraysAccInfo[i];
       if (!lbPairAccInfoBufferV2)
@@ -741,47 +651,8 @@ export class DLMM {
 
     const reserveAccountsInfo = await chunkedGetMultipleAccountInfos(
       program.provider.connection,
-      [...reservePublicKeys, ...reservePublicKeysV2]
+      reservePublicKeysV2
     );
-
-    const lbPairReserveMap = new Map<
-      string,
-      { reserveX: bigint; reserveY: bigint }
-    >();
-    const lbPairMintMap = new Map<
-      string,
-      { mintXDecimal: number; mintYDecimal: number }
-    >();
-    lbPairArray.forEach((lbPair, idx) => {
-      const index = idx * 4;
-      const reserveAccBufferX = reserveAccountsInfo[index];
-      const reserveAccBufferY = reserveAccountsInfo[index + 1];
-      if (!reserveAccBufferX || !reserveAccBufferY)
-        throw new Error(
-          `Reserve account for LB Pair ${lbPair.toBase58()} not found`
-        );
-      const reserveAccX = AccountLayout.decode(reserveAccBufferX.data);
-      const reserveAccY = AccountLayout.decode(reserveAccBufferY.data);
-
-      lbPairReserveMap.set(lbPair.toBase58(), {
-        reserveX: reserveAccX.amount,
-        reserveY: reserveAccY.amount,
-      });
-
-      const mintXBuffer = reserveAccountsInfo[index + 2];
-      const mintYBuffer = reserveAccountsInfo[index + 3];
-      if (!mintXBuffer || !mintYBuffer)
-        throw new Error(
-          `Mint account for LB Pair ${lbPair.toBase58()} not found`
-        );
-      const mintX = MintLayout.decode(mintXBuffer.data);
-      const mintY = MintLayout.decode(mintYBuffer.data);
-
-      lbPairMintMap.set(lbPair.toBase58(), {
-        mintXDecimal: mintX.decimals,
-        mintYDecimal: mintY.decimals,
-      });
-    });
 
     const lbPairReserveMapV2 = new Map<
       string,
@@ -794,9 +665,9 @@ export class DLMM {
     lbPairArrayV2.forEach((lbPair, idx) => {
       const index = idx * 4;
       const reserveAccBufferXV2 =
-        reserveAccountsInfo[reservePublicKeys.length + index];
+        reserveAccountsInfo[index];
       const reserveAccBufferYV2 =
-        reserveAccountsInfo[reservePublicKeys.length + index + 1];
+        reserveAccountsInfo[index + 1];
       if (!reserveAccBufferXV2 || !reserveAccBufferYV2)
         throw new Error(
           `Reserve account for LB Pair ${lbPair.toBase58()} not found`
@@ -810,9 +681,9 @@ export class DLMM {
       });
 
       const mintXBufferV2 =
-        reserveAccountsInfo[reservePublicKeys.length + index + 2];
+        reserveAccountsInfo[index + 2];
       const mintYBufferV2 =
-        reserveAccountsInfo[reservePublicKeys.length + index + 3];
+        reserveAccountsInfo[index + 3];
       if (!mintXBufferV2 || !mintYBufferV2)
         throw new Error(
           `Mint account for LB Pair ${lbPair.toBase58()} not found`
@@ -842,80 +713,6 @@ export class DLMM {
         }>;
       }
     > = new Map();
-    for (let position of positions) {
-      const { account, publicKey: positionPubKey } = position;
-
-      const { upperBinId, lowerBinId, lbPair } = account;
-      const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(lowerBinId));
-      const upperBinArrayIndex = binIdToBinArrayIndex(new BN(upperBinId));
-
-      const [lowerBinArrayPubKey] = deriveBinArray(
-        lbPair,
-        lowerBinArrayIndex,
-        program.programId
-      );
-      const [upperBinArrayPubKey] = deriveBinArray(
-        lbPair,
-        upperBinArrayIndex,
-        program.programId
-      );
-      const lowerBinArray = positionBinArraysMap.get(
-        lowerBinArrayPubKey.toBase58()
-      );
-      const upperBinArray = positionBinArraysMap.get(
-        upperBinArrayPubKey.toBase58()
-      );
-      const lbPairAcc = lbPairArraysMap.get(lbPair.toBase58());
-      const { mintXDecimal, mintYDecimal } = lbPairMintMap.get(
-        lbPair.toBase58()
-      );
-      const reserveXBalance =
-        lbPairReserveMap.get(lbPair.toBase58())?.reserveX ?? BigInt(0);
-      const reserveYBalance =
-        lbPairReserveMap.get(lbPair.toBase58())?.reserveY ?? BigInt(0);
-      const tokenX = {
-        publicKey: lbPairAcc.tokenXMint,
-        reserve: lbPairAcc.reserveX,
-        amount: reserveXBalance,
-        decimal: mintXDecimal,
-      };
-      const tokenY = {
-        publicKey: lbPairAcc.tokenYMint,
-        reserve: lbPairAcc.reserveY,
-        amount: reserveYBalance,
-        decimal: mintYDecimal,
-      };
-      const positionData = await DLMM.processPosition(
-        program,
-        PositionVersion.V1,
-        lbPairAcc,
-        onChainTimestamp,
-        account,
-        mintXDecimal,
-        mintYDecimal,
-        lowerBinArray,
-        upperBinArray,
-        PublicKey.default
-      );
-
-      if (positionData) {
-        positionsMap.set(lbPair.toBase58(), {
-          publicKey: lbPair,
-          lbPair: lbPairAcc,
-          tokenX,
-          tokenY,
-          lbPairPositionsData: [
-            ...(positionsMap.get(lbPair.toBase58())?.lbPairPositionsData ?? []),
-            {
-              publicKey: positionPubKey,
-              positionData,
-              version: PositionVersion.V1,
-            },
-          ],
-        });
-      }
-    }
-
     for (let position of positionsV2) {
       const { account, publicKey: positionPubKey } = position;
 
@@ -939,6 +736,7 @@ export class DLMM {
       const upperBinArray = positionBinArraysMapV2.get(
         upperBinArrayPubKey.toBase58()
       );
+
       const lbPairAcc = lbPairArraysMapV2.get(lbPair.toBase58());
       const [baseTokenDecimal, quoteTokenDecimal] = await Promise.all([
         getTokenDecimals(program.provider.connection, lbPairAcc.tokenXMint),
@@ -960,7 +758,7 @@ export class DLMM {
         amount: reserveYBalance,
         decimal: quoteTokenDecimal,
       };
-      const positionData = await DLMM.processPosition(
+      const positionData = !!lowerBinArray && !!upperBinArray ? await DLMM.processPosition(
         program,
         PositionVersion.V2,
         lbPairAcc,
@@ -971,7 +769,21 @@ export class DLMM {
         lowerBinArray,
         upperBinArray,
         feeOwner
-      );
+      ) : {
+          totalXAmount: '0',
+          totalYAmount: '0',
+          positionBinData: [],
+          lastUpdatedAt: new BN(0),
+          upperBinId,
+          lowerBinId,
+          feeX: new BN(0),
+          feeY: new BN(0),
+          rewardOne: new BN(0),
+          rewardTwo: new BN(0),
+          feeOwner,
+          totalClaimedFeeXAmount: new BN(0),
+          totalClaimedFeeYAmount: new BN(0),
+        };
 
       if (positionData) {
         positionsMap.set(lbPair.toBase58(), {
@@ -992,73 +804,6 @@ export class DLMM {
     }
 
     return positionsMap;
-  }
-
-  static async migratePosition(
-    connection: Connection,
-    positions: PublicKey[],
-    newPositions: PublicKey[],
-    walletPubkey: PublicKey,
-    opt?: Opt
-  ): Promise<Transaction[]> {
-    const cluster = opt?.cluster || "mainnet-beta";
-
-    const provider = new AnchorProvider(
-      connection,
-      {} as any,
-      AnchorProvider.defaultOptions()
-    );
-    const program = new Program(
-      IDL,
-      opt?.programId ?? LBCLMM_PROGRAM_IDS[cluster],
-      provider
-    );
-
-    const positionsState = await program.account.position.fetchMultiple(
-      positions
-    );
-
-    const { blockhash, lastValidBlockHeight } =
-      await connection.getLatestBlockhash("confirmed");
-    return Promise.all(
-      positionsState.map(async ({ lbPair, lowerBinId }, idx) => {
-        const position = positions[idx];
-        const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(lowerBinId));
-        const upperBinArrayIndex = lowerBinArrayIndex.add(new BN(1));
-
-        const [lowerBinArrayPubKey] = deriveBinArray(
-          lbPair,
-          lowerBinArrayIndex,
-          program.programId
-        );
-        const [upperBinArrayPubKey] = deriveBinArray(
-          lbPair,
-          upperBinArrayIndex,
-          program.programId
-        );
-
-        const migrateTx = await program.methods
-          .migratePosition()
-          .accounts({
-            binArrayLower: lowerBinArrayPubKey,
-            binArrayUpper: upperBinArrayPubKey,
-            lbPair,
-            owner: walletPubkey,
-            positionV1: position,
-            positionV2: newPositions[idx],
-            program: program.programId,
-            rentReceiver: walletPubkey,
-            systemProgram: SystemProgram.programId,
-          })
-          .transaction();
-
-        return new Transaction({
-          blockhash,
-          lastValidBlockHeight,
-          feePayer: walletPubkey,
-        }).add(migrateTx);
-      })
-    );
   }
 
   public static getPricePerLamport(
@@ -1713,21 +1458,6 @@ export class DLMM {
     const promiseResults = await Promise.all([
       this.getActiveBin(),
       userPubKey &&
-      this.program.account.position.all([
-        {
-          memcmp: {
-            bytes: bs58.encode(userPubKey.toBuffer()),
-            offset: 8 + 32,
-          },
-        },
-        {
-          memcmp: {
-            bytes: bs58.encode(this.pubkey.toBuffer()),
-            offset: 8,
-          },
-        },
-      ]),
-      userPubKey &&
       this.program.account.positionV2.all([
         {
           memcmp: {
@@ -1744,7 +1474,7 @@ export class DLMM {
       ]),
     ]);
 
-    const [activeBin, positions, positionsV2] = promiseResults;
+    const [activeBin, positionsV2] = promiseResults;
 
     if (!activeBin) {
       throw new Error("Error fetching active bin");
@@ -1757,31 +1487,9 @@ export class DLMM {
       };
     }
 
-    if (!positions || !positionsV2) {
+    if (!positionsV2) {
       throw new Error("Error fetching positions");
     }
-
-    const binArrayPubkeySet = new Set<string>();
-    positions.forEach(({ account: { upperBinId, lowerBinId } }) => {
-      const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(lowerBinId));
-      const upperBinArrayIndex = binIdToBinArrayIndex(new BN(upperBinId));
-
-      const [lowerBinArrayPubKey] = deriveBinArray(
-        this.pubkey,
-        lowerBinArrayIndex,
-        this.program.programId
-      );
-      const [upperBinArrayPubKey] = deriveBinArray(
-        this.pubkey,
-        upperBinArrayIndex,
-        this.program.programId
-      );
-      binArrayPubkeySet.add(lowerBinArrayPubKey.toBase58());
-      binArrayPubkeySet.add(upperBinArrayPubKey.toBase58());
-    });
-    const binArrayPubkeyArray = Array.from(binArrayPubkeySet).map(
-      (pubkey) => new PublicKey(pubkey)
-    );
 
     const binArrayPubkeySetV2 = new Set<string>();
     positionsV2.forEach(({ account: { upperBinId, lowerBinId, lbPair } }) => {
@@ -1810,7 +1518,6 @@ export class DLMM {
       [
         this.pubkey,
         SYSVAR_CLOCK_PUBKEY,
-        ...binArrayPubkeyArray,
         ...binArrayPubkeyArrayV2,
       ]
     );
@@ -1818,25 +1525,10 @@ export class DLMM {
     const [lbPairAccInfo, clockAccInfo, ...binArraysAccInfo] =
       lbPairAndBinArrays;
 
-    const positionBinArraysMap = new Map();
-    for (let i = 0; i < binArrayPubkeyArray.length; i++) {
-      const binArrayPubkey = binArrayPubkeyArray[i];
-      const binArrayAccBuffer = binArraysAccInfo[i];
-      if (!binArrayAccBuffer)
-        throw new Error(
-          `Bin Array account ${binArrayPubkey.toBase58()} not found`
-        );
-      const binArrayAccInfo = this.program.coder.accounts.decode(
-        "binArray",
-        binArrayAccBuffer.data
-      );
-      positionBinArraysMap.set(binArrayPubkey.toBase58(), binArrayAccInfo);
-    }
-
     const positionBinArraysMapV2 = new Map();
-    for (let i = binArrayPubkeyArray.length; i < binArraysAccInfo.length; i++) {
+    for (let i = 0; i < binArraysAccInfo.length; i++) {
       const binArrayPubkey =
-        binArrayPubkeyArrayV2[i - binArrayPubkeyArray.length];
+        binArrayPubkeyArrayV2[i];
       const binArrayAccBufferV2 = binArraysAccInfo[i];
       if (!binArrayAccBufferV2)
         throw new Error(
@@ -1855,46 +1547,6 @@ export class DLMM {
     const onChainTimestamp = new BN(
       clockAccInfo.data.readBigInt64LE(32).toString()
     ).toNumber();
-    const userPositions = await Promise.all(
-      positions.map(async ({ publicKey, account }) => {
-        const { lowerBinId, upperBinId } = account;
-        const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(lowerBinId));
-        const upperBinArrayIndex = binIdToBinArrayIndex(new BN(upperBinId));
-
-        const [lowerBinArrayPubKey] = deriveBinArray(
-          this.pubkey,
-          lowerBinArrayIndex,
-          this.program.programId
-        );
-        const [upperBinArrayPubKey] = deriveBinArray(
-          this.pubkey,
-          upperBinArrayIndex,
-          this.program.programId
-        );
-        const lowerBinArray = positionBinArraysMap.get(
-          lowerBinArrayPubKey.toBase58()
-        );
-        const upperBinArray = positionBinArraysMap.get(
-          upperBinArrayPubKey.toBase58()
-        );
-        return {
-          publicKey,
-          positionData: await DLMM.processPosition(
-            this.program,
-            PositionVersion.V1,
-            this.lbPair,
-            onChainTimestamp,
-            account,
-            this.tokenX.decimal,
-            this.tokenY.decimal,
-            lowerBinArray,
-            upperBinArray,
-            PublicKey.default
-          ),
-          version: PositionVersion.V1,
-        };
-      })
-    );
 
     const userPositionsV2 = await Promise.all(
       positionsV2.map(async ({ publicKey, account }) => {
@@ -1939,7 +1591,7 @@ export class DLMM {
 
     return {
       activeBin,
-      userPositions: [...userPositions, ...userPositionsV2],
+      userPositions: userPositionsV2,
     };
   }
 
@@ -2018,6 +1670,100 @@ export class DLMM {
       lastValidBlockHeight,
       feePayer: user,
     }).add(setCUIx, ...instructions);
+  }
+
+  /**
+   * The function `getPosition` retrieves position information for a given public key and processes it
+   * using various data to return a `LbPosition` object.
+   * @param {PublicKey} positionPubKey - The `getPosition` function you provided is an asynchronous
+   * function that fetches position information based on a given public key. Here's a breakdown of the
+   * parameters used in the function:
+   * @returns The `getPosition` function returns a Promise that resolves to an object of type
+   * `LbPosition`. The object contains the following properties:
+   * - `publicKey`: The public key of the position account
+   * - `positionData`: Position Object
+   * - `version`: The version of the position (in this case, `Position.V2`)
+   */
+  public async getPosition(positionPubKey: PublicKey): Promise<LbPosition> {
+    const positionAccountInfo = await this.program.account.positionV2.fetch(positionPubKey);
+    if (!positionAccountInfo) {
+      throw new Error(`Position account ${positionPubKey.toBase58()} not found`);
+    }
+
+    const { lowerBinId, upperBinId, feeOwner } = positionAccountInfo;
+    const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(lowerBinId));
+    const upperBinArrayIndex = binIdToBinArrayIndex(new BN(upperBinId));
+    const [lowerBinArrayPubKey] = deriveBinArray(
+      this.pubkey,
+      lowerBinArrayIndex,
+      this.program.programId
+    );
+    const [upperBinArrayPubKey] = deriveBinArray(
+      this.pubkey,
+      upperBinArrayIndex,
+      this.program.programId
+    );
+
+    const [clockAccInfo, lowerBinArrayAccInfo, upperBinArrayAccInfo] = await chunkedGetMultipleAccountInfos(
+      this.program.provider.connection,
+      [
+        SYSVAR_CLOCK_PUBKEY,
+        lowerBinArrayPubKey,
+        upperBinArrayPubKey,
+      ]
+    );
+
+    if (!lowerBinArrayAccInfo || !upperBinArrayAccInfo) {
+      return {
+        publicKey: positionPubKey,
+        positionData: {
+          totalXAmount: '0',
+          totalYAmount: '0',
+          positionBinData: [],
+          lastUpdatedAt: new BN(0),
+          upperBinId,
+          lowerBinId,
+          feeX: new BN(0),
+          feeY: new BN(0),
+          rewardOne: new BN(0),
+          rewardTwo: new BN(0),
+          feeOwner,
+          totalClaimedFeeXAmount: new BN(0),
+          totalClaimedFeeYAmount: new BN(0),
+        },
+        version: PositionVersion.V2,
+      }
+    }
+
+    const onChainTimestamp = new BN(
+      clockAccInfo.data.readBigInt64LE(32).toString()
+    ).toNumber();
+
+    const lowerBinArray = this.program.coder.accounts.decode(
+      "binArray",
+      lowerBinArrayAccInfo.data
+    )
+    const upperBinArray = this.program.coder.accounts.decode(
+      "binArray",
+      upperBinArrayAccInfo.data
+    )
+
+    return {
+      publicKey: positionPubKey,
+      positionData: await DLMM.processPosition(
+        this.program,
+        PositionVersion.V2,
+        this.lbPair,
+        onChainTimestamp,
+        positionAccountInfo,
+        this.tokenX.decimal,
+        this.tokenY.decimal,
+        lowerBinArray,
+        upperBinArray,
+        feeOwner
+      ),
+      version: PositionVersion.V2,
+    }
   }
 
   /**
@@ -2952,12 +2698,15 @@ export class DLMM {
     bps: BN;
     shouldClaimAndClose?: boolean;
   }): Promise<Transaction | Transaction[]> {
-    const { lbPair, lowerBinId, owner, feeOwner } =
-      await this.program.account.positionV2.fetch(position);
+    const lowerBinIdToRemove = Math.min(...binIds);
+    const upperBinIdToRemove = Math.max(...binIds);
+    const { lbPair, owner, feeOwner, lowerBinId: positionLowerBinId, liquidityShares } = await this.program.account.positionV2.fetch(position);
 
-    const { reserveX, reserveY, tokenXMint, tokenYMint } =
-      await this.program.account.lbPair.fetch(lbPair);
-    const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(lowerBinId));
+      if (liquidityShares.every((share) => share.isZero())) {
+        throw new Error("No liquidity to remove");
+      }
+
+    const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(positionLowerBinId));
     const upperBinArrayIndex = lowerBinArrayIndex.add(new BN(1));
     const [binArrayLower] = deriveBinArray(
       lbPair,
@@ -3028,8 +2777,8 @@ export class DLMM {
           lbPair: this.pubkey,
           sender: user,
           position,
-          reserveX,
-          reserveY,
+          reserveX: this.lbPair.reserveX,
+          reserveY: this.lbPair.reserveY,
           tokenProgram: TOKEN_PROGRAM_ID,
           tokenXMint: this.tokenX.publicKey,
           tokenYMint: this.tokenY.publicKey,
@@ -3095,11 +2844,8 @@ export class DLMM {
       closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
     }
 
-    const minBinId = Math.min(...binIds);
-    const maxBinId = Math.max(...binIds);
-
-    const minBinArrayIndex = binIdToBinArrayIndex(new BN(minBinId));
-    const maxBinArrayIndex = binIdToBinArrayIndex(new BN(maxBinId));
+    const minBinArrayIndex = binIdToBinArrayIndex(new BN(lowerBinIdToRemove));
+    const maxBinArrayIndex = binIdToBinArrayIndex(new BN(upperBinIdToRemove));
 
     const useExtension =
       isOverflowDefaultBinArrayBitmap(minBinArrayIndex) ||
@@ -3109,17 +2855,17 @@ export class DLMM {
       ? deriveBinArrayBitmapExtension(this.pubkey, this.program.programId)[0]
       : null;
 
-    const removeLiquidityIx = await this.program.methods
-      .removeLiquidityByRange(minBinId, maxBinId, bps.toNumber())
+    const removeLiquidityTx = await this.program.methods
+      .removeLiquidityByRange(lowerBinIdToRemove, upperBinIdToRemove, bps.toNumber())
       .accounts({
         position,
         lbPair,
         userTokenX,
         userTokenY,
-        reserveX,
-        reserveY,
-        tokenXMint,
-        tokenYMint,
+        reserveX: this.lbPair.reserveX,
+        reserveY: this.lbPair.reserveY,
+        tokenXMint: this.tokenX.publicKey,
+        tokenYMint: this.tokenY.publicKey,
         binArrayLower,
         binArrayUpper,
         binArrayBitmapExtension,
@@ -3131,7 +2877,7 @@ export class DLMM {
 
     const instructions = [
       ...preInstructions,
-      removeLiquidityIx,
+      removeLiquidityTx,
       ...postInstructions,
     ];
 
@@ -3411,6 +3157,7 @@ export class DLMM {
     let actualOutAmount: BN = new BN(0);
     let feeAmount: BN = new BN(0);
     let protocolFeeAmount: BN = new BN(0);
+    let lastFilledActiveBinId = activeId;
 
     while (!inAmountLeft.isZero()) {
       let binArrayAccountToSwap = findNextBinArrayWithLiquidity(
@@ -3465,6 +3212,8 @@ export class DLMM {
           if (!startBin) {
             startBin = bin;
           }
+
+          lastFilledActiveBinId = activeId;
         }
       }
 
@@ -3503,8 +3252,9 @@ export class DLMM {
     const minOutAmount = actualOutAmount
       .mul(new BN(BASIS_POINT_MAX).sub(allowedSlippage))
       .div(new BN(BASIS_POINT_MAX));
+      
     const endPrice = getPriceOfBinByBinId(
-      activeId.toNumber(),
+      lastFilledActiveBinId.toNumber(),
       this.lbPair.binStep
     );
 
@@ -3643,9 +3393,6 @@ export class DLMM {
     priceImpact,
     binArraysPubkey,
   }: SwapWithPriceImpactParams): Promise<Transaction> {
-    const { tokenXMint, tokenYMint, reserveX, reserveY, activeId, oracle } =
-      await this.program.account.lbPair.fetch(lbPair);
-
     const preInstructions: TransactionInstruction[] = [];
     const postInstructions: Array<TransactionInstruction> = [];
 
@@ -3684,9 +3431,6 @@ export class DLMM {
       closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
     }
 
-    let swapForY = true;
-    if (outToken.equals(tokenXMint)) swapForY = false;
-
     // TODO: needs some refinement in case binArray not yet initialized
     const binArrays: AccountMeta[] = binArraysPubkey.map((pubkey) => {
       return {
@@ -3704,10 +3448,10 @@ export class DLMM {
       )
       .accounts({
         lbPair,
-        reserveX,
-        reserveY,
-        tokenXMint,
-        tokenYMint,
+        reserveX: this.lbPair.reserveX,
+        reserveY: this.lbPair.reserveY,
+        tokenXMint: this.lbPair.tokenXMint,
+        tokenYMint: this.lbPair.tokenYMint,
         tokenXProgram: TOKEN_PROGRAM_ID,
         tokenYProgram: TOKEN_PROGRAM_ID,
         user,
@@ -3716,7 +3460,7 @@ export class DLMM {
         binArrayBitmapExtension: this.binArrayBitmapExtension
           ? this.binArrayBitmapExtension.publicKey
           : null,
-        oracle,
+        oracle: this.lbPair.oracle,
         hostFeeIn: null,
       })
       .remainingAccounts(binArrays)
@@ -3762,9 +3506,6 @@ export class DLMM {
     user,
     binArraysPubkey,
   }: SwapParams): Promise<Transaction> {
-    const { tokenXMint, tokenYMint, reserveX, reserveY, activeId, oracle } =
-      await this.program.account.lbPair.fetch(lbPair);
-
     const preInstructions: TransactionInstruction[] = [];
     const postInstructions: Array<TransactionInstruction> = [];
 
@@ -3803,8 +3544,6 @@ export class DLMM {
       closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
     }
 
-    let swapForY = true;
-    if (outToken.equals(tokenXMint)) swapForY = false;
 
     // TODO: needs some refinement in case binArray not yet initialized
     const binArrays: AccountMeta[] = binArraysPubkey.map((pubkey) => {
@@ -3819,10 +3558,10 @@ export class DLMM {
       .swap(inAmount, minOutAmount)
       .accounts({
         lbPair,
-        reserveX,
-        reserveY,
-        tokenXMint,
-        tokenYMint,
+        reserveX: this.lbPair.reserveX,
+        reserveY: this.lbPair.reserveY,
+        tokenXMint: this.lbPair.tokenXMint,
+        tokenYMint: this.lbPair.tokenYMint,
         tokenXProgram: TOKEN_PROGRAM_ID, // dont use 2022 first; lack familiarity
         tokenYProgram: TOKEN_PROGRAM_ID, // dont use 2022 first; lack familiarity
         user,
@@ -3831,7 +3570,7 @@ export class DLMM {
         binArrayBitmapExtension: this.binArrayBitmapExtension
           ? this.binArrayBitmapExtension.publicKey
           : null,
-        oracle,
+        oracle: this.lbPair.oracle,
         hostFeeIn: null,
       })
       .remainingAccounts(binArrays)
@@ -5504,12 +5243,7 @@ export class DLMM {
     bins.forEach((bin, idx) => {
       const binSupply = new Decimal(bin.supply.toString());
 
-      let posShare;
-      if (bin.version === 1 && version === PositionVersion.V1) {
-        posShare = new Decimal(posShares[idx].shln(64).toString());
-      } else {
-        posShare = new Decimal(posShares[idx].toString());
-      }
+      const posShare = new Decimal(posShares[idx].toString());
       const positionXAmount = binSupply.eq(new Decimal("0"))
         ? new Decimal("0")
         : posShare.mul(bin.xAmount.toString()).div(binSupply);
@@ -5708,7 +5442,7 @@ export class DLMM {
         const [lowerBinId] = getBinArrayLowerUpperBinId(index);
         return bins.map((b, i) => [lowerBinId.toNumber() + i, b] as [number, Bin]);
       }));
-    const version = binArrays.length !== 0 ? binArrays[0].version : 1;
+    const version = binArrays.find(binArray => binArray != null)?.version ?? 1;
 
     return Array.from(enumerateBins(
       binsById,
