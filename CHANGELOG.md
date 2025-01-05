@@ -19,12 +19,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.3.7] - PR #143
+
+### Fixed
+
+- Fix `swapQuote` end price
+
 ## @meteora-ag/dlmm [1.3.6] - PR #116
 
 ### Changed
 
 - Refactored; remove `position(V1)` interaction from SDK
 - Throw error in `removeLiquidity` function if position doesn't have any liquidity 
+
+### Fixed
+
+- Removed unused rpc call in `swap`
 
 ### Added
 
