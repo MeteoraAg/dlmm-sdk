@@ -3157,6 +3157,7 @@ export class DLMM {
     let actualOutAmount: BN = new BN(0);
     let feeAmount: BN = new BN(0);
     let protocolFeeAmount: BN = new BN(0);
+    let lastFilledActiveBinId = activeId;
 
     while (!inAmountLeft.isZero()) {
       let binArrayAccountToSwap = findNextBinArrayWithLiquidity(
@@ -3211,6 +3212,8 @@ export class DLMM {
           if (!startBin) {
             startBin = bin;
           }
+
+          lastFilledActiveBinId = activeId;
         }
       }
 
@@ -3249,8 +3252,9 @@ export class DLMM {
     const minOutAmount = actualOutAmount
       .mul(new BN(BASIS_POINT_MAX).sub(allowedSlippage))
       .div(new BN(BASIS_POINT_MAX));
+      
     const endPrice = getPriceOfBinByBinId(
-      activeId.toNumber(),
+      lastFilledActiveBinId.toNumber(),
       this.lbPair.binStep
     );
 
@@ -3389,9 +3393,6 @@ export class DLMM {
     priceImpact,
     binArraysPubkey,
   }: SwapWithPriceImpactParams): Promise<Transaction> {
-    const { tokenXMint, tokenYMint, reserveX, reserveY, activeId, oracle } =
-      await this.program.account.lbPair.fetch(lbPair);
-
     const preInstructions: TransactionInstruction[] = [];
     const postInstructions: Array<TransactionInstruction> = [];
 
@@ -3430,9 +3431,6 @@ export class DLMM {
       closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
     }
 
-    let swapForY = true;
-    if (outToken.equals(tokenXMint)) swapForY = false;
-
     // TODO: needs some refinement in case binArray not yet initialized
     const binArrays: AccountMeta[] = binArraysPubkey.map((pubkey) => {
       return {
@@ -3450,10 +3448,10 @@ export class DLMM {
       )
       .accounts({
         lbPair,
-        reserveX,
-        reserveY,
-        tokenXMint,
-        tokenYMint,
+        reserveX: this.lbPair.reserveX,
+        reserveY: this.lbPair.reserveY,
+        tokenXMint: this.lbPair.tokenXMint,
+        tokenYMint: this.lbPair.tokenYMint,
         tokenXProgram: TOKEN_PROGRAM_ID,
         tokenYProgram: TOKEN_PROGRAM_ID,
         user,
@@ -3462,7 +3460,7 @@ export class DLMM {
         binArrayBitmapExtension: this.binArrayBitmapExtension
           ? this.binArrayBitmapExtension.publicKey
           : null,
-        oracle,
+        oracle: this.lbPair.oracle,
         hostFeeIn: null,
       })
       .remainingAccounts(binArrays)
@@ -3508,9 +3506,6 @@ export class DLMM {
     user,
     binArraysPubkey,
   }: SwapParams): Promise<Transaction> {
-    const { tokenXMint, tokenYMint, reserveX, reserveY, activeId, oracle } =
-      await this.program.account.lbPair.fetch(lbPair);
-
     const preInstructions: TransactionInstruction[] = [];
     const postInstructions: Array<TransactionInstruction> = [];
 
@@ -3549,8 +3544,6 @@ export class DLMM {
       closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
     }
 
-    let swapForY = true;
-    if (outToken.equals(tokenXMint)) swapForY = false;
 
     // TODO: needs some refinement in case binArray not yet initialized
     const binArrays: AccountMeta[] = binArraysPubkey.map((pubkey) => {
@@ -3565,10 +3558,10 @@ export class DLMM {
       .swap(inAmount, minOutAmount)
       .accounts({
         lbPair,
-        reserveX,
-        reserveY,
-        tokenXMint,
-        tokenYMint,
+        reserveX: this.lbPair.reserveX,
+        reserveY: this.lbPair.reserveY,
+        tokenXMint: this.lbPair.tokenXMint,
+        tokenYMint: this.lbPair.tokenYMint,
         tokenXProgram: TOKEN_PROGRAM_ID, // dont use 2022 first; lack familiarity
         tokenYProgram: TOKEN_PROGRAM_ID, // dont use 2022 first; lack familiarity
         user,
@@ -3577,7 +3570,7 @@ export class DLMM {
         binArrayBitmapExtension: this.binArrayBitmapExtension
           ? this.binArrayBitmapExtension.publicKey
           : null,
-        oracle,
+        oracle: this.lbPair.oracle,
         hostFeeIn: null,
       })
       .remainingAccounts(binArrays)
