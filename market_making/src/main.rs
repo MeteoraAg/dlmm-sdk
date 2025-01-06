@@ -4,6 +4,7 @@ pub mod pair_config;
 pub mod router;
 pub mod state;
 pub mod utils;
+pub mod analytics;
 use anchor_client::solana_sdk::pubkey::Pubkey;
 use anchor_client::solana_sdk::signature::read_keypair_file;
 use anchor_client::solana_sdk::signer::Signer;

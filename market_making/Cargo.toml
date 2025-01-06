@@ -26,4 +26,7 @@ solana-transaction-status={workspace=true}
 bs58 = {workspace=true}
 chrono={workspace=true}
 tempfile = "3.2"
+rand_distr = "0.4"
+rand = "0.8"
+
 
