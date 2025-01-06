@@ -82,7 +82,7 @@ impl MockDataGenerator {
         for i in 0..n_trades {
             let return_shock = price_normal.sample(&mut rng);
             current_price *= (1.0 + return_shock);
-            let size = size_normal.sample(&mut rng).abs();
+            let size = (size_normal.sample(&mut rng) as f64).abs();
             let is_buy = rng.gen_bool(0.5);
             
             trades.push((start_time + i as u64, current_price, size, is_buy));
