@@ -13,7 +13,8 @@ import { IPosition, wrapPosition } from "../dlmm/helpers/positions";
 import { PositionInfo, PositionVersion } from "../dlmm/types";
 
 // 1. Dump the account: target/debug/cli download-user-pool-files --wallet-key <wallet key> --override-wallet-key bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1 --pool-key 6StaAqeVjKUPTgMLmcLmdpmUjoYHRcZ6uViLdWNdUghM --output-path $(readlink -f ./artifacts/jlp-hubsol-6StaAqeVjKUPTgMLmcLmdpmUjoYHRcZ6uViLdWNdUghM)
-// 2. Run local validator: solana-test-validator --bpf-program LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo ./artifacts/lb_clmm.so --account-dir ./artifacts/jlp-hubsol-6StaAqeVjKUPTgMLmcLmdpmUjoYHRcZ6uViLdWNdUghM --reset
+// 2. Run local validator: solana-test-validator --bpf-program LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo ./artifacts/dynamic_position_migration_test/lb_clmm.so --account-dir ./artifacts/jlp-hubsol-6StaAqeVjKUPTgMLmcLmdpmUjoYHRcZ6uViLdWNdUghM --reset
+// 3. pnpm dynamic-position-migration-test
 const poolKey = new PublicKey("6StaAqeVjKUPTgMLmcLmdpmUjoYHRcZ6uViLdWNdUghM");
 
 const keypairBuffer = fs.readFileSync(
