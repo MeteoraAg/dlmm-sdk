@@ -11421,15 +11421,13 @@ pub fn migrate_position_from_v1_verify_account_privileges<'me, 'info>(
     migrate_position_from_v1_verify_signer_privileges(accounts)?;
     Ok(())
 }
-pub const MIGRATE_POSITION_FROM_V2_IX_ACCOUNTS_LEN: usize = 10;
+pub const MIGRATE_POSITION_FROM_V2_IX_ACCOUNTS_LEN: usize = 8;
 #[derive(Copy, Clone, Debug)]
 pub struct MigratePositionFromV2Accounts<'me, 'info> {
     pub position_v3: &'me AccountInfo<'info>,
     pub position_v2: &'me AccountInfo<'info>,
     pub lb_pair: &'me AccountInfo<'info>,
-    pub bin_array_lower: &'me AccountInfo<'info>,
-    pub bin_array_upper: &'me AccountInfo<'info>,
-    pub owner: &'me AccountInfo<'info>,
+    pub sender: &'me AccountInfo<'info>,
     pub system_program: &'me AccountInfo<'info>,
     pub rent_receiver: &'me AccountInfo<'info>,
     pub event_authority: &'me AccountInfo<'info>,
@@ -11440,9 +11438,7 @@ pub struct MigratePositionFromV2Keys {
     pub position_v3: Pubkey,
     pub position_v2: Pubkey,
     pub lb_pair: Pubkey,
-    pub bin_array_lower: Pubkey,
-    pub bin_array_upper: Pubkey,
-    pub owner: Pubkey,
+    pub sender: Pubkey,
     pub system_program: Pubkey,
     pub rent_receiver: Pubkey,
     pub event_authority: Pubkey,
@@ -11454,9 +11450,7 @@ impl From<MigratePositionFromV2Accounts<'_, '_>> for MigratePositionFromV2Keys {
             position_v3: *accounts.position_v3.key,
             position_v2: *accounts.position_v2.key,
             lb_pair: *accounts.lb_pair.key,
-            bin_array_lower: *accounts.bin_array_lower.key,
-            bin_array_upper: *accounts.bin_array_upper.key,
-            owner: *accounts.owner.key,
+            sender: *accounts.sender.key,
             system_program: *accounts.system_program.key,
             rent_receiver: *accounts.rent_receiver.key,
             event_authority: *accounts.event_authority.key,
@@ -11484,17 +11478,7 @@ for [AccountMeta; MIGRATE_POSITION_FROM_V2_IX_ACCOUNTS_LEN] {
                 is_writable: false,
             },
             AccountMeta {
-                pubkey: keys.bin_array_lower,
-                is_signer: false,
-                is_writable: true,
-            },
-            AccountMeta {
-                pubkey: keys.bin_array_upper,
-                is_signer: false,
-                is_writable: true,
-            },
-            AccountMeta {
-                pubkey: keys.owner,
+                pubkey: keys.sender,
                 is_signer: true,
                 is_writable: true,
             },
@@ -11528,13 +11512,11 @@ for MigratePositionFromV2Keys {
             position_v3: pubkeys[0],
             position_v2: pubkeys[1],
             lb_pair: pubkeys[2],
-            bin_array_lower: pubkeys[3],
-            bin_array_upper: pubkeys[4],
-            owner: pubkeys[5],
-            system_program: pubkeys[6],
-            rent_receiver: pubkeys[7],
-            event_authority: pubkeys[8],
-            program: pubkeys[9],
+            sender: pubkeys[3],
+            system_program: pubkeys[4],
+            rent_receiver: pubkeys[5],
+            event_authority: pubkeys[6],
+            program: pubkeys[7],
         }
     }
 }
@@ -11545,9 +11527,7 @@ for [AccountInfo<'info>; MIGRATE_POSITION_FROM_V2_IX_ACCOUNTS_LEN] {
             accounts.position_v3.clone(),
             accounts.position_v2.clone(),
             accounts.lb_pair.clone(),
-            accounts.bin_array_lower.clone(),
-            accounts.bin_array_upper.clone(),
-            accounts.owner.clone(),
+            accounts.sender.clone(),
             accounts.system_program.clone(),
             accounts.rent_receiver.clone(),
             accounts.event_authority.clone(),
@@ -11567,13 +11547,11 @@ for MigratePositionFromV2Accounts<'me, 'info> {
             position_v3: &arr[0],
             position_v2: &arr[1],
             lb_pair: &arr[2],
-            bin_array_lower: &arr[3],
-            bin_array_upper: &arr[4],
-            owner: &arr[5],
-            system_program: &arr[6],
-            rent_receiver: &arr[7],
-            event_authority: &arr[8],
-            program: &arr[9],
+            sender: &arr[3],
+            system_program: &arr[4],
+            rent_receiver: &arr[5],
+            event_authority: &arr[6],
+            program: &arr[7],
         }
     }
 }
@@ -11668,9 +11646,7 @@ pub fn migrate_position_from_v2_verify_account_keys(
         (*accounts.position_v3.key, keys.position_v3),
         (*accounts.position_v2.key, keys.position_v2),
         (*accounts.lb_pair.key, keys.lb_pair),
-        (*accounts.bin_array_lower.key, keys.bin_array_lower),
-        (*accounts.bin_array_upper.key, keys.bin_array_upper),
-        (*accounts.owner.key, keys.owner),
+        (*accounts.sender.key, keys.sender),
         (*accounts.system_program.key, keys.system_program),
         (*accounts.rent_receiver.key, keys.rent_receiver),
         (*accounts.event_authority.key, keys.event_authority),
@@ -11688,9 +11664,7 @@ pub fn migrate_position_from_v2_verify_writable_privileges<'me, 'info>(
     for should_be_writable in [
         accounts.position_v3,
         accounts.position_v2,
-        accounts.bin_array_lower,
-        accounts.bin_array_upper,
-        accounts.owner,
+        accounts.sender,
         accounts.rent_receiver,
     ] {
         if !should_be_writable.is_writable {
@@ -11702,7 +11676,7 @@ pub fn migrate_position_from_v2_verify_writable_privileges<'me, 'info>(
 pub fn migrate_position_from_v2_verify_signer_privileges<'me, 'info>(
     accounts: MigratePositionFromV2Accounts<'me, 'info>,
 ) -> Result<(), (&'me AccountInfo<'info>, ProgramError)> {
-    for should_be_signer in [accounts.position_v3, accounts.owner] {
+    for should_be_signer in [accounts.position_v3, accounts.sender] {
         if !should_be_signer.is_signer {
             return Err((should_be_signer, ProgramError::MissingRequiredSignature));
         }
