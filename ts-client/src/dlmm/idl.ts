@@ -2466,17 +2466,7 @@ export type LbClmm = {
           "isSigner": false
         },
         {
-          "name": "binArrayLower",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayUpper",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "owner",
+          "name": "sender",
           "isMut": true,
           "isSigner": true
         },
@@ -5060,20 +5050,6 @@ export type LbClmm = {
               "Maximum number of bin crossed can be accumulated. Used to cap volatile fee rate."
             ],
             "type": "u32"
-          },
-          {
-            "name": "minBinId",
-            "docs": [
-              "Min bin id supported by the pool based on the configured bin step."
-            ],
-            "type": "i32"
-          },
-          {
-            "name": "maxBinId",
-            "docs": [
-              "Max bin id supported by the pool based on the configured bin step."
-            ],
-            "type": "i32"
           },
           {
             "name": "protocolShare",
@@ -9745,17 +9721,7 @@ export const IDL: LbClmm = {
           "isSigner": false
         },
         {
-          "name": "binArrayLower",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayUpper",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "owner",
+          "name": "sender",
           "isMut": true,
           "isSigner": true
         },
@@ -12339,20 +12305,6 @@ export const IDL: LbClmm = {
               "Maximum number of bin crossed can be accumulated. Used to cap volatile fee rate."
             ],
             "type": "u32"
-          },
-          {
-            "name": "minBinId",
-            "docs": [
-              "Min bin id supported by the pool based on the configured bin step."
-            ],
-            "type": "i32"
-          },
-          {
-            "name": "maxBinId",
-            "docs": [
-              "Max bin id supported by the pool based on the configured bin step."
-            ],
-            "type": "i32"
           },
           {
             "name": "protocolShare",

@@ -231,8 +231,6 @@ describe("SDK test", () => {
           reductionFactor: 5000,
           variableFeeControl: 40000,
           protocolShare: 0,
-          maxBinId: 43690,
-          minBinId: -43690,
           maxVolatilityAccumulator: 350000,
         })
         .accounts({
@@ -260,8 +258,6 @@ describe("SDK test", () => {
           reductionFactor: 5000,
           variableFeeControl: 40000,
           protocolShare: 0,
-          maxBinId: 43690,
-          minBinId: -43690,
           maxVolatilityAccumulator: 350000,
         })
         .accounts({
@@ -890,13 +886,11 @@ describe("SDK test", () => {
   });
 
   it("fetch all preset parameter", async () => {
-    const { presetParameter, presetParameter2 } =
-      await DLMM.getAllPresetParameters(connection, {
-        cluster: "localhost",
-      });
+    const { presetParameter } = await DLMM.getAllPresetParameters(connection, {
+      cluster: "localhost",
+    });
 
-    const length = presetParameter.length + presetParameter2.length;
-    expect(length).toBeGreaterThan(0);
+    expect(presetParameter.length).toBeGreaterThan(0);
   });
 
   it("create LB pair with bitmap extension", async () => {
