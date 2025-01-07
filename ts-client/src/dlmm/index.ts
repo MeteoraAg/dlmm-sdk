@@ -3749,10 +3749,8 @@ export class DLMM {
       .accounts({
         positionV2,
         positionV3,
-        binArrayLower: lowerBinArray,
-        binArrayUpper: upperBinArray,
+        sender: feePayer,
         lbPair: this.pubkey,
-        owner: positionState.owner,
         systemProgram: SystemProgram.programId,
         rentReceiver: positionState.owner,
       })
