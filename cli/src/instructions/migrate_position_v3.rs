@@ -20,12 +20,6 @@ pub async fn execute_migrate_position_v3<C: Deref<Target = impl Signer> + Clone>
         })
         .await?;
 
-    let lower_bin_array_idx = BinArray::bin_id_to_bin_array_index(position_state.lower_bin_id)?;
-    let (lower_bin_array_key, _bump) =
-        derive_bin_array_pda(position_state.lb_pair, lower_bin_array_idx.into());
-    let (upper_bin_array_key, _bump) =
-        derive_bin_array_pda(position_state.lb_pair, (lower_bin_array_idx + 1).into());
-
     let position_v3_keypair = Keypair::new();
     let (event_authority, _bump) = derive_event_authority_pda();
 
@@ -34,13 +28,11 @@ pub async fn execute_migrate_position_v3<C: Deref<Target = impl Signer> + Clone>
             lb_pair: position_state.lb_pair,
             position_v2: position,
             position_v3: position_v3_keypair.pubkey(),
-            owner: program.payer(),
             system_program: solana_sdk::system_program::ID,
             program: dlmm_interface::ID,
-            bin_array_lower: lower_bin_array_key,
-            bin_array_upper: upper_bin_array_key,
-            rent_receiver: position_state.owner,
             event_authority,
+            sender: program.payer(),
+            rent_receiver: position_state.owner,
         }
         .into();
 
