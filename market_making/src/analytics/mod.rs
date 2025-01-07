@@ -19,3 +19,6 @@ pub use volatility::*;
 pub use order_flow::*;
 pub use prediction::*;
 pub use profit::*;se profit::*;
+
+mod tests;
+pub mod quote_collection;
