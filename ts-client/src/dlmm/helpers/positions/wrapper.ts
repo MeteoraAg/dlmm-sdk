@@ -34,8 +34,8 @@ export interface IPosition {
   version(): PositionVersion;
 }
 
-const POSITION_V3_METADATA_LENGTH = 336;
-const POSITION_BIN_DATA_LENGTH = 112;
+export const POSITION_V3_METADATA_LENGTH = 336;
+export const POSITION_BIN_DATA_LENGTH = 112;
 
 export function wrapPosition(
   program: Program<LbClmm>,
