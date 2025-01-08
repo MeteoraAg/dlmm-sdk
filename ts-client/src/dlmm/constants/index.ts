@@ -27,7 +27,6 @@ export const SCALE = new BN(1).shln(SCALE_OFFSET);
 export const FEE_PRECISION = new BN(1_000_000_000);
 export const MAX_FEE_RATE = new BN(100_000_000);
 export const BIN_ARRAY_FEE = 0.07054656;
-export const POSITION_FEE = 0.0565152;
 
 const CONSTANTS = Object.entries(IDL.constants);
 

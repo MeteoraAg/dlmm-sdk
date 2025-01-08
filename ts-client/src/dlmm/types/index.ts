@@ -215,6 +215,9 @@ export interface BinLiquidity {
   version: number;
   price: string;
   pricePerToken: string;
+  feeAmountXPerTokenStored: BN;
+  feeAmountYPerTokenStored: BN;
+  rewardPerTokenStored: BN[];
 }
 
 export module BinLiquidity {
@@ -237,6 +240,9 @@ export module BinLiquidity {
       pricePerToken: new Decimal(pricePerLamport)
         .mul(new Decimal(10 ** (baseTokenDecimal - quoteTokenDecimal)))
         .toString(),
+      feeAmountXPerTokenStored: bin.feeAmountXPerTokenStored,
+      feeAmountYPerTokenStored: bin.feeAmountYPerTokenStored,
+      rewardPerTokenStored: bin.rewardPerTokenStored,
     };
   }
 
@@ -258,6 +264,9 @@ export module BinLiquidity {
       pricePerToken: new Decimal(pricePerLamport)
         .mul(new Decimal(10 ** (baseTokenDecimal - quoteTokenDecimal)))
         .toString(),
+      feeAmountXPerTokenStored: new BN(0),
+      feeAmountYPerTokenStored: new BN(0),
+      rewardPerTokenStored: [new BN(0), new BN(0)],
     };
   }
 }
@@ -298,6 +307,9 @@ export interface PositionBinData {
   positionLiquidity: string;
   positionXAmount: string;
   positionYAmount: string;
+  positionFeeXAmount: string;
+  positionFeeYAmount: string;
+  positionRewardAmount: string[];
 }
 
 export interface PositionData {
@@ -320,6 +332,7 @@ export interface PositionData {
   rewardTwoExcludeTransferFee: BN;
   totalXAmountExcludeTransferFee: BN;
   totalYAmountExcludeTransferFee: BN;
+  owner: PublicKey;
 }
 
 export interface SwapWithPriceImpactParams {
