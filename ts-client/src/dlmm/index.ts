@@ -27,12 +27,9 @@ import {
   FEE_PRECISION,
   LBCLMM_PROGRAM_IDS,
   MAX_ACTIVE_BIN_SLIPPAGE,
+  MAX_BIN_ARRAY_SIZE,
   MAX_BIN_LENGTH_ALLOWED_IN_ONE_TX,
-  MAX_BIN_PER_TX,
-  MAX_CLAIM_ALL_ALLOWED,
-  MAX_EXTRA_BIN_ARRAYS,
   MAX_FEE_RATE,
-  POSITION_FEE,
   PRECISION,
   SCALE_OFFSET,
 } from "./constants";
@@ -40,7 +37,6 @@ import { DlmmSdkError } from "./error";
 import {
   binIdToBinArrayIndex,
   chunkedGetMultipleAccountInfos,
-  chunks,
   computeFeeFromAmount,
   deriveBinArray,
   deriveBinArrayBitmapExtension,
@@ -89,8 +85,11 @@ import {
   DynamicPosition,
   IPosition,
   PositionV2Wrapper,
+  chunkPositionFeesAndRewards,
   getBinArrayAccountMetasCoverage,
+  getBinArrayIndexBound,
   getBinArrayIndexesCoverage,
+  getPositionRentExemption,
   wrapPosition,
 } from "./helpers/positions";
 import {
@@ -117,7 +116,6 @@ import {
   FeeInfo,
   InitCustomizablePermissionlessPairIx,
   InitPermissionPairIx,
-  LMRewards,
   LbPair,
   LbPairAccount,
   LbPosition,
@@ -136,7 +134,6 @@ import {
   RemainingAccountsInfoSlice,
   ResizeSide,
   SwapExactOutParams,
-  SwapFee,
   SwapParams,
   SwapQuote,
   SwapQuoteExactOut,
@@ -153,6 +150,11 @@ type Opt = {
   cluster?: Cluster | "localhost";
   programId?: PublicKey;
 };
+
+interface MintKeyWithOwner {
+  mint: PublicKey;
+  owner: PublicKey;
+}
 
 export class DLMM {
   constructor(
@@ -242,24 +244,35 @@ export class DLMM {
         return lbPairKey;
       }
 
-      const presetParametersWthIndex =
+      const presetParametersWithIndex =
         await program.account.presetParameter2.all([
           presetParameter2BinStepFilter(binStep),
           presetParameter2BaseFactorFilter(baseFactor),
           presetParameter2BaseFeePowerFactor(baseFeePowerFactor),
         ]);
 
-      if (presetParametersWthIndex.length > 0) {
-        const [lbPairKey] = deriveLbPairWithPresetParamWithIndexKey(
-          presetParametersWthIndex[0].publicKey,
-          tokenX,
-          tokenY,
-          program.programId
+      if (presetParametersWithIndex.length > 0) {
+        const possibleLbPairKeys = presetParametersWithIndex.map((account) => {
+          return deriveLbPairWithPresetParamWithIndexKey(
+            account.publicKey,
+            tokenX,
+            tokenY,
+            program.programId
+          )[0];
+        });
+
+        const accounts = await chunkedGetMultipleAccountInfos(
+          program.provider.connection,
+          possibleLbPairKeys
         );
 
-        const account = await program.account.lbPair.fetchNullable(lbPairKey);
-        if (account) {
-          return lbPairKey;
+        for (let i = 0; i < possibleLbPairKeys.length; i++) {
+          const pairKey = possibleLbPairKeys[i];
+          const account = accounts[i];
+
+          if (account) {
+            return pairKey;
+          }
         }
       }
 
@@ -1398,8 +1411,12 @@ export class DLMM {
       padding: Array(63).fill(0),
     };
 
-    const userTokenX = getAssociatedTokenAddressSync(tokenX, creatorKey);
-    const userTokenY = getAssociatedTokenAddressSync(tokenY, creatorKey);
+    const userTokenX = getAssociatedTokenAddressSync(
+      tokenX,
+      creatorKey,
+      true,
+      tokenXAccount.owner
+    );
 
     return program.methods
       .initializeCustomizablePermissionlessLbPair2(ixData)
@@ -2319,23 +2336,26 @@ export class DLMM {
   public async quoteCreatePosition({ strategy }: TQuoteCreatePositionParams) {
     const { minBinId, maxBinId } = strategy;
 
-    const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(minBinId));
-    const upperBinArrayIndex = BN.max(
-      binIdToBinArrayIndex(new BN(maxBinId)),
-      lowerBinArrayIndex.add(new BN(1))
+    const [lowerBinArrayIndex, upperBinArrayIndex] = getBinArrayIndexBound(
+      new BN(minBinId),
+      new BN(maxBinId)
     );
 
     const binArraysCount = (
       await this.binArraysToBeCreate(lowerBinArrayIndex, upperBinArrayIndex)
     ).length;
-    const positionCount = Math.ceil((maxBinId - minBinId + 1) / MAX_BIN_PER_TX);
 
     const binArrayCost = binArraysCount * BIN_ARRAY_FEE;
-    const positionCost = positionCount * POSITION_FEE;
+    const binCount = maxBinId - minBinId + 1;
+
+    const positionCost = getPositionRentExemption(
+      this.program.provider.connection,
+      new BN(binCount)
+    );
+
     return {
       binArraysCount,
       binArrayCost,
-      positionCount,
       positionCost,
     };
   }
@@ -2525,12 +2545,14 @@ export class DLMM {
       getOrCreateATAInstruction(
         this.program.provider.connection,
         this.tokenX.publicKey,
-        user
+        user,
+        this.tokenX.owner
       ),
       getOrCreateATAInstruction(
         this.program.provider.connection,
         this.tokenY.publicKey,
-        user
+        user,
+        this.tokenY.owner
       ),
     ]);
     createPayerTokenXIx && preInstructions.push(createPayerTokenXIx);
@@ -2602,8 +2624,8 @@ export class DLMM {
       tokenYMint: this.lbPair.tokenYMint,
       binArrayBitmapExtension,
       sender: user,
-      tokenXProgram: TOKEN_PROGRAM_ID,
-      tokenYProgram: TOKEN_PROGRAM_ID,
+      tokenXProgram: this.tokenX.owner,
+      tokenYProgram: this.tokenY.owner,
       memoProgram: MEMO_PROGRAM_ID,
     };
 
@@ -2724,12 +2746,14 @@ export class DLMM {
       getOrCreateATAInstruction(
         this.program.provider.connection,
         this.tokenX.publicKey,
-        user
+        user,
+        this.tokenX.owner
       ),
       getOrCreateATAInstruction(
         this.program.provider.connection,
         this.tokenY.publicKey,
-        user
+        user,
+        this.tokenY.owner
       ),
     ]);
     createPayerTokenXIx && preInstructions.push(createPayerTokenXIx);
@@ -2967,15 +2991,6 @@ export class DLMM {
     const strategyParameters: LiquidityParameterByStrategy["strategyParameters"] =
       toStrategyParameters(strategy) as ProgramStrategyParameter;
 
-    const positionAccount =
-      await this.program.provider.connection.getAccountInfo(positionPubKey);
-
-    const position = wrapPosition(
-      this.program,
-      positionPubKey,
-      positionAccount
-    );
-
     const binArrayIndexes = getBinArrayIndexesCoverage(
       new BN(minBinId),
       new BN(maxBinId)
@@ -3001,14 +3016,17 @@ export class DLMM {
       getOrCreateATAInstruction(
         this.program.provider.connection,
         this.tokenX.publicKey,
-        user
+        user,
+        this.tokenX.owner
       ),
       getOrCreateATAInstruction(
         this.program.provider.connection,
         this.tokenY.publicKey,
-        user
+        user,
+        this.tokenY.owner
       ),
     ]);
+
     createPayerTokenXIx && preInstructions.push(createPayerTokenXIx);
     createPayerTokenYIx && preInstructions.push(createPayerTokenYIx);
 
@@ -3213,12 +3231,14 @@ export class DLMM {
       getOrCreateATAInstruction(
         this.program.provider.connection,
         this.tokenX.publicKey,
-        user
+        user,
+        this.tokenX.owner
       ),
       getOrCreateATAInstruction(
         this.program.provider.connection,
         this.tokenY.publicKey,
-        user
+        user,
+        this.tokenY.owner
       ),
     ]);
     createPayerTokenXIx && preInstructions.push(createPayerTokenXIx);
@@ -3449,24 +3469,28 @@ export class DLMM {
         this.program.provider.connection,
         this.tokenX.publicKey,
         owner,
+        this.tokenX.owner,
         user
       ),
       getOrCreateATAInstruction(
         this.program.provider.connection,
         this.tokenY.publicKey,
         owner,
+        this.tokenY.owner,
         user
       ),
       getOrCreateATAInstruction(
         this.program.provider.connection,
         this.tokenX.publicKey,
         walletToReceiveFee,
+        this.tokenX.owner,
         user
       ),
       getOrCreateATAInstruction(
         this.program.provider.connection,
         this.tokenY.publicKey,
         walletToReceiveFee,
+        this.tokenY.owner,
         user
       ),
     ]);
@@ -3513,7 +3537,8 @@ export class DLMM {
         const { ataPubKey, ix: rewardAtaIx } = await getOrCreateATAInstruction(
           this.program.provider.connection,
           rewardInfo.mint,
-          user
+          user,
+          this.rewards[i].owner
         );
         rewardAtaIx && preInstructions.push(rewardAtaIx);
 
@@ -3661,12 +3686,12 @@ export class DLMM {
    */
 
   public async decreasePositionLength({
-    lengthToAdd: lengthToReduce,
+    lengthToReduce,
     position,
     side,
     feePayer,
   }: {
-    lengthToAdd: BN;
+    lengthToReduce: BN;
     position: PublicKey;
     side: ResizeSide;
     feePayer: PublicKey;
@@ -3725,23 +3750,6 @@ export class DLMM {
   }) {
     const positionState = await this.program.account.positionV2.fetch(
       positionV2
-    );
-
-    const lowerBinArrayIndex = binIdToBinArrayIndex(
-      new BN(positionState.lowerBinId)
-    );
-    const upperBinArrayIndex = lowerBinArrayIndex.add(new BN(1));
-
-    const [lowerBinArray] = deriveBinArray(
-      this.pubkey,
-      lowerBinArrayIndex,
-      this.program.programId
-    );
-
-    const [upperBinArray] = deriveBinArray(
-      this.pubkey,
-      upperBinArrayIndex,
-      this.program.programId
     );
 
     const migratePositionIx = await this.program.methods
@@ -4218,10 +4226,6 @@ export class DLMM {
       .div(new Decimal(outAmountWithoutSlippage.toString()))
       .mul(new Decimal(100));
 
-    const minOutAmount = totalOutAmount
-      .mul(new BN(BASIS_POINT_MAX).sub(allowedSlippage))
-      .div(new BN(BASIS_POINT_MAX));
-
     const endPrice = getPriceOfBinByBinId(
       lastFilledActiveBinId.toNumber(),
       this.lbPair.binStep
@@ -4276,6 +4280,10 @@ export class DLMM {
       this.clock.epoch.toNumber()
     ).amount;
 
+    const minOutAmount = transferFeeExcludedAmountOut
+      .mul(new BN(BASIS_POINT_MAX).sub(allowedSlippage))
+      .div(new BN(BASIS_POINT_MAX));
+
     return {
       consumedInAmount: transferFeeIncludedInAmount,
       outAmount: transferFeeExcludedAmountOut,
@@ -4310,12 +4318,14 @@ export class DLMM {
       getOrCreateATAInstruction(
         this.program.provider.connection,
         inToken,
-        user
+        user,
+        this.tokenX.owner
       ),
       getOrCreateATAInstruction(
         this.program.provider.connection,
         outToken,
-        user
+        user,
+        this.tokenY.owner
       ),
     ]);
     createInTokenAccountIx && preInstructions.push(createInTokenAccountIx);
@@ -4421,12 +4431,14 @@ export class DLMM {
       getOrCreateATAInstruction(
         this.program.provider.connection,
         inToken,
-        user
+        user,
+        this.tokenX.owner
       ),
       getOrCreateATAInstruction(
         this.program.provider.connection,
         outToken,
-        user
+        user,
+        this.tokenY.owner
       ),
     ]);
     createInTokenAccountIx && preInstructions.push(createInTokenAccountIx);
@@ -4533,6 +4545,12 @@ export class DLMM {
     const preInstructions: TransactionInstruction[] = [];
     const postInstructions: Array<TransactionInstruction> = [];
 
+    const [inTokenProgram, outTokenProgram] = inToken.equals(
+      this.lbPair.tokenXMint
+    )
+      ? [this.tokenX.owner, this.tokenY.owner]
+      : [this.tokenY.owner, this.tokenX.owner];
+
     const [
       { ataPubKey: userTokenIn, ix: createInTokenAccountIx },
       { ataPubKey: userTokenOut, ix: createOutTokenAccountIx },
@@ -4540,12 +4558,14 @@ export class DLMM {
       getOrCreateATAInstruction(
         this.program.provider.connection,
         inToken,
-        user
+        user,
+        inTokenProgram
       ),
       getOrCreateATAInstruction(
         this.program.provider.connection,
         outToken,
-        user
+        user,
+        outTokenProgram
       ),
     ]);
     createInTokenAccountIx && preInstructions.push(createInTokenAccountIx);
@@ -4633,30 +4653,87 @@ export class DLMM {
   public async claimLMReward({
     owner,
     position,
+    binRange,
   }: {
     owner: PublicKey;
     position: LbPosition;
-  }): Promise<Transaction> {
-    const claimTransactions = await this.createClaimBuildMethod({
-      owner,
-      position,
-    });
-    if (!claimTransactions.length) return;
+    binRange?: {
+      minBinId: BN;
+      maxBinId: BN;
+    };
+  }): Promise<Transaction[]> {
+    const claimRewardPromises: Promise<Transaction[]>[] = [];
 
-    const instructions = claimTransactions.map((t) => t.instructions).flat();
-    const setCUIx = await getEstimatedComputeUnitIxWithBuffer(
-      this.program.provider.connection,
-      instructions,
-      owner
+    if (binRange) {
+      // 1.a User manual chunk
+      claimRewardPromises.push(
+        this.createClaimBuildMethod({
+          owner,
+          position,
+          binRange,
+        })
+      );
+    } else {
+      // 1.b Auto chunk
+      const { lowerBinId, upperBinId } = position.positionData;
+
+      const chunkedFeesAndRewards = chunkPositionFeesAndRewards(
+        position,
+        lowerBinId,
+        upperBinId
+      );
+
+      // 2. Find only bin range with rewards
+      const chunkedBinRangeWithRewards = chunkedFeesAndRewards.filter(
+        (chunk) =>
+          !chunk.rewardAmounts[0].isZero() || !chunk.rewardAmounts[1].isZero()
+      );
+
+      // 3. Create claim reward tx for each bin range
+      for (const chunk of chunkedBinRangeWithRewards) {
+        claimRewardPromises.push(
+          this.createClaimBuildMethod({
+            owner,
+            position,
+            binRange: {
+              minBinId: new BN(chunk.minBinId),
+              maxBinId: new BN(chunk.maxBinId),
+            },
+          })
+        );
+      }
+    }
+
+    if (!claimRewardPromises.length) return;
+
+    // 4. Combine
+    const claimFeeRewardTxs = (await Promise.all(claimRewardPromises)).flat();
+
+    // 5. Estimate cu, different bin range has different cu
+    const claimFeeRewardTxsIxs = await Promise.all(
+      claimFeeRewardTxs.map(async (t) => {
+        const instructions = t.instructions;
+
+        const setCUIx = await getEstimatedComputeUnitIxWithBuffer(
+          this.program.provider.connection,
+          instructions,
+          owner
+        );
+
+        return [setCUIx, ...instructions];
+      })
     );
 
     const { blockhash, lastValidBlockHeight } =
       await this.program.provider.connection.getLatestBlockhash("confirmed");
-    return new Transaction({
-      blockhash,
-      lastValidBlockHeight,
-      feePayer: owner,
-    }).add(setCUIx, ...claimTransactions);
+
+    return claimFeeRewardTxsIxs.map((instructions) => {
+      return new Transaction({
+        blockhash,
+        lastValidBlockHeight,
+        feePayer: owner,
+      }).add(...instructions);
+    });
   }
 
   /**
@@ -4674,47 +4751,69 @@ export class DLMM {
     owner: PublicKey;
     positions: LbPosition[];
   }): Promise<Transaction[]> {
-    const claimAllTxs = (
-      await Promise.all(
-        positions
-          .filter(
-            ({ positionData: { rewardOne, rewardTwo } }) =>
-              !rewardOne.isZero() || !rewardTwo.isZero()
-          )
-          .map(async (position, idx) => {
-            return await this.createClaimBuildMethod({
-              owner,
-              position,
-              shouldIncludePreIx: idx === 0,
-            });
+    const claimAllPromises: Promise<Transaction[]>[] = [];
+
+    for (const position of positions) {
+      const { lowerBinId, upperBinId } = position.positionData;
+
+      // 1. Chunk position by bin range
+      const chunkedFeesAndRewards = chunkPositionFeesAndRewards(
+        position,
+        lowerBinId,
+        upperBinId
+      );
+
+      // 2. Find only bin range with rewards
+      const chunkedBinRangeWithRewards = chunkedFeesAndRewards.filter(
+        (chunk) =>
+          !chunk.rewardAmounts[0].isZero() || !chunk.rewardAmounts[1].isZero()
+      );
+
+      // 3. Create claim reward tx for each bin range
+      for (const chunk of chunkedBinRangeWithRewards) {
+        claimAllPromises.push(
+          this.createClaimBuildMethod({
+            owner,
+            position,
+            binRange: {
+              minBinId: new BN(chunk.minBinId),
+              maxBinId: new BN(chunk.maxBinId),
+            },
           })
-      )
-    ).flat();
+        );
+      }
+    }
 
-    const chunkedClaimAllTx = chunks(claimAllTxs, MAX_CLAIM_ALL_ALLOWED);
+    if (!claimAllPromises.length) return [];
 
-    if (chunkedClaimAllTx.length === 0) return [];
+    // 4. Combine
+    const claimAllTxs = (await Promise.all(claimAllPromises)).flat();
 
-    const setCUIx = await getEstimatedComputeUnitIxWithBuffer(
-      this.program.provider.connection,
-      // First tx simulation will success because it will create all the ATA. Then, we use the simulated CU as references for the rest
-      chunkedClaimAllTx[0].map((t) => t.instructions).flat(),
-      owner
+    // 5. Estimate cu, different bin range has different cu
+    const claimAllTxIxs = await Promise.all(
+      claimAllTxs.map(async (t) => {
+        const instructions = t.instructions;
+
+        const setCUIx = await getEstimatedComputeUnitIxWithBuffer(
+          this.program.provider.connection,
+          instructions,
+          owner
+        );
+
+        return [setCUIx, ...instructions];
+      })
     );
 
     const { blockhash, lastValidBlockHeight } =
       await this.program.provider.connection.getLatestBlockhash("confirmed");
-    return Promise.all(
-      chunkedClaimAllTx.map(async (claimAllTx) => {
-        return new Transaction({
-          feePayer: owner,
-          blockhash,
-          lastValidBlockHeight,
-        })
-          .add(setCUIx)
-          .add(...claimAllTx);
-      })
-    );
+
+    return claimAllTxIxs.map((instructions) => {
+      return new Transaction({
+        blockhash,
+        lastValidBlockHeight,
+        feePayer: owner,
+      }).add(...instructions);
+    });
   }
 
   public async setActivationPoint(activationPoint: BN) {
@@ -4766,19 +4865,81 @@ export class DLMM {
   public async claimSwapFee({
     owner,
     position,
+    binRange,
   }: {
     owner: PublicKey;
     position: LbPosition;
-  }): Promise<Transaction> {
-    const claimFeeTx = await this.createClaimSwapFeeMethod({ owner, position });
+    binRange?: {
+      minBinId: BN;
+      maxBinId: BN;
+    };
+  }): Promise<Transaction[]> {
+    const claimFeePromises: Promise<Transaction>[] = [];
+
+    if (binRange) {
+      // 1.a User manual chunk
+      claimFeePromises.push(
+        this.createClaimSwapFeeMethod({
+          owner,
+          position,
+          binRange,
+        })
+      );
+    } else {
+      // 1.b Auto chunk position
+      const { lowerBinId, upperBinId } = position.positionData;
+
+      const chunkedFeesAndRewards = chunkPositionFeesAndRewards(
+        position,
+        lowerBinId,
+        upperBinId
+      );
+
+      const chunkedBinRangeWithFees = chunkedFeesAndRewards.filter((c) => {
+        return !c.feeXAmount.isZero() || !c.feeYAmount.isZero();
+      });
+
+      for (const chunk of chunkedBinRangeWithFees) {
+        claimFeePromises.push(
+          this.createClaimSwapFeeMethod({
+            owner,
+            position,
+            binRange: {
+              minBinId: new BN(chunk.minBinId),
+              maxBinId: new BN(chunk.maxBinId),
+            },
+          })
+        );
+      }
+    }
+
+    const claimFeeTxs = await Promise.all(claimFeePromises);
+
+    // 2. Estimate CU for each claim fee tx. Different bin range have different CU.
+    const claimFeeTxsIxs = await Promise.all(
+      claimFeeTxs.map(async (t) => {
+        const instructions = t.instructions;
+
+        const setCUIx = await getEstimatedComputeUnitIxWithBuffer(
+          this.program.provider.connection,
+          instructions,
+          owner
+        );
+
+        return [setCUIx, ...instructions];
+      })
+    );
 
     const { blockhash, lastValidBlockHeight } =
       await this.program.provider.connection.getLatestBlockhash("confirmed");
-    return new Transaction({
-      blockhash,
-      lastValidBlockHeight,
-      feePayer: owner,
-    }).add(claimFeeTx);
+
+    return claimFeeTxsIxs.map((instructions) => {
+      return new Transaction({
+        blockhash,
+        lastValidBlockHeight,
+        feePayer: owner,
+      }).add(...instructions);
+    });
   }
 
   /**
@@ -4795,49 +4956,63 @@ export class DLMM {
     owner: PublicKey;
     positions: LbPosition[];
   }): Promise<Transaction[]> {
-    const claimAllTxs = (
-      await Promise.all(
-        positions
-          .filter(
-            ({ positionData: { feeX, feeY } }) =>
-              !feeX.isZero() || !feeY.isZero()
-          )
-          .map(async (position, idx, positions) => {
-            return await this.createClaimSwapFeeMethod({
-              owner,
-              position,
-              shouldIncludePretIx: idx === 0,
-              shouldIncludePostIx: idx === positions.length - 1,
-            });
+    const claimAllTxsPromises: Promise<Transaction>[] = [];
+
+    for (const position of positions) {
+      const { lowerBinId, upperBinId } = position.positionData;
+      // 1. Chunk each position claim fee by bin range
+      const chunkedBinRangeWithFees = chunkPositionFeesAndRewards(
+        position,
+        lowerBinId,
+        upperBinId
+      ).filter((chunk) => {
+        return !chunk.feeXAmount.isZero() || !chunk.feeYAmount.isZero();
+      });
+
+      // 2. Claim fee instruction for the bin range
+      for (const chunk of chunkedBinRangeWithFees) {
+        claimAllTxsPromises.push(
+          this.createClaimSwapFeeMethod({
+            owner,
+            position,
+            binRange: {
+              minBinId: new BN(chunk.minBinId),
+              maxBinId: new BN(chunk.maxBinId),
+            },
           })
-      )
-    ).flat();
+        );
+      }
+    }
 
-    const chunkedClaimAllTx = chunks(claimAllTxs, MAX_CLAIM_ALL_ALLOWED);
+    const claimAllTxs = await Promise.all(claimAllTxsPromises);
 
-    if (chunkedClaimAllTx.length === 0) return [];
+    if (claimAllTxs.length === 0) return [];
 
-    const setCUIx = await getEstimatedComputeUnitIxWithBuffer(
-      this.program.provider.connection,
-      // First tx simulation will success because it will create all the ATA. Then, we use the simulated CU as references for the rest
-      chunkedClaimAllTx[0].map((t) => t.instructions).flat(),
-      owner
+    // 3. Estimate CU for each claim fee tx. Different bin range have different CU.
+    const claimAllTxsIxs = await Promise.all(
+      claimAllTxs.map(async (tx) => {
+        const instructions = tx.instructions;
+
+        const setCUIx = await getEstimatedComputeUnitIxWithBuffer(
+          this.program.provider.connection,
+          instructions,
+          owner
+        );
+
+        return [setCUIx, ...instructions];
+      })
     );
 
     const { blockhash, lastValidBlockHeight } =
       await this.program.provider.connection.getLatestBlockhash("confirmed");
 
-    return Promise.all(
-      chunkedClaimAllTx.map(async (claimAllTx) => {
-        return new Transaction({
-          feePayer: owner,
-          blockhash,
-          lastValidBlockHeight,
-        })
-          .add(setCUIx)
-          .add(...claimAllTx);
-      })
-    );
+    return claimAllTxsIxs.map((claimAllIx) => {
+      return new Transaction({
+        feePayer: owner,
+        blockhash,
+        lastValidBlockHeight,
+      }).add(...claimAllIx);
+    });
   }
 
   /**
@@ -4855,81 +5030,70 @@ export class DLMM {
     owner: PublicKey;
     position: LbPosition;
   }): Promise<Transaction[]> {
-    const preInstructions: TransactionInstruction[] = [];
+    const { lowerBinId, upperBinId } = position.positionData;
 
-    const pairTokens = [this.tokenX.publicKey, this.tokenY.publicKey];
-    const tokensInvolved = [...pairTokens];
-
-    for (let i = 0; i < 2; i++) {
-      const rewardMint = this.lbPair.rewardInfos[i].mint;
-      if (
-        !tokensInvolved.some((pubkey) => rewardMint.equals(pubkey)) &&
-        !rewardMint.equals(PublicKey.default)
-      ) {
-        tokensInvolved.push(this.lbPair.rewardInfos[i].mint);
-      }
-    }
-
-    const feeOwner = position.positionData.feeOwner.equals(PublicKey.default)
-      ? owner
-      : position.positionData.feeOwner;
-
-    const createATAAccAndIx = await Promise.all(
-      tokensInvolved.map((token) => {
-        // Single position. Swap fee only belongs to owner, or the customized fee owner.
-
-        if (pairTokens.some((t) => t.equals(token))) {
-          return getOrCreateATAInstruction(
-            this.program.provider.connection,
-            token,
-            feeOwner,
-            owner
-          );
-        }
-
-        // Reward
-        return getOrCreateATAInstruction(
-          this.program.provider.connection,
-          token,
-          owner
-        );
-      })
-    );
-    createATAAccAndIx.forEach(({ ix }) => ix && preInstructions.push(ix));
-
-    const claimAllSwapFeeTxs = await this.createClaimSwapFeeMethod({
-      owner,
+    // 1. Chunk each position by bin range
+    const chunkedFeesAndRewards = chunkPositionFeesAndRewards(
       position,
-      shouldIncludePostIx: false,
-      shouldIncludePretIx: false,
-    });
-    const claimAllLMTxs = await this.createClaimBuildMethod({
-      owner,
-      position,
-      shouldIncludePreIx: false,
-    });
-
-    const claimAllTxs = chunks(
-      [claimAllSwapFeeTxs, ...claimAllLMTxs],
-      MAX_CLAIM_ALL_ALLOWED
+      lowerBinId,
+      upperBinId
     );
 
-    const postInstructions: TransactionInstruction[] = [];
-    if (tokensInvolved.some((pubkey) => pubkey.equals(NATIVE_MINT))) {
-      const closeWrappedSOLIx = await unwrapSOLInstruction(owner);
-      closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
+    // 2. Find only bin range with fees
+    const chunkedBinRangeWithFees = chunkedFeesAndRewards.filter(
+      (chunk) => !chunk.feeXAmount.isZero() || !chunk.feeYAmount.isZero()
+    );
+
+    // 3. Find only bin range with rewards
+    const chunkedBinRangeWithRewards = chunkedFeesAndRewards.filter(
+      (chunk) =>
+        !chunk.rewardAmounts[0].isZero() || !chunk.rewardAmounts[1].isZero()
+    );
+
+    const claimAllSwapFeePromises: Promise<Transaction>[] = [];
+    const claimAllLMPromises: Promise<Transaction[]>[] = [];
+
+    // 4. Create claim fee tx for each bin range
+    for (const chunk of chunkedBinRangeWithFees) {
+      claimAllSwapFeePromises.push(
+        this.createClaimSwapFeeMethod({
+          owner,
+          position,
+          binRange: {
+            minBinId: new BN(chunk.minBinId),
+            maxBinId: new BN(chunk.maxBinId),
+          },
+        })
+      );
     }
 
-    const { blockhash, lastValidBlockHeight } =
-      await this.program.provider.connection.getLatestBlockhash("confirmed");
-    return Promise.all(
-      claimAllTxs.map(async (claimAllTx) => {
-        const mainInstructions = claimAllTx.map((t) => t.instructions).flat();
-        const instructions = [
-          ...preInstructions,
-          ...mainInstructions,
-          ...postInstructions,
-        ];
+    // 5. Create claim lm tx for each bin range
+    for (const chunk of chunkedBinRangeWithRewards) {
+      claimAllLMPromises.push(
+        this.createClaimBuildMethod({
+          owner,
+          position,
+          binRange: {
+            minBinId: new BN(chunk.minBinId),
+            maxBinId: new BN(chunk.maxBinId),
+          },
+        })
+      );
+    }
+
+    const claimAllSwapFeeTxs = await Promise.all(claimAllSwapFeePromises);
+    const claimAllLMTxs = (await Promise.all(claimAllLMPromises)).flat();
+
+    // 6. Combine
+    const claimAllTxs: Transaction[] = [
+      ...claimAllSwapFeeTxs,
+      ...claimAllLMTxs,
+    ];
+
+    // 7. Estimate CU for each claim fee / reward tx. Different bin range have different CU.
+    const claimAllTxsIxs = await Promise.all(
+      claimAllTxs.map(async (tx) => {
+        const instructions = tx.instructions;
 
         const setCUIx = await getEstimatedComputeUnitIxWithBuffer(
           this.program.provider.connection,
@@ -4937,19 +5101,20 @@ export class DLMM {
           owner
         );
 
-        const tx = new Transaction({
-          feePayer: owner,
-          blockhash,
-          lastValidBlockHeight,
-        }).add(setCUIx);
-
-        if (preInstructions.length) tx.add(...preInstructions);
-        tx.add(...claimAllTx);
-        if (postInstructions.length) tx.add(...postInstructions);
-
-        return tx;
+        return [setCUIx, ...instructions];
       })
     );
+
+    const { blockhash, lastValidBlockHeight } =
+      await this.program.provider.connection.getLatestBlockhash("confirmed");
+
+    return claimAllTxsIxs.map((claimAllIxs) => {
+      return new Transaction({
+        feePayer: owner,
+        blockhash,
+        lastValidBlockHeight,
+      }).add(...claimAllIxs);
+    });
   }
 
   /**
@@ -4973,17 +5138,26 @@ export class DLMM {
         await this.program.provider.connection.getAccountInfo(binArray);
 
       if (binArrayAccount === null) {
-        ixs.push(
-          await this.program.methods
-            .initializeBinArray(idx)
-            .accounts({
-              binArray,
-              funder,
-              lbPair: this.pubkey,
-            })
-            .instruction()
-        );
+        const initBinArrayIx = await this.program.methods
+          .initializeBinArray(idx)
+          .accounts({
+            binArray,
+            funder,
+            lbPair: this.pubkey,
+          })
+          .instruction();
+        ixs.push(initBinArrayIx);
       }
+    }
+
+    if (ixs.length > 0) {
+      const setCUIx = await getEstimatedComputeUnitIxWithBuffer(
+        this.program.provider.connection,
+        ixs,
+        funder
+      );
+
+      ixs.unshift(setCUIx);
     }
 
     return ixs;
@@ -5032,13 +5206,15 @@ export class DLMM {
     const operatorTokenX = getAssociatedTokenAddressSync(
       this.lbPair.tokenXMint,
       operator,
-      true
+      true,
+      this.tokenX.owner
     );
 
     const ownerTokenX = getAssociatedTokenAddressSync(
       this.lbPair.tokenXMint,
       owner,
-      true
+      true,
+      this.tokenY.owner
     );
 
     const initializePositionByOperatorTx = await this.program.methods
@@ -5083,121 +5259,69 @@ export class DLMM {
     owner: PublicKey;
     positions: LbPosition[];
   }): Promise<Transaction[]> {
-    const preInstructions: TransactionInstruction[] = [];
-    const pairsToken = [this.tokenX.publicKey, this.tokenY.publicKey];
-    const tokensInvolved = [...pairsToken];
-    for (let i = 0; i < 2; i++) {
-      const rewardMint = this.lbPair.rewardInfos[i].mint;
-      if (
-        !tokensInvolved.some((pubkey) => rewardMint.equals(pubkey)) &&
-        !rewardMint.equals(PublicKey.default)
-      ) {
-        tokensInvolved.push(this.lbPair.rewardInfos[i].mint);
+    const claimAllSwapFeePromises: Promise<Transaction>[] = [];
+    const claimAllLMPromises: Promise<Transaction[]>[] = [];
+
+    for (const position of positions) {
+      const { lowerBinId, upperBinId } = position.positionData;
+
+      // 1. Chunk position by bin range
+      const chunkedFeesAndRewards = chunkPositionFeesAndRewards(
+        position,
+        lowerBinId,
+        upperBinId
+      );
+
+      // 2. Filter only bin range with fes
+      const chunkedBinRangeWithFees = chunkedFeesAndRewards.filter(
+        (chunk) => !chunk.feeXAmount.isZero() || !chunk.feeYAmount.isZero()
+      );
+
+      // 3. Filter only bin range with rewards
+      const chunkedBinRangeWithRewards = chunkedFeesAndRewards.filter(
+        (chunk) =>
+          !chunk.rewardAmounts[0].isZero() || !chunk.rewardAmounts[1].isZero()
+      );
+
+      // 4. Create claim swap fee tx for each bin range
+      for (const chunk of chunkedBinRangeWithFees) {
+        claimAllSwapFeePromises.push(
+          this.createClaimSwapFeeMethod({
+            owner,
+            position,
+            binRange: {
+              minBinId: new BN(chunk.minBinId),
+              maxBinId: new BN(chunk.maxBinId),
+            },
+          })
+        );
+      }
+
+      // 5. Create claim lm tx for each bin range
+      for (const chunk of chunkedBinRangeWithRewards) {
+        claimAllLMPromises.push(
+          this.createClaimBuildMethod({
+            owner,
+            position,
+            binRange: {
+              minBinId: new BN(chunk.minBinId),
+              maxBinId: new BN(chunk.maxBinId),
+            },
+          })
+        );
       }
     }
 
-    // Filter only position with fees and/or rewards
-    positions = positions.filter(
-      ({ positionData: { feeX, feeY, rewardOne, rewardTwo } }) =>
-        !feeX.isZero() ||
-        !feeY.isZero() ||
-        !rewardOne.isZero() ||
-        !rewardTwo.isZero()
-    );
+    const claimAllSwapFeeTxs = await Promise.all(claimAllSwapFeePromises);
+    const claimAllLMTxs = (await Promise.all(claimAllLMPromises)).flat();
 
-    const feeOwners = [
-      ...new Set([
-        owner.toBase58(),
-        ...positions
-          .filter((p) => !p.positionData.feeOwner.equals(PublicKey.default))
-          .map((p) => p.positionData.feeOwner.toBase58()),
-      ]),
-    ].map((pk) => new PublicKey(pk));
+    // 6. Combine
+    const claimAllTxs = [...claimAllSwapFeeTxs, ...claimAllLMTxs];
 
-    const createATAAccAndIx = await Promise.all(
-      tokensInvolved
-        .map((token) => {
-          // There's multiple positions, therefore swap fee ATA might includes account from owner, and customized fee owners
-          if (pairsToken.some((p) => p.equals(token))) {
-            return feeOwners.map((customOwner) =>
-              getOrCreateATAInstruction(
-                this.program.provider.connection,
-                token,
-                customOwner,
-                owner
-              )
-            );
-          }
-          //
-          return [
-            getOrCreateATAInstruction(
-              this.program.provider.connection,
-              token,
-              owner
-            ),
-          ];
-        })
-        .flat()
-    );
-
-    createATAAccAndIx.forEach(({ ix }) => ix && preInstructions.push(ix));
-
-    const claimAllSwapFeeTxs = (
-      await Promise.all(
-        positions
-          .filter(
-            ({ positionData: { feeX, feeY } }) =>
-              !feeX.isZero() || !feeY.isZero()
-          )
-          .map(async (position) => {
-            return await this.createClaimSwapFeeMethod({
-              owner,
-              position,
-              shouldIncludePretIx: false,
-              shouldIncludePostIx: false,
-            });
-          })
-      )
-    ).flat();
-
-    const claimAllLMTxs = (
-      await Promise.all(
-        positions
-          .filter(
-            ({ positionData: { rewardOne, rewardTwo } }) =>
-              !rewardOne.isZero() || !rewardTwo.isZero()
-          )
-          .map(async (position) => {
-            return await this.createClaimBuildMethod({
-              owner,
-              position,
-              shouldIncludePreIx: false,
-            });
-          })
-      )
-    ).flat();
-
-    const chunkedClaimAllTx = chunks(
-      [...claimAllSwapFeeTxs, ...claimAllLMTxs],
-      MAX_CLAIM_ALL_ALLOWED
-    );
-
-    const postInstructions: TransactionInstruction[] = [];
-    if (tokensInvolved.some((pubkey) => pubkey.equals(NATIVE_MINT))) {
-      const closeWrappedSOLIx = await unwrapSOLInstruction(owner);
-      closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
-    }
-
-    const { blockhash, lastValidBlockHeight } =
-      await this.program.provider.connection.getLatestBlockhash("confirmed");
-    return Promise.all(
-      chunkedClaimAllTx.map(async (claimAllTx) => {
-        const mainIxs = claimAllTx.map((t) => t.instructions).flat();
-        const instructions = [
-          ...preInstructions,
-          ...mainIxs,
-          ...postInstructions,
-        ];
+    // 7. Estimate CU for each tx, different bin range have different CU
+    const claimAllTxsIxs = await Promise.all(
+      claimAllTxs.map(async (t) => {
+        const instructions = t.instructions;
 
         const setCUIx = await getEstimatedComputeUnitIxWithBuffer(
           this.program.provider.connection,
@@ -5205,19 +5329,20 @@ export class DLMM {
           owner
         );
 
-        const tx = new Transaction({
-          feePayer: owner,
-          blockhash,
-          lastValidBlockHeight,
-        }).add(setCUIx);
-
-        if (preInstructions.length) tx.add(...preInstructions);
-        tx.add(...claimAllTx);
-        if (postInstructions.length) tx.add(...postInstructions);
-
-        return tx;
+        return [setCUIx, ...instructions];
       })
     );
+
+    const { blockhash, lastValidBlockHeight } =
+      await this.program.provider.connection.getLatestBlockhash("confirmed");
+
+    return claimAllTxsIxs.map((instructions) => {
+      return new Transaction({
+        feePayer: owner,
+        blockhash,
+        lastValidBlockHeight,
+      }).add(...instructions);
+    });
   }
 
   public canSyncWithMarketPrice(marketPrice: number, activeBinId: number) {
@@ -5425,238 +5550,6 @@ export class DLMM {
     return program.account.binArray.all([binArrayLbPairFilter(lbPairPubkey)]);
   }
 
-  private static async getClaimableLMReward(
-    program: ClmmProgram,
-    lbPair: LbPair,
-    onChainTimestamp: number,
-    position: IPosition,
-    binArrayMap: Map<String, BinArray>,
-    lbPairKey: PublicKey
-  ): Promise<LMRewards> {
-    const requiredBinArrayKeys = position.getBinArrayKeysCoverage(
-      program.programId
-    );
-
-    const missingBinArrayKeys = [];
-    requiredBinArrayKeys.forEach((key) => {
-      if (!binArrayMap.has(key.toBase58())) {
-        missingBinArrayKeys.push(key);
-      }
-    });
-
-    const backfilledBinArrayMap = new Map<String, BinArray>();
-
-    if (missingBinArrayKeys.length > 0) {
-      const backfilledBinArrays = await program.account.binArray.fetchMultiple(
-        missingBinArrayKeys
-      );
-
-      missingBinArrayKeys.forEach((key, idx) => {
-        if (idx < backfilledBinArrays.length && backfilledBinArrays[idx]) {
-          backfilledBinArrayMap.set(key.toBase58(), backfilledBinArrays[idx]);
-        }
-      });
-    }
-
-    const lowerBinId = position.lowerBinId();
-    const upperBinId = position.upperBinId();
-
-    const lowerBinArrayIdx = binIdToBinArrayIndex(lowerBinId);
-    const upperBinArrayIdx = binIdToBinArrayIndex(upperBinId);
-
-    const liquidityShares = position.liquidityShares();
-    const rewardInfos = position.rewardInfos();
-    const positionVersion = position.version();
-
-    let rewards = [new BN(0), new BN(0)];
-
-    for (
-      let i = lowerBinArrayIdx.toNumber();
-      i <= upperBinArrayIdx.toNumber();
-      i++
-    ) {
-      const [lowerBinArrayBinId] = getBinArrayLowerUpperBinId(new BN(i));
-
-      const binArrayKey = deriveBinArray(
-        lbPairKey,
-        new BN(i),
-        program.programId
-      )[0];
-
-      let binArray = binArrayMap.get(binArrayKey.toBase58());
-      if (!binArray) {
-        binArray = backfilledBinArrayMap.get(binArrayKey.toBase58());
-      }
-      if (!binArray) {
-        continue;
-      }
-
-      binArray.bins.forEach((bin, idx) => {
-        const binId = lowerBinArrayBinId.add(new BN(idx)).toNumber();
-        if (binId >= lowerBinId.toNumber() && binId <= upperBinId.toNumber()) {
-          const binIdxInPosition = binId - lowerBinId.toNumber();
-
-          const positionRewardInfo = rewardInfos[binIdxInPosition];
-          const liquidityShare =
-            positionVersion === PositionVersion.V1
-              ? liquidityShares[binIdxInPosition]
-              : liquidityShares[binIdxInPosition].shrn(64);
-
-          for (let j = 0; j < 2; j++) {
-            const pairRewardInfo = lbPair.rewardInfos[j];
-
-            if (!pairRewardInfo.mint.equals(PublicKey.default)) {
-              let rewardPerTokenStored = bin.rewardPerTokenStored[j];
-
-              if (i == lbPair.activeId && !bin.liquiditySupply.isZero()) {
-                const currentTime = new BN(
-                  Math.min(
-                    onChainTimestamp,
-                    pairRewardInfo.rewardDurationEnd.toNumber()
-                  )
-                );
-
-                const delta = currentTime.sub(pairRewardInfo.lastUpdateTime);
-                const liquiditySupply =
-                  binArray.version == 0
-                    ? bin.liquiditySupply
-                    : bin.liquiditySupply.shrn(64);
-
-                const rewardPerTokenStoredDelta = pairRewardInfo.rewardRate
-                  .mul(delta)
-                  .div(new BN(15))
-                  .div(liquiditySupply);
-
-                rewardPerTokenStored = rewardPerTokenStored.add(
-                  rewardPerTokenStoredDelta
-                );
-              }
-
-              const delta = rewardPerTokenStored.sub(
-                positionRewardInfo.rewardPerTokenCompletes[j]
-              );
-
-              const newReward = mulShr(
-                delta,
-                liquidityShare,
-                SCALE_OFFSET,
-                Rounding.Down
-              );
-
-              rewards[j] = rewards[j]
-                .add(newReward)
-                .add(positionRewardInfo.rewardPendings[j]);
-            }
-          }
-        }
-      });
-    }
-
-    return {
-      rewardOne: rewards[0],
-      rewardTwo: rewards[1],
-    };
-  }
-
-  private static async getClaimableSwapFee(
-    program: ClmmProgram,
-    position: IPosition,
-    binArrayMap: Map<String, BinArray>,
-    lbPairKey: PublicKey
-  ): Promise<SwapFee> {
-    const requiredBinArrayKeys = position.getBinArrayKeysCoverage(
-      program.programId
-    );
-
-    const missingBinArrayKeys = [];
-    requiredBinArrayKeys.forEach((key) => {
-      if (!binArrayMap.has(key.toBase58())) {
-        missingBinArrayKeys.push(key);
-      }
-    });
-
-    const backfilledBinArrayMap = new Map<String, BinArray>();
-
-    if (missingBinArrayKeys.length > 0) {
-      const backfilledBinArrays = await program.account.binArray.fetchMultiple(
-        missingBinArrayKeys
-      );
-
-      missingBinArrayKeys.forEach((key, idx) => {
-        if (idx < backfilledBinArrays.length && backfilledBinArrays[idx]) {
-          backfilledBinArrayMap.set(key.toBase58(), backfilledBinArrays[idx]);
-        }
-      });
-    }
-
-    const lowerBinId = position.lowerBinId();
-    const upperBinId = position.upperBinId();
-
-    const lowerBinArrayIdx = binIdToBinArrayIndex(lowerBinId);
-    const upperBinArrayIdx = binIdToBinArrayIndex(upperBinId);
-
-    const liquidityShares = position.liquidityShares();
-    const feeInfos = position.feeInfos();
-    const positionVersion = position.version();
-
-    let feeX = new BN(0);
-    let feeY = new BN(0);
-
-    for (
-      let i = lowerBinArrayIdx.toNumber();
-      i <= upperBinArrayIdx.toNumber();
-      i++
-    ) {
-      const [lowerBinArrayBinId] = getBinArrayLowerUpperBinId(new BN(i));
-
-      const binArrayKey = deriveBinArray(
-        lbPairKey,
-        new BN(i),
-        program.programId
-      )[0];
-
-      let binArray = binArrayMap.get(binArrayKey.toBase58());
-      if (!binArray) {
-        binArray = backfilledBinArrayMap.get(binArrayKey.toBase58());
-      }
-      if (!binArray) {
-        continue;
-      }
-
-      binArray.bins.forEach((bin, idx) => {
-        const binId = lowerBinArrayBinId.add(new BN(idx)).toNumber();
-        if (binId >= lowerBinId.toNumber() && binId <= upperBinId.toNumber()) {
-          const binIdxInPosition = binId - lowerBinId.toNumber();
-
-          const feeInfo = feeInfos[binIdxInPosition];
-          const liquidityShare =
-            positionVersion === PositionVersion.V1
-              ? liquidityShares[binIdxInPosition]
-              : liquidityShares[binIdxInPosition].shrn(64);
-
-          const newFeeX = mulShr(
-            liquidityShare,
-            bin.feeAmountXPerTokenStored.sub(feeInfo.feeXPerTokenComplete),
-            SCALE_OFFSET,
-            Rounding.Down
-          );
-
-          const newFeeY = mulShr(
-            liquidityShare,
-            bin.feeAmountYPerTokenStored.sub(feeInfo.feeYPerTokenComplete),
-            SCALE_OFFSET,
-            Rounding.Down
-          );
-
-          feeX = feeX.add(newFeeX).add(feeInfo.feeXPending);
-          feeY = feeY.add(newFeeY).add(feeInfo.feeYPending);
-        }
-      });
-    }
-
-    return { feeX, feeY };
-  }
-
   private static async processPosition(
     program: ClmmProgram,
     lbPair: LbPair,
@@ -5674,9 +5567,12 @@ export class DLMM {
 
     const posShares = position.liquidityShares();
     const lastUpdatedAt = position.lastUpdatedAt();
+    const feeInfos = position.feeInfos();
 
     const totalClaimedFeeXAmount = position.totalClaimedFeeXAmount();
     const totalClaimedFeeYAmount = position.totalClaimedFeeYAmount();
+
+    const positionRewardInfos = position.rewardInfos();
 
     const feeOwner = position.feeOwner();
 
@@ -5693,30 +5589,105 @@ export class DLMM {
 
     if (!bins.length) return null;
 
-    /// assertion
-    if (
-      bins[0].binId !== lowerBinId.toNumber() ||
-      bins[bins.length - 1].binId !== upperBinId.toNumber()
-    )
-      throw new Error("Bin ID mismatch");
-
     const positionData: PositionBinData[] = [];
+
     let totalXAmount = new Decimal(0);
     let totalYAmount = new Decimal(0);
 
+    const ZERO = new BN(0);
+
+    let feeX = ZERO;
+    let feeY = ZERO;
+
+    let rewards = [ZERO, ZERO];
+
     bins.forEach((bin, idx) => {
-      const binSupply = new Decimal(bin.supply.toString());
+      const binSupply = bin.supply;
+      const posShare = posShares[idx];
+      const posBinRewardInfo = positionRewardInfos[idx];
 
-      const posShare = new Decimal(posShares[idx].toString());
-      const positionXAmount = binSupply.eq(new Decimal("0"))
-        ? new Decimal("0")
-        : posShare.mul(bin.xAmount.toString()).div(binSupply).floor();
-      const positionYAmount = binSupply.eq(new Decimal("0"))
-        ? new Decimal("0")
-        : posShare.mul(bin.yAmount.toString()).div(binSupply).floor();
+      const positionXAmount = binSupply.eq(ZERO)
+        ? ZERO
+        : posShare.mul(bin.xAmount).div(binSupply);
 
-      totalXAmount = totalXAmount.add(positionXAmount);
-      totalYAmount = totalYAmount.add(positionYAmount);
+      const positionYAmount = binSupply.eq(ZERO)
+        ? ZERO
+        : posShare.mul(bin.yAmount).div(binSupply);
+
+      totalXAmount = totalXAmount.add(new Decimal(positionXAmount.toString()));
+      totalYAmount = totalYAmount.add(new Decimal(positionYAmount.toString()));
+
+      const feeInfo = feeInfos[idx];
+
+      const newFeeX = mulShr(
+        posShares[idx].shrn(SCALE_OFFSET),
+        bin.feeAmountXPerTokenStored.sub(feeInfo.feeXPerTokenComplete),
+        SCALE_OFFSET,
+        Rounding.Down
+      );
+
+      const newFeeY = mulShr(
+        posShares[idx].shrn(SCALE_OFFSET),
+        bin.feeAmountYPerTokenStored.sub(feeInfo.feeYPerTokenComplete),
+        SCALE_OFFSET,
+        Rounding.Down
+      );
+
+      const claimableFeeX = newFeeX.add(feeInfo.feeXPending);
+      const claimableFeeY = newFeeY.add(feeInfo.feeYPending);
+
+      feeX = feeX.add(claimableFeeX);
+      feeY = feeY.add(claimableFeeY);
+
+      const claimableRewardsInBin = [new BN(0), new BN(0)];
+
+      for (let j = 0; j < claimableRewardsInBin.length; j++) {
+        const pairRewardInfo = lbPair.rewardInfos[j];
+
+        if (!pairRewardInfo.mint.equals(PublicKey.default)) {
+          let rewardPerTokenStored = bin.rewardPerTokenStored[j];
+
+          if (bin.binId == lbPair.activeId && !bin.supply.isZero()) {
+            const currentTime = new BN(
+              Math.min(
+                clock.unixTimestamp.toNumber(),
+                pairRewardInfo.rewardDurationEnd.toNumber()
+              )
+            );
+
+            const delta = currentTime.sub(pairRewardInfo.lastUpdateTime);
+            const liquiditySupply = bin.supply.shrn(SCALE_OFFSET);
+
+            const rewardPerTokenStoredDelta = pairRewardInfo.rewardRate
+              .mul(delta)
+              .div(new BN(15))
+              .div(liquiditySupply);
+
+            rewardPerTokenStored = rewardPerTokenStored.add(
+              rewardPerTokenStoredDelta
+            );
+          }
+
+          const delta = rewardPerTokenStored.sub(
+            posBinRewardInfo.rewardPerTokenCompletes[j]
+          );
+
+          const newReward = mulShr(
+            delta,
+            posShares[idx].shrn(SCALE_OFFSET),
+            SCALE_OFFSET,
+            Rounding.Down
+          );
+
+          const claimableReward = newReward.add(
+            posBinRewardInfo.rewardPendings[j]
+          );
+
+          claimableRewardsInBin[j] =
+            claimableRewardsInBin[j].add(claimableReward);
+          rewards[j] = rewards[j].add(claimableReward);
+        }
+      }
 
       positionData.push({
         binId: bin.binId,
@@ -5728,15 +5699,13 @@ export class DLMM {
         positionLiquidity: posShare.toString(),
         positionXAmount: positionXAmount.toString(),
         positionYAmount: positionYAmount.toString(),
+        positionFeeXAmount: claimableFeeX.toString(),
+        positionFeeYAmount: claimableFeeY.toString(),
+        positionRewardAmount: claimableRewardsInBin.map((amount) =>
+          amount.toString()
+        ),
       });
     });
-
-    const { feeX, feeY } = await this.getClaimableSwapFee(
-      program,
-      position,
-      binArrayMap,
-      lbPairKey
-    );
 
     const currentEpoch = clock.epoch.toNumber();
 
@@ -5752,14 +5721,8 @@ export class DLMM {
       currentEpoch
     ).amount;
 
-    const { rewardOne, rewardTwo } = await this.getClaimableLMReward(
-      program,
-      lbPair,
-      clock.unixTimestamp.toNumber(),
-      position,
-      binArrayMap,
-      lbPairKey
-    );
+    const rewardOne = rewards[0];
+    const rewardTwo = rewards[1];
 
     let rewardOneExcludeTransferFee = new BN(0);
     let rewardTwoExcludeTransferFee = new BN(0);
@@ -5812,6 +5775,7 @@ export class DLMM {
       rewardTwoExcludeTransferFee,
       feeXExcludeTransferFee,
       feeYExcludeTransferFee,
+      owner: position.owner(),
     };
   }
 
@@ -5829,6 +5793,7 @@ export class DLMM {
     const upperBinArrayIndex = binIdToBinArrayIndex(new BN(upperBinId));
 
     let bins: BinLiquidity[] = [];
+    const ZERO = new BN(0);
 
     for (
       let binArrayIndex = lowerBinArrayIndex.toNumber();
@@ -5842,27 +5807,46 @@ export class DLMM {
         programId
       )[0];
 
-      const binArray = binArrayMap.get(binArrayKey.toBase58());
-      if (!binArray) {
-        continue;
-      }
-
       const [lowerBinIdForBinArray] =
         getBinArrayLowerUpperBinId(binArrayIndexBN);
 
-      binArray.bins.forEach((bin, idx) => {
-        const binId = lowerBinIdForBinArray.toNumber() + idx;
+      const binArray = binArrayMap.get(binArrayKey.toBase58());
+
+      for (let i = 0; i < MAX_BIN_ARRAY_SIZE.toNumber(); i++) {
+        const binId = lowerBinIdForBinArray.toNumber() + i;
+
         if (binId >= lowerBinId && binId <= upperBinId) {
-          if (binId >= lowerBinId && binId <= upperBinId) {
-            const pricePerLamport = getPriceOfBinByBinId(
+          const pricePerLamport = getPriceOfBinByBinId(
+            binId,
+            lbPair.binStep
+          ).toString();
+
+          if (!binArray) {
+            bins.push({
               binId,
-              lbPair.binStep
-            ).toString();
+              xAmount: ZERO,
+              yAmount: ZERO,
+              supply: ZERO,
+              feeAmountXPerTokenStored: ZERO,
+              feeAmountYPerTokenStored: ZERO,
+              rewardPerTokenStored: [ZERO, ZERO],
+              price: pricePerLamport,
+              version: binArray.version,
+              pricePerToken: new Decimal(pricePerLamport)
+                .mul(new Decimal(10 ** (baseTokenDecimal - quoteTokenDecimal)))
+                .toString(),
+            });
+          } else {
+            const bin = binArray.bins[i];
+
             bins.push({
               binId,
               xAmount: bin.amountX,
               yAmount: bin.amountY,
               supply: bin.liquiditySupply,
+              feeAmountXPerTokenStored: bin.feeAmountXPerTokenStored,
+              feeAmountYPerTokenStored: bin.feeAmountYPerTokenStored,
+              rewardPerTokenStored: bin.rewardPerTokenStored,
               price: pricePerLamport,
               version: binArray.version,
               pricePerToken: new Decimal(pricePerLamport)
@@ -5871,7 +5855,7 @@ export class DLMM {
             });
           }
         }
-      });
+      }
     }
 
     return bins;
@@ -6065,20 +6049,17 @@ export class DLMM {
   private async createClaimBuildMethod({
     owner,
     position,
-    shouldIncludePreIx = true,
     binRange,
   }: {
     owner: PublicKey;
     position: LbPosition;
-    shouldIncludePreIx?: boolean;
-    binRange?: {
+    binRange: {
       minBinId: BN;
       maxBinId: BN;
     };
   }) {
-    const [lowerBinId, upperBinId] = binRange
-      ? [binRange.minBinId.toNumber(), binRange.maxBinId.toNumber()]
-      : [position.positionData.lowerBinId, position.positionData.upperBinId];
+    const lowerBinId = binRange.minBinId.toNumber();
+    const upperBinId = binRange.maxBinId.toNumber();
 
     const binArrayAccountsMeta = getBinArrayAccountMetasCoverage(
       new BN(lowerBinId),
@@ -6096,7 +6077,8 @@ export class DLMM {
       const { ataPubKey, ix } = await getOrCreateATAInstruction(
         this.program.provider.connection,
         rewardInfo.mint,
-        owner
+        owner,
+        this.rewards[i].owner
       );
       ix && preInstructions.push(ix);
 
@@ -6113,13 +6095,13 @@ export class DLMM {
           position: position.publicKey,
           rewardVault: rewardInfo.vault,
           rewardMint: rewardInfo.mint,
-          tokenProgram: TOKEN_PROGRAM_ID,
+          tokenProgram: this.rewards[i].owner,
           userTokenAccount: ataPubKey,
           memoProgram: MEMO_PROGRAM_ID,
         })
         .remainingAccounts(transferHookAccounts)
         .remainingAccounts(binArrayAccountsMeta)
-        .preInstructions(shouldIncludePreIx ? preInstructions : [])
+        .preInstructions(preInstructions)
         .transaction();
       claimTransactions.push(claimTransaction);
     }
@@ -6130,22 +6112,17 @@ export class DLMM {
   private async createClaimSwapFeeMethod({
     owner,
     position,
-    shouldIncludePretIx = true,
-    shouldIncludePostIx = true,
     binRange,
   }: {
     owner: PublicKey;
     position: LbPosition;
-    shouldIncludePretIx?: boolean;
-    shouldIncludePostIx?: boolean;
-    binRange?: {
+    binRange: {
       minBinId: BN;
       maxBinId: BN;
     };
   }) {
-    const [lowerBinId, upperBinId] = binRange
-      ? [binRange.minBinId.toNumber(), binRange.maxBinId.toNumber()]
-      : [position.positionData.lowerBinId, position.positionData.upperBinId];
+    const lowerBinId = binRange.minBinId.toNumber();
+    const upperBinId = binRange.maxBinId.toNumber();
 
     const { feeOwner } = position.positionData;
 
@@ -6169,12 +6146,14 @@ export class DLMM {
         this.program.provider.connection,
         this.tokenX.publicKey,
         walletToReceiveFee,
+        this.tokenX.owner,
         owner
       ),
       getOrCreateATAInstruction(
         this.program.provider.connection,
         this.tokenY.publicKey,
         walletToReceiveFee,
+        this.tokenY.owner,
         owner
       ),
     ]);
@@ -6215,8 +6194,8 @@ export class DLMM {
       })
       .remainingAccounts(transferHookAccounts)
       .remainingAccounts(binArrayAccountsMeta)
-      .preInstructions(shouldIncludePretIx ? preInstructions : [])
-      .postInstructions(shouldIncludePostIx ? postInstructions : [])
+      .preInstructions(preInstructions)
+      .postInstructions(postInstructions)
       .transaction();
 
     return claimFeeTx;
