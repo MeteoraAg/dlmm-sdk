@@ -4,6 +4,7 @@ import {
   TOKEN_PROGRAM_ID,
   TokenAccountNotFoundError,
   TokenInvalidAccountOwnerError,
+  createAssociatedTokenAccountIdempotentInstruction,
   createAssociatedTokenAccountInstruction,
   createCloseAccountInstruction,
   getAccount,
@@ -111,7 +112,7 @@ export const getOrCreateATAInstruction = async (
       e instanceof TokenAccountNotFoundError ||
       e instanceof TokenInvalidAccountOwnerError
     ) {
-      const ix = createAssociatedTokenAccountInstruction(
+      const ix = createAssociatedTokenAccountIdempotentInstruction(
         payer,
         toAccount,
         owner,
