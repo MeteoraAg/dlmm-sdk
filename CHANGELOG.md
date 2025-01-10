@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.3.8] - PR #144
+
+### Fixed
+
+- Fix `getOrCreateATAInstruction` to use `createAssociatedTokenAccountIdempotentInstruction` 
+
 ## @meteora-ag/dlmm [1.3.7] - PR #143
 
 ### Fixed
