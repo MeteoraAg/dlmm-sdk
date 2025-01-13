@@ -78,7 +78,31 @@ export function getBinArrayAccountMetasCoverage(
   );
 }
 
-export function chunkPositionFeesAndRewards(
+export function chunkBinRange(
+  minBinId: number,
+  maxBinId: number
+): { lowerBinId: number; upperBinId: number }[] {
+  const chunkedBinRange = [];
+  let startBinId = minBinId;
+
+  while (startBinId <= maxBinId) {
+    const endBinId = Math.min(
+      startBinId + DEFAULT_BIN_PER_POSITION.toNumber() - 1,
+      maxBinId
+    );
+
+    chunkedBinRange.push({
+      lowerBinId: startBinId,
+      upperBinId: endBinId,
+    });
+
+    startBinId += DEFAULT_BIN_PER_POSITION.toNumber();
+  }
+
+  return chunkedBinRange;
+}
+
+export function chunkPositionBinRange(
   position: LbPosition,
   minBinId: number,
   maxBinId: number
@@ -86,11 +110,15 @@ export function chunkPositionFeesAndRewards(
   const chunkedFeesAndRewards: {
     minBinId: number;
     maxBinId: number;
+    amountX: BN;
+    amountY: BN;
     feeXAmount: BN;
     feeYAmount: BN;
     rewardAmounts: BN[];
   }[] = [];
 
+  let totalAmountX = new BN(0);
+  let totalAmountY = new BN(0);
   let totalFeeXAmount = new BN(0);
   let totalFeeYAmount = new BN(0);
   let totalRewardAmounts = [new BN(0), new BN(0)];
@@ -109,6 +137,8 @@ export function chunkPositionFeesAndRewards(
       totalFeeYAmount = totalFeeYAmount.add(
         new BN(positionBinData.positionFeeYAmount)
       );
+      totalAmountX = totalAmountX.add(new BN(positionBinData.positionXAmount));
+      totalAmountY = totalAmountY.add(new BN(positionBinData.positionYAmount));
 
       for (const [
         index,
@@ -132,10 +162,14 @@ export function chunkPositionFeesAndRewards(
         feeXAmount: totalFeeXAmount,
         feeYAmount: totalFeeYAmount,
         rewardAmounts: totalRewardAmounts,
+        amountX: totalAmountX,
+        amountY: totalAmountY,
       });
 
       totalFeeXAmount = new BN(0);
       totalFeeYAmount = new BN(0);
+      totalAmountX = new BN(0);
+      totalAmountY = new BN(0);
       totalRewardAmounts = [new BN(0), new BN(0)];
 
       count = 0;

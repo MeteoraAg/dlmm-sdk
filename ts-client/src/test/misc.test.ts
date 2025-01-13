@@ -1,11 +1,14 @@
 import { Connection, PublicKey } from "@solana/web3.js";
 import { BN } from "bn.js";
 import { DEFAULT_BIN_PER_POSITION } from "../dlmm/constants";
-import { chunkPositionFeesAndRewards } from "../dlmm/helpers/positions";
+import {
+  chunkBinRange,
+  chunkPositionBinRange,
+} from "../dlmm/helpers/positions";
 import { LbPosition, PositionData, PositionVersion } from "../dlmm/types";
 
 describe("Misc", () => {
-  describe("chunkPositionFeesAndRewards", () => {
+  describe("chunkPositionBinRange", () => {
     const minBinId = -100;
     const maxBinId = 100;
 
@@ -62,7 +65,7 @@ describe("Misc", () => {
     });
 
     test("chunkPositionFeesAndRewards full", async () => {
-      const chunkedFeesAndRewards = chunkPositionFeesAndRewards(
+      const chunkedFeesAndRewards = chunkPositionBinRange(
         position,
         minBinId,
         maxBinId
@@ -94,7 +97,7 @@ describe("Misc", () => {
 
       let prevChunkMaxBinId: number;
 
-      const chunkedFeesAndRewards = chunkPositionFeesAndRewards(
+      const chunkedFeesAndRewards = chunkPositionBinRange(
         position,
         minBinId,
         maxBinId
@@ -116,5 +119,26 @@ describe("Misc", () => {
         prevChunkMaxBinId = chunk.maxBinId;
       }
     });
+  });
+
+  it("chunk bin range", () => {
+    const minBinId = -100;
+    const maxBinId = 100;
+
+    const chunkedBinRange = chunkBinRange(minBinId, maxBinId);
+
+    let lastMaxBinId = null;
+    for (const binRange of chunkedBinRange) {
+      expect(binRange.upperBinId >= binRange.lowerBinId).toBeTruthy();
+      expect(binRange.lowerBinId >= minBinId).toBeTruthy();
+      expect(binRange.upperBinId <= maxBinId).toBeTruthy();
+
+      if (lastMaxBinId) {
+        expect(binRange.lowerBinId).toBe(lastMaxBinId + 1);
+      }
+      lastMaxBinId = binRange.upperBinId;
+    }
+
+    expect(chunkBinRange(maxBinId, minBinId).length).toBe(0);
   });
 });
