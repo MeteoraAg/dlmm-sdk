@@ -3914,6 +3914,67 @@ export type LbClmm = {
         }
       ],
       "args": []
+    },
+    {
+      "name": "updateFeesAndReward2",
+      "accounts": [
+        {
+          "name": "position",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "owner",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "minBinId",
+          "type": "i32"
+        },
+        {
+          "name": "maxBinId",
+          "type": "i32"
+        }
+      ]
+    },
+    {
+      "name": "closePositionIfEmpty",
+      "accounts": [
+        {
+          "name": "position",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "sender",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "rentReceiver",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
     }
   ],
   "accounts": [
@@ -11136,6 +11197,67 @@ export const IDL: LbClmm = {
     },
     {
       "name": "closePosition2",
+      "accounts": [
+        {
+          "name": "position",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "sender",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "rentReceiver",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "updateFeesAndReward2",
+      "accounts": [
+        {
+          "name": "position",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "owner",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "minBinId",
+          "type": "i32"
+        },
+        {
+          "name": "maxBinId",
+          "type": "i32"
+        }
+      ]
+    },
+    {
+      "name": "closePositionIfEmpty",
       "accounts": [
         {
           "name": "position",
