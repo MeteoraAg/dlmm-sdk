@@ -469,3 +469,8 @@ export enum ResizeSide {
   Lower,
   Upper,
 }
+
+export interface BinRange {
+  minBinId: BN;
+  maxBinId: BN;
+}
