@@ -29,7 +29,7 @@ import {
   BIN_ARRAY_FEE,
   DEFAULT_BIN_PER_POSITION,
   FEE_PRECISION,
-  LBCLMM_PROGRAM_IDS,
+  LBCLMM_PROGRAM_IDS as DLMM_PROGRAM_IDS,
   MAX_ACTIVE_BIN_SLIPPAGE,
   MAX_BIN_ARRAY_SIZE,
   MAX_BIN_LENGTH_ALLOWED_IN_ONE_TX,
@@ -157,11 +157,6 @@ type Opt = {
   programId?: PublicKey;
 };
 
-interface MintKeyWithOwner {
-  mint: PublicKey;
-  owner: PublicKey;
-}
-
 export class DLMM {
   constructor(
     public pubkey: PublicKey,
@@ -198,13 +193,24 @@ export class DLMM {
     );
     const program = new Program(
       IDL,
-      opt?.programId ?? LBCLMM_PROGRAM_IDS[opt?.cluster ?? "mainnet-beta"],
+      opt?.programId ?? DLMM_PROGRAM_IDS[opt?.cluster ?? "mainnet-beta"],
       provider
     );
 
     return program.account.lbPair.all();
   }
 
+  /**
+   * Retrieves the public key of a LB pair if it exists.
+   * @param connection The connection to the Solana cluster.
+   * @param tokenX The mint address of token X.
+   * @param tokenY The mint address of token Y.
+   * @param binStep The bin step of the LB pair.
+   * @param baseFactor The base factor of the LB pair.
+   * @param baseFeePowerFactor The base fee power factor of the LB pair. It allow small bin step to have bigger fee rate.
+   * @param opt Optional parameters.
+   * @returns The public key of the LB pair if it exists, or null.
+   */
   public static async getPairPubkeyIfExists(
     connection: Connection,
     tokenX: PublicKey,
@@ -223,7 +229,7 @@ export class DLMM {
     );
     const program = new Program(
       IDL,
-      opt?.programId ?? LBCLMM_PROGRAM_IDS[cluster],
+      opt?.programId ?? DLMM_PROGRAM_IDS[cluster],
       provider
     );
 
@@ -345,7 +351,7 @@ export class DLMM {
     );
     const program = new Program(
       IDL,
-      opt?.programId ?? LBCLMM_PROGRAM_IDS[cluster],
+      opt?.programId ?? DLMM_PROGRAM_IDS[cluster],
       provider
     );
 
@@ -555,7 +561,7 @@ export class DLMM {
     );
     const program = new Program(
       IDL,
-      opt?.programId ?? LBCLMM_PROGRAM_IDS[cluster],
+      opt?.programId ?? DLMM_PROGRAM_IDS[cluster],
       provider
     );
 
@@ -820,6 +826,18 @@ export class DLMM {
     return lbClmmImpl;
   }
 
+  /**
+   * The `getAllPresetParameters` function retrieves all preset parameter accounts
+   * for the given DLMM program.
+   *
+   * @param {Connection} connection - The connection to the Solana cluster.
+   * @param {Opt} [opt] - The optional parameters for the function.
+   *
+   * @returns A promise that resolves to an object containing the preset parameter
+   * accounts, with the following properties:
+   * - `presetParameter`: The preset parameter accounts for the original `PresetParameter` struct.
+   * - `presetParameter2`: The preset parameter accounts for the `PresetParameter2` struct.
+   */
   static async getAllPresetParameters(connection: Connection, opt?: Opt) {
     const provider = new AnchorProvider(
       connection,
@@ -829,7 +847,7 @@ export class DLMM {
 
     const program = new Program(
       IDL,
-      opt?.programId ?? LBCLMM_PROGRAM_IDS[opt?.cluster ?? "mainnet-beta"],
+      opt?.programId ?? DLMM_PROGRAM_IDS[opt?.cluster ?? "mainnet-beta"],
       provider
     );
 
@@ -869,7 +887,7 @@ export class DLMM {
     );
     const program = new Program(
       IDL,
-      opt?.programId ?? LBCLMM_PROGRAM_IDS[cluster],
+      opt?.programId ?? DLMM_PROGRAM_IDS[cluster],
       provider
     );
 
@@ -1083,7 +1101,7 @@ export class DLMM {
         amount: reserveXBalance,
         mint: mintX,
         owner: tokenXProgram,
-        transferHookAccountMetas: [], // No need, only for position processing
+        transferHookAccountMetas: [], // No need, the TokenReserve created just for processing position info, doesn't require any transaction
       };
 
       const tokenY: TokenReserve = {
@@ -1092,7 +1110,7 @@ export class DLMM {
         amount: reserveYBalance,
         mint: mintY,
         owner: tokenYProgram,
-        transferHookAccountMetas: [], // No need, only for position processing
+        transferHookAccountMetas: [], // No need, the TokenReserve created just for processing position info, doesn't require any transaction
       };
 
       const positionData = await DLMM.processPosition(
@@ -1309,7 +1327,7 @@ export class DLMM {
 
     const program = new Program(
       IDL,
-      opt?.programId ?? LBCLMM_PROGRAM_IDS[opt.cluster],
+      opt?.programId ?? DLMM_PROGRAM_IDS[opt.cluster],
       provider
     );
 
@@ -1383,6 +1401,21 @@ export class DLMM {
       .transaction();
   }
 
+  /**
+   * Create a new customizable permissionless pair. Support both token and token 2022.
+   * @param connection A connection to the Solana cluster.
+   * @param binStep The bin step for the pair.
+   * @param tokenX The mint of the first token.
+   * @param tokenY The mint of the second token.
+   * @param activeId The ID of the initial active bin. Represent the starting price.
+   * @param feeBps The fee rate for swaps in the pair, in basis points.
+   * @param activationType The type of activation for the pair.
+   * @param hasAlphaVault Whether the pair has an alpha vault.
+   * @param creatorKey The public key of the creator of the pair.
+   * @param activationPoint The timestamp at which the pair will be activated.
+   * @param opt An options object.
+   * @returns A transaction that creates the pair.
+   */
   public static async createCustomizablePermissionlessLbPair2(
     connection: Connection,
     binStep: BN,
@@ -1404,7 +1437,7 @@ export class DLMM {
     );
     const program = new Program(
       IDL,
-      opt?.programId ?? LBCLMM_PROGRAM_IDS[opt.cluster],
+      opt?.programId ?? DLMM_PROGRAM_IDS[opt.cluster],
       provider
     );
 
@@ -1479,6 +1512,21 @@ export class DLMM {
       .transaction();
   }
 
+  /**
+   * Create a new customizable permissionless pair. Support only token program.
+   * @param connection A connection to the Solana cluster.
+   * @param binStep The bin step for the pair.
+   * @param tokenX The mint of the first token.
+   * @param tokenY The mint of the second token.
+   * @param activeId The ID of the initial active bin. Represent the starting price.
+   * @param feeBps The fee rate for swaps in the pair, in basis points.
+   * @param activationType The type of activation for the pair.
+   * @param hasAlphaVault Whether the pair has an alpha vault.
+   * @param creatorKey The public key of the creator of the pair.
+   * @param activationPoint The timestamp at which the pair will be activated.
+   * @param opt An options object.
+   * @returns A transaction that creates the pair.
+   */
   public static async createCustomizablePermissionlessLbPair(
     connection: Connection,
     binStep: BN,
@@ -1499,7 +1547,7 @@ export class DLMM {
     );
     const program = new Program(
       IDL,
-      opt?.programId ?? LBCLMM_PROGRAM_IDS[opt.cluster],
+      opt?.programId ?? DLMM_PROGRAM_IDS[opt.cluster],
       provider
     );
 
@@ -1561,6 +1609,20 @@ export class DLMM {
       .transaction();
   }
 
+  /**
+   * Create a new liquidity pair. Support only token program.
+   * @param connection A connection to the Solana cluster.
+   * @param funder The public key of the funder of the pair.
+   * @param tokenX The mint of the first token.
+   * @param tokenY The mint of the second token.
+   * @param binStep The bin step for the pair.
+   * @param baseFactor The base factor for the pair.
+   * @param presetParameter The public key of the preset parameter account.
+   * @param activeId The ID of the initial active bin. Represent the starting price.
+   * @param opt An options object.
+   * @returns A transaction that creates the pair.
+   * @throws If the pair already exists.
+   */
   public static async createLbPair(
     connection: Connection,
     funder: PublicKey,
@@ -1579,7 +1641,7 @@ export class DLMM {
     );
     const program = new Program(
       IDL,
-      opt?.programId ?? LBCLMM_PROGRAM_IDS[opt.cluster],
+      opt?.programId ?? DLMM_PROGRAM_IDS[opt.cluster],
       provider
     );
 
@@ -1634,6 +1696,18 @@ export class DLMM {
       .transaction();
   }
 
+  /**
+   * Create a new liquidity pair. Support both token and token2022 program.
+   * @param connection A connection to the Solana cluster.
+   * @param funder The public key of the funder of the pair.
+   * @param tokenX The mint of the first token.
+   * @param tokenY The mint of the second token.
+   * @param presetParameter The public key of the preset parameter account.
+   * @param activeId The ID of the initial active bin. Represent the starting price.
+   * @param opt An options object.
+   * @returns A transaction that creates the pair.
+   * @throws If the pair already exists.
+   */
   public static async createLbPair2(
     connection: Connection,
     funder: PublicKey,
@@ -1650,7 +1724,7 @@ export class DLMM {
     );
     const program = new Program(
       IDL,
-      opt?.programId ?? LBCLMM_PROGRAM_IDS[opt.cluster],
+      opt?.programId ?? DLMM_PROGRAM_IDS[opt.cluster],
       provider
     );
 
@@ -1994,6 +2068,14 @@ export class DLMM {
     return binArrays;
   }
 
+  /**
+   * The function `calculateFeeInfo` calculates the base fee rate percentage and maximum fee rate percentage
+   * given the base factor, bin step, and optional base fee power factor.
+   * @param baseFactor - The base factor of the pair.
+   * @param binStep - The bin step of the pair.
+   * @param baseFeePowerFactor - Optional parameter to allow small bin step to have bigger fee rate. Default to 0.
+   * @returns an object of type `Omit<FeeInfo, "protocolFeePercentage">` with the following properties: baseFeeRatePercentage and maxFeeRatePercentage.
+   */
   public static calculateFeeInfo(
     baseFactor: number | string,
     binStep: number | string,
@@ -2375,6 +2457,14 @@ export class DLMM {
     };
   }
 
+  /**
+   * Quote the cost to create a new position, given a strategy
+   * @param strategy The strategy for creating a new position
+   * @returns An object with the following properties:
+   * - `binArraysCount`: The number of bin arrays that will be created
+   * - `binArrayCost`: The total cost to create the bin arrays
+   * - `positionCost`: The cost of rental for the given position bin range
+   */
   public async quoteCreatePosition({ strategy }: TQuoteCreatePositionParams) {
     const { minBinId, maxBinId } = strategy;
 
@@ -2533,7 +2623,7 @@ export class DLMM {
    *    - `strategy`: The strategy parameters to be used for the liquidity pool (Can use `calculateStrategyParameter` to calculate).
    *    - `user`: The public key of the user account.
    *    - `slippage`: The slippage percentage to be used for the liquidity pool.
-   * @returns {Promise<Transaction>} The function `initializePositionAndAddLiquidityByWeight` returns a `Promise` that
+   * @returns {Promise<Transaction>} The function `initializePositionAndAddLiquidityByStrategy` returns a `Promise` that
    * resolves to either a single `Transaction` object.
    */
   public async initializePositionAndAddLiquidityByStrategy({
@@ -2711,7 +2801,7 @@ export class DLMM {
   }
 
   /**
-   * @deprecated Use `initializePositionAndAddLiquidityByStrategy`
+   * @deprecated Use `initializePositionAndAddLiquidityByStrategy` instead which support both token and token2022.
    * The function `initializePositionAndAddLiquidityByWeight` function is used to initializes a position and adds liquidity
    * @param {TInitializePositionAndAddLiquidityParams}
    *    - `positionPubKey`: The public key of the position account. (usually use `new Keypair()`)
@@ -3167,7 +3257,7 @@ export class DLMM {
   }
 
   /**
-   * @deprecated Do not support dynamic position. Use `addLiquidityByStrategy`
+   * @deprecated Use `addLiquidityByStrategy` instead which support both token and token2022.
    * The `addLiquidityByWeight` function is used to add liquidity to existing position
    * @param {TInitializePositionAndAddLiquidityParams}
    *    - `positionPubKey`: The public key of the position account. (usually use `new Keypair()`)
@@ -4855,8 +4945,8 @@ export class DLMM {
    * @param
    *    - `owner`: The public key of the owner of the position.
    *    - `position`: The public key of the position account.
-   *    - `binRange`: The bin range to claim rewards for.
-   * @returns {Promise<Transaction>}
+   *    - `binRange`: The bin range to claim rewards for. If not provided, the function will claim full range.
+   * @returns {Promise<Transaction[]>} Array of claim LM reward transactions. Can be executed parallell
    */
   public async claimLMReward({
     owner,
@@ -4947,7 +5037,7 @@ export class DLMM {
    * @param
    *    - `owner`: The public key of the owner of the positions.
    *    - `positions`: An array of objects of type `PositionData` that represents the positions to claim rewards from.
-   * @returns {Promise<Transaction[]>}
+   * @returns {Promise<Transaction[]>} Array of claim LM reward and fees transactions. Can be executed parallell
    */
   public async claimAllLMRewards({
     owner,
@@ -5065,8 +5155,8 @@ export class DLMM {
    * @param
    *    - `owner`: The public key of the owner of the position.
    *    - `position`: The public key of the position account.
-   *    - `binRange`: The bin range to claim swap fees for.
-   * @returns {Promise<Transaction>}
+   *    - `binRange`: The bin range to claim swap fees for. If not provided, the function claim swap fees for full range.
+   * @returns {Promise<Transaction[]>} Array of claim swap fee transactions. Can be executed parallell
    */
   public async claimSwapFee({
     owner,
@@ -5150,7 +5240,7 @@ export class DLMM {
    * @param
    *    - `owner`: The public key of the owner of the positions.
    *    - `positions`: An array of objects of type `PositionData` that represents the positions to claim swap fees from.
-   * @returns {Promise<Transaction[]>}
+   * @returns {Promise<Transaction[]>} Array of claim swap fee transactions. Can be executed parallell
    */
   public async claimAllSwapFee({
     owner,
@@ -5224,7 +5314,7 @@ export class DLMM {
    * @param
    *    - `owner`: The public key of the owner of the position.
    *    - `position`: The public key of the position account.
-   * @returns {Promise<Transaction[]>}
+   * @returns {Promise<Transaction[]>} Array of claim reward transactions. Can be executed parallell
    */
   public async claimAllRewardsByPosition({
     owner,
@@ -6043,7 +6133,7 @@ export class DLMM {
    * @param
    *    - `owner`: The public key of the owner of the positions.
    *    - `positions`: An array of objects of type `PositionData` that represents the positions to claim swap fees and LM rewards from.
-   * @returns {Promise<Transaction[]>}
+   * @returns {Promise<Transaction[]>} Array of claim swap fee and LM reward transactions. Can be executed parallell
    */
   public async claimAllRewards({
     owner,
