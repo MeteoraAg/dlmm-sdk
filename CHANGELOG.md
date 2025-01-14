@@ -19,7 +19,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-## @meteora-ag/dlmm [1.3.8] - PR #144
+## @meteora-ag/dlmm [1.3.9] - PR #140
+
+### Changed
+
+#### Breaking
+
+- `getPairPubkeyIfExists` added new `baseFeePowerFactor` parameter
+- `getAllPresetParameters` now return `presetParameter` and `presetParameter2` accounts instead of only `presetParameter`
+- Rename `LBCLMM_PROGRAM_IDS` to `DLMM_PROGRAM_IDS`
+- `createPermissionLbPair` added new `protocolFeeBps` parameter
+- `removeLiquidity`, `binIds` parameter has been replaced by `fromBinId` and `toBinId` which represent the bin range to be removed
+- `calculateFeeInfo` added new optional `baseFeePowerFactor` parameter
+- `claimLMReward` added new optional `binRange` parameter
+- `claimLMReward` now return `Transaction[]` instead of `Transaction`
+- `claimSwapFee` added new optional `binRange` parameter
+- `claimSwapFee` now return `Transaction[]` instead of `Transaction`
+
+### Added
+
+- `createCustomizablePermissionlessLbPair2`, similar as `createCustomizablePermissionlessLbPair` but support token 2022. Currently disabled on program side until next phase.
+- `createLbPair2`, similar as `createLbPair` but support token 2022. Currently disabled on program side until next phase.
+- `decreasePositionLength`. Use to shrink dynamic position.
+- `increasePositionLength`. Use to expand dynamic position.
+- `closePositionIfEmpty`. Will close the position only if it's empty, else do nothing.
+- `migratePositionV3`. Use to migrate position from v2 to v3 a.k.a dynamic position.
+
+### Deprecated
+
+- `initializePositionAndAddLiquidityByWeight`. Use `initializePositionAndAddLiquidityByStrategy` instead which support both token and token 2022 program.
+- `addLiquidityByWeight`. Use `addLiquidityByStrategy` instead which support both token and token2022.
+
+### Removed
+
+- `seedLiquiditySingleBin`. Checkout [meteora-pool-setup](https://github.com/MeteoraAg/meteora-pool-setup/blob/main/src/seed_liquidity_single_bin.ts) repository
+- `seedLiquidity`. Checkout [meteora-pool-setup](https://github.com/MeteoraAg/meteora-pool-setup/blob/main/src/seed_liquidity_lfg.ts) repository
+- `getWithdrawSingleSideAmount`. Unused.
 
 ## cli [0.5.0]
 
