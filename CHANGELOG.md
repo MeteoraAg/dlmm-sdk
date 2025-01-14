@@ -89,11 +89,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## cli [0.5.0]
 
+### Changed
+
 - File structure refactoring
 - Switched all the existing functions to support dynamic position and token 2022
-- Added admin function `initialize_token_badge` to initialize token badge for token 2022
-- Added permissionless function `increase_position_length` to increase dynamic position length
-- Added permissionless function `decrease_position_length` to decrease dynamic position length
+
+### Added
+
+- Admin function `initialize_token_badge` to initialize token badge for token 2022
+- Permissionless function `increase_position_length` to increase dynamic position length
+- Permissionless function `decrease_position_length` to decrease dynamic position length
 
 ## lb_clmm [0.7.0]
 
