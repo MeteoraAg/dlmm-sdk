@@ -13,7 +13,6 @@
     "build": "tsup",
     "start": "npm run build -- --watch",
     "test": "jest 'src/test/(sdk|token_2022|sdk_token2022).test.ts'",
-    "debug": "jest src/test/sdk_token2022.test.ts",
     "unit-test": "jest src/test/calculate_distribution.test.ts",
     "dynamic-position-migration-test": "jest src/test/migrate_to_dynamic_position.test.ts",
     "example": "dotenv -e .env npx ts-node src/example.ts",
