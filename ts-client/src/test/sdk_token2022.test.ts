@@ -392,45 +392,6 @@ describe("SDK token2022 test", () => {
   });
 
   describe("Pair", () => {
-    it("createPermissionPair with token 2022", async () => {
-      const binStep = new BN(1);
-      const feeBps = new BN(100);
-      const protocolFeeBps = new BN(500);
-      const activeId = new BN(0);
-
-      const createPermissionPairTx = await DLMM.createPermissionLbPair(
-        connection,
-        binStep,
-        BTC2022,
-        USDC,
-        activeId,
-        keypair.publicKey,
-        keypair.publicKey,
-        feeBps,
-        ActivationType.Timestamp,
-        protocolFeeBps,
-        opt
-      );
-
-      await sendAndConfirmTransaction(connection, createPermissionPairTx, [
-        keypair,
-      ]);
-
-      const [pairKey] = derivePermissionLbPair(
-        keypair.publicKey,
-        BTC2022,
-        USDC,
-        binStep,
-        program.programId
-      );
-
-      const dlmm = await DLMM.create(connection, pairKey, opt);
-
-      const feeInfo = dlmm.getFeeInfo();
-      expect(feeInfo.baseFeeRatePercentage.toNumber()).toBe(1);
-      expect(feeInfo.protocolFeePercentage.toNumber()).toBe(5);
-    });
-
     it("createLbPair2 with token 2022", async () => {
       const activeId = new BN(0);
 

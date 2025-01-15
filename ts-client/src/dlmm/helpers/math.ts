@@ -79,41 +79,6 @@ export function getQPriceFromId(binId: BN, binStep: BN): BN {
   return pow(base, binId);
 }
 
-export function findSwappableMinMaxBinId(binStep: BN) {
-  const base = 1 + binStep.toNumber() / BASIS_POINT_MAX;
-  const maxQPriceSupported = new Decimal("18446744073709551615");
-  const n = maxQPriceSupported.log(10).div(new Decimal(base).log(10)).floor();
-
-  let minBinId = new BN(n.neg().toString());
-  let maxBinId = new BN(n.toString());
-
-  let minQPrice = new BN(1);
-  let maxQPrice = new BN("340282366920938463463374607431768211455");
-
-  while (true) {
-    const qPrice = getQPriceFromId(minBinId, binStep);
-    if (qPrice.gt(minQPrice) && !qPrice.isZero()) {
-      break;
-    } else {
-      minBinId = minBinId.add(new BN(1));
-    }
-  }
-
-  while (true) {
-    const qPrice = getQPriceFromId(maxBinId, binStep);
-    if (qPrice.lt(maxQPrice) && !qPrice.isZero()) {
-      break;
-    } else {
-      maxBinId = maxBinId.sub(new BN(1));
-    }
-  }
-
-  return {
-    minBinId,
-    maxBinId,
-  };
-}
-
 export function getC(
   amount: BN,
   binStep: number,
