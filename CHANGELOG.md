@@ -34,6 +34,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `calculateFeeInfo` added new optional `baseFeePowerFactor` parameter
+- `claimLMReward` added new optional `binRange` parameter
+- `claimSwapFee` added new optional `binRange` parameter
+
 #### Breaking
 
 - `getPairPubkeyIfExists` added new `baseFeePowerFactor` parameter
@@ -41,10 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Rename `LBCLMM_PROGRAM_IDS` to `DLMM_PROGRAM_IDS`
 - `createPermissionLbPair` added new `protocolFeeBps` parameter
 - `removeLiquidity`, `binIds` parameter has been replaced by `fromBinId` and `toBinId` which represent the bin range to be removed
-- `calculateFeeInfo` added new optional `baseFeePowerFactor` parameter
-- `claimLMReward` added new optional `binRange` parameter
 - `claimLMReward` now return `Transaction[]` instead of `Transaction`
-- `claimSwapFee` added new optional `binRange` parameter
 - `claimSwapFee` now return `Transaction[]` instead of `Transaction`
 
 ### Added
@@ -66,6 +67,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `seedLiquiditySingleBin`. Checkout [meteora-pool-setup](https://github.com/MeteoraAg/meteora-pool-setup/blob/main/src/seed_liquidity_single_bin.ts) repository
 - `seedLiquidity`. Checkout [meteora-pool-setup](https://github.com/MeteoraAg/meteora-pool-setup/blob/main/src/seed_liquidity_lfg.ts) repository
 - `getWithdrawSingleSideAmount`. Unused.
+- `createPermissionLbPair`. Admin-only function.
 
 ## cli [0.5.0]
 
