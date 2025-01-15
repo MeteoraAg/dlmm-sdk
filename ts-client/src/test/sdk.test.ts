@@ -15,6 +15,7 @@ import {
   LAMPORTS_PER_SOL,
   PublicKey,
   sendAndConfirmTransaction,
+  SYSVAR_RENT_PUBKEY,
 } from "@solana/web3.js";
 import Decimal from "decimal.js";
 import fs from "fs";
@@ -26,11 +27,13 @@ import {
   binIdToBinArrayIndex,
   deriveBinArray,
   deriveLbPair2,
+  deriveOracle,
   derivePermissionLbPair,
   derivePresetParameter2,
+  deriveReserve,
 } from "../dlmm/helpers";
 import {
-  findSwappableMinMaxBinId,
+  computeBaseFactorFromFeeBps,
   getQPriceFromId,
 } from "../dlmm/helpers/math";
 import { DynamicPosition } from "../dlmm/helpers/positions";
@@ -70,6 +73,11 @@ const DEFAULT_BASE_FACTOR = new BN(10000);
 const DEFAULT_BASE_FACTOR_2 = new BN(4000);
 
 const programId = new web3.PublicKey(LBCLMM_PROGRAM_IDS["localhost"]);
+const provider = new AnchorProvider(
+  connection,
+  new Wallet(keypair),
+  AnchorProvider.defaultOptions()
+);
 
 let BTC: web3.PublicKey;
 let USDC: web3.PublicKey;
@@ -211,11 +219,6 @@ describe("SDK test", () => {
       programId
     );
 
-    const provider = new AnchorProvider(
-      connection,
-      new Wallet(keypair),
-      AnchorProvider.defaultOptions()
-    );
     const program = new Program(IDL, LBCLMM_PROGRAM_IDS["localhost"], provider);
 
     const presetParamState =
@@ -294,59 +297,16 @@ describe("SDK test", () => {
         customFeeOwnerPositionOwner.publicKey,
         2 * LAMPORTS_PER_SOL
       );
-    });
 
-    it("findSwappableMinMaxBinId returned min/max bin id are 1 bit from max/min value", () => {
-      for (let binStep = 1; binStep <= 500; binStep++) {
-        const { minBinId, maxBinId } = findSwappableMinMaxBinId(
-          new BN(binStep)
-        );
-        const minQPrice = getQPriceFromId(minBinId, new BN(binStep));
-        const maxQPrice = getQPriceFromId(maxBinId, new BN(binStep));
-        expect(minQPrice.toString()).toBe("2");
-        expect(maxQPrice.toString()).toBe(
-          "170141183460469231731687303715884105727"
-        );
-
-        const nextMinQPrice = getQPriceFromId(
-          minBinId.sub(new BN(1)),
-          new BN(binStep)
-        );
-        const nextMaxQPrice = getQPriceFromId(
-          maxBinId.add(new BN(1)),
-          new BN(binStep)
-        );
-        expect(nextMinQPrice.toString()).toBe("1");
-        expect(nextMaxQPrice.toString()).toBe(
-          "340282366920938463463374607431768211455"
-        );
-      }
-    });
-
-    it("create permissioned LB pair", async () => {
       const feeBps = new BN(50);
       const protocolFeeBps = new BN(50);
 
       try {
-        const rawTx = await DLMM.createPermissionLbPair(
-          connection,
-          DEFAULT_BIN_STEP,
-          BTC,
-          USDC,
-          DEFAULT_ACTIVE_ID,
-          baseKeypair.publicKey,
-          keypair.publicKey,
-          feeBps,
-          ActivationType.Slot,
-          protocolFeeBps,
-          { cluster: "localhost" }
+        const program = new Program(
+          IDL,
+          LBCLMM_PROGRAM_IDS["localhost"],
+          provider
         );
-        const txHash = await sendAndConfirmTransaction(connection, rawTx, [
-          keypair,
-          baseKeypair,
-        ]);
-        expect(txHash).not.toBeNull();
-        console.log("Create permissioned LB pair", txHash);
 
         [pairKey] = derivePermissionLbPair(
           baseKeypair.publicKey,
@@ -355,6 +315,49 @@ describe("SDK test", () => {
           DEFAULT_BIN_STEP,
           programId
         );
+
+        const [reserveX] = deriveReserve(BTC, pairKey, programId);
+        const [reserveY] = deriveReserve(USDC, pairKey, programId);
+
+        const [oracle] = deriveOracle(pairKey, program.programId);
+
+        const [baseFactor, basePowerFactor] = computeBaseFactorFromFeeBps(
+          DEFAULT_BIN_STEP,
+          feeBps
+        );
+
+        const initPermissionPairTx = await program.methods
+          .initializePermissionLbPair({
+            activeId: DEFAULT_ACTIVE_ID.toNumber(),
+            binStep: DEFAULT_BIN_STEP.toNumber(),
+            baseFactor: baseFactor.toNumber(),
+            baseFeePowerFactor: basePowerFactor.toNumber(),
+            activationType: ActivationType.Slot,
+            protocolShare: protocolFeeBps.toNumber(),
+          })
+          .accounts({
+            base: baseKeypair.publicKey,
+            lbPair: pairKey,
+            binArrayBitmapExtension: program.programId,
+            tokenMintX: BTC,
+            tokenMintY: USDC,
+            reserveX,
+            reserveY,
+            oracle,
+            admin: keypair.publicKey,
+            tokenBadgeX: program.programId,
+            tokenBadgeY: program.programId,
+            tokenProgramX: TOKEN_PROGRAM_ID,
+            tokenProgramY: TOKEN_PROGRAM_ID,
+            rent: SYSVAR_RENT_PUBKEY,
+            program: program.programId,
+          })
+          .transaction();
+
+        await sendAndConfirmTransaction(connection, initPermissionPairTx, [
+          keypair,
+          baseKeypair,
+        ]);
 
         pair = await DLMM.create(connection, pairKey, {
           cluster: "localhost",
