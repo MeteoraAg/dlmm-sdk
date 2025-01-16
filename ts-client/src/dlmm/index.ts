@@ -2180,7 +2180,7 @@ export class DLMM {
     const binArrayCost = binArraysCount * BIN_ARRAY_FEE;
     const binCount = maxBinId - minBinId + 1;
 
-    const positionCost = getPositionRentExemption(
+    const positionCost = await getPositionRentExemption(
       this.program.provider.connection,
       new BN(binCount)
     );
