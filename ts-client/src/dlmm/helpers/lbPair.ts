@@ -16,6 +16,7 @@ export async function getTokensMintFromPoolAddress(
   poolAddress: string,
   opt?: {
     cluster?: Cluster;
+    programId?: PublicKey;
   }
 ) {
   const provider = new AnchorProvider(
@@ -25,7 +26,7 @@ export async function getTokensMintFromPoolAddress(
   );
   const program = new Program(
     IDL,
-    LBCLMM_PROGRAM_IDS[opt?.cluster ?? "mainnet-beta"],
+    opt.programId ?? LBCLMM_PROGRAM_IDS[opt?.cluster ?? "mainnet-beta"],
     provider
   );
 
