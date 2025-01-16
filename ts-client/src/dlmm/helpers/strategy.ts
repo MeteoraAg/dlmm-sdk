@@ -1,5 +1,5 @@
 import { BN } from "@coral-xyz/anchor";
-import { StrategyType, StrategyParameters } from "../types";
+import { StrategyType, StrategyParameters, Clock } from "../types";
 import {
   autoFillXByWeight,
   autoFillYByWeight,
@@ -7,7 +7,8 @@ import {
   toAmountBidSide,
   toAmountBothSide,
 } from "./weightToAmounts";
-import Decimal from "decimal.js";
+import { Mint } from "@solana/spl-token";
+
 const DEFAULT_MAX_WEIGHT = 2000;
 const DEFAULT_MIN_WEIGHT = 200;
 
@@ -146,6 +147,19 @@ function toWeightBidAsk(
   return distributions;
 }
 
+/**
+ * Given a strategy type, calculate the distribution of liquidity for a deposit.
+ * @param activeId The bin id of the active bin.
+ * @param binStep The step size of each bin.
+ * @param minBinId The min bin id.
+ * @param maxBinId The max bin id.
+ * @param amount The amount of liquidity to deposit.
+ * @param strategyType The strategy type.
+ * @param depositForY Whether the deposit is for Y token.
+ * @param mint The mint info of token. Pass mintY if depositForY is true. Get from DLMM instance.
+ * @param clock The clock info. Get from DLMM instance.
+ * @returns The distribution of liquidity.
+ */
 export function toAmountsOneSideByStrategy(
   activeId: number,
   binStep: number,
@@ -153,7 +167,9 @@ export function toAmountsOneSideByStrategy(
   maxBinId: number,
   amount: BN,
   strategyType: StrategyType,
-  depositForY: boolean
+  depositForY: boolean,
+  mint: Mint,
+  clock: Clock
 ): {
   binId: number;
   amount: BN;
@@ -190,12 +206,28 @@ export function toAmountsOneSideByStrategy(
     }
   }
   if (depositForY) {
-    return toAmountBidSide(activeId, amount, weights);
+    return toAmountBidSide(activeId, amount, weights, mint, clock);
   } else {
-    return toAmountAskSide(activeId, binStep, amount, weights);
+    return toAmountAskSide(activeId, binStep, amount, weights, mint, clock);
   }
 }
 
+/**
+ * Given a strategy type and amounts of X and Y, returns the distribution of liquidity.
+ * @param activeId The bin id of the active bin.
+ * @param binStep The step size of each bin.
+ * @param minBinId The min bin id.
+ * @param maxBinId The max bin id.
+ * @param amountX The amount of X token to deposit.
+ * @param amountY The amount of Y token to deposit.
+ * @param amountXInActiveBin The amount of X token in the active bin.
+ * @param amountYInActiveBin The amount of Y token in the active bin.
+ * @param strategyType The strategy type.
+ * @param mintX The mint info of X token. Get from DLMM instance.
+ * @param mintY The mint info of Y token. Get from DLMM instance.
+ * @param clock The clock info. Get from DLMM instance.
+ * @returns The distribution of liquidity.
+ */
 export function toAmountsBothSideByStrategy(
   activeId: number,
   binStep: number,
@@ -205,7 +237,10 @@ export function toAmountsBothSideByStrategy(
   amountY: BN,
   amountXInActiveBin: BN,
   amountYInActiveBin: BN,
-  strategyType: StrategyType
+  strategyType: StrategyType,
+  mintX: Mint,
+  mintY: Mint,
+  clock: Clock
 ): {
   binId: number;
   amountX: BN;
@@ -228,14 +263,23 @@ export function toAmountsBothSideByStrategy(
           amountY,
           amountXInActiveBin,
           amountYInActiveBin,
-          weights
+          weights,
+          mintX,
+          mintY,
+          clock
         );
       }
       const amountsInBin = [];
       if (!isSingleSideX) {
         if (minBinId <= activeId) {
           const weights = toWeightSpotBalanced(minBinId, activeId);
-          const amounts = toAmountBidSide(activeId, amountY, weights);
+          const amounts = toAmountBidSide(
+            activeId,
+            amountY,
+            weights,
+            mintY,
+            clock
+          );
 
           for (let bin of amounts) {
             amountsInBin.push({
@@ -247,7 +291,14 @@ export function toAmountsBothSideByStrategy(
         }
         if (activeId < maxBinId) {
           const weights = toWeightSpotBalanced(activeId + 1, maxBinId);
-          const amounts = toAmountAskSide(activeId, binStep, amountX, weights);
+          const amounts = toAmountAskSide(
+            activeId,
+            binStep,
+            amountX,
+            weights,
+            mintX,
+            clock
+          );
           for (let bin of amounts) {
             amountsInBin.push({
               binId: bin.binId,
@@ -262,7 +313,9 @@ export function toAmountsBothSideByStrategy(
           const amountsIntoBidSide = toAmountBidSide(
             activeId,
             amountY,
-            weights
+            weights,
+            mintY,
+            clock
           );
           for (let bin of amountsIntoBidSide) {
             amountsInBin.push({
@@ -278,7 +331,9 @@ export function toAmountsBothSideByStrategy(
             activeId,
             binStep,
             amountX,
-            weights
+            weights,
+            mintX,
+            clock
           );
           for (let bin of amountsIntoAskSide) {
             amountsInBin.push({
@@ -302,7 +357,10 @@ export function toAmountsBothSideByStrategy(
           amountY,
           amountXInActiveBin,
           amountYInActiveBin,
-          weights
+          weights,
+          mintX,
+          mintY,
+          clock
         );
       }
       // bid side
@@ -315,14 +373,23 @@ export function toAmountsBothSideByStrategy(
           amountY,
           amountXInActiveBin,
           amountYInActiveBin,
-          weights
+          weights,
+          mintX,
+          mintY,
+          clock
         );
       }
       const amountsInBin = [];
       if (!isSingleSideX) {
         if (minBinId <= activeId) {
           const weights = toWeightAscendingOrder(minBinId, activeId);
-          const amounts = toAmountBidSide(activeId, amountY, weights);
+          const amounts = toAmountBidSide(
+            activeId,
+            amountY,
+            weights,
+            mintY,
+            clock
+          );
 
           for (let bin of amounts) {
             amountsInBin.push({
@@ -334,7 +401,14 @@ export function toAmountsBothSideByStrategy(
         }
         if (activeId < maxBinId) {
           const weights = toWeightDecendingOrder(activeId + 1, maxBinId);
-          const amounts = toAmountAskSide(activeId, binStep, amountX, weights);
+          const amounts = toAmountAskSide(
+            activeId,
+            binStep,
+            amountX,
+            weights,
+            mintX,
+            clock
+          );
           for (let bin of amounts) {
             amountsInBin.push({
               binId: bin.binId,
@@ -349,7 +423,9 @@ export function toAmountsBothSideByStrategy(
           const amountsIntoBidSide = toAmountBidSide(
             activeId,
             amountY,
-            weights
+            weights,
+            mintY,
+            clock
           );
           for (let bin of amountsIntoBidSide) {
             amountsInBin.push({
@@ -365,7 +441,9 @@ export function toAmountsBothSideByStrategy(
             activeId,
             binStep,
             amountX,
-            weights
+            weights,
+            mintX,
+            clock
           );
           for (let bin of amountsIntoAskSide) {
             amountsInBin.push({
@@ -389,7 +467,10 @@ export function toAmountsBothSideByStrategy(
           amountY,
           amountXInActiveBin,
           amountYInActiveBin,
-          weights
+          weights,
+          mintX,
+          mintY,
+          clock
         );
       }
       // bid side
@@ -402,14 +483,23 @@ export function toAmountsBothSideByStrategy(
           amountY,
           amountXInActiveBin,
           amountYInActiveBin,
-          weights
+          weights,
+          mintX,
+          mintY,
+          clock
         );
       }
       const amountsInBin = [];
       if (!isSingleSideX) {
         if (minBinId <= activeId) {
           const weights = toWeightDecendingOrder(minBinId, activeId);
-          const amounts = toAmountBidSide(activeId, amountY, weights);
+          const amounts = toAmountBidSide(
+            activeId,
+            amountY,
+            weights,
+            mintY,
+            clock
+          );
 
           for (let bin of amounts) {
             amountsInBin.push({
@@ -421,7 +511,14 @@ export function toAmountsBothSideByStrategy(
         }
         if (activeId < maxBinId) {
           const weights = toWeightAscendingOrder(activeId + 1, maxBinId);
-          const amounts = toAmountAskSide(activeId, binStep, amountX, weights);
+          const amounts = toAmountAskSide(
+            activeId,
+            binStep,
+            amountX,
+            weights,
+            mintX,
+            clock
+          );
           for (let bin of amounts) {
             amountsInBin.push({
               binId: bin.binId,
@@ -436,7 +533,9 @@ export function toAmountsBothSideByStrategy(
           const amountsIntoBidSide = toAmountBidSide(
             activeId,
             amountY,
-            weights
+            weights,
+            mintY,
+            clock
           );
           for (let bin of amountsIntoBidSide) {
             amountsInBin.push({
@@ -452,7 +551,9 @@ export function toAmountsBothSideByStrategy(
             activeId,
             binStep,
             amountX,
-            weights
+            weights,
+            mintX,
+            clock
           );
           for (let bin of amountsIntoAskSide) {
             amountsInBin.push({
@@ -474,7 +575,10 @@ export function toAmountsBothSideByStrategy(
         amountY,
         amountXInActiveBin,
         amountYInActiveBin,
-        weights
+        weights,
+        mintX,
+        mintY,
+        clock
       );
     }
     case StrategyType.CurveBalanced: {
@@ -486,7 +590,10 @@ export function toAmountsBothSideByStrategy(
         amountY,
         amountXInActiveBin,
         amountYInActiveBin,
-        weights
+        weights,
+        mintX,
+        mintY,
+        clock
       );
     }
     case StrategyType.BidAskBalanced: {
@@ -498,7 +605,10 @@ export function toAmountsBothSideByStrategy(
         amountY,
         amountXInActiveBin,
         amountYInActiveBin,
-        weights
+        weights,
+        mintX,
+        mintY,
+        clock
       );
     }
   }

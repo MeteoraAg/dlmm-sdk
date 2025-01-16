@@ -1,4 +1,4 @@
-name: Lb Clmm SDK
+name: DLMM SDK
 
 on:
   pull_request:
