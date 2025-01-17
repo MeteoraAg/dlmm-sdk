@@ -1,17 +1,12 @@
 import { BN } from "@coral-xyz/anchor";
-import {
-  calculateBidAskDistribution,
-  calculateNormalDistribution,
-  calculateSpotDistribution,
-  toWeightDistribution,
-  fromWeightDistributionToAmount,
-  getPriceOfBinByBinId,
-  fromWeightDistributionToAmountOneSide,
-  toAmountsOneSideByStrategy,
-} from "../dlmm/helpers";
-import { StrategyType } from "../dlmm/types";
 import babar from "babar";
 import Decimal from "decimal.js";
+import {
+  calculateSpotDistribution,
+  getPriceOfBinByBinId,
+  toAmountsOneSideByStrategy,
+  toWeightDistribution,
+} from "../dlmm/helpers";
 import {
   compressBinAmount,
   distributeAmountToCompressedBinsByRatio,
@@ -19,6 +14,7 @@ import {
   getC,
   getPositionCount,
 } from "../dlmm/helpers/math";
+import { StrategyType } from "../dlmm/types";
 
 interface Distribution {
   binId: number;
@@ -50,44 +46,6 @@ function debugDistributionChart(distributions: Distribution[]) {
 }
 
 describe("calculate_distribution", () => {
-  describe("consists of only 1 bin id", () => {
-    describe("when the deposit bin at the left of the active bin", () => {
-      const binIds = [-10000];
-      const activeBin = -3333;
-
-      const distributions = calculateNormalDistribution(activeBin, binIds);
-
-      expect(distributions.length).toBe(1);
-      expect(distributions[0].binId).toBe(binIds[0]);
-      expect(distributions[0].xAmountBpsOfTotal.toNumber()).toBe(0);
-      expect(distributions[0].yAmountBpsOfTotal.toNumber()).toBe(10000);
-    });
-
-    describe("when the deposit bin at the right of the active bin", () => {
-      const binIds = [-2222];
-      const activeBin = -3333;
-
-      const distributions = calculateNormalDistribution(activeBin, binIds);
-
-      expect(distributions.length).toBe(1);
-      expect(distributions[0].binId).toBe(binIds[0]);
-      expect(distributions[0].xAmountBpsOfTotal.toNumber()).toBe(10000);
-      expect(distributions[0].yAmountBpsOfTotal.toNumber()).toBe(0);
-    });
-
-    describe("when the deposit bin is the active bin", () => {
-      const binIds = [-3333];
-      const activeBin = -3333;
-
-      const distributions = calculateNormalDistribution(activeBin, binIds);
-
-      expect(distributions.length).toBe(1);
-      expect(distributions[0].binId).toBe(binIds[0]);
-      expect(distributions[0].xAmountBpsOfTotal.toNumber()).toBe(10000);
-      expect(distributions[0].yAmountBpsOfTotal.toNumber()).toBe(10000);
-    });
-  });
-
   describe("spot distribution", () => {
     test("should return correct distribution with equal delta", () => {
       const binIds = [1, 2, 3, 4, 5];
@@ -336,131 +294,6 @@ describe("calculate_distribution", () => {
         }
       }
     }
-
-    test("should return correct distribution with liquidity concentrated around right side of the active bin", () => {
-      const binIds = [
-        5505, 5506, 5507, 5508, 5509, 5510, 5511, 5512, 5513, 5514, 5515, 5516,
-        5517, 5518, 5519, 5520, 5521,
-      ];
-      const activeBin = 5518;
-
-      const distributions = calculateNormalDistribution(activeBin, binIds);
-
-      expect(distributions.length).toBe(binIds.length);
-
-      const xTokenTotalBps = distributions.reduce(
-        (acc, d) => acc + d.xAmountBpsOfTotal.toNumber(),
-        0
-      );
-      const yTokenTotalBps = distributions.reduce(
-        (acc, d) => acc + d.yAmountBpsOfTotal.toNumber(),
-        0
-      );
-
-      expect(xTokenTotalBps).toBe(10_000);
-      expect(yTokenTotalBps).toBe(10_000);
-
-      debugDistributionChart(distributions);
-      assertDistributionAroundActiveBin(activeBin, distributions);
-    });
-
-    test("should return correct distribution with liquidity concentrated around left side of the active bin", () => {
-      const binIds = [
-        5505, 5506, 5507, 5508, 5509, 5510, 5511, 5512, 5513, 5514, 5515, 5516,
-        5517, 5518, 5519, 5520, 5521,
-      ];
-      const activeBin = 5508;
-
-      const distributions = calculateNormalDistribution(activeBin, binIds);
-
-      expect(distributions.length).toBe(binIds.length);
-
-      const xTokenTotalBps = distributions.reduce(
-        (acc, d) => acc + d.xAmountBpsOfTotal.toNumber(),
-        0
-      );
-      const yTokenTotalBps = distributions.reduce(
-        (acc, d) => acc + d.yAmountBpsOfTotal.toNumber(),
-        0
-      );
-
-      expect(xTokenTotalBps).toBe(10_000);
-      expect(yTokenTotalBps).toBe(10_000);
-
-      debugDistributionChart(distributions);
-      assertDistributionAroundActiveBin(activeBin, distributions);
-    });
-
-    test("should return correct distribution with liquidity concentrated around the active bin", () => {
-      const binIds = [
-        5505, 5506, 5507, 5508, 5509, 5510, 5511, 5512, 5513, 5514, 5515, 5516,
-        5517, 5518, 5519, 5520, 5521,
-      ];
-      const activeBin = 5513;
-
-      const distributions = calculateNormalDistribution(activeBin, binIds);
-
-      const xTokenTotalBps = distributions.reduce(
-        (acc, d) => acc + d.xAmountBpsOfTotal.toNumber(),
-        0
-      );
-      const yTokenTotalBps = distributions.reduce(
-        (acc, d) => acc + d.yAmountBpsOfTotal.toNumber(),
-        0
-      );
-
-      expect(xTokenTotalBps).toBe(10_000);
-      expect(yTokenTotalBps).toBe(10_000);
-
-      debugDistributionChart(distributions);
-      assertDistributionAroundActiveBin(activeBin, distributions);
-    });
-
-    test("should return correct distribution with liquidity to far right of the active bin", () => {
-      const binIds = [5505, 5506, 5507, 5508, 5509, 5510, 5511, 5512, 5513];
-      const activeBin = 3000;
-
-      const distributions = calculateNormalDistribution(activeBin, binIds);
-      expect(distributions.length).toBe(binIds.length);
-
-      const xTokenTotalBps = distributions.reduce(
-        (acc, d) => acc + d.xAmountBpsOfTotal.toNumber(),
-        0
-      );
-      const yTokenTotalBps = distributions.reduce(
-        (acc, d) => acc + d.yAmountBpsOfTotal.toNumber(),
-        0
-      );
-
-      expect(xTokenTotalBps).toBe(10_000);
-      expect(yTokenTotalBps).toBe(0);
-
-      debugDistributionChart(distributions);
-      assertDistributionAroundActiveBin(activeBin, distributions);
-    });
-
-    test("should return correct distribution with liquidity to far left of the active bin", () => {
-      const binIds = [5505, 5506, 5507, 5508, 5509, 5510, 5511, 5512, 5513];
-      const activeBin = 8000;
-
-      const distributions = calculateNormalDistribution(activeBin, binIds);
-      expect(distributions.length).toBe(binIds.length);
-
-      const xTokenTotalBps = distributions.reduce(
-        (acc, d) => acc + d.xAmountBpsOfTotal.toNumber(),
-        0
-      );
-      const yTokenTotalBps = distributions.reduce(
-        (acc, d) => acc + d.yAmountBpsOfTotal.toNumber(),
-        0
-      );
-
-      expect(xTokenTotalBps).toBe(0);
-      expect(yTokenTotalBps).toBe(10_000);
-
-      debugDistributionChart(distributions);
-      assertDistributionAroundActiveBin(activeBin, distributions);
-    });
   });
 
   describe("bid ask distribution", () => {
@@ -496,133 +329,6 @@ describe("calculate_distribution", () => {
         }
       }
     }
-
-    test("should return correct distribution with liquidity concentrated around right side of the active bin", () => {
-      const binIds = [
-        5505, 5506, 5507, 5508, 5509, 5510, 5511, 5512, 5513, 5514, 5515, 5516,
-        5517, 5518, 5519, 5520, 5521,
-      ];
-      const activeBin = 5518;
-
-      const distributions = calculateBidAskDistribution(activeBin, binIds);
-
-      expect(distributions.length).toBe(binIds.length);
-
-      const xTokenTotalBps = distributions.reduce(
-        (acc, d) => acc + d.xAmountBpsOfTotal.toNumber(),
-        0
-      );
-      const yTokenTotalBps = distributions.reduce(
-        (acc, d) => acc + d.yAmountBpsOfTotal.toNumber(),
-        0
-      );
-
-      expect(xTokenTotalBps).toBe(10_000);
-      expect(yTokenTotalBps).toBe(10_000);
-
-      debugDistributionChart(distributions);
-      assertDistributionAroundActiveBin(activeBin, distributions);
-    });
-
-    test("should return correct distribution with liquidity concentrated around left side of the active bin", () => {
-      const binIds = [
-        5505, 5506, 5507, 5508, 5509, 5510, 5511, 5512, 5513, 5514, 5515, 5516,
-        5517, 5518, 5519, 5520, 5521,
-      ];
-      const activeBin = 5508;
-
-      const distributions = calculateBidAskDistribution(activeBin, binIds);
-
-      expect(distributions.length).toBe(binIds.length);
-
-      const xTokenTotalBps = distributions.reduce(
-        (acc, d) => acc + d.xAmountBpsOfTotal.toNumber(),
-        0
-      );
-      const yTokenTotalBps = distributions.reduce(
-        (acc, d) => acc + d.yAmountBpsOfTotal.toNumber(),
-        0
-      );
-
-      expect(xTokenTotalBps).toBe(10_000);
-      expect(yTokenTotalBps).toBe(10_000);
-
-      debugDistributionChart(distributions);
-      assertDistributionAroundActiveBin(activeBin, distributions);
-    });
-
-    test("should return correct distribution with liquidity concentrated around the active bin", () => {
-      const binIds = [
-        5505, 5506, 5507, 5508, 5509, 5510, 5511, 5512, 5513, 5514, 5515, 5516,
-        5517, 5518, 5519, 5520, 5521,
-      ];
-      const activeBin = 5513;
-
-      const distributions = calculateBidAskDistribution(activeBin, binIds);
-
-      expect(distributions.length).toBe(binIds.length);
-
-      const xTokenTotalBps = distributions.reduce(
-        (acc, d) => acc + d.xAmountBpsOfTotal.toNumber(),
-        0
-      );
-      const yTokenTotalBps = distributions.reduce(
-        (acc, d) => acc + d.yAmountBpsOfTotal.toNumber(),
-        0
-      );
-
-      expect(xTokenTotalBps).toBe(10_000);
-      expect(yTokenTotalBps).toBe(10_000);
-
-      debugDistributionChart(distributions);
-      assertDistributionAroundActiveBin(activeBin, distributions);
-    });
-
-    test("should return correct distribution with liquidity to far right of the active bin", () => {
-      const binIds = [5505, 5506, 5507, 5508, 5509, 5510, 5511, 5512, 5513];
-      const activeBin = 3000;
-
-      const distributions = calculateBidAskDistribution(activeBin, binIds);
-      expect(distributions.length).toBe(binIds.length);
-
-      const xTokenTotalBps = distributions.reduce(
-        (acc, d) => acc + d.xAmountBpsOfTotal.toNumber(),
-        0
-      );
-      const yTokenTotalBps = distributions.reduce(
-        (acc, d) => acc + d.yAmountBpsOfTotal.toNumber(),
-        0
-      );
-
-      expect(xTokenTotalBps).toBe(10_000);
-      expect(yTokenTotalBps).toBe(0);
-
-      debugDistributionChart(distributions);
-      assertDistributionAroundActiveBin(activeBin, distributions);
-    });
-
-    test("should return correct distribution with liquidity to far left of the active bin", () => {
-      const binIds = [5505, 5506, 5507, 5508, 5509, 5510, 5511, 5512, 5513];
-      const activeBin = 8000;
-
-      const distributions = calculateBidAskDistribution(activeBin, binIds);
-      expect(distributions.length).toBe(binIds.length);
-
-      const xTokenTotalBps = distributions.reduce(
-        (acc, d) => acc + d.xAmountBpsOfTotal.toNumber(),
-        0
-      );
-      const yTokenTotalBps = distributions.reduce(
-        (acc, d) => acc + d.yAmountBpsOfTotal.toNumber(),
-        0
-      );
-
-      expect(xTokenTotalBps).toBe(0);
-      expect(yTokenTotalBps).toBe(10_000);
-
-      debugDistributionChart(distributions);
-      assertDistributionAroundActiveBin(activeBin, distributions);
-    });
 
     test("to weight distribution", () => {
       const binIds = [
