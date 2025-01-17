@@ -13,15 +13,17 @@ import {
 } from "@solana/spl-token";
 import { SCALE_OFFSET } from "../constants";
 import {
+  AddressLookupTableAccount,
   ComputeBudgetProgram,
   Connection,
   PublicKey,
   SystemProgram,
   TransactionInstruction,
+  TransactionMessage,
+  VersionedTransaction,
 } from "@solana/web3.js";
 import { Bin, ClmmProgram, GetOrCreateATAResponse } from "../types";
 import { Rounding, mulShr, shlDiv } from "./math";
-import { getSimulationComputeUnits } from "@solana-developers/helpers";
 import { MAX_CU_BUFFER, MIN_CU_BUFFER } from "./computeUnit";
 
 export * from "./derive";
@@ -38,11 +40,7 @@ export function chunks<T>(array: T[], size: number): T[][] {
   );
 }
 
-export function range<T>(
-  min: number,
-  max: number,
-  mapfn: (i: number) => T
-) {
+export function range<T>(min: number, max: number, mapfn: (i: number) => T) {
   const length = max - min + 1;
   return Array.from({ length }, (_, i) => mapfn(min + i));
 }
@@ -208,6 +206,43 @@ export async function chunkedGetMultipleAccountInfos(
 
   return accountInfos;
 }
+
+export const getSimulationComputeUnits = async (
+  connection: Connection,
+  instructions: Array<TransactionInstruction>,
+  payer: PublicKey,
+  lookupTables: Array<AddressLookupTableAccount> | []
+): Promise<number | null> => {
+  const testInstructions = [
+    // Set an arbitrarily high number in simulation
+    // so we can be sure the transaction will succeed
+    // and get the real compute units used
+    ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 }),
+    ...instructions,
+  ];
+
+  const testTransaction = new VersionedTransaction(
+    new TransactionMessage({
+      instructions: testInstructions,
+      payerKey: payer,
+      // RecentBlockhash can by any public key during simulation
+      // since 'replaceRecentBlockhash' is set to 'true' below
+      recentBlockhash: PublicKey.default.toString(),
+    }).compileToV0Message(lookupTables)
+  );
+
+  const rpcResponse = await connection.simulateTransaction(testTransaction, {
+    replaceRecentBlockhash: true,
+    sigVerify: false,
+  });
+
+  if (rpcResponse?.value?.err) {
+    const logs = rpcResponse.value.logs?.join("\n  • ") || "No logs available";
+    throw new Error(`Transaction simulation failed:\n  •${logs}`);
+  }
+
+  return rpcResponse.value.unitsConsumed || null;
+};
 
 /**
  * Gets the estimated compute unit usage with a buffer.
