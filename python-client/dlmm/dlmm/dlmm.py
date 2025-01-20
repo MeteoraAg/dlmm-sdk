@@ -608,7 +608,7 @@ class DLMM:
         except requests.exceptions.ConnectionError as e:
             raise HTTPError(f"Error connecting to DLMM: {e}")
     
-    def claim_all_LM_reards(self, owner: Pubkey, positions: List[Position]) -> List[Transaction]:
+    def claim_all_LM_rewards(self, owner: Pubkey, positions: List[Position]) -> List[Transaction]:
         '''
         The function is used to claim all liquidity mining rewards for a given owner and their positions.
 
