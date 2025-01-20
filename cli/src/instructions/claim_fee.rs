@@ -1,4 +1,5 @@
 use super::utils::{get_bin_arrays_for_position, get_or_create_ata};
+use anchor_client::solana_sdk::compute_budget::ComputeBudgetInstruction;
 use anchor_client::solana_sdk::instruction::Instruction;
 use anchor_client::{
     solana_client::rpc_config::RpcSendTransactionConfig, solana_sdk::signer::Signer, Program,
@@ -81,7 +82,11 @@ pub async fn claim_fee<C: Deref<Target = impl Signer> + Clone>(
     };
 
     let ix = instruction::ClaimFee {};
-    let mut builder = program.request().accounts(accounts).args(ix);
+    let mut builder = program
+        .request()
+        .accounts(accounts)
+        .args(ix)
+        .instruction(ComputeBudgetInstruction::set_compute_unit_limit(350_000));
     if let Some(compute_unit_price_ix) = compute_unit_price {
         builder = builder.instruction(compute_unit_price_ix);
     }
