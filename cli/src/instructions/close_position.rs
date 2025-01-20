@@ -6,7 +6,7 @@ use anchor_lang::prelude::Pubkey;
 use anyhow::*;
 use lb_clmm::accounts;
 use lb_clmm::instruction;
-use lb_clmm::state::position::Position;
+use lb_clmm::state::position::PositionV2;
 use lb_clmm::utils::pda::derive_event_authority_pda;
 use std::ops::Deref;
 
@@ -17,7 +17,7 @@ pub async fn close_position<C: Deref<Target = impl Signer> + Clone>(
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
 ) -> Result<()> {
-    let position_state: Position = program.account(position).await?;
+    let position_state: PositionV2 = program.account(position).await?;
     let [bin_array_lower, bin_array_upper] = get_bin_arrays_for_position(program, position).await?;
 
     let (event_authority, _bump) = derive_event_authority_pda();
