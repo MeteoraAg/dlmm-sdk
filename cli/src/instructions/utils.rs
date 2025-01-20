@@ -2,7 +2,7 @@ use anchor_client::solana_sdk::instruction::Instruction;
 use anchor_client::solana_sdk::signer::Signer;
 use anchor_client::Program;
 use lb_clmm::state::bin::BinArray;
-use lb_clmm::state::position::Position;
+use lb_clmm::state::position::PositionV2;
 use lb_clmm::utils::pda::derive_bin_array_pda;
 use spl_associated_token_account::instruction::create_associated_token_account;
 use std::ops::Deref;
@@ -52,7 +52,7 @@ pub async fn get_bin_arrays_for_position<C: Deref<Target = impl Signer> + Clone>
     program: &Program<C>,
     position_address: Pubkey,
 ) -> Result<[Pubkey; 2]> {
-    let position: Position = program.account(position_address).await?;
+    let position: PositionV2 = program.account(position_address).await?;
 
     let lower_bin_array_idx = BinArray::bin_id_to_bin_array_index(position.lower_bin_id)?;
     let upper_bin_array_idx = lower_bin_array_idx.checked_add(1).context("MathOverflow")?;
