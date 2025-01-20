@@ -2,6 +2,7 @@ use crate::instructions::utils::get_or_create_ata;
 use crate::swap;
 use crate::SwapExactInParameters;
 use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
+use anchor_client::solana_sdk::instruction::Instruction;
 use anchor_client::{solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, Program};
 use anchor_spl::token::Mint;
 use anyhow::*;
@@ -21,6 +22,7 @@ pub async fn simulate_swap_demand<C: Deref<Target = impl Signer> + Clone>(
     params: SimulateSwapDemandParameters,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
+    compute_unit_price: Option<Instruction>,
 ) -> Result<()> {
     let SimulateSwapDemandParameters {
         lb_pair,
@@ -38,6 +40,7 @@ pub async fn simulate_swap_demand<C: Deref<Target = impl Signer> + Clone>(
         transaction_config,
         lb_pair_state.token_x_mint,
         program.payer(),
+        compute_unit_price.clone(),
     )
     .await?;
     get_or_create_ata(
@@ -45,6 +48,7 @@ pub async fn simulate_swap_demand<C: Deref<Target = impl Signer> + Clone>(
         transaction_config,
         lb_pair_state.token_y_mint,
         program.payer(),
+        compute_unit_price.clone(),
     )
     .await?;
 

@@ -1,5 +1,6 @@
 use crate::instructions::utils::get_or_create_ata;
 use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
+use anchor_client::solana_sdk::instruction::Instruction;
 use anchor_client::{solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, Program};
 use anyhow::*;
 use lb_clmm::accounts;
@@ -20,6 +21,7 @@ pub async fn fund_reward<C: Deref<Target = impl Signer> + Clone>(
     params: FundRewardParams,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
+    compute_unit_price: Option<Instruction>,
 ) -> Result<()> {
     let FundRewardParams {
         lb_pair,
@@ -35,8 +37,14 @@ pub async fn fund_reward<C: Deref<Target = impl Signer> + Clone>(
     let reward_info = lb_pair_state.reward_infos[reward_index as usize];
     let reward_mint = reward_info.mint;
 
-    let funder_token_account =
-        get_or_create_ata(program, transaction_config, reward_mint, program.payer()).await?;
+    let funder_token_account = get_or_create_ata(
+        program,
+        transaction_config,
+        reward_mint,
+        program.payer(),
+        compute_unit_price.clone(),
+    )
+    .await?;
 
     let active_bin_array_idx = BinArray::bin_id_to_bin_array_index(lb_pair_state.active_id)?;
     let (bin_array, _bump) = derive_bin_array_pda(lb_pair, active_bin_array_idx as i64);

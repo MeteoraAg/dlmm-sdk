@@ -24,6 +24,6 @@ base_position_key="[Address of deployer.json]"
 priority_fee_microlamport=100000
 
 # Seed liquidity
-../target/debug/cli seed-liquidity-single-bin-by-operator --lb-pair $pair --base-position-path $base_position_path --base-pubkey $base_position_key --amount $amount \
+./target/debug/cli seed-liquidity-single-bin-by-operator --lb-pair $pair --base-position-path $base_position_path --base-pubkey $base_position_key --amount $amount \
  --price $price --position-owner $position_owner --fee-owner $fee_owner --lock-release-point $lock_release_point --selective-rounding $price_rounding\
  --provider.cluster $cluster --provider.wallet $operator_kp_path --priority-fee $priority_fee_microlamport

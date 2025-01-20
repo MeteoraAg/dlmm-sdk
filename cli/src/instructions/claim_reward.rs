@@ -1,5 +1,6 @@
 use crate::instructions::utils::{get_bin_arrays_for_position, get_or_create_ata};
 use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
+use anchor_client::solana_sdk::instruction::Instruction;
 use anchor_client::{solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, Program};
 use anyhow::*;
 use lb_clmm::accounts;
@@ -19,6 +20,7 @@ pub async fn claim_reward<C: Deref<Target = impl Signer> + Clone>(
     params: ClaimRewardParams,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
+    compute_unit_price: Option<Instruction>,
 ) -> Result<()> {
     let ClaimRewardParams {
         lb_pair,
@@ -31,8 +33,14 @@ pub async fn claim_reward<C: Deref<Target = impl Signer> + Clone>(
     let reward_info = lb_pair_state.reward_infos[reward_index as usize];
     let reward_mint = reward_info.mint;
 
-    let user_token_account =
-        get_or_create_ata(program, transaction_config, reward_mint, program.payer()).await?;
+    let user_token_account = get_or_create_ata(
+        program,
+        transaction_config,
+        reward_mint,
+        program.payer(),
+        compute_unit_price.clone(),
+    )
+    .await?;
 
     let [bin_array_lower, bin_array_upper] = get_bin_arrays_for_position(program, position).await?;
 

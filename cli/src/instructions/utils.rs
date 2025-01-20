@@ -1,3 +1,4 @@
+use anchor_client::solana_sdk::instruction::Instruction;
 use anchor_client::solana_sdk::signer::Signer;
 use anchor_client::Program;
 use lb_clmm::state::bin::BinArray;
@@ -17,6 +18,7 @@ pub async fn get_or_create_ata<C: Deref<Target = impl Signer> + Clone>(
     transaction_config: RpcSendTransactionConfig,
     token_mint: Pubkey,
     wallet_address: Pubkey,
+    compute_unit_price: Option<Instruction>,
 ) -> Result<Pubkey> {
     let user_ata = get_associated_token_address(&wallet_address, &token_mint);
 
@@ -26,7 +28,7 @@ pub async fn get_or_create_ata<C: Deref<Target = impl Signer> + Clone>(
     match user_ata_exists {
         true => Ok(user_ata),
         false => {
-            let builder = program
+            let mut builder = program
                 .request()
                 .instruction(create_associated_token_account(
                     &program.payer(),
@@ -34,6 +36,9 @@ pub async fn get_or_create_ata<C: Deref<Target = impl Signer> + Clone>(
                     &token_mint,
                     &spl_token::ID,
                 ));
+            if let Some(compute_unit_price) = compute_unit_price {
+                builder = builder.instruction(compute_unit_price);
+            }
 
             builder
                 .send_with_spinner_and_config(transaction_config)

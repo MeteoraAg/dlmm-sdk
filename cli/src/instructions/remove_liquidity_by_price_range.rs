@@ -31,6 +31,7 @@ pub async fn remove_liquidity_by_price_range<C: Deref<Target = impl Signer> + Cl
     params: RemoveLiquidityByPriceRangeParameters,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
+    compute_unit_price: Option<Instruction>,
 ) -> Result<()> {
     let RemoveLiquidityByPriceRangeParameters {
         lb_pair,
@@ -92,6 +93,7 @@ pub async fn remove_liquidity_by_price_range<C: Deref<Target = impl Signer> + Cl
                     transaction_config,
                     lb_pair_state.token_x_mint,
                     program.payer(),
+                    compute_unit_price.clone(),
                 )
                 .await?;
 
@@ -100,6 +102,7 @@ pub async fn remove_liquidity_by_price_range<C: Deref<Target = impl Signer> + Cl
                     transaction_config,
                     lb_pair_state.token_y_mint,
                     program.payer(),
+                    compute_unit_price.clone(),
                 )
                 .await?;
                 let (event_authority, _bump) = derive_event_authority_pda();

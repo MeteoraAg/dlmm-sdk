@@ -3,6 +3,7 @@ use std::ops::Deref;
 use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
 
 use anchor_client::solana_sdk::compute_budget::ComputeBudgetInstruction;
+use anchor_client::solana_sdk::instruction::Instruction;
 use anchor_client::{solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, Program};
 
 use anyhow::*;
@@ -25,6 +26,7 @@ pub async fn remove_liquidity<C: Deref<Target = impl Signer> + Clone>(
     params: RemoveLiquidityParameters,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
+    compute_unit_price: Option<Instruction>,
 ) -> Result<()> {
     let RemoveLiquidityParameters {
         lb_pair,
@@ -41,6 +43,7 @@ pub async fn remove_liquidity<C: Deref<Target = impl Signer> + Clone>(
         transaction_config,
         lb_pair_state.token_x_mint,
         program.payer(),
+        compute_unit_price.clone(),
     )
     .await?;
 
@@ -49,6 +52,7 @@ pub async fn remove_liquidity<C: Deref<Target = impl Signer> + Clone>(
         transaction_config,
         lb_pair_state.token_y_mint,
         program.payer(),
+        compute_unit_price.clone(),
     )
     .await?;
 
