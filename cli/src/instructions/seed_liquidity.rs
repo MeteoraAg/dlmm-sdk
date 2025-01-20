@@ -518,6 +518,7 @@ pub async fn seed_liquidity<C: Deref<Target = impl Signer> + Clone>(
         transaction_config,
         lb_pair_state.token_x_mint,
         program.payer(),
+        compute_unit_price.clone(),
     )
     .await?;
 
@@ -526,6 +527,7 @@ pub async fn seed_liquidity<C: Deref<Target = impl Signer> + Clone>(
         transaction_config,
         lb_pair_state.token_y_mint,
         program.payer(),
+        compute_unit_price.clone(),
     )
     .await?;
 

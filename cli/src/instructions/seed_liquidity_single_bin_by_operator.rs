@@ -101,6 +101,7 @@ pub async fn seed_liquidity_single_bin_by_operator<C: Deref<Target = impl Signer
         transaction_config,
         lb_pair_state.token_x_mint,
         program.payer(),
+        compute_unit_price.clone(),
     )
     .await?;
 
@@ -109,6 +110,7 @@ pub async fn seed_liquidity_single_bin_by_operator<C: Deref<Target = impl Signer
         transaction_config,
         lb_pair_state.token_y_mint,
         program.payer(),
+        compute_unit_price.clone(),
     )
     .await?;
 

@@ -400,6 +400,15 @@ pub enum Command {
         selective_rounding: SelectiveRounding,
     },
 
+    GetAllPositionsForAnOwner {
+        /// Address of the pair
+        #[clap(long)]
+        lb_pair: Pubkey,
+        /// owner of position
+        #[clap(long)]
+        owner: Pubkey,
+    },
+
     #[clap(flatten)]
     Admin(AdminCommand),
 }

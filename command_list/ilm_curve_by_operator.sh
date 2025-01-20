@@ -27,6 +27,6 @@ priority_fee_microlamport=100000
 max_retries=1000
 
 # Seed liquidity
-../target/debug/cli seed-liquidity-by-operator --lb-pair $pair --base-position-path $base_position_path --base-pubkey $base_position_key --amount $amount \
+./target/debug/cli seed-liquidity-by-operator --lb-pair $pair --base-position-path $base_position_path --base-pubkey $base_position_key --amount $amount \
  --min-price $min_price --max-price $max_price --curvature $curvature --position-owner $position_owner --fee-owner $fee_owner --lock-release-point $lock_release_point\
  --max-retries $max_retries --provider.cluster $cluster --provider.wallet $operator_kp_path --priority-fee $priority_fee_microlamport

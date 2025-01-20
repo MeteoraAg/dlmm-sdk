@@ -22,6 +22,6 @@ priority_fee_microlamport=100000
 
 
 # Seed liquidity
-../target/debug/cli seed-liquidity-single-bin --lb-pair $pair --base-position-path $base_position_path --base-pubkey $base_position_key --amount $amount \
+./target/debug/cli seed-liquidity-single-bin --lb-pair $pair --base-position-path $base_position_path --base-pubkey $base_position_key --amount $amount \
  --price $price --selective-rounding $price_rounding --position-owner-path $position_owner_path \
  --provider.cluster $cluster --provider.wallet $position_owner_path --priority-fee $priority_fee_microlamport

@@ -5,6 +5,7 @@ pub mod claim_reward;
 pub mod close_position;
 pub mod close_preset_parameter;
 pub mod fund_reward;
+pub mod get_all_positions;
 pub mod increase_length;
 pub mod initialize_bin_array;
 pub mod initialize_bin_array_with_bin_range;
