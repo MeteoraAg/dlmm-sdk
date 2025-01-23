@@ -123,9 +123,6 @@ export enum PairType {
 }
 
 export const Strategy = {
-  SpotOneSide: { spotOneSide: {} },
-  CurveOneSide: { curveOneSide: {} },
-  BidAskOneSide: { bidAskOneSide: {} },
   SpotBalanced: { spotBalanced: {} },
   CurveBalanced: { curveBalanced: {} },
   BidAskBalanced: { bidAskBalanced: {} },
@@ -135,9 +132,6 @@ export const Strategy = {
 };
 
 export enum StrategyType {
-  SpotOneSide,
-  CurveOneSide,
-  BidAskOneSide,
   SpotImBalanced,
   CurveImBalanced,
   BidAskImBalanced,

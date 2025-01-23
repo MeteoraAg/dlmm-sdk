@@ -142,7 +142,7 @@ async function createOneSidePosition(dlmmPool: DLMM) {
       strategy: {
         maxBinId,
         minBinId,
-        strategyType: StrategyType.SpotOneSide,
+        strategyType: StrategyType.SpotImBalanced,
       },
     });
 

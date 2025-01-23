@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.3.9] - PR #145
+
+### Fixed
+
+- Remove Strategy `SpotOneSide`, `CurveOneSide` & `BidAskOneSide`
+
 ## @meteora-ag/dlmm [1.3.8] - PR #144
 
 ### Fixed
