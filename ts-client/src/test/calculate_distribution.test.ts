@@ -4,10 +4,8 @@ import {
   calculateNormalDistribution,
   calculateSpotDistribution,
   toWeightDistribution,
-  fromWeightDistributionToAmount,
   getPriceOfBinByBinId,
-  fromWeightDistributionToAmountOneSide,
-  toAmountsOneSideByStrategy,
+  toAmountsBothSideByStrategy,
 } from "../dlmm/helpers";
 import { StrategyType } from "../dlmm/types";
 import babar from "babar";
@@ -642,30 +640,6 @@ describe("calculate_distribution", () => {
       const bars = [];
       for (const dist of weightDistribution) {
         bars.push([dist.binId, dist.weight]);
-      }
-      console.log(babar(bars));
-    });
-
-    test("to amount one side by strategy", () => {
-      let activeId = 10;
-      let minBinId = 20;
-      let maxBinId = 70;
-      let binStep = 10;
-      let amount = new BN(10000);
-      let amountInBins = toAmountsOneSideByStrategy(
-        activeId,
-        binStep,
-        minBinId,
-        maxBinId,
-        amount,
-        StrategyType.SpotOneSide,
-        false
-      );
-      const bars = [];
-      for (const dist of amountInBins) {
-        let price = getPriceOfBinByBinId(dist.binId, binStep);
-        let liquidity = price.mul(new Decimal(dist.amount.toString()));
-        bars.push([dist.binId, liquidity.floor()]);
       }
       console.log(babar(bars));
     });
