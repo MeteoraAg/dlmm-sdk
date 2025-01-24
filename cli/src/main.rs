@@ -195,6 +195,9 @@ async fn main() -> Result<()> {
         DLMMCommand::SetPairStatusPermissionless(params) => {
             execute_set_pair_status_permissionless(params, &program, transaction_config).await?;
         }
+        DLMMCommand::ExportProtocolFeeCsv(params) => {
+            execute_export_protocol_fee_csv(params, program.async_rpc()).await?
+        }
         DLMMCommand::Admin(command) => match command {
             AdminCommand::InitializePermissionPair(params) => {
                 execute_initialize_permission_lb_pair(params, &program, transaction_config).await?;
