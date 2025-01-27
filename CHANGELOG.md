@@ -19,6 +19,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.3.10] - PR #146
+
+### Added
+
+- Add function `createCustomizablePermissionlessLbPairWithoutStrictQuoteToken` to ts-client.
+
+### Changed
+
+- Bump DLMM IDL to 0.8.5
+
+
 ## @meteora-ag/dlmm [1.3.9] - PR #145
 
 ### Fixed

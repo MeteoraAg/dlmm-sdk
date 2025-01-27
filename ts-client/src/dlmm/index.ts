@@ -607,7 +607,7 @@ export class DLMM {
     ) {
       const binArrayPubkey =
         binArrayPubkeyArrayV2[
-          i
+        i
         ];
       const binArrayAccInfoBufferV2 = binArraysAccInfo[i];
       if (binArrayAccInfoBufferV2) {
@@ -628,7 +628,7 @@ export class DLMM {
     ) {
       const lbPairPubkey =
         lbPairArrayV2[
-          i - binArrayPubkeyArrayV2.length
+        i - binArrayPubkeyArrayV2.length
         ];
       const lbPairAccInfoBufferV2 = binArraysAccInfo[i];
       if (!lbPairAccInfoBufferV2)
@@ -770,20 +770,20 @@ export class DLMM {
         upperBinArray,
         feeOwner
       ) : {
-          totalXAmount: '0',
-          totalYAmount: '0',
-          positionBinData: [],
-          lastUpdatedAt: new BN(0),
-          upperBinId,
-          lowerBinId,
-          feeX: new BN(0),
-          feeY: new BN(0),
-          rewardOne: new BN(0),
-          rewardTwo: new BN(0),
-          feeOwner,
-          totalClaimedFeeXAmount: new BN(0),
-          totalClaimedFeeYAmount: new BN(0),
-        };
+        totalXAmount: '0',
+        totalYAmount: '0',
+        positionBinData: [],
+        lastUpdatedAt: new BN(0),
+        upperBinId,
+        lowerBinId,
+        feeX: new BN(0),
+        feeY: new BN(0),
+        rewardOne: new BN(0),
+        rewardTwo: new BN(0),
+        feeOwner,
+        totalClaimedFeeXAmount: new BN(0),
+        totalClaimedFeeYAmount: new BN(0),
+      };
 
       if (positionData) {
         positionsMap.set(lbPair.toBase58(), {
@@ -970,6 +970,79 @@ export class DLMM {
         systemProgram: SystemProgram.programId,
         userTokenX,
         funder: creatorKey,
+      })
+      .transaction();
+  }
+
+  public static async createCustomizablePermissionlessLbPairWithoutStrictQuoteToken(
+    connection: Connection,
+    binStep: BN,
+    tokenX: PublicKey,
+    tokenY: PublicKey,
+    activeId: BN,
+    feeBps: BN,
+    activationType: ActivationType,
+    creatorKey: PublicKey,
+    activationPoint?: BN,
+    opt?: Opt
+  ): Promise<Transaction> {
+    const provider = new AnchorProvider(
+      connection,
+      {} as any,
+      AnchorProvider.defaultOptions()
+    );
+    const program = new Program(
+      IDL,
+      opt?.programId ?? LBCLMM_PROGRAM_IDS[opt.cluster],
+      provider
+    );
+
+    const [lbPair] = deriveCustomizablePermissionlessLbPair(
+      tokenX,
+      tokenY,
+      program.programId
+    );
+
+    const [reserveX] = deriveReserve(tokenX, lbPair, program.programId);
+    const [reserveY] = deriveReserve(tokenY, lbPair, program.programId);
+    const [oracle] = deriveOracle(lbPair, program.programId);
+
+    const activeBinArrayIndex = binIdToBinArrayIndex(activeId);
+    const binArrayBitmapExtension = isOverflowDefaultBinArrayBitmap(
+      activeBinArrayIndex
+    )
+      ? deriveBinArrayBitmapExtension(lbPair, program.programId)[0]
+      : null;
+
+    const ixData: InitCustomizablePermissionlessPairIx = {
+      activeId: activeId.toNumber(),
+      binStep: binStep.toNumber(),
+      baseFactor: computeBaseFactorFromFeeBps(binStep, feeBps).toNumber(),
+      activationType,
+      activationPoint: activationPoint ? activationPoint : null,
+      hasAlphaVault: false,
+      padding: Array(64).fill(0),
+    };
+
+    const userTokenX = getAssociatedTokenAddressSync(tokenX, creatorKey);
+    const userTokenY = getAssociatedTokenAddressSync(tokenY, creatorKey);
+
+    return program.methods
+      .initializeCustomizablePermissionlessLbPair(ixData)
+      .accounts({
+        lbPair,
+        rent: SYSVAR_RENT_PUBKEY,
+        reserveX,
+        reserveY,
+        binArrayBitmapExtension,
+        tokenMintX: tokenX,
+        tokenMintY: tokenY,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        oracle,
+        systemProgram: SystemProgram.programId,
+        userTokenX,
+        funder: creatorKey,
+        userTokenY
       })
       .transaction();
   }
@@ -2702,9 +2775,9 @@ export class DLMM {
     const upperBinIdToRemove = Math.max(...binIds);
     const { lbPair, owner, feeOwner, lowerBinId: positionLowerBinId, liquidityShares } = await this.program.account.positionV2.fetch(position);
 
-      if (liquidityShares.every((share) => share.isZero())) {
-        throw new Error("No liquidity to remove");
-      }
+    if (liquidityShares.every((share) => share.isZero())) {
+      throw new Error("No liquidity to remove");
+    }
 
     const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(positionLowerBinId));
     const upperBinArrayIndex = lowerBinArrayIndex.add(new BN(1));
@@ -3252,7 +3325,7 @@ export class DLMM {
     const minOutAmount = actualOutAmount
       .mul(new BN(BASIS_POINT_MAX).sub(allowedSlippage))
       .div(new BN(BASIS_POINT_MAX));
-      
+
     const endPrice = getPriceOfBinByBinId(
       lastFilledActiveBinId.toNumber(),
       this.lbPair.binStep

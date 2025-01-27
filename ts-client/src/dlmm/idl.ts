@@ -1,5 +1,5 @@
 export type LbClmm = {
-  "version": "0.8.2",
+  "version": "0.8.5",
   "name": "lb_clmm",
   "constants": [
     {
@@ -86,6 +86,16 @@ export type LbClmm = {
         "defined": "usize"
       },
       "value": "15"
+    },
+    {
+      "name": "ILM_PROTOCOL_SHARE",
+      "type": "u16",
+      "value": "2000"
+    },
+    {
+      "name": "PROTOCOL_SHARE",
+      "type": "u16",
+      "value": "500"
     },
     {
       "name": "MAX_BIN_STEP",
@@ -359,7 +369,7 @@ export type LbClmm = {
           "isSigner": false
         },
         {
-          "name": "rent",
+          "name": "userTokenY",
           "isMut": false,
           "isSigner": false
         },
@@ -1938,7 +1948,7 @@ export type LbClmm = {
       "args": []
     },
     {
-      "name": "updateFeeParameters",
+      "name": "updateBaseFeeParameters",
       "accounts": [
         {
           "name": "lbPair",
@@ -1965,7 +1975,40 @@ export type LbClmm = {
         {
           "name": "feeParameter",
           "type": {
-            "defined": "FeeParameter"
+            "defined": "BaseFeeParameter"
+          }
+        }
+      ]
+    },
+    {
+      "name": "updateDynamicFeeParameters",
+      "accounts": [
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "admin",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "feeParameter",
+          "type": {
+            "defined": "DynamicFeeParameter"
           }
         }
       ]
@@ -2148,7 +2191,7 @@ export type LbClmm = {
       "args": []
     },
     {
-      "name": "togglePairStatus",
+      "name": "setPairStatus",
       "accounts": [
         {
           "name": "lbPair",
@@ -2161,7 +2204,12 @@ export type LbClmm = {
           "isSigner": true
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "status",
+          "type": "u8"
+        }
+      ]
     },
     {
       "name": "migratePosition",
@@ -3422,7 +3470,7 @@ export type LbClmm = {
       }
     },
     {
-      "name": "FeeParameter",
+      "name": "BaseFeeParameter",
       "type": {
         "kind": "struct",
         "fields": [
@@ -3439,6 +3487,49 @@ export type LbClmm = {
               "Base factor for base fee rate"
             ],
             "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "DynamicFeeParameter",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "filterPeriod",
+            "docs": [
+              "Filter period determine high frequency trading time window."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "decayPeriod",
+            "docs": [
+              "Decay period determine when the volatile fee start decay / decrease."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "reductionFactor",
+            "docs": [
+              "Reduction factor controls the volatile fee rate decrement rate."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "variableFeeControl",
+            "docs": [
+              "Used to scale the variable fee component depending on the dynamic of the market"
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "maxVolatilityAccumulator",
+            "docs": [
+              "Maximum number of bin crossed can be accumulated. Used to cap volatile fee rate."
+            ],
+            "type": "u32"
           }
         ]
       }
@@ -4809,6 +4900,41 @@ export type LbClmm = {
       ]
     },
     {
+      "name": "DynamicFeeParameterUpdate",
+      "fields": [
+        {
+          "name": "lbPair",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "filterPeriod",
+          "type": "u16",
+          "index": false
+        },
+        {
+          "name": "decayPeriod",
+          "type": "u16",
+          "index": false
+        },
+        {
+          "name": "reductionFactor",
+          "type": "u16",
+          "index": false
+        },
+        {
+          "name": "variableFeeControl",
+          "type": "u32",
+          "index": false
+        },
+        {
+          "name": "maxVolatilityAccumulator",
+          "type": "u32",
+          "index": false
+        }
+      ]
+    },
+    {
       "name": "IncreaseObservation",
       "fields": [
         {
@@ -5244,12 +5370,17 @@ export type LbClmm = {
       "code": 6065,
       "name": "AlreadyPassPreActivationSwapPoint",
       "msg": "Already pass pre-activation swap point"
+    },
+    {
+      "code": 6066,
+      "name": "InvalidStatus",
+      "msg": "Invalid status"
     }
   ]
 };
 
 export const IDL: LbClmm = {
-  "version": "0.8.2",
+  "version": "0.8.5",
   "name": "lb_clmm",
   "constants": [
     {
@@ -5336,6 +5467,16 @@ export const IDL: LbClmm = {
         "defined": "usize"
       },
       "value": "15"
+    },
+    {
+      "name": "ILM_PROTOCOL_SHARE",
+      "type": "u16",
+      "value": "2000"
+    },
+    {
+      "name": "PROTOCOL_SHARE",
+      "type": "u16",
+      "value": "500"
     },
     {
       "name": "MAX_BIN_STEP",
@@ -5609,7 +5750,7 @@ export const IDL: LbClmm = {
           "isSigner": false
         },
         {
-          "name": "rent",
+          "name": "userTokenY",
           "isMut": false,
           "isSigner": false
         },
@@ -7188,7 +7329,7 @@ export const IDL: LbClmm = {
       "args": []
     },
     {
-      "name": "updateFeeParameters",
+      "name": "updateBaseFeeParameters",
       "accounts": [
         {
           "name": "lbPair",
@@ -7215,7 +7356,40 @@ export const IDL: LbClmm = {
         {
           "name": "feeParameter",
           "type": {
-            "defined": "FeeParameter"
+            "defined": "BaseFeeParameter"
+          }
+        }
+      ]
+    },
+    {
+      "name": "updateDynamicFeeParameters",
+      "accounts": [
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "admin",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "feeParameter",
+          "type": {
+            "defined": "DynamicFeeParameter"
           }
         }
       ]
@@ -7398,7 +7572,7 @@ export const IDL: LbClmm = {
       "args": []
     },
     {
-      "name": "togglePairStatus",
+      "name": "setPairStatus",
       "accounts": [
         {
           "name": "lbPair",
@@ -7411,7 +7585,12 @@ export const IDL: LbClmm = {
           "isSigner": true
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "status",
+          "type": "u8"
+        }
+      ]
     },
     {
       "name": "migratePosition",
@@ -8672,7 +8851,7 @@ export const IDL: LbClmm = {
       }
     },
     {
-      "name": "FeeParameter",
+      "name": "BaseFeeParameter",
       "type": {
         "kind": "struct",
         "fields": [
@@ -8689,6 +8868,49 @@ export const IDL: LbClmm = {
               "Base factor for base fee rate"
             ],
             "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "DynamicFeeParameter",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "filterPeriod",
+            "docs": [
+              "Filter period determine high frequency trading time window."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "decayPeriod",
+            "docs": [
+              "Decay period determine when the volatile fee start decay / decrease."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "reductionFactor",
+            "docs": [
+              "Reduction factor controls the volatile fee rate decrement rate."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "variableFeeControl",
+            "docs": [
+              "Used to scale the variable fee component depending on the dynamic of the market"
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "maxVolatilityAccumulator",
+            "docs": [
+              "Maximum number of bin crossed can be accumulated. Used to cap volatile fee rate."
+            ],
+            "type": "u32"
           }
         ]
       }
@@ -10059,6 +10281,41 @@ export const IDL: LbClmm = {
       ]
     },
     {
+      "name": "DynamicFeeParameterUpdate",
+      "fields": [
+        {
+          "name": "lbPair",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "filterPeriod",
+          "type": "u16",
+          "index": false
+        },
+        {
+          "name": "decayPeriod",
+          "type": "u16",
+          "index": false
+        },
+        {
+          "name": "reductionFactor",
+          "type": "u16",
+          "index": false
+        },
+        {
+          "name": "variableFeeControl",
+          "type": "u32",
+          "index": false
+        },
+        {
+          "name": "maxVolatilityAccumulator",
+          "type": "u32",
+          "index": false
+        }
+      ]
+    },
+    {
       "name": "IncreaseObservation",
       "fields": [
         {
@@ -10494,6 +10751,11 @@ export const IDL: LbClmm = {
       "code": 6065,
       "name": "AlreadyPassPreActivationSwapPoint",
       "msg": "Already pass pre-activation swap point"
+    },
+    {
+      "code": 6066,
+      "name": "InvalidStatus",
+      "msg": "Invalid status"
     }
   ]
 };
