@@ -111,7 +111,8 @@ pub struct InitializeCustomizablePermissionlessLbPair<'info> {
 
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
-    pub rent: Sysvar<'info, Rent>,
+    /// CHECK: user token Y, only be checked if token_y_mint is not based quote token
+    pub user_token_y: UncheckedAccount<'info>,
 }
 
 pub fn handle(
