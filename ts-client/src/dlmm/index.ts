@@ -954,84 +954,12 @@ export class DLMM {
     };
 
     const userTokenX = getAssociatedTokenAddressSync(tokenX, creatorKey);
-
-    return program.methods
-      .initializeCustomizablePermissionlessLbPair(ixData)
-      .accounts({
-        lbPair,
-        rent: SYSVAR_RENT_PUBKEY,
-        reserveX,
-        reserveY,
-        binArrayBitmapExtension,
-        tokenMintX: tokenX,
-        tokenMintY: tokenY,
-        tokenProgram: TOKEN_PROGRAM_ID,
-        oracle,
-        systemProgram: SystemProgram.programId,
-        userTokenX,
-        funder: creatorKey,
-      })
-      .transaction();
-  }
-
-  public static async createCustomizablePermissionlessLbPairWithoutStrictQuoteToken(
-    connection: Connection,
-    binStep: BN,
-    tokenX: PublicKey,
-    tokenY: PublicKey,
-    activeId: BN,
-    feeBps: BN,
-    activationType: ActivationType,
-    creatorKey: PublicKey,
-    activationPoint?: BN,
-    opt?: Opt
-  ): Promise<Transaction> {
-    const provider = new AnchorProvider(
-      connection,
-      {} as any,
-      AnchorProvider.defaultOptions()
-    );
-    const program = new Program(
-      IDL,
-      opt?.programId ?? LBCLMM_PROGRAM_IDS[opt.cluster],
-      provider
-    );
-
-    const [lbPair] = deriveCustomizablePermissionlessLbPair(
-      tokenX,
-      tokenY,
-      program.programId
-    );
-
-    const [reserveX] = deriveReserve(tokenX, lbPair, program.programId);
-    const [reserveY] = deriveReserve(tokenY, lbPair, program.programId);
-    const [oracle] = deriveOracle(lbPair, program.programId);
-
-    const activeBinArrayIndex = binIdToBinArrayIndex(activeId);
-    const binArrayBitmapExtension = isOverflowDefaultBinArrayBitmap(
-      activeBinArrayIndex
-    )
-      ? deriveBinArrayBitmapExtension(lbPair, program.programId)[0]
-      : null;
-
-    const ixData: InitCustomizablePermissionlessPairIx = {
-      activeId: activeId.toNumber(),
-      binStep: binStep.toNumber(),
-      baseFactor: computeBaseFactorFromFeeBps(binStep, feeBps).toNumber(),
-      activationType,
-      activationPoint: activationPoint ? activationPoint : null,
-      hasAlphaVault: false,
-      padding: Array(64).fill(0),
-    };
-
-    const userTokenX = getAssociatedTokenAddressSync(tokenX, creatorKey);
     const userTokenY = getAssociatedTokenAddressSync(tokenY, creatorKey);
 
     return program.methods
       .initializeCustomizablePermissionlessLbPair(ixData)
       .accounts({
         lbPair,
-        rent: SYSVAR_RENT_PUBKEY,
         reserveX,
         reserveY,
         binArrayBitmapExtension,
@@ -1041,8 +969,8 @@ export class DLMM {
         oracle,
         systemProgram: SystemProgram.programId,
         userTokenX,
+        userTokenY,
         funder: creatorKey,
-        userTokenY
       })
       .transaction();
   }
