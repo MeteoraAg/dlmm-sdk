@@ -275,7 +275,7 @@
           "isSigner": false
         },
         {
-          "name": "rent",
+          "name": "userTokenY",
           "isMut": false,
           "isSigner": false
         },

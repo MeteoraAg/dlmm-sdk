@@ -88,6 +88,14 @@ pub async fn initialize_customizable_permissionless_lb_pair<
         compute_unit_price.clone(),
     )
     .await?;
+    let user_token_y = get_or_create_ata(
+        program,
+        transaction_config,
+        token_mint_y,
+        program.payer(),
+        compute_unit_price.clone(),
+    )
+    .await?;
 
     let accounts = accounts::InitializeCustomizablePermissionlessLbPair {
         lb_pair,
@@ -98,11 +106,11 @@ pub async fn initialize_customizable_permissionless_lb_pair<
         token_mint_y,
         oracle,
         funder: program.payer(),
-        rent: anchor_client::solana_sdk::sysvar::rent::ID,
         system_program: anchor_client::solana_sdk::system_program::ID,
         token_program: anchor_spl::token::ID,
         event_authority,
         user_token_x,
+        user_token_y,
         program: lb_clmm::ID,
     };
 

@@ -275,7 +275,7 @@ export type LbClmm = {
           "isSigner": false
         },
         {
-          "name": "rent",
+          "name": "userTokenY",
           "isMut": false,
           "isSigner": false
         },
@@ -5370,7 +5370,7 @@ export const IDL: LbClmm = {
           "isSigner": false
         },
         {
-          "name": "rent",
+          "name": "userTokenY",
           "isMut": false,
           "isSigner": false
         },
