@@ -21,14 +21,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## @meteora-ag/dlmm [1.3.10] - PR #159
 
-### Added
-
-- Add function `createCustomizablePermissionlessLbPairWithoutStrictQuoteToken` to ts-client.
-
 ### Changed
 
-- Bump DLMM IDL to 0.8.5
+- Bump DLMM IDL to 0.8.5.
+- Update `lb_clmm.so` artifact.
+- Update function `createCustomizablePermissionlessLbPair` to use account `userTokenY`.
 
+### Removed
+
+- Removed account `rent` in function `createCustomizablePermissionlessLbPair`.
 
 ## @meteora-ag/dlmm [1.3.9] - PR #145
 
