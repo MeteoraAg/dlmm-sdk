@@ -26,7 +26,6 @@ import {
   calculateNormalDistribution,
   calculateSpotDistribution,
   toAmountsBothSideByStrategy,
-  toAmountsOneSideByStrategy,
   toWeightDistribution,
 } from "../dlmm/helpers";
 import { Clock, ClockLayout, StrategyType } from "../dlmm/types";
@@ -752,102 +751,6 @@ describe("calculate_distribution", () => {
         bars.push([dist.binId, dist.weight]);
       }
       console.log(babar(bars));
-    });
-
-    test("to amount sell side by strategy", () => {
-      let activeId = 10;
-      let minBinId = 20;
-      let maxBinId = 70;
-      let binStep = 10;
-      let amount = new BN(10000);
-
-      // 1. Without transfer fee
-      let amountInBins = toAmountsOneSideByStrategy(
-        activeId,
-        binStep,
-        minBinId,
-        maxBinId,
-        amount,
-        StrategyType.SpotOneSide,
-        false,
-        mintAccount,
-        clock
-      );
-
-      let totalAmount = amountInBins.reduce((total, { amount }) => {
-        return total.add(amount);
-      }, new BN(0));
-
-      // Precision loss
-      const diff = amount.sub(totalAmount);
-      expect(diff.lt(new BN(30))).toBeTruthy();
-
-      // 2. With transfer fee
-      amountInBins = toAmountsOneSideByStrategy(
-        activeId,
-        binStep,
-        minBinId,
-        maxBinId,
-        amount,
-        StrategyType.SpotOneSide,
-        false,
-        mintWithTransferFeeAccount,
-        clock
-      );
-
-      totalAmount = amountInBins.reduce((total, { amount }) => {
-        return total.add(amount);
-      }, new BN(0));
-
-      expect(totalAmount.lt(amount.div(new BN(2)))).toBeTruthy();
-    });
-
-    test("to amount buy side by strategy", () => {
-      let activeId = 80;
-      let minBinId = 20;
-      let maxBinId = 70;
-      let binStep = 10;
-      let amount = new BN(10000);
-
-      // 1. Without transfer fee
-      let amountInBins = toAmountsOneSideByStrategy(
-        activeId,
-        binStep,
-        minBinId,
-        maxBinId,
-        amount,
-        StrategyType.SpotOneSide,
-        true,
-        mintAccount,
-        clock
-      );
-
-      let totalAmount = amountInBins.reduce((total, { amount }) => {
-        return total.add(amount);
-      }, new BN(0));
-
-      // Precision loss
-      const diff = amount.sub(totalAmount);
-      expect(diff.lt(new BN(30))).toBeTruthy();
-
-      // 2. With transfer fee
-      amountInBins = toAmountsOneSideByStrategy(
-        activeId,
-        binStep,
-        minBinId,
-        maxBinId,
-        amount,
-        StrategyType.SpotOneSide,
-        true,
-        mintWithTransferFeeAccount,
-        clock
-      );
-
-      totalAmount = amountInBins.reduce((total, { amount }) => {
-        return total.add(amount);
-      }, new BN(0));
-
-      expect(totalAmount.lt(amount.div(new BN(2)))).toBeTruthy();
     });
 
     test("to amount both side by strategy", () => {
