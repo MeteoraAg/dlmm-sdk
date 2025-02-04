@@ -125,7 +125,7 @@ fn override_position_owner(
     accounts_with_key: &mut [(solana_sdk::account::Account, Pubkey)],
     wallet_key: Pubkey,
 ) -> Result<()> {
-    for (account, key) in accounts_with_key {
+    for (account, _key) in accounts_with_key {
         let mut disc = [0u8; 8];
         disc.copy_from_slice(&account.data[..8]);
 

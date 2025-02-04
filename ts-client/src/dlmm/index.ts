@@ -1309,13 +1309,19 @@ export class DLMM {
     );
 
     const [tokenBadgeX] = deriveTokenBadge(tokenX, program.programId);
+    const [tokenBadgeY] = deriveTokenBadge(tokenY, program.programId);
 
-    const [tokenXAccount, tokenYAccount, tokenBadgeXAccount] =
-      await provider.connection.getMultipleAccountsInfo([
-        tokenX,
-        tokenY,
-        tokenBadgeX,
-      ]);
+    const [
+      tokenXAccount,
+      tokenYAccount,
+      tokenBadgeXAccount,
+      tokenBadgeYAccount,
+    ] = await provider.connection.getMultipleAccountsInfo([
+      tokenX,
+      tokenY,
+      tokenBadgeX,
+      tokenBadgeY,
+    ]);
 
     const [lbPair] = deriveCustomizablePermissionlessLbPair(
       tokenX,
@@ -1358,10 +1364,18 @@ export class DLMM {
       tokenXAccount.owner
     );
 
+    const userTokenY = getAssociatedTokenAddressSync(
+      tokenY,
+      creatorKey,
+      true,
+      tokenYAccount.owner
+    );
+
     return program.methods
       .initializeCustomizablePermissionlessLbPair2(ixData)
       .accounts({
         tokenBadgeX: tokenBadgeXAccount ? tokenBadgeX : program.programId,
+        tokenBadgeY: tokenBadgeYAccount ? tokenBadgeY : program.programId,
         lbPair,
         reserveX,
         reserveY,
@@ -1456,12 +1470,12 @@ export class DLMM {
     };
 
     const userTokenX = getAssociatedTokenAddressSync(tokenX, creatorKey);
+    const userTokenY = getAssociatedTokenAddressSync(tokenY, creatorKey);
 
     return program.methods
       .initializeCustomizablePermissionlessLbPair(ixData)
       .accounts({
         lbPair,
-        rent: SYSVAR_RENT_PUBKEY,
         reserveX,
         reserveY,
         binArrayBitmapExtension,
@@ -1471,6 +1485,7 @@ export class DLMM {
         oracle,
         systemProgram: SystemProgram.programId,
         userTokenX,
+        userTokenY,
         funder: creatorKey,
       })
       .transaction();

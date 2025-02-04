@@ -122,14 +122,18 @@ pub async fn get_or_create_ata<C: Deref<Target = impl Signer> + Clone>(
     let user_ata_exists = rpc_client.get_account(&user_ata).await.is_ok();
 
     if !user_ata_exists {
-        let builder = program
-            .request()
-            .instruction(create_associated_token_account(
-                &program.payer(),
-                &wallet_address,
-                &token_mint,
-                &token_mint_owner,
-            ));
+        let mut builder = program.request();
+
+        if let Some(compute_unit_price) = compute_unit_price {
+            builder = builder.instruction(compute_unit_price);
+        }
+
+        builder = builder.instruction(create_associated_token_account(
+            &program.payer(),
+            &wallet_address,
+            &token_mint,
+            &token_mint_owner,
+        ));
 
         builder
             .send_with_spinner_and_config(transaction_config)
