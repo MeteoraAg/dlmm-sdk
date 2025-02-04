@@ -107,6 +107,15 @@ pub async fn execute_initialize_customizable_permissionless_lb_pair<
     )
     .await?;
 
+    let user_token_y = get_or_create_ata(
+        program,
+        transaction_config,
+        token_mint_y,
+        program.payer(),
+        compute_unit_price.clone(),
+    )
+    .await?;
+
     let accounts: [AccountMeta; INITIALIZE_CUSTOMIZABLE_PERMISSIONLESS_LB_PAIR_IX_ACCOUNTS_LEN] =
         InitializeCustomizablePermissionlessLbPairKeys {
             lb_pair,
@@ -121,8 +130,8 @@ pub async fn execute_initialize_customizable_permissionless_lb_pair<
             token_program: token_mint_base_account.owner,
             event_authority,
             user_token_x,
+            user_token_y,
             program: dlmm_interface::ID,
-            rent: solana_sdk::sysvar::rent::ID,
         }
         .into();
 
