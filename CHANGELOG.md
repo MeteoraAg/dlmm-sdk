@@ -19,6 +19,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## cli [0.4.1] - PR #160
+
+### Added
+
+- Add admin commmand `set_pair_status`.
+
+### Removed
+
+- Removed admin command `toggle_pair_status`.
+
+## @meteora-ag/dlmm [1.3.11] - PR #160
+
+### Added
+
+- Add admin function `setPairStatus`.
+
 ## @meteora-ag/dlmm [1.3.10] - PR #159
 
 ### Changed
