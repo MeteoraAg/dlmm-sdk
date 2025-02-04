@@ -138,7 +138,7 @@ pub async fn execute_claim_fee<C: Deref<Target = impl Signer> + Clone>(
 
         let mut request_builder = program.request();
 
-        if let Some(compute_unit_price_ix) = compute_unit_price {
+        if let Some(compute_unit_price_ix) = compute_unit_price.clone() {
             request_builder = request_builder.instruction(compute_unit_price_ix);
         }
 

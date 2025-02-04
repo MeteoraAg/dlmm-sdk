@@ -1,7 +1,5 @@
 use solana_program::{
-    decode_error::DecodeError,
-    msg,
-    program_error::{PrintProgramError, ProgramError},
+    decode_error::DecodeError, msg, program_error::{PrintProgramError, ProgramError},
 };
 use thiserror::Error;
 #[derive(Clone, Copy, Debug, Eq, Error, num_derive::FromPrimitive, PartialEq)]
@@ -138,34 +136,38 @@ pub enum LbClmmError {
     InvalidPreActivationDuration = 6064,
     #[error("Already pass pre-activation swap point")]
     AlreadyPassPreActivationSwapPoint = 6065,
+    #[error("Invalid status")]
+    InvalidStatus = 6066,
     #[error("Not support token_2022 mint extension")]
-    NotSupportMint = 6066,
+    NotSupportMint = 6067,
     #[error("Unsupported mint extension")]
-    UnsupportedMintExtension = 6067,
+    UnsupportedMintExtension = 6068,
     #[error("Unsupported native mint token2022")]
-    UnsupportNativeMintToken2022 = 6068,
+    UnsupportNativeMintToken2022 = 6069,
     #[error("Unmatch token mint")]
-    UnmatchTokenMint = 6069,
+    UnmatchTokenMint = 6070,
     #[error("Unsupported token mint")]
-    UnsupportedTokenMint = 6070,
+    UnsupportedTokenMint = 6071,
     #[error("Insufficient remaining accounts")]
-    InsufficientRemainingAccounts = 6071,
+    InsufficientRemainingAccounts = 6072,
     #[error("Invalid remaining account slice")]
-    InvalidRemainingAccountSlice = 6072,
+    InvalidRemainingAccountSlice = 6073,
     #[error("Duplicated remaining account types")]
-    DuplicatedRemainingAccountTypes = 6073,
+    DuplicatedRemainingAccountTypes = 6074,
     #[error("Missing remaining account for transfer hook")]
-    MissingRemainingAccountForTransferHook = 6074,
-    #[error("Remaining account was passed for transfer hook but there's no hook program")]
-    NoTransferHookProgram = 6075,
+    MissingRemainingAccountForTransferHook = 6075,
+    #[error(
+        "Remaining account was passed for transfer hook but there's no hook program"
+    )]
+    NoTransferHookProgram = 6076,
     #[error("Zero funded amount")]
-    ZeroFundedAmount = 6076,
+    ZeroFundedAmount = 6077,
     #[error("Invalid side")]
-    InvalidSide = 6077,
+    InvalidSide = 6078,
     #[error("Invalid resize length")]
-    InvalidResizeLength = 6078,
+    InvalidResizeLength = 6079,
     #[error("Not support at the moment")]
-    NotSupportAtTheMoment = 6079,
+    NotSupportAtTheMoment = 6080,
 }
 impl From<LbClmmError> for ProgramError {
     fn from(e: LbClmmError) -> Self {
@@ -180,12 +182,9 @@ impl<T> DecodeError<T> for LbClmmError {
 impl PrintProgramError for LbClmmError {
     fn print<E>(&self)
     where
-        E: 'static
-            + std::error::Error
-            + DecodeError<E>
-            + PrintProgramError
+        E: 'static + std::error::Error + DecodeError<E> + PrintProgramError
             + num_traits::FromPrimitive,
     {
-        msg!(&self.to_string());
+        msg!(& self.to_string());
     }
 }
