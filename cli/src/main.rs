@@ -69,6 +69,7 @@ use crate::{
         },
         seed_liquidity::{seed_liquidity, SeedLiquidityParameters},
         set_activation_point::*,
+        set_pair_status::{set_pair_status, SetPairStatusParam},
         set_pre_activation_duration::{set_pre_activation_duration, SetPreactivationDurationParam},
         set_pre_activation_swap_address::{
             set_pre_activation_swap_address, SetPreactivationSwapAddressParam,
@@ -78,7 +79,6 @@ use crate::{
         swap_exact_in::{swap, SwapExactInParameters},
         swap_exact_out::{swap_exact_out, SwapExactOutParameters},
         swap_with_price_impact::{swap_with_price_impact, SwapWithPriceImpactParameters},
-        toggle_pair_status::toggle_pool_status,
         update_reward_duration::*,
         update_reward_funder::*,
         withdraw_protocol_fee::{withdraw_protocol_fee, WithdrawProtocolFeeParams},
@@ -603,9 +603,6 @@ async fn main() -> Result<()> {
                 };
                 initialize_permission_lb_pair(params, &amm_program, transaction_config).await?;
             }
-            AdminCommand::TogglePoolStatus { lb_pair } => {
-                toggle_pool_status(lb_pair, &amm_program, transaction_config).await?;
-            }
             AdminCommand::RemoveLiquidityByPriceRange {
                 lb_pair,
                 base_position_key,
@@ -745,6 +742,16 @@ async fn main() -> Result<()> {
                     pre_activation_duration,
                 };
                 set_pre_activation_duration(params, &amm_program, transaction_config).await?;
+            }
+            AdminCommand::SetPairStatus {
+                lb_pair,
+                pair_status,
+            } => {
+                let params = SetPairStatusParam {
+                    lb_pair,
+                    pair_status,
+                };
+                set_pair_status(params, &amm_program, transaction_config).await?;
             }
         },
     };

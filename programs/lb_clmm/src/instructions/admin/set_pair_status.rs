@@ -1,10 +1,11 @@
 use crate::assert_eq_admin;
 use crate::errors::LBError;
 use crate::state::lb_pair::LbPair;
+use crate::state::lb_pair::PairStatus;
 use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
-pub struct TogglePairStatus<'info> {
+pub struct SetPairStatus<'info> {
     #[account(mut)]
     pub lb_pair: AccountLoader<'info, LbPair>,
 
@@ -12,6 +13,6 @@ pub struct TogglePairStatus<'info> {
     pub admin: Signer<'info>,
 }
 
-pub fn handle(ctx: Context<TogglePairStatus>) -> Result<()> {
+pub fn handle(ctx: Context<SetPairStatus>, status: u8) -> Result<()> {
     Ok(())
 }
