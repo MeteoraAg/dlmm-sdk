@@ -3084,6 +3084,12 @@ export type LbClmm = {
           "isOptional": true
         },
         {
+          "name": "tokenBadgeY",
+          "isMut": false,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
           "name": "tokenProgramX",
           "isMut": false,
           "isSigner": false
@@ -3095,6 +3101,11 @@ export type LbClmm = {
         },
         {
           "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "userTokenY",
           "isMut": false,
           "isSigner": false
         },
@@ -7238,71 +7249,76 @@ export type LbClmm = {
     },
     {
       "code": 6066,
+      "name": "InvalidStatus",
+      "msg": "Invalid status"
+    },
+    {
+      "code": 6067,
       "name": "NotSupportMint",
       "msg": "Not support token_2022 mint extension"
     },
     {
-      "code": 6067,
+      "code": 6068,
       "name": "UnsupportedMintExtension",
       "msg": "Unsupported mint extension"
     },
     {
-      "code": 6068,
+      "code": 6069,
       "name": "UnsupportNativeMintToken2022",
       "msg": "Unsupported native mint token2022"
     },
     {
-      "code": 6069,
+      "code": 6070,
       "name": "UnmatchTokenMint",
       "msg": "Unmatch token mint"
     },
     {
-      "code": 6070,
+      "code": 6071,
       "name": "UnsupportedTokenMint",
       "msg": "Unsupported token mint"
     },
     {
-      "code": 6071,
+      "code": 6072,
       "name": "InsufficientRemainingAccounts",
       "msg": "Insufficient remaining accounts"
     },
     {
-      "code": 6072,
+      "code": 6073,
       "name": "InvalidRemainingAccountSlice",
       "msg": "Invalid remaining account slice"
     },
     {
-      "code": 6073,
+      "code": 6074,
       "name": "DuplicatedRemainingAccountTypes",
       "msg": "Duplicated remaining account types"
     },
     {
-      "code": 6074,
+      "code": 6075,
       "name": "MissingRemainingAccountForTransferHook",
       "msg": "Missing remaining account for transfer hook"
     },
     {
-      "code": 6075,
+      "code": 6076,
       "name": "NoTransferHookProgram",
       "msg": "Remaining account was passed for transfer hook but there's no hook program"
     },
     {
-      "code": 6076,
+      "code": 6077,
       "name": "ZeroFundedAmount",
       "msg": "Zero funded amount"
     },
     {
-      "code": 6077,
+      "code": 6078,
       "name": "InvalidSide",
       "msg": "Invalid side"
     },
     {
-      "code": 6078,
+      "code": 6079,
       "name": "InvalidResizeLength",
       "msg": "Invalid resize length"
     },
     {
-      "code": 6079,
+      "code": 6080,
       "name": "NotSupportAtTheMoment",
       "msg": "Not support at the moment"
     }
@@ -10395,6 +10411,12 @@ export const IDL: LbClmm = {
           "isOptional": true
         },
         {
+          "name": "tokenBadgeY",
+          "isMut": false,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
           "name": "tokenProgramX",
           "isMut": false,
           "isSigner": false
@@ -10406,6 +10428,11 @@ export const IDL: LbClmm = {
         },
         {
           "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "userTokenY",
           "isMut": false,
           "isSigner": false
         },
@@ -14549,71 +14576,76 @@ export const IDL: LbClmm = {
     },
     {
       "code": 6066,
+      "name": "InvalidStatus",
+      "msg": "Invalid status"
+    },
+    {
+      "code": 6067,
       "name": "NotSupportMint",
       "msg": "Not support token_2022 mint extension"
     },
     {
-      "code": 6067,
+      "code": 6068,
       "name": "UnsupportedMintExtension",
       "msg": "Unsupported mint extension"
     },
     {
-      "code": 6068,
+      "code": 6069,
       "name": "UnsupportNativeMintToken2022",
       "msg": "Unsupported native mint token2022"
     },
     {
-      "code": 6069,
+      "code": 6070,
       "name": "UnmatchTokenMint",
       "msg": "Unmatch token mint"
     },
     {
-      "code": 6070,
+      "code": 6071,
       "name": "UnsupportedTokenMint",
       "msg": "Unsupported token mint"
     },
     {
-      "code": 6071,
+      "code": 6072,
       "name": "InsufficientRemainingAccounts",
       "msg": "Insufficient remaining accounts"
     },
     {
-      "code": 6072,
+      "code": 6073,
       "name": "InvalidRemainingAccountSlice",
       "msg": "Invalid remaining account slice"
     },
     {
-      "code": 6073,
+      "code": 6074,
       "name": "DuplicatedRemainingAccountTypes",
       "msg": "Duplicated remaining account types"
     },
     {
-      "code": 6074,
+      "code": 6075,
       "name": "MissingRemainingAccountForTransferHook",
       "msg": "Missing remaining account for transfer hook"
     },
     {
-      "code": 6075,
+      "code": 6076,
       "name": "NoTransferHookProgram",
       "msg": "Remaining account was passed for transfer hook but there's no hook program"
     },
     {
-      "code": 6076,
+      "code": 6077,
       "name": "ZeroFundedAmount",
       "msg": "Zero funded amount"
     },
     {
-      "code": 6077,
+      "code": 6078,
       "name": "InvalidSide",
       "msg": "Invalid side"
     },
     {
-      "code": 6078,
+      "code": 6079,
       "name": "InvalidResizeLength",
       "msg": "Invalid resize length"
     },
     {
-      "code": 6079,
+      "code": 6080,
       "name": "NotSupportAtTheMoment",
       "msg": "Not support at the moment"
     }

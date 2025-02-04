@@ -116,16 +116,7 @@ pub enum DLMMCommand {
     SeedLiquidityByOperator(SeedLiquidityByOperatorParameters),
     SeedLiquiditySingleBin(SeedLiquiditySingleBinParameters),
     SeedLiquiditySingleBinByOperator(SeedLiquiditySingleBinByOperatorParameters),
-
-    GetAllPositionsForAnOwner {
-        /// Address of the pair
-        #[clap(long)]
-        lb_pair: Pubkey,
-        /// owner of position
-        #[clap(long)]
-        owner: Pubkey,
-    },
-
+    GetAllPositionsForAnOwner(GetAllPositionsParams),
     IncreasePositionLength(IncreasePositionLengthParams),
     DecreasePositionLength(DecreasePositionLengthParams),
     MigratePositionToV3(MigratePositionV3Params),
@@ -147,8 +138,8 @@ pub struct Cli {
 pub enum AdminCommand {
     /// Create a new permission liquidity pair. It allow liquidity fragmentation with exact bin step.
     InitializePermissionPair(InitPermissionLbPairParameters),
-    /// Toggle pool status
-    TogglePoolStatus(TogglePairStatusParams),
+    /// Set pair status
+    SetPairStatus(SetPairStatusParams),
     /// Remove liquidity by price range
     RemoveLiquidityByPriceRange(RemoveLiquidityByPriceRangeParameters),
     SetActivationPoint(SetActivationPointParam),
