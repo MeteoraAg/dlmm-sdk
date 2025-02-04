@@ -309,8 +309,8 @@ pub mod lb_clmm {
         instructions::withdraw::remove_all_liquidity::handle(ctx)
     }
 
-    pub fn toggle_pair_status(ctx: Context<TogglePairStatus>) -> Result<()> {
-        instructions::admin::toggle_pair_status::handle(ctx)
+    pub fn set_pair_status(ctx: Context<SetPairStatus>, status: u8) -> Result<()> {
+        instructions::admin::set_pair_status::handle(ctx, status)
     }
 
     pub fn migrate_position(ctx: Context<MigratePosition>) -> Result<()> {

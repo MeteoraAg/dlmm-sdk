@@ -444,12 +444,6 @@ pub enum AdminCommand {
         activation_type: u8,
     },
 
-    /// Toggle pool status
-    TogglePoolStatus {
-        /// Address of the pair
-        lb_pair: Pubkey,
-    },
-
     /// Remove liquidity by price range
     RemoveLiquidityByPriceRange {
         /// Address of the pair
@@ -539,5 +533,12 @@ pub enum AdminCommand {
         lb_pair: Pubkey,
         /// Preactivation swap address
         pre_activation_swap_address: Pubkey,
+    },
+
+    SetPairStatus {
+        /// Address of the pair
+        lb_pair: Pubkey,
+        /// Pair status. 0 is enabled, 1 is disabled
+        pair_status: u8,
     },
 }
