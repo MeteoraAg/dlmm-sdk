@@ -3709,6 +3709,27 @@ export class DLMM {
     }).add(setActivationPointTx);
   }
 
+  public async setPairStatus(
+    enabled: boolean,
+  ): Promise<Transaction> {
+    const pairStatus = enabled ? 0 : 1;
+    const tx = await this.program.methods.setPairStatus(pairStatus).accounts(
+      {
+        lbPair: this.pubkey,
+        admin: this.lbPair.creator
+      }
+    ).transaction();
+
+    const { blockhash, lastValidBlockHeight } =
+      await this.program.provider.connection.getLatestBlockhash("confirmed");
+
+    return new Transaction({
+      feePayer: this.lbPair.creator,
+      blockhash,
+      lastValidBlockHeight,
+    }).add(tx);
+  }
+
   /**
    * The function `claimSwapFee` is used to claim swap fees for a specific position owned by a specific owner.
    * @param
