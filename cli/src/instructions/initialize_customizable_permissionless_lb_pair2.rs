@@ -40,6 +40,7 @@ pub async fn execute_initialize_customizable_permissionless_lb_pair2<
     params: InitCustomizablePermissionlessLbPair2Param,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
+    compute_unit_price: Option<Instruction>,
 ) -> Result<Pubkey> {
     let InitCustomizablePermissionlessLbPair2Param {
         bin_step,
@@ -92,15 +93,39 @@ pub async fn execute_initialize_customizable_permissionless_lb_pair2<
 
     let (event_authority, _bump) = derive_event_authority_pda();
 
-    let user_token_x =
-        get_or_create_ata(program, transaction_config, token_mint_x, program.payer()).await?;
+    let user_token_x = get_or_create_ata(
+        program,
+        transaction_config,
+        token_mint_x,
+        program.payer(),
+        compute_unit_price.clone(),
+    )
+    .await?;
+
+    let user_token_y = get_or_create_ata(
+        program,
+        transaction_config,
+        token_mint_y,
+        program.payer(),
+        compute_unit_price.clone(),
+    )
+    .await?;
 
     let token_badge_x = derive_token_badge_pda(token_mint_x).0;
-    let token_badge_x = rpc_client
-        .get_account(&token_badge_x)
-        .await
-        .ok()
+    let token_badge_y = derive_token_badge_pda(token_mint_y).0;
+
+    accounts = rpc_client
+        .get_multiple_accounts(&[token_badge_x, token_badge_y])
+        .await?;
+
+    let token_badge_x = accounts[0]
+        .take()
         .map(|_| token_badge_x)
+        .unwrap_or(dlmm_interface::ID);
+
+    let token_badge_y = accounts[1]
+        .take()
+        .map(|_| token_badge_y)
         .unwrap_or(dlmm_interface::ID);
 
     let accounts: [AccountMeta; INITIALIZE_CUSTOMIZABLE_PERMISSIONLESS_LB_PAIR2_IX_ACCOUNTS_LEN] =
@@ -117,8 +142,10 @@ pub async fn execute_initialize_customizable_permissionless_lb_pair2<
             token_program_x: token_mint_base_account.owner,
             token_program_y: token_mint_quote_account.owner,
             token_badge_x,
+            token_badge_y,
             event_authority,
             user_token_x,
+            user_token_y,
             program: dlmm_interface::ID,
         }
         .into();

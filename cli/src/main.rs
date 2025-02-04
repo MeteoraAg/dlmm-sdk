@@ -149,6 +149,7 @@ async fn main() -> Result<()> {
                 params,
                 &program,
                 transaction_config,
+                compute_unit_price_ix,
             )
             .await?;
         }
@@ -229,12 +230,15 @@ async fn main() -> Result<()> {
         DLMMCommand::DownloadUserPoolFiles(params) => {
             execute_download_user_pool_files(params, program.async_rpc()).await?;
         }
+        DLMMCommand::GetAllPositionsForAnOwner(params) => {
+            execute_get_all_positions(&program, params).await?;
+        }
         DLMMCommand::Admin(command) => match command {
             AdminCommand::InitializePermissionPair(params) => {
                 execute_initialize_permission_lb_pair(params, &program, transaction_config).await?;
             }
-            AdminCommand::TogglePoolStatus(params) => {
-                execute_toggle_pool_status(params, &program, transaction_config).await?;
+            AdminCommand::SetPairStatus(params) => {
+                execute_set_pair_status(params, &program, transaction_config).await?;
             }
             AdminCommand::RemoveLiquidityByPriceRange(params) => {
                 execute_remove_liquidity_by_price_range(
