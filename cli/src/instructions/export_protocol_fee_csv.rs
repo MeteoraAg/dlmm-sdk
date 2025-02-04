@@ -20,6 +20,8 @@ const SELL_PRICE_IMPACT_PCT: f64 = 10.0;
 pub struct ExportProtocolFeeParams {
     #[clap(long)]
     pub output_folder_path: String,
+    #[clap(long)]
+    pub ignore_sell_price_impact_ratio: bool,
 }
 
 #[derive(Default, Debug, Clone, Deserialize, Serialize)]
@@ -156,6 +158,7 @@ async fn get_price_from_jup_v2_with_filtering(
     mint_keys: &[Pubkey],
     confidence_level: &str,
     min_sell_price_impact_pct_100_sol: f64,
+    ignore_sell_price_impact_ratio: bool,
 ) -> Result<HashMap<String, f64>> {
     let mut mint_price_map = HashMap::new();
     let mint_address = mint_keys
@@ -205,12 +208,16 @@ async fn get_price_from_jup_v2_with_filtering(
             .and_then(|v| v.get("100"))
             .and_then(|v| v.as_f64());
 
-        if let Some(price_impact_pct) = mint_sell_price_impact_pct {
-            if price_impact_pct <= min_sell_price_impact_pct_100_sol
-                && mint_confidence_level.eq_ignore_ascii_case(confidence_level)
-            {
-                mint_price_map.insert(mint_address.to_owned(), price);
+        if !ignore_sell_price_impact_ratio {
+            if let Some(price_impact_pct) = mint_sell_price_impact_pct {
+                if price_impact_pct <= min_sell_price_impact_pct_100_sol
+                    && mint_confidence_level.eq_ignore_ascii_case(confidence_level)
+                {
+                    mint_price_map.insert(mint_address.to_owned(), price);
+                }
             }
+        } else {
+            mint_price_map.insert(mint_address.to_owned(), price);
         }
     }
 
@@ -221,6 +228,7 @@ async fn fetch_and_initialize_mint_records(
     mint_records: &mut HashMap<String, RefCell<MintRow>>,
     non_exists_mint_keys: &[Pubkey],
     rpc_client: &RpcClient,
+    ignore_sell_price_impact_ratio: bool,
 ) -> Result<()> {
     for keys in non_exists_mint_keys.chunks(100) {
         let mint_key_with_state = rpc_client
@@ -235,9 +243,13 @@ async fn fetch_and_initialize_mint_records(
             .collect::<Vec<_>>();
 
         // Have price only if it meet filtering condition
-        let mint_price =
-            get_price_from_jup_v2_with_filtering(keys, CONFIDENCE_LEVEL, SELL_PRICE_IMPACT_PCT)
-                .await?;
+        let mint_price = get_price_from_jup_v2_with_filtering(
+            keys,
+            CONFIDENCE_LEVEL,
+            SELL_PRICE_IMPACT_PCT,
+            ignore_sell_price_impact_ratio,
+        )
+        .await?;
 
         for (mint_key, mint_state) in mint_key_with_state {
             let mint_address = mint_key.to_string();
@@ -264,7 +276,10 @@ pub async fn execute_export_protocol_fee_csv(
     params: ExportProtocolFeeParams,
     rpc_client: RpcClient,
 ) -> Result<()> {
-    let ExportProtocolFeeParams { output_folder_path } = params;
+    let ExportProtocolFeeParams {
+        output_folder_path,
+        ignore_sell_price_impact_ratio,
+    } = params;
 
     let mut pair_records = load_pair_from_csv_file(&output_folder_path)?;
     println!("{} pair records loaded", pair_records.len());
@@ -310,8 +325,13 @@ pub async fn execute_export_protocol_fee_csv(
             .filter(|mint_key| !mint_records.contains_key(&mint_key.to_string()))
             .collect::<Vec<_>>();
 
-        fetch_and_initialize_mint_records(&mut mint_records, &non_exists_unique_mints, &rpc_client)
-            .await?;
+        fetch_and_initialize_mint_records(
+            &mut mint_records,
+            &non_exists_unique_mints,
+            &rpc_client,
+            ignore_sell_price_impact_ratio,
+        )
+        .await?;
 
         for (key, pair_state) in pair_with_key {
             let x_mint_str = pair_state.token_x_mint.to_string();
@@ -386,7 +406,7 @@ mod tests {
             .map(|address| Pubkey::from_str(address).unwrap())
             .collect::<Vec<_>>();
 
-        let price = get_price_from_jup_v2_with_filtering(&keys, "high", 10.0)
+        let price = get_price_from_jup_v2_with_filtering(&keys, "high", 10.0, false)
             .await
             .unwrap();
 
