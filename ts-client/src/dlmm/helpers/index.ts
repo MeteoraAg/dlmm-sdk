@@ -21,8 +21,7 @@ import {
 } from "@solana/web3.js";
 import { Bin, ClmmProgram, GetOrCreateATAResponse } from "../types";
 import { Rounding, mulShr, shlDiv } from "./math";
-import { getSimulationComputeUnits } from "@solana-developers/helpers";
-import { MAX_CU_BUFFER, MIN_CU_BUFFER } from "./computeUnit";
+import { getSimulationComputeUnits, MAX_CU_BUFFER, MIN_CU_BUFFER } from "./computeUnit";
 
 export * from "./derive";
 export * from "./binArray";
