@@ -413,12 +413,12 @@ pub fn generate_redistribute_amount_to_position_based_on_ratio(
 pub fn read_dust_deposit_state(path: &str) -> Result<DustDepositState> {
     let file = File::open(path);
     match file {
-        std::io::Result::Ok(file) => {
+        Ok(file) => {
             let reader = BufReader::new(file);
             let dust_deposit_state = serde_json::from_reader(reader)?;
             Ok(dust_deposit_state)
         }
-        std::io::Result::Err(_) => Ok(DustDepositState::default()),
+        Err(_) => Ok(DustDepositState::default()),
     }
 }
 
@@ -883,7 +883,7 @@ pub fn generate_amount_for_bins(
 
     assert_eq!(
         total_amount, amount,
-        "Amount distributed to bins not equals to funding amount"
+        "Amount distributed to bins does not equals to funding amount"
     );
 
     bin_amounts
