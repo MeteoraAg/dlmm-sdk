@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.3.12] - PR #161
+
+### Added
+
+- Remove `@solana-developers/helpers` dependency.
+
 ## cli [0.4.1] - PR #160
 
 ### Added
@@ -57,7 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Fix `getOrCreateATAInstruction` to use `createAssociatedTokenAccountIdempotentInstruction` 
+- Fix `getOrCreateATAInstruction` to use `createAssociatedTokenAccountIdempotentInstruction`
 
 ## @meteora-ag/dlmm [1.3.7] - PR #143
 
@@ -70,7 +76,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Refactored; remove `position(V1)` interaction from SDK
-- Throw error in `removeLiquidity` function if position doesn't have any liquidity 
+- Throw error in `removeLiquidity` function if position doesn't have any liquidity
 
 ### Fixed
 
