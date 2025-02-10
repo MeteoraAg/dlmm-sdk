@@ -81,9 +81,6 @@ pub use admin::*;
 pub mod ilm;
 pub use ilm::*;
 
-pub mod migrate_position_v3;
-pub use migrate_position_v3::*;
-
 pub mod initialize_customizable_permissionless_lb_pair;
 pub use initialize_customizable_permissionless_lb_pair::*;
 

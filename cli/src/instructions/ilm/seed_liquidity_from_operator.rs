@@ -29,7 +29,7 @@ async fn get_or_create_position<C: Deref<Target = impl Signer> + Clone>(
     lock_release_point: u64,
     transaction_config: RpcSendTransactionConfig,
     compute_unit_price_ix: Option<Instruction>,
-) -> Result<DynamicPosition> {
+) -> Result<PositionV2> {
     let (event_authority, _bump) = derive_event_authority_pda();
     let base = base_keypair.pubkey();
 
@@ -150,7 +150,7 @@ async fn get_or_create_position<C: Deref<Target = impl Signer> + Clone>(
 
     let position_state = rpc_client
         .get_account_and_deserialize(&position, |account| {
-            Ok(DynamicPosition::deserialize(&account.data)?)
+            Ok(PositionV2Account::deserialize(&account.data)?.0)
         })
         .await?;
 
@@ -358,11 +358,11 @@ pub async fn execute_seed_liquidity_by_operator<C: Deref<Target = impl Signer> +
         }
 
         assert_eq!(
-            position_state.global_data.lower_bin_id, lower_bin_id,
+            position_state.lower_bin_id, lower_bin_id,
             "Position lower bin id not equals"
         );
         assert_eq!(
-            position_state.global_data.upper_bin_id, upper_bin_id,
+            position_state.upper_bin_id, upper_bin_id,
             "Position upper bin id not equals"
         );
 
@@ -415,15 +415,11 @@ pub async fn execute_seed_liquidity_by_operator<C: Deref<Target = impl Signer> +
 
                 let position_state = rpc_client
                     .get_account_and_deserialize(&position, |account| {
-                        Ok(DynamicPosition::deserialize(&account.data)?)
+                        Ok(PositionV2Account::deserialize(&account.data)?.0)
                     })
                     .await?;
 
-                let position_liquidity_shares = position_state
-                    .position_bin_data
-                    .iter()
-                    .map(|position_bin_data| position_bin_data.liquidity_share)
-                    .collect();
+                let position_liquidity_shares = position_state.liquidity_shares.to_vec();
 
                 dust_deposit_state
                     .position_shares
@@ -462,7 +458,7 @@ pub async fn execute_seed_liquidity_by_operator<C: Deref<Target = impl Signer> +
 
             let position_state = rpc_client
                 .get_account_and_deserialize(&position, |account| {
-                    Ok(DynamicPosition::deserialize(&account.data)?)
+                    Ok(PositionV2Account::deserialize(&account.data)?.0)
                 })
                 .await?;
 
@@ -470,10 +466,9 @@ pub async fn execute_seed_liquidity_by_operator<C: Deref<Target = impl Signer> +
                 position_share.get(&position).context("Missing snapshot")?;
 
             let mut dust_deposited = false;
-            for (i, position_bin_data) in position_state.position_bin_data.iter().enumerate() {
-                let share = position_bin_data.liquidity_share;
+            for (i, share) in position_state.liquidity_shares.iter().enumerate() {
                 let snapshot_share = position_share_snapshot[i];
-                if snapshot_share != share {
+                if snapshot_share != *share {
                     dust_deposited = true;
                     break;
                 }
@@ -484,8 +479,7 @@ pub async fn execute_seed_liquidity_by_operator<C: Deref<Target = impl Signer> +
             }
 
             // Don't deposit to the last bin because c(last_bin + 1) - c(last_bin) will > amount
-            let upper_bin_id =
-                std::cmp::min(position_state.global_data.upper_bin_id, max_bin_id - 1);
+            let upper_bin_id = std::cmp::min(position_state.upper_bin_id, max_bin_id - 1);
 
             assert!(
                 upper_bin_id < max_bin_id,
@@ -534,12 +528,12 @@ pub async fn execute_seed_liquidity_by_operator<C: Deref<Target = impl Signer> +
 
         let position_state = rpc_client
             .get_account_and_deserialize(&position, |account| {
-                Ok(DynamicPosition::deserialize(&account.data)?)
+                Ok(PositionV2Account::deserialize(&account.data)?.0)
             })
             .await?;
 
         // Don't deposit to the last bin because c(last_bin + 1) - c(last_bin) will > amount
-        let upper_bin_id = std::cmp::min(position_state.global_data.upper_bin_id, max_bin_id - 1);
+        let upper_bin_id = std::cmp::min(position_state.upper_bin_id, max_bin_id - 1);
 
         assert!(upper_bin_id < max_bin_id, "Funding to last bin id");
 

@@ -26,10 +26,6 @@ pub async fn execute_show_position<C: Deref<Target = impl Signer> + Clone>(
             let position_state = PositionV2Account::deserialize(&position_account.data)?.0;
             println!("{:#?}", position_state);
         }
-        POSITION_V3_ACCOUNT_DISCM => {
-            let position_state = DynamicPosition::deserialize(&position_account.data)?;
-            println!("{:#?}", position_state);
-        }
         _ => {
             bail!("Not a valid position account");
         }

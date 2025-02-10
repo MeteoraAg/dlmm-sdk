@@ -120,11 +120,9 @@ pub async fn execute_remove_liquidity_by_price_range<C: Deref<Target = impl Sign
 
         let position_account = rpc_client.get_account(&position).await;
         if let std::result::Result::Ok(account) = position_account {
-            let position_state = DynamicPosition::deserialize(account.data.as_ref())?;
+            let position_state = PositionV2Account::deserialize(account.data.as_ref())?.0;
 
-            let bin_arrays_account_meta = position_state
-                .global_data
-                .get_bin_array_accounts_meta_coverage()?;
+            let bin_arrays_account_meta = position_state.get_bin_array_accounts_meta_coverage()?;
 
             let remaining_accounts = [
                 transfer_hook_remaining_accounts.clone(),
@@ -156,8 +154,8 @@ pub async fn execute_remove_liquidity_by_price_range<C: Deref<Target = impl Sign
                 .into();
 
             let data = RemoveLiquidityByRange2IxData(RemoveLiquidityByRange2IxArgs {
-                from_bin_id: position_state.global_data.lower_bin_id,
-                to_bin_id: position_state.global_data.upper_bin_id,
+                from_bin_id: position_state.lower_bin_id,
+                to_bin_id: position_state.upper_bin_id,
                 bps_to_remove: BASIS_POINT_MAX as u16,
                 remaining_accounts_info: remaining_accounts_info.clone(),
             })
@@ -192,8 +190,8 @@ pub async fn execute_remove_liquidity_by_price_range<C: Deref<Target = impl Sign
             .into();
 
             let data = ClaimFee2IxData(ClaimFee2IxArgs {
-                min_bin_id: position_state.global_data.lower_bin_id,
-                max_bin_id: position_state.global_data.upper_bin_id,
+                min_bin_id: position_state.lower_bin_id,
+                max_bin_id: position_state.upper_bin_id,
                 remaining_accounts_info: remaining_accounts_info.clone(),
             })
             .try_to_vec()?;
@@ -229,9 +227,7 @@ pub async fn execute_remove_liquidity_by_price_range<C: Deref<Target = impl Sign
 
             println!(
                 "Close position {}. Min bin id {}, Max bin id {}",
-                position,
-                position_state.global_data.lower_bin_id,
-                position_state.global_data.upper_bin_id
+                position, position_state.lower_bin_id, position_state.upper_bin_id
             );
         }
     }

@@ -35,10 +35,10 @@ pub async fn execute_get_all_positions<C: Deref<Target = impl Signer> + Clone>(
         .await?;
 
     for (position_key, position_raw_account) in accounts {
-        let position_state = DynamicPosition::deserialize(&position_raw_account.data)?;
+        let position_state = PositionV2Account::deserialize(&position_raw_account.data)?.0;
         println!(
             "Position {} fee owner {}",
-            position_key, position_state.global_data.fee_owner
+            position_key, position_state.fee_owner
         );
     }
 

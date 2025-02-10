@@ -10,5 +10,5 @@ pub use bin::*;
 pub mod bin_array_bitmap;
 pub use bin_array_bitmap::*;
 
-pub mod position_v3;
-pub use position_v3::*;
+pub mod position;
+pub use position::*;

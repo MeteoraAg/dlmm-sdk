@@ -178,7 +178,7 @@ async fn test_swap() {
         user_token_out,
         token_x_mint,
         token_y_mint,
-        host_fee_in: dlmm_interface::ID,
+        host_fee: dlmm_interface::ID,
         user: payer.pubkey(),
         token_x_program: spl_token::id(),
         token_y_program: spl_token::id(),
