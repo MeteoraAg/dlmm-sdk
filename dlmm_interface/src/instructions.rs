@@ -40,15 +40,12 @@ pub enum LbClmmProgramIx {
     UpdateBaseFeeParameters(UpdateBaseFeeParametersIxArgs),
     UpdateDynamicFeeParameters(UpdateDynamicFeeParametersIxArgs),
     IncreaseOracleLength(IncreaseOracleLengthIxArgs),
-    IncreasePositionLength(IncreasePositionLengthIxArgs),
-    DecreasePositionLength(DecreasePositionLengthIxArgs),
     InitializePresetParameter(InitializePresetParameterIxArgs),
     ClosePresetParameter,
     ClosePresetParameter2,
     RemoveAllLiquidity,
     SetPairStatus(SetPairStatusIxArgs),
-    MigratePositionFromV1,
-    MigratePositionFromV2,
+    MigratePosition,
     MigrateBinArray,
     UpdateFeesAndRewards,
     WithdrawIneligibleReward(WithdrawIneligibleRewardIxArgs),
@@ -249,20 +246,6 @@ impl LbClmmProgramIx {
                     ),
                 )
             }
-            INCREASE_POSITION_LENGTH_IX_DISCM => {
-                Ok(
-                    Self::IncreasePositionLength(
-                        IncreasePositionLengthIxArgs::deserialize(&mut reader)?,
-                    ),
-                )
-            }
-            DECREASE_POSITION_LENGTH_IX_DISCM => {
-                Ok(
-                    Self::DecreasePositionLength(
-                        DecreasePositionLengthIxArgs::deserialize(&mut reader)?,
-                    ),
-                )
-            }
             INITIALIZE_PRESET_PARAMETER_IX_DISCM => {
                 Ok(
                     Self::InitializePresetParameter(
@@ -276,8 +259,7 @@ impl LbClmmProgramIx {
             SET_PAIR_STATUS_IX_DISCM => {
                 Ok(Self::SetPairStatus(SetPairStatusIxArgs::deserialize(&mut reader)?))
             }
-            MIGRATE_POSITION_FROM_V1_IX_DISCM => Ok(Self::MigratePositionFromV1),
-            MIGRATE_POSITION_FROM_V2_IX_DISCM => Ok(Self::MigratePositionFromV2),
+            MIGRATE_POSITION_IX_DISCM => Ok(Self::MigratePosition),
             MIGRATE_BIN_ARRAY_IX_DISCM => Ok(Self::MigrateBinArray),
             UPDATE_FEES_AND_REWARDS_IX_DISCM => Ok(Self::UpdateFeesAndRewards),
             WITHDRAW_INELIGIBLE_REWARD_IX_DISCM => {
@@ -520,14 +502,6 @@ impl LbClmmProgramIx {
                 writer.write_all(&INCREASE_ORACLE_LENGTH_IX_DISCM)?;
                 args.serialize(&mut writer)
             }
-            Self::IncreasePositionLength(args) => {
-                writer.write_all(&INCREASE_POSITION_LENGTH_IX_DISCM)?;
-                args.serialize(&mut writer)
-            }
-            Self::DecreasePositionLength(args) => {
-                writer.write_all(&DECREASE_POSITION_LENGTH_IX_DISCM)?;
-                args.serialize(&mut writer)
-            }
             Self::InitializePresetParameter(args) => {
                 writer.write_all(&INITIALIZE_PRESET_PARAMETER_IX_DISCM)?;
                 args.serialize(&mut writer)
@@ -543,12 +517,7 @@ impl LbClmmProgramIx {
                 writer.write_all(&SET_PAIR_STATUS_IX_DISCM)?;
                 args.serialize(&mut writer)
             }
-            Self::MigratePositionFromV1 => {
-                writer.write_all(&MIGRATE_POSITION_FROM_V1_IX_DISCM)
-            }
-            Self::MigratePositionFromV2 => {
-                writer.write_all(&MIGRATE_POSITION_FROM_V2_IX_DISCM)
-            }
+            Self::MigratePosition => writer.write_all(&MIGRATE_POSITION_IX_DISCM),
             Self::MigrateBinArray => writer.write_all(&MIGRATE_BIN_ARRAY_IX_DISCM),
             Self::UpdateFeesAndRewards => {
                 writer.write_all(&UPDATE_FEES_AND_REWARDS_IX_DISCM)
@@ -5654,7 +5623,7 @@ pub struct SwapAccounts<'me, 'info> {
     pub token_x_mint: &'me AccountInfo<'info>,
     pub token_y_mint: &'me AccountInfo<'info>,
     pub oracle: &'me AccountInfo<'info>,
-    pub host_fee_in: &'me AccountInfo<'info>,
+    pub host_fee: &'me AccountInfo<'info>,
     pub user: &'me AccountInfo<'info>,
     pub token_x_program: &'me AccountInfo<'info>,
     pub token_y_program: &'me AccountInfo<'info>,
@@ -5672,7 +5641,7 @@ pub struct SwapKeys {
     pub token_x_mint: Pubkey,
     pub token_y_mint: Pubkey,
     pub oracle: Pubkey,
-    pub host_fee_in: Pubkey,
+    pub host_fee: Pubkey,
     pub user: Pubkey,
     pub token_x_program: Pubkey,
     pub token_y_program: Pubkey,
@@ -5691,7 +5660,7 @@ impl From<SwapAccounts<'_, '_>> for SwapKeys {
             token_x_mint: *accounts.token_x_mint.key,
             token_y_mint: *accounts.token_y_mint.key,
             oracle: *accounts.oracle.key,
-            host_fee_in: *accounts.host_fee_in.key,
+            host_fee: *accounts.host_fee.key,
             user: *accounts.user.key,
             token_x_program: *accounts.token_x_program.key,
             token_y_program: *accounts.token_y_program.key,
@@ -5749,7 +5718,7 @@ impl From<SwapKeys> for [AccountMeta; SWAP_IX_ACCOUNTS_LEN] {
                 is_writable: true,
             },
             AccountMeta {
-                pubkey: keys.host_fee_in,
+                pubkey: keys.host_fee,
                 is_signer: false,
                 is_writable: true,
             },
@@ -5793,7 +5762,7 @@ impl From<[Pubkey; SWAP_IX_ACCOUNTS_LEN]> for SwapKeys {
             token_x_mint: pubkeys[6],
             token_y_mint: pubkeys[7],
             oracle: pubkeys[8],
-            host_fee_in: pubkeys[9],
+            host_fee: pubkeys[9],
             user: pubkeys[10],
             token_x_program: pubkeys[11],
             token_y_program: pubkeys[12],
@@ -5815,7 +5784,7 @@ for [AccountInfo<'info>; SWAP_IX_ACCOUNTS_LEN] {
             accounts.token_x_mint.clone(),
             accounts.token_y_mint.clone(),
             accounts.oracle.clone(),
-            accounts.host_fee_in.clone(),
+            accounts.host_fee.clone(),
             accounts.user.clone(),
             accounts.token_x_program.clone(),
             accounts.token_y_program.clone(),
@@ -5837,7 +5806,7 @@ for SwapAccounts<'me, 'info> {
             token_x_mint: &arr[6],
             token_y_mint: &arr[7],
             oracle: &arr[8],
-            host_fee_in: &arr[9],
+            host_fee: &arr[9],
             user: &arr[10],
             token_x_program: &arr[11],
             token_y_program: &arr[12],
@@ -5947,7 +5916,7 @@ pub fn swap_verify_account_keys(
         (*accounts.token_x_mint.key, keys.token_x_mint),
         (*accounts.token_y_mint.key, keys.token_y_mint),
         (*accounts.oracle.key, keys.oracle),
-        (*accounts.host_fee_in.key, keys.host_fee_in),
+        (*accounts.host_fee.key, keys.host_fee),
         (*accounts.user.key, keys.user),
         (*accounts.token_x_program.key, keys.token_x_program),
         (*accounts.token_y_program.key, keys.token_y_program),
@@ -5970,7 +5939,7 @@ pub fn swap_verify_writable_privileges<'me, 'info>(
         accounts.user_token_in,
         accounts.user_token_out,
         accounts.oracle,
-        accounts.host_fee_in,
+        accounts.host_fee,
     ] {
         if !should_be_writable.is_writable {
             return Err((should_be_writable, ProgramError::InvalidAccountData));
@@ -6007,7 +5976,7 @@ pub struct SwapExactOutAccounts<'me, 'info> {
     pub token_x_mint: &'me AccountInfo<'info>,
     pub token_y_mint: &'me AccountInfo<'info>,
     pub oracle: &'me AccountInfo<'info>,
-    pub host_fee_in: &'me AccountInfo<'info>,
+    pub host_fee: &'me AccountInfo<'info>,
     pub user: &'me AccountInfo<'info>,
     pub token_x_program: &'me AccountInfo<'info>,
     pub token_y_program: &'me AccountInfo<'info>,
@@ -6025,7 +5994,7 @@ pub struct SwapExactOutKeys {
     pub token_x_mint: Pubkey,
     pub token_y_mint: Pubkey,
     pub oracle: Pubkey,
-    pub host_fee_in: Pubkey,
+    pub host_fee: Pubkey,
     pub user: Pubkey,
     pub token_x_program: Pubkey,
     pub token_y_program: Pubkey,
@@ -6044,7 +6013,7 @@ impl From<SwapExactOutAccounts<'_, '_>> for SwapExactOutKeys {
             token_x_mint: *accounts.token_x_mint.key,
             token_y_mint: *accounts.token_y_mint.key,
             oracle: *accounts.oracle.key,
-            host_fee_in: *accounts.host_fee_in.key,
+            host_fee: *accounts.host_fee.key,
             user: *accounts.user.key,
             token_x_program: *accounts.token_x_program.key,
             token_y_program: *accounts.token_y_program.key,
@@ -6102,7 +6071,7 @@ impl From<SwapExactOutKeys> for [AccountMeta; SWAP_EXACT_OUT_IX_ACCOUNTS_LEN] {
                 is_writable: true,
             },
             AccountMeta {
-                pubkey: keys.host_fee_in,
+                pubkey: keys.host_fee,
                 is_signer: false,
                 is_writable: true,
             },
@@ -6146,7 +6115,7 @@ impl From<[Pubkey; SWAP_EXACT_OUT_IX_ACCOUNTS_LEN]> for SwapExactOutKeys {
             token_x_mint: pubkeys[6],
             token_y_mint: pubkeys[7],
             oracle: pubkeys[8],
-            host_fee_in: pubkeys[9],
+            host_fee: pubkeys[9],
             user: pubkeys[10],
             token_x_program: pubkeys[11],
             token_y_program: pubkeys[12],
@@ -6168,7 +6137,7 @@ for [AccountInfo<'info>; SWAP_EXACT_OUT_IX_ACCOUNTS_LEN] {
             accounts.token_x_mint.clone(),
             accounts.token_y_mint.clone(),
             accounts.oracle.clone(),
-            accounts.host_fee_in.clone(),
+            accounts.host_fee.clone(),
             accounts.user.clone(),
             accounts.token_x_program.clone(),
             accounts.token_y_program.clone(),
@@ -6190,7 +6159,7 @@ for SwapExactOutAccounts<'me, 'info> {
             token_x_mint: &arr[6],
             token_y_mint: &arr[7],
             oracle: &arr[8],
-            host_fee_in: &arr[9],
+            host_fee: &arr[9],
             user: &arr[10],
             token_x_program: &arr[11],
             token_y_program: &arr[12],
@@ -6306,7 +6275,7 @@ pub fn swap_exact_out_verify_account_keys(
         (*accounts.token_x_mint.key, keys.token_x_mint),
         (*accounts.token_y_mint.key, keys.token_y_mint),
         (*accounts.oracle.key, keys.oracle),
-        (*accounts.host_fee_in.key, keys.host_fee_in),
+        (*accounts.host_fee.key, keys.host_fee),
         (*accounts.user.key, keys.user),
         (*accounts.token_x_program.key, keys.token_x_program),
         (*accounts.token_y_program.key, keys.token_y_program),
@@ -6329,7 +6298,7 @@ pub fn swap_exact_out_verify_writable_privileges<'me, 'info>(
         accounts.user_token_in,
         accounts.user_token_out,
         accounts.oracle,
-        accounts.host_fee_in,
+        accounts.host_fee,
     ] {
         if !should_be_writable.is_writable {
             return Err((should_be_writable, ProgramError::InvalidAccountData));
@@ -6366,7 +6335,7 @@ pub struct SwapWithPriceImpactAccounts<'me, 'info> {
     pub token_x_mint: &'me AccountInfo<'info>,
     pub token_y_mint: &'me AccountInfo<'info>,
     pub oracle: &'me AccountInfo<'info>,
-    pub host_fee_in: &'me AccountInfo<'info>,
+    pub host_fee: &'me AccountInfo<'info>,
     pub user: &'me AccountInfo<'info>,
     pub token_x_program: &'me AccountInfo<'info>,
     pub token_y_program: &'me AccountInfo<'info>,
@@ -6384,7 +6353,7 @@ pub struct SwapWithPriceImpactKeys {
     pub token_x_mint: Pubkey,
     pub token_y_mint: Pubkey,
     pub oracle: Pubkey,
-    pub host_fee_in: Pubkey,
+    pub host_fee: Pubkey,
     pub user: Pubkey,
     pub token_x_program: Pubkey,
     pub token_y_program: Pubkey,
@@ -6403,7 +6372,7 @@ impl From<SwapWithPriceImpactAccounts<'_, '_>> for SwapWithPriceImpactKeys {
             token_x_mint: *accounts.token_x_mint.key,
             token_y_mint: *accounts.token_y_mint.key,
             oracle: *accounts.oracle.key,
-            host_fee_in: *accounts.host_fee_in.key,
+            host_fee: *accounts.host_fee.key,
             user: *accounts.user.key,
             token_x_program: *accounts.token_x_program.key,
             token_y_program: *accounts.token_y_program.key,
@@ -6462,7 +6431,7 @@ for [AccountMeta; SWAP_WITH_PRICE_IMPACT_IX_ACCOUNTS_LEN] {
                 is_writable: true,
             },
             AccountMeta {
-                pubkey: keys.host_fee_in,
+                pubkey: keys.host_fee,
                 is_signer: false,
                 is_writable: true,
             },
@@ -6506,7 +6475,7 @@ impl From<[Pubkey; SWAP_WITH_PRICE_IMPACT_IX_ACCOUNTS_LEN]> for SwapWithPriceImp
             token_x_mint: pubkeys[6],
             token_y_mint: pubkeys[7],
             oracle: pubkeys[8],
-            host_fee_in: pubkeys[9],
+            host_fee: pubkeys[9],
             user: pubkeys[10],
             token_x_program: pubkeys[11],
             token_y_program: pubkeys[12],
@@ -6528,7 +6497,7 @@ for [AccountInfo<'info>; SWAP_WITH_PRICE_IMPACT_IX_ACCOUNTS_LEN] {
             accounts.token_x_mint.clone(),
             accounts.token_y_mint.clone(),
             accounts.oracle.clone(),
-            accounts.host_fee_in.clone(),
+            accounts.host_fee.clone(),
             accounts.user.clone(),
             accounts.token_x_program.clone(),
             accounts.token_y_program.clone(),
@@ -6552,7 +6521,7 @@ for SwapWithPriceImpactAccounts<'me, 'info> {
             token_x_mint: &arr[6],
             token_y_mint: &arr[7],
             oracle: &arr[8],
-            host_fee_in: &arr[9],
+            host_fee: &arr[9],
             user: &arr[10],
             token_x_program: &arr[11],
             token_y_program: &arr[12],
@@ -6683,7 +6652,7 @@ pub fn swap_with_price_impact_verify_account_keys(
         (*accounts.token_x_mint.key, keys.token_x_mint),
         (*accounts.token_y_mint.key, keys.token_y_mint),
         (*accounts.oracle.key, keys.oracle),
-        (*accounts.host_fee_in.key, keys.host_fee_in),
+        (*accounts.host_fee.key, keys.host_fee),
         (*accounts.user.key, keys.user),
         (*accounts.token_x_program.key, keys.token_x_program),
         (*accounts.token_y_program.key, keys.token_y_program),
@@ -6706,7 +6675,7 @@ pub fn swap_with_price_impact_verify_writable_privileges<'me, 'info>(
         accounts.user_token_in,
         accounts.user_token_out,
         accounts.oracle,
-        accounts.host_fee_in,
+        accounts.host_fee,
     ] {
         if !should_be_writable.is_writable {
             return Err((should_be_writable, ProgramError::InvalidAccountData));
@@ -9691,546 +9660,6 @@ pub fn increase_oracle_length_verify_account_privileges<'me, 'info>(
     increase_oracle_length_verify_signer_privileges(accounts)?;
     Ok(())
 }
-pub const INCREASE_POSITION_LENGTH_IX_ACCOUNTS_LEN: usize = 7;
-#[derive(Copy, Clone, Debug)]
-pub struct IncreasePositionLengthAccounts<'me, 'info> {
-    pub funder: &'me AccountInfo<'info>,
-    pub lb_pair: &'me AccountInfo<'info>,
-    pub position: &'me AccountInfo<'info>,
-    pub owner: &'me AccountInfo<'info>,
-    pub system_program: &'me AccountInfo<'info>,
-    pub event_authority: &'me AccountInfo<'info>,
-    pub program: &'me AccountInfo<'info>,
-}
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct IncreasePositionLengthKeys {
-    pub funder: Pubkey,
-    pub lb_pair: Pubkey,
-    pub position: Pubkey,
-    pub owner: Pubkey,
-    pub system_program: Pubkey,
-    pub event_authority: Pubkey,
-    pub program: Pubkey,
-}
-impl From<IncreasePositionLengthAccounts<'_, '_>> for IncreasePositionLengthKeys {
-    fn from(accounts: IncreasePositionLengthAccounts) -> Self {
-        Self {
-            funder: *accounts.funder.key,
-            lb_pair: *accounts.lb_pair.key,
-            position: *accounts.position.key,
-            owner: *accounts.owner.key,
-            system_program: *accounts.system_program.key,
-            event_authority: *accounts.event_authority.key,
-            program: *accounts.program.key,
-        }
-    }
-}
-impl From<IncreasePositionLengthKeys>
-for [AccountMeta; INCREASE_POSITION_LENGTH_IX_ACCOUNTS_LEN] {
-    fn from(keys: IncreasePositionLengthKeys) -> Self {
-        [
-            AccountMeta {
-                pubkey: keys.funder,
-                is_signer: true,
-                is_writable: true,
-            },
-            AccountMeta {
-                pubkey: keys.lb_pair,
-                is_signer: false,
-                is_writable: false,
-            },
-            AccountMeta {
-                pubkey: keys.position,
-                is_signer: false,
-                is_writable: true,
-            },
-            AccountMeta {
-                pubkey: keys.owner,
-                is_signer: true,
-                is_writable: false,
-            },
-            AccountMeta {
-                pubkey: keys.system_program,
-                is_signer: false,
-                is_writable: false,
-            },
-            AccountMeta {
-                pubkey: keys.event_authority,
-                is_signer: false,
-                is_writable: false,
-            },
-            AccountMeta {
-                pubkey: keys.program,
-                is_signer: false,
-                is_writable: false,
-            },
-        ]
-    }
-}
-impl From<[Pubkey; INCREASE_POSITION_LENGTH_IX_ACCOUNTS_LEN]>
-for IncreasePositionLengthKeys {
-    fn from(pubkeys: [Pubkey; INCREASE_POSITION_LENGTH_IX_ACCOUNTS_LEN]) -> Self {
-        Self {
-            funder: pubkeys[0],
-            lb_pair: pubkeys[1],
-            position: pubkeys[2],
-            owner: pubkeys[3],
-            system_program: pubkeys[4],
-            event_authority: pubkeys[5],
-            program: pubkeys[6],
-        }
-    }
-}
-impl<'info> From<IncreasePositionLengthAccounts<'_, 'info>>
-for [AccountInfo<'info>; INCREASE_POSITION_LENGTH_IX_ACCOUNTS_LEN] {
-    fn from(accounts: IncreasePositionLengthAccounts<'_, 'info>) -> Self {
-        [
-            accounts.funder.clone(),
-            accounts.lb_pair.clone(),
-            accounts.position.clone(),
-            accounts.owner.clone(),
-            accounts.system_program.clone(),
-            accounts.event_authority.clone(),
-            accounts.program.clone(),
-        ]
-    }
-}
-impl<
-    'me,
-    'info,
-> From<&'me [AccountInfo<'info>; INCREASE_POSITION_LENGTH_IX_ACCOUNTS_LEN]>
-for IncreasePositionLengthAccounts<'me, 'info> {
-    fn from(
-        arr: &'me [AccountInfo<'info>; INCREASE_POSITION_LENGTH_IX_ACCOUNTS_LEN],
-    ) -> Self {
-        Self {
-            funder: &arr[0],
-            lb_pair: &arr[1],
-            position: &arr[2],
-            owner: &arr[3],
-            system_program: &arr[4],
-            event_authority: &arr[5],
-            program: &arr[6],
-        }
-    }
-}
-pub const INCREASE_POSITION_LENGTH_IX_DISCM: [u8; 8] = [
-    80,
-    83,
-    117,
-    211,
-    66,
-    13,
-    33,
-    149,
-];
-#[derive(BorshDeserialize, BorshSerialize, Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct IncreasePositionLengthIxArgs {
-    pub length_to_add: u16,
-    pub side: u8,
-}
-#[derive(Clone, Debug, PartialEq)]
-pub struct IncreasePositionLengthIxData(pub IncreasePositionLengthIxArgs);
-impl From<IncreasePositionLengthIxArgs> for IncreasePositionLengthIxData {
-    fn from(args: IncreasePositionLengthIxArgs) -> Self {
-        Self(args)
-    }
-}
-impl IncreasePositionLengthIxData {
-    pub fn deserialize(buf: &[u8]) -> std::io::Result<Self> {
-        let mut reader = buf;
-        let mut maybe_discm = [0u8; 8];
-        reader.read_exact(&mut maybe_discm)?;
-        if maybe_discm != INCREASE_POSITION_LENGTH_IX_DISCM {
-            return Err(
-                std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!(
-                        "discm does not match. Expected: {:?}. Received: {:?}",
-                        INCREASE_POSITION_LENGTH_IX_DISCM, maybe_discm
-                    ),
-                ),
-            );
-        }
-        Ok(Self(IncreasePositionLengthIxArgs::deserialize(&mut reader)?))
-    }
-    pub fn serialize<W: std::io::Write>(&self, mut writer: W) -> std::io::Result<()> {
-        writer.write_all(&INCREASE_POSITION_LENGTH_IX_DISCM)?;
-        self.0.serialize(&mut writer)
-    }
-    pub fn try_to_vec(&self) -> std::io::Result<Vec<u8>> {
-        let mut data = Vec::new();
-        self.serialize(&mut data)?;
-        Ok(data)
-    }
-}
-pub fn increase_position_length_ix_with_program_id(
-    program_id: Pubkey,
-    keys: IncreasePositionLengthKeys,
-    args: IncreasePositionLengthIxArgs,
-) -> std::io::Result<Instruction> {
-    let metas: [AccountMeta; INCREASE_POSITION_LENGTH_IX_ACCOUNTS_LEN] = keys.into();
-    let data: IncreasePositionLengthIxData = args.into();
-    Ok(Instruction {
-        program_id,
-        accounts: Vec::from(metas),
-        data: data.try_to_vec()?,
-    })
-}
-pub fn increase_position_length_ix(
-    keys: IncreasePositionLengthKeys,
-    args: IncreasePositionLengthIxArgs,
-) -> std::io::Result<Instruction> {
-    increase_position_length_ix_with_program_id(crate::ID, keys, args)
-}
-pub fn increase_position_length_invoke_with_program_id(
-    program_id: Pubkey,
-    accounts: IncreasePositionLengthAccounts<'_, '_>,
-    args: IncreasePositionLengthIxArgs,
-) -> ProgramResult {
-    let keys: IncreasePositionLengthKeys = accounts.into();
-    let ix = increase_position_length_ix_with_program_id(program_id, keys, args)?;
-    invoke_instruction(&ix, accounts)
-}
-pub fn increase_position_length_invoke(
-    accounts: IncreasePositionLengthAccounts<'_, '_>,
-    args: IncreasePositionLengthIxArgs,
-) -> ProgramResult {
-    increase_position_length_invoke_with_program_id(crate::ID, accounts, args)
-}
-pub fn increase_position_length_invoke_signed_with_program_id(
-    program_id: Pubkey,
-    accounts: IncreasePositionLengthAccounts<'_, '_>,
-    args: IncreasePositionLengthIxArgs,
-    seeds: &[&[&[u8]]],
-) -> ProgramResult {
-    let keys: IncreasePositionLengthKeys = accounts.into();
-    let ix = increase_position_length_ix_with_program_id(program_id, keys, args)?;
-    invoke_instruction_signed(&ix, accounts, seeds)
-}
-pub fn increase_position_length_invoke_signed(
-    accounts: IncreasePositionLengthAccounts<'_, '_>,
-    args: IncreasePositionLengthIxArgs,
-    seeds: &[&[&[u8]]],
-) -> ProgramResult {
-    increase_position_length_invoke_signed_with_program_id(
-        crate::ID,
-        accounts,
-        args,
-        seeds,
-    )
-}
-pub fn increase_position_length_verify_account_keys(
-    accounts: IncreasePositionLengthAccounts<'_, '_>,
-    keys: IncreasePositionLengthKeys,
-) -> Result<(), (Pubkey, Pubkey)> {
-    for (actual, expected) in [
-        (*accounts.funder.key, keys.funder),
-        (*accounts.lb_pair.key, keys.lb_pair),
-        (*accounts.position.key, keys.position),
-        (*accounts.owner.key, keys.owner),
-        (*accounts.system_program.key, keys.system_program),
-        (*accounts.event_authority.key, keys.event_authority),
-        (*accounts.program.key, keys.program),
-    ] {
-        if actual != expected {
-            return Err((actual, expected));
-        }
-    }
-    Ok(())
-}
-pub fn increase_position_length_verify_writable_privileges<'me, 'info>(
-    accounts: IncreasePositionLengthAccounts<'me, 'info>,
-) -> Result<(), (&'me AccountInfo<'info>, ProgramError)> {
-    for should_be_writable in [accounts.funder, accounts.position] {
-        if !should_be_writable.is_writable {
-            return Err((should_be_writable, ProgramError::InvalidAccountData));
-        }
-    }
-    Ok(())
-}
-pub fn increase_position_length_verify_signer_privileges<'me, 'info>(
-    accounts: IncreasePositionLengthAccounts<'me, 'info>,
-) -> Result<(), (&'me AccountInfo<'info>, ProgramError)> {
-    for should_be_signer in [accounts.funder, accounts.owner] {
-        if !should_be_signer.is_signer {
-            return Err((should_be_signer, ProgramError::MissingRequiredSignature));
-        }
-    }
-    Ok(())
-}
-pub fn increase_position_length_verify_account_privileges<'me, 'info>(
-    accounts: IncreasePositionLengthAccounts<'me, 'info>,
-) -> Result<(), (&'me AccountInfo<'info>, ProgramError)> {
-    increase_position_length_verify_writable_privileges(accounts)?;
-    increase_position_length_verify_signer_privileges(accounts)?;
-    Ok(())
-}
-pub const DECREASE_POSITION_LENGTH_IX_ACCOUNTS_LEN: usize = 6;
-#[derive(Copy, Clone, Debug)]
-pub struct DecreasePositionLengthAccounts<'me, 'info> {
-    pub rent_receiver: &'me AccountInfo<'info>,
-    pub position: &'me AccountInfo<'info>,
-    pub owner: &'me AccountInfo<'info>,
-    pub system_program: &'me AccountInfo<'info>,
-    pub event_authority: &'me AccountInfo<'info>,
-    pub program: &'me AccountInfo<'info>,
-}
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct DecreasePositionLengthKeys {
-    pub rent_receiver: Pubkey,
-    pub position: Pubkey,
-    pub owner: Pubkey,
-    pub system_program: Pubkey,
-    pub event_authority: Pubkey,
-    pub program: Pubkey,
-}
-impl From<DecreasePositionLengthAccounts<'_, '_>> for DecreasePositionLengthKeys {
-    fn from(accounts: DecreasePositionLengthAccounts) -> Self {
-        Self {
-            rent_receiver: *accounts.rent_receiver.key,
-            position: *accounts.position.key,
-            owner: *accounts.owner.key,
-            system_program: *accounts.system_program.key,
-            event_authority: *accounts.event_authority.key,
-            program: *accounts.program.key,
-        }
-    }
-}
-impl From<DecreasePositionLengthKeys>
-for [AccountMeta; DECREASE_POSITION_LENGTH_IX_ACCOUNTS_LEN] {
-    fn from(keys: DecreasePositionLengthKeys) -> Self {
-        [
-            AccountMeta {
-                pubkey: keys.rent_receiver,
-                is_signer: false,
-                is_writable: true,
-            },
-            AccountMeta {
-                pubkey: keys.position,
-                is_signer: false,
-                is_writable: true,
-            },
-            AccountMeta {
-                pubkey: keys.owner,
-                is_signer: true,
-                is_writable: false,
-            },
-            AccountMeta {
-                pubkey: keys.system_program,
-                is_signer: false,
-                is_writable: false,
-            },
-            AccountMeta {
-                pubkey: keys.event_authority,
-                is_signer: false,
-                is_writable: false,
-            },
-            AccountMeta {
-                pubkey: keys.program,
-                is_signer: false,
-                is_writable: false,
-            },
-        ]
-    }
-}
-impl From<[Pubkey; DECREASE_POSITION_LENGTH_IX_ACCOUNTS_LEN]>
-for DecreasePositionLengthKeys {
-    fn from(pubkeys: [Pubkey; DECREASE_POSITION_LENGTH_IX_ACCOUNTS_LEN]) -> Self {
-        Self {
-            rent_receiver: pubkeys[0],
-            position: pubkeys[1],
-            owner: pubkeys[2],
-            system_program: pubkeys[3],
-            event_authority: pubkeys[4],
-            program: pubkeys[5],
-        }
-    }
-}
-impl<'info> From<DecreasePositionLengthAccounts<'_, 'info>>
-for [AccountInfo<'info>; DECREASE_POSITION_LENGTH_IX_ACCOUNTS_LEN] {
-    fn from(accounts: DecreasePositionLengthAccounts<'_, 'info>) -> Self {
-        [
-            accounts.rent_receiver.clone(),
-            accounts.position.clone(),
-            accounts.owner.clone(),
-            accounts.system_program.clone(),
-            accounts.event_authority.clone(),
-            accounts.program.clone(),
-        ]
-    }
-}
-impl<
-    'me,
-    'info,
-> From<&'me [AccountInfo<'info>; DECREASE_POSITION_LENGTH_IX_ACCOUNTS_LEN]>
-for DecreasePositionLengthAccounts<'me, 'info> {
-    fn from(
-        arr: &'me [AccountInfo<'info>; DECREASE_POSITION_LENGTH_IX_ACCOUNTS_LEN],
-    ) -> Self {
-        Self {
-            rent_receiver: &arr[0],
-            position: &arr[1],
-            owner: &arr[2],
-            system_program: &arr[3],
-            event_authority: &arr[4],
-            program: &arr[5],
-        }
-    }
-}
-pub const DECREASE_POSITION_LENGTH_IX_DISCM: [u8; 8] = [
-    194,
-    219,
-    136,
-    32,
-    25,
-    96,
-    105,
-    37,
-];
-#[derive(BorshDeserialize, BorshSerialize, Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct DecreasePositionLengthIxArgs {
-    pub length_to_remove: u16,
-    pub side: u8,
-}
-#[derive(Clone, Debug, PartialEq)]
-pub struct DecreasePositionLengthIxData(pub DecreasePositionLengthIxArgs);
-impl From<DecreasePositionLengthIxArgs> for DecreasePositionLengthIxData {
-    fn from(args: DecreasePositionLengthIxArgs) -> Self {
-        Self(args)
-    }
-}
-impl DecreasePositionLengthIxData {
-    pub fn deserialize(buf: &[u8]) -> std::io::Result<Self> {
-        let mut reader = buf;
-        let mut maybe_discm = [0u8; 8];
-        reader.read_exact(&mut maybe_discm)?;
-        if maybe_discm != DECREASE_POSITION_LENGTH_IX_DISCM {
-            return Err(
-                std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!(
-                        "discm does not match. Expected: {:?}. Received: {:?}",
-                        DECREASE_POSITION_LENGTH_IX_DISCM, maybe_discm
-                    ),
-                ),
-            );
-        }
-        Ok(Self(DecreasePositionLengthIxArgs::deserialize(&mut reader)?))
-    }
-    pub fn serialize<W: std::io::Write>(&self, mut writer: W) -> std::io::Result<()> {
-        writer.write_all(&DECREASE_POSITION_LENGTH_IX_DISCM)?;
-        self.0.serialize(&mut writer)
-    }
-    pub fn try_to_vec(&self) -> std::io::Result<Vec<u8>> {
-        let mut data = Vec::new();
-        self.serialize(&mut data)?;
-        Ok(data)
-    }
-}
-pub fn decrease_position_length_ix_with_program_id(
-    program_id: Pubkey,
-    keys: DecreasePositionLengthKeys,
-    args: DecreasePositionLengthIxArgs,
-) -> std::io::Result<Instruction> {
-    let metas: [AccountMeta; DECREASE_POSITION_LENGTH_IX_ACCOUNTS_LEN] = keys.into();
-    let data: DecreasePositionLengthIxData = args.into();
-    Ok(Instruction {
-        program_id,
-        accounts: Vec::from(metas),
-        data: data.try_to_vec()?,
-    })
-}
-pub fn decrease_position_length_ix(
-    keys: DecreasePositionLengthKeys,
-    args: DecreasePositionLengthIxArgs,
-) -> std::io::Result<Instruction> {
-    decrease_position_length_ix_with_program_id(crate::ID, keys, args)
-}
-pub fn decrease_position_length_invoke_with_program_id(
-    program_id: Pubkey,
-    accounts: DecreasePositionLengthAccounts<'_, '_>,
-    args: DecreasePositionLengthIxArgs,
-) -> ProgramResult {
-    let keys: DecreasePositionLengthKeys = accounts.into();
-    let ix = decrease_position_length_ix_with_program_id(program_id, keys, args)?;
-    invoke_instruction(&ix, accounts)
-}
-pub fn decrease_position_length_invoke(
-    accounts: DecreasePositionLengthAccounts<'_, '_>,
-    args: DecreasePositionLengthIxArgs,
-) -> ProgramResult {
-    decrease_position_length_invoke_with_program_id(crate::ID, accounts, args)
-}
-pub fn decrease_position_length_invoke_signed_with_program_id(
-    program_id: Pubkey,
-    accounts: DecreasePositionLengthAccounts<'_, '_>,
-    args: DecreasePositionLengthIxArgs,
-    seeds: &[&[&[u8]]],
-) -> ProgramResult {
-    let keys: DecreasePositionLengthKeys = accounts.into();
-    let ix = decrease_position_length_ix_with_program_id(program_id, keys, args)?;
-    invoke_instruction_signed(&ix, accounts, seeds)
-}
-pub fn decrease_position_length_invoke_signed(
-    accounts: DecreasePositionLengthAccounts<'_, '_>,
-    args: DecreasePositionLengthIxArgs,
-    seeds: &[&[&[u8]]],
-) -> ProgramResult {
-    decrease_position_length_invoke_signed_with_program_id(
-        crate::ID,
-        accounts,
-        args,
-        seeds,
-    )
-}
-pub fn decrease_position_length_verify_account_keys(
-    accounts: DecreasePositionLengthAccounts<'_, '_>,
-    keys: DecreasePositionLengthKeys,
-) -> Result<(), (Pubkey, Pubkey)> {
-    for (actual, expected) in [
-        (*accounts.rent_receiver.key, keys.rent_receiver),
-        (*accounts.position.key, keys.position),
-        (*accounts.owner.key, keys.owner),
-        (*accounts.system_program.key, keys.system_program),
-        (*accounts.event_authority.key, keys.event_authority),
-        (*accounts.program.key, keys.program),
-    ] {
-        if actual != expected {
-            return Err((actual, expected));
-        }
-    }
-    Ok(())
-}
-pub fn decrease_position_length_verify_writable_privileges<'me, 'info>(
-    accounts: DecreasePositionLengthAccounts<'me, 'info>,
-) -> Result<(), (&'me AccountInfo<'info>, ProgramError)> {
-    for should_be_writable in [accounts.rent_receiver, accounts.position] {
-        if !should_be_writable.is_writable {
-            return Err((should_be_writable, ProgramError::InvalidAccountData));
-        }
-    }
-    Ok(())
-}
-pub fn decrease_position_length_verify_signer_privileges<'me, 'info>(
-    accounts: DecreasePositionLengthAccounts<'me, 'info>,
-) -> Result<(), (&'me AccountInfo<'info>, ProgramError)> {
-    for should_be_signer in [accounts.owner] {
-        if !should_be_signer.is_signer {
-            return Err((should_be_signer, ProgramError::MissingRequiredSignature));
-        }
-    }
-    Ok(())
-}
-pub fn decrease_position_length_verify_account_privileges<'me, 'info>(
-    accounts: DecreasePositionLengthAccounts<'me, 'info>,
-) -> Result<(), (&'me AccountInfo<'info>, ProgramError)> {
-    decrease_position_length_verify_writable_privileges(accounts)?;
-    decrease_position_length_verify_signer_privileges(accounts)?;
-    Ok(())
-}
 pub const INITIALIZE_PRESET_PARAMETER_IX_ACCOUNTS_LEN: usize = 4;
 #[derive(Copy, Clone, Debug)]
 pub struct InitializePresetParameterAccounts<'me, 'info> {
@@ -11428,10 +10857,10 @@ pub fn set_pair_status_verify_account_privileges<'me, 'info>(
     set_pair_status_verify_signer_privileges(accounts)?;
     Ok(())
 }
-pub const MIGRATE_POSITION_FROM_V1_IX_ACCOUNTS_LEN: usize = 10;
+pub const MIGRATE_POSITION_IX_ACCOUNTS_LEN: usize = 10;
 #[derive(Copy, Clone, Debug)]
-pub struct MigratePositionFromV1Accounts<'me, 'info> {
-    pub position_v3: &'me AccountInfo<'info>,
+pub struct MigratePositionAccounts<'me, 'info> {
+    pub position_v2: &'me AccountInfo<'info>,
     pub position_v1: &'me AccountInfo<'info>,
     pub lb_pair: &'me AccountInfo<'info>,
     pub bin_array_lower: &'me AccountInfo<'info>,
@@ -11443,8 +10872,8 @@ pub struct MigratePositionFromV1Accounts<'me, 'info> {
     pub program: &'me AccountInfo<'info>,
 }
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct MigratePositionFromV1Keys {
-    pub position_v3: Pubkey,
+pub struct MigratePositionKeys {
+    pub position_v2: Pubkey,
     pub position_v1: Pubkey,
     pub lb_pair: Pubkey,
     pub bin_array_lower: Pubkey,
@@ -11455,10 +10884,10 @@ pub struct MigratePositionFromV1Keys {
     pub event_authority: Pubkey,
     pub program: Pubkey,
 }
-impl From<MigratePositionFromV1Accounts<'_, '_>> for MigratePositionFromV1Keys {
-    fn from(accounts: MigratePositionFromV1Accounts) -> Self {
+impl From<MigratePositionAccounts<'_, '_>> for MigratePositionKeys {
+    fn from(accounts: MigratePositionAccounts) -> Self {
         Self {
-            position_v3: *accounts.position_v3.key,
+            position_v2: *accounts.position_v2.key,
             position_v1: *accounts.position_v1.key,
             lb_pair: *accounts.lb_pair.key,
             bin_array_lower: *accounts.bin_array_lower.key,
@@ -11471,12 +10900,11 @@ impl From<MigratePositionFromV1Accounts<'_, '_>> for MigratePositionFromV1Keys {
         }
     }
 }
-impl From<MigratePositionFromV1Keys>
-for [AccountMeta; MIGRATE_POSITION_FROM_V1_IX_ACCOUNTS_LEN] {
-    fn from(keys: MigratePositionFromV1Keys) -> Self {
+impl From<MigratePositionKeys> for [AccountMeta; MIGRATE_POSITION_IX_ACCOUNTS_LEN] {
+    fn from(keys: MigratePositionKeys) -> Self {
         [
             AccountMeta {
-                pubkey: keys.position_v3,
+                pubkey: keys.position_v2,
                 is_signer: true,
                 is_writable: true,
             },
@@ -11528,11 +10956,10 @@ for [AccountMeta; MIGRATE_POSITION_FROM_V1_IX_ACCOUNTS_LEN] {
         ]
     }
 }
-impl From<[Pubkey; MIGRATE_POSITION_FROM_V1_IX_ACCOUNTS_LEN]>
-for MigratePositionFromV1Keys {
-    fn from(pubkeys: [Pubkey; MIGRATE_POSITION_FROM_V1_IX_ACCOUNTS_LEN]) -> Self {
+impl From<[Pubkey; MIGRATE_POSITION_IX_ACCOUNTS_LEN]> for MigratePositionKeys {
+    fn from(pubkeys: [Pubkey; MIGRATE_POSITION_IX_ACCOUNTS_LEN]) -> Self {
         Self {
-            position_v3: pubkeys[0],
+            position_v2: pubkeys[0],
             position_v1: pubkeys[1],
             lb_pair: pubkeys[2],
             bin_array_lower: pubkeys[3],
@@ -11545,11 +10972,11 @@ for MigratePositionFromV1Keys {
         }
     }
 }
-impl<'info> From<MigratePositionFromV1Accounts<'_, 'info>>
-for [AccountInfo<'info>; MIGRATE_POSITION_FROM_V1_IX_ACCOUNTS_LEN] {
-    fn from(accounts: MigratePositionFromV1Accounts<'_, 'info>) -> Self {
+impl<'info> From<MigratePositionAccounts<'_, 'info>>
+for [AccountInfo<'info>; MIGRATE_POSITION_IX_ACCOUNTS_LEN] {
+    fn from(accounts: MigratePositionAccounts<'_, 'info>) -> Self {
         [
-            accounts.position_v3.clone(),
+            accounts.position_v2.clone(),
             accounts.position_v1.clone(),
             accounts.lb_pair.clone(),
             accounts.bin_array_lower.clone(),
@@ -11562,16 +10989,11 @@ for [AccountInfo<'info>; MIGRATE_POSITION_FROM_V1_IX_ACCOUNTS_LEN] {
         ]
     }
 }
-impl<
-    'me,
-    'info,
-> From<&'me [AccountInfo<'info>; MIGRATE_POSITION_FROM_V1_IX_ACCOUNTS_LEN]>
-for MigratePositionFromV1Accounts<'me, 'info> {
-    fn from(
-        arr: &'me [AccountInfo<'info>; MIGRATE_POSITION_FROM_V1_IX_ACCOUNTS_LEN],
-    ) -> Self {
+impl<'me, 'info> From<&'me [AccountInfo<'info>; MIGRATE_POSITION_IX_ACCOUNTS_LEN]>
+for MigratePositionAccounts<'me, 'info> {
+    fn from(arr: &'me [AccountInfo<'info>; MIGRATE_POSITION_IX_ACCOUNTS_LEN]) -> Self {
         Self {
-            position_v3: &arr[0],
+            position_v2: &arr[0],
             position_v1: &arr[1],
             lb_pair: &arr[2],
             bin_array_lower: &arr[3],
@@ -11584,30 +11006,21 @@ for MigratePositionFromV1Accounts<'me, 'info> {
         }
     }
 }
-pub const MIGRATE_POSITION_FROM_V1_IX_DISCM: [u8; 8] = [
-    62,
-    103,
-    54,
-    192,
-    11,
-    59,
-    28,
-    177,
-];
+pub const MIGRATE_POSITION_IX_DISCM: [u8; 8] = [15, 132, 59, 50, 199, 6, 251, 46];
 #[derive(Clone, Debug, PartialEq)]
-pub struct MigratePositionFromV1IxData;
-impl MigratePositionFromV1IxData {
+pub struct MigratePositionIxData;
+impl MigratePositionIxData {
     pub fn deserialize(buf: &[u8]) -> std::io::Result<Self> {
         let mut reader = buf;
         let mut maybe_discm = [0u8; 8];
         reader.read_exact(&mut maybe_discm)?;
-        if maybe_discm != MIGRATE_POSITION_FROM_V1_IX_DISCM {
+        if maybe_discm != MIGRATE_POSITION_IX_DISCM {
             return Err(
                 std::io::Error::new(
                     std::io::ErrorKind::Other,
                     format!(
                         "discm does not match. Expected: {:?}. Received: {:?}",
-                        MIGRATE_POSITION_FROM_V1_IX_DISCM, maybe_discm
+                        MIGRATE_POSITION_IX_DISCM, maybe_discm
                     ),
                 ),
             );
@@ -11615,7 +11028,7 @@ impl MigratePositionFromV1IxData {
         Ok(Self)
     }
     pub fn serialize<W: std::io::Write>(&self, mut writer: W) -> std::io::Result<()> {
-        writer.write_all(&MIGRATE_POSITION_FROM_V1_IX_DISCM)
+        writer.write_all(&MIGRATE_POSITION_IX_DISCM)
     }
     pub fn try_to_vec(&self) -> std::io::Result<Vec<u8>> {
         let mut data = Vec::new();
@@ -11623,56 +11036,54 @@ impl MigratePositionFromV1IxData {
         Ok(data)
     }
 }
-pub fn migrate_position_from_v1_ix_with_program_id(
+pub fn migrate_position_ix_with_program_id(
     program_id: Pubkey,
-    keys: MigratePositionFromV1Keys,
+    keys: MigratePositionKeys,
 ) -> std::io::Result<Instruction> {
-    let metas: [AccountMeta; MIGRATE_POSITION_FROM_V1_IX_ACCOUNTS_LEN] = keys.into();
+    let metas: [AccountMeta; MIGRATE_POSITION_IX_ACCOUNTS_LEN] = keys.into();
     Ok(Instruction {
         program_id,
         accounts: Vec::from(metas),
-        data: MigratePositionFromV1IxData.try_to_vec()?,
+        data: MigratePositionIxData.try_to_vec()?,
     })
 }
-pub fn migrate_position_from_v1_ix(
-    keys: MigratePositionFromV1Keys,
-) -> std::io::Result<Instruction> {
-    migrate_position_from_v1_ix_with_program_id(crate::ID, keys)
+pub fn migrate_position_ix(keys: MigratePositionKeys) -> std::io::Result<Instruction> {
+    migrate_position_ix_with_program_id(crate::ID, keys)
 }
-pub fn migrate_position_from_v1_invoke_with_program_id(
+pub fn migrate_position_invoke_with_program_id(
     program_id: Pubkey,
-    accounts: MigratePositionFromV1Accounts<'_, '_>,
+    accounts: MigratePositionAccounts<'_, '_>,
 ) -> ProgramResult {
-    let keys: MigratePositionFromV1Keys = accounts.into();
-    let ix = migrate_position_from_v1_ix_with_program_id(program_id, keys)?;
+    let keys: MigratePositionKeys = accounts.into();
+    let ix = migrate_position_ix_with_program_id(program_id, keys)?;
     invoke_instruction(&ix, accounts)
 }
-pub fn migrate_position_from_v1_invoke(
-    accounts: MigratePositionFromV1Accounts<'_, '_>,
+pub fn migrate_position_invoke(
+    accounts: MigratePositionAccounts<'_, '_>,
 ) -> ProgramResult {
-    migrate_position_from_v1_invoke_with_program_id(crate::ID, accounts)
+    migrate_position_invoke_with_program_id(crate::ID, accounts)
 }
-pub fn migrate_position_from_v1_invoke_signed_with_program_id(
+pub fn migrate_position_invoke_signed_with_program_id(
     program_id: Pubkey,
-    accounts: MigratePositionFromV1Accounts<'_, '_>,
+    accounts: MigratePositionAccounts<'_, '_>,
     seeds: &[&[&[u8]]],
 ) -> ProgramResult {
-    let keys: MigratePositionFromV1Keys = accounts.into();
-    let ix = migrate_position_from_v1_ix_with_program_id(program_id, keys)?;
+    let keys: MigratePositionKeys = accounts.into();
+    let ix = migrate_position_ix_with_program_id(program_id, keys)?;
     invoke_instruction_signed(&ix, accounts, seeds)
 }
-pub fn migrate_position_from_v1_invoke_signed(
-    accounts: MigratePositionFromV1Accounts<'_, '_>,
+pub fn migrate_position_invoke_signed(
+    accounts: MigratePositionAccounts<'_, '_>,
     seeds: &[&[&[u8]]],
 ) -> ProgramResult {
-    migrate_position_from_v1_invoke_signed_with_program_id(crate::ID, accounts, seeds)
+    migrate_position_invoke_signed_with_program_id(crate::ID, accounts, seeds)
 }
-pub fn migrate_position_from_v1_verify_account_keys(
-    accounts: MigratePositionFromV1Accounts<'_, '_>,
-    keys: MigratePositionFromV1Keys,
+pub fn migrate_position_verify_account_keys(
+    accounts: MigratePositionAccounts<'_, '_>,
+    keys: MigratePositionKeys,
 ) -> Result<(), (Pubkey, Pubkey)> {
     for (actual, expected) in [
-        (*accounts.position_v3.key, keys.position_v3),
+        (*accounts.position_v2.key, keys.position_v2),
         (*accounts.position_v1.key, keys.position_v1),
         (*accounts.lb_pair.key, keys.lb_pair),
         (*accounts.bin_array_lower.key, keys.bin_array_lower),
@@ -11689,11 +11100,11 @@ pub fn migrate_position_from_v1_verify_account_keys(
     }
     Ok(())
 }
-pub fn migrate_position_from_v1_verify_writable_privileges<'me, 'info>(
-    accounts: MigratePositionFromV1Accounts<'me, 'info>,
+pub fn migrate_position_verify_writable_privileges<'me, 'info>(
+    accounts: MigratePositionAccounts<'me, 'info>,
 ) -> Result<(), (&'me AccountInfo<'info>, ProgramError)> {
     for should_be_writable in [
-        accounts.position_v3,
+        accounts.position_v2,
         accounts.position_v1,
         accounts.bin_array_lower,
         accounts.bin_array_upper,
@@ -11706,290 +11117,21 @@ pub fn migrate_position_from_v1_verify_writable_privileges<'me, 'info>(
     }
     Ok(())
 }
-pub fn migrate_position_from_v1_verify_signer_privileges<'me, 'info>(
-    accounts: MigratePositionFromV1Accounts<'me, 'info>,
+pub fn migrate_position_verify_signer_privileges<'me, 'info>(
+    accounts: MigratePositionAccounts<'me, 'info>,
 ) -> Result<(), (&'me AccountInfo<'info>, ProgramError)> {
-    for should_be_signer in [accounts.position_v3, accounts.owner] {
+    for should_be_signer in [accounts.position_v2, accounts.owner] {
         if !should_be_signer.is_signer {
             return Err((should_be_signer, ProgramError::MissingRequiredSignature));
         }
     }
     Ok(())
 }
-pub fn migrate_position_from_v1_verify_account_privileges<'me, 'info>(
-    accounts: MigratePositionFromV1Accounts<'me, 'info>,
+pub fn migrate_position_verify_account_privileges<'me, 'info>(
+    accounts: MigratePositionAccounts<'me, 'info>,
 ) -> Result<(), (&'me AccountInfo<'info>, ProgramError)> {
-    migrate_position_from_v1_verify_writable_privileges(accounts)?;
-    migrate_position_from_v1_verify_signer_privileges(accounts)?;
-    Ok(())
-}
-pub const MIGRATE_POSITION_FROM_V2_IX_ACCOUNTS_LEN: usize = 8;
-#[derive(Copy, Clone, Debug)]
-pub struct MigratePositionFromV2Accounts<'me, 'info> {
-    pub position_v3: &'me AccountInfo<'info>,
-    pub position_v2: &'me AccountInfo<'info>,
-    pub lb_pair: &'me AccountInfo<'info>,
-    pub sender: &'me AccountInfo<'info>,
-    pub system_program: &'me AccountInfo<'info>,
-    pub rent_receiver: &'me AccountInfo<'info>,
-    pub event_authority: &'me AccountInfo<'info>,
-    pub program: &'me AccountInfo<'info>,
-}
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct MigratePositionFromV2Keys {
-    pub position_v3: Pubkey,
-    pub position_v2: Pubkey,
-    pub lb_pair: Pubkey,
-    pub sender: Pubkey,
-    pub system_program: Pubkey,
-    pub rent_receiver: Pubkey,
-    pub event_authority: Pubkey,
-    pub program: Pubkey,
-}
-impl From<MigratePositionFromV2Accounts<'_, '_>> for MigratePositionFromV2Keys {
-    fn from(accounts: MigratePositionFromV2Accounts) -> Self {
-        Self {
-            position_v3: *accounts.position_v3.key,
-            position_v2: *accounts.position_v2.key,
-            lb_pair: *accounts.lb_pair.key,
-            sender: *accounts.sender.key,
-            system_program: *accounts.system_program.key,
-            rent_receiver: *accounts.rent_receiver.key,
-            event_authority: *accounts.event_authority.key,
-            program: *accounts.program.key,
-        }
-    }
-}
-impl From<MigratePositionFromV2Keys>
-for [AccountMeta; MIGRATE_POSITION_FROM_V2_IX_ACCOUNTS_LEN] {
-    fn from(keys: MigratePositionFromV2Keys) -> Self {
-        [
-            AccountMeta {
-                pubkey: keys.position_v3,
-                is_signer: true,
-                is_writable: true,
-            },
-            AccountMeta {
-                pubkey: keys.position_v2,
-                is_signer: false,
-                is_writable: true,
-            },
-            AccountMeta {
-                pubkey: keys.lb_pair,
-                is_signer: false,
-                is_writable: false,
-            },
-            AccountMeta {
-                pubkey: keys.sender,
-                is_signer: true,
-                is_writable: true,
-            },
-            AccountMeta {
-                pubkey: keys.system_program,
-                is_signer: false,
-                is_writable: false,
-            },
-            AccountMeta {
-                pubkey: keys.rent_receiver,
-                is_signer: false,
-                is_writable: true,
-            },
-            AccountMeta {
-                pubkey: keys.event_authority,
-                is_signer: false,
-                is_writable: false,
-            },
-            AccountMeta {
-                pubkey: keys.program,
-                is_signer: false,
-                is_writable: false,
-            },
-        ]
-    }
-}
-impl From<[Pubkey; MIGRATE_POSITION_FROM_V2_IX_ACCOUNTS_LEN]>
-for MigratePositionFromV2Keys {
-    fn from(pubkeys: [Pubkey; MIGRATE_POSITION_FROM_V2_IX_ACCOUNTS_LEN]) -> Self {
-        Self {
-            position_v3: pubkeys[0],
-            position_v2: pubkeys[1],
-            lb_pair: pubkeys[2],
-            sender: pubkeys[3],
-            system_program: pubkeys[4],
-            rent_receiver: pubkeys[5],
-            event_authority: pubkeys[6],
-            program: pubkeys[7],
-        }
-    }
-}
-impl<'info> From<MigratePositionFromV2Accounts<'_, 'info>>
-for [AccountInfo<'info>; MIGRATE_POSITION_FROM_V2_IX_ACCOUNTS_LEN] {
-    fn from(accounts: MigratePositionFromV2Accounts<'_, 'info>) -> Self {
-        [
-            accounts.position_v3.clone(),
-            accounts.position_v2.clone(),
-            accounts.lb_pair.clone(),
-            accounts.sender.clone(),
-            accounts.system_program.clone(),
-            accounts.rent_receiver.clone(),
-            accounts.event_authority.clone(),
-            accounts.program.clone(),
-        ]
-    }
-}
-impl<
-    'me,
-    'info,
-> From<&'me [AccountInfo<'info>; MIGRATE_POSITION_FROM_V2_IX_ACCOUNTS_LEN]>
-for MigratePositionFromV2Accounts<'me, 'info> {
-    fn from(
-        arr: &'me [AccountInfo<'info>; MIGRATE_POSITION_FROM_V2_IX_ACCOUNTS_LEN],
-    ) -> Self {
-        Self {
-            position_v3: &arr[0],
-            position_v2: &arr[1],
-            lb_pair: &arr[2],
-            sender: &arr[3],
-            system_program: &arr[4],
-            rent_receiver: &arr[5],
-            event_authority: &arr[6],
-            program: &arr[7],
-        }
-    }
-}
-pub const MIGRATE_POSITION_FROM_V2_IX_DISCM: [u8; 8] = [
-    91,
-    17,
-    12,
-    117,
-    198,
-    143,
-    84,
-    190,
-];
-#[derive(Clone, Debug, PartialEq)]
-pub struct MigratePositionFromV2IxData;
-impl MigratePositionFromV2IxData {
-    pub fn deserialize(buf: &[u8]) -> std::io::Result<Self> {
-        let mut reader = buf;
-        let mut maybe_discm = [0u8; 8];
-        reader.read_exact(&mut maybe_discm)?;
-        if maybe_discm != MIGRATE_POSITION_FROM_V2_IX_DISCM {
-            return Err(
-                std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!(
-                        "discm does not match. Expected: {:?}. Received: {:?}",
-                        MIGRATE_POSITION_FROM_V2_IX_DISCM, maybe_discm
-                    ),
-                ),
-            );
-        }
-        Ok(Self)
-    }
-    pub fn serialize<W: std::io::Write>(&self, mut writer: W) -> std::io::Result<()> {
-        writer.write_all(&MIGRATE_POSITION_FROM_V2_IX_DISCM)
-    }
-    pub fn try_to_vec(&self) -> std::io::Result<Vec<u8>> {
-        let mut data = Vec::new();
-        self.serialize(&mut data)?;
-        Ok(data)
-    }
-}
-pub fn migrate_position_from_v2_ix_with_program_id(
-    program_id: Pubkey,
-    keys: MigratePositionFromV2Keys,
-) -> std::io::Result<Instruction> {
-    let metas: [AccountMeta; MIGRATE_POSITION_FROM_V2_IX_ACCOUNTS_LEN] = keys.into();
-    Ok(Instruction {
-        program_id,
-        accounts: Vec::from(metas),
-        data: MigratePositionFromV2IxData.try_to_vec()?,
-    })
-}
-pub fn migrate_position_from_v2_ix(
-    keys: MigratePositionFromV2Keys,
-) -> std::io::Result<Instruction> {
-    migrate_position_from_v2_ix_with_program_id(crate::ID, keys)
-}
-pub fn migrate_position_from_v2_invoke_with_program_id(
-    program_id: Pubkey,
-    accounts: MigratePositionFromV2Accounts<'_, '_>,
-) -> ProgramResult {
-    let keys: MigratePositionFromV2Keys = accounts.into();
-    let ix = migrate_position_from_v2_ix_with_program_id(program_id, keys)?;
-    invoke_instruction(&ix, accounts)
-}
-pub fn migrate_position_from_v2_invoke(
-    accounts: MigratePositionFromV2Accounts<'_, '_>,
-) -> ProgramResult {
-    migrate_position_from_v2_invoke_with_program_id(crate::ID, accounts)
-}
-pub fn migrate_position_from_v2_invoke_signed_with_program_id(
-    program_id: Pubkey,
-    accounts: MigratePositionFromV2Accounts<'_, '_>,
-    seeds: &[&[&[u8]]],
-) -> ProgramResult {
-    let keys: MigratePositionFromV2Keys = accounts.into();
-    let ix = migrate_position_from_v2_ix_with_program_id(program_id, keys)?;
-    invoke_instruction_signed(&ix, accounts, seeds)
-}
-pub fn migrate_position_from_v2_invoke_signed(
-    accounts: MigratePositionFromV2Accounts<'_, '_>,
-    seeds: &[&[&[u8]]],
-) -> ProgramResult {
-    migrate_position_from_v2_invoke_signed_with_program_id(crate::ID, accounts, seeds)
-}
-pub fn migrate_position_from_v2_verify_account_keys(
-    accounts: MigratePositionFromV2Accounts<'_, '_>,
-    keys: MigratePositionFromV2Keys,
-) -> Result<(), (Pubkey, Pubkey)> {
-    for (actual, expected) in [
-        (*accounts.position_v3.key, keys.position_v3),
-        (*accounts.position_v2.key, keys.position_v2),
-        (*accounts.lb_pair.key, keys.lb_pair),
-        (*accounts.sender.key, keys.sender),
-        (*accounts.system_program.key, keys.system_program),
-        (*accounts.rent_receiver.key, keys.rent_receiver),
-        (*accounts.event_authority.key, keys.event_authority),
-        (*accounts.program.key, keys.program),
-    ] {
-        if actual != expected {
-            return Err((actual, expected));
-        }
-    }
-    Ok(())
-}
-pub fn migrate_position_from_v2_verify_writable_privileges<'me, 'info>(
-    accounts: MigratePositionFromV2Accounts<'me, 'info>,
-) -> Result<(), (&'me AccountInfo<'info>, ProgramError)> {
-    for should_be_writable in [
-        accounts.position_v3,
-        accounts.position_v2,
-        accounts.sender,
-        accounts.rent_receiver,
-    ] {
-        if !should_be_writable.is_writable {
-            return Err((should_be_writable, ProgramError::InvalidAccountData));
-        }
-    }
-    Ok(())
-}
-pub fn migrate_position_from_v2_verify_signer_privileges<'me, 'info>(
-    accounts: MigratePositionFromV2Accounts<'me, 'info>,
-) -> Result<(), (&'me AccountInfo<'info>, ProgramError)> {
-    for should_be_signer in [accounts.position_v3, accounts.sender] {
-        if !should_be_signer.is_signer {
-            return Err((should_be_signer, ProgramError::MissingRequiredSignature));
-        }
-    }
-    Ok(())
-}
-pub fn migrate_position_from_v2_verify_account_privileges<'me, 'info>(
-    accounts: MigratePositionFromV2Accounts<'me, 'info>,
-) -> Result<(), (&'me AccountInfo<'info>, ProgramError)> {
-    migrate_position_from_v2_verify_writable_privileges(accounts)?;
-    migrate_position_from_v2_verify_signer_privileges(accounts)?;
+    migrate_position_verify_writable_privileges(accounts)?;
+    migrate_position_verify_signer_privileges(accounts)?;
     Ok(())
 }
 pub const MIGRATE_BIN_ARRAY_IX_ACCOUNTS_LEN: usize = 1;
@@ -17658,7 +16800,7 @@ pub struct Swap2Accounts<'me, 'info> {
     pub token_x_mint: &'me AccountInfo<'info>,
     pub token_y_mint: &'me AccountInfo<'info>,
     pub oracle: &'me AccountInfo<'info>,
-    pub host_fee_in: &'me AccountInfo<'info>,
+    pub host_fee: &'me AccountInfo<'info>,
     pub user: &'me AccountInfo<'info>,
     pub token_x_program: &'me AccountInfo<'info>,
     pub token_y_program: &'me AccountInfo<'info>,
@@ -17677,7 +16819,7 @@ pub struct Swap2Keys {
     pub token_x_mint: Pubkey,
     pub token_y_mint: Pubkey,
     pub oracle: Pubkey,
-    pub host_fee_in: Pubkey,
+    pub host_fee: Pubkey,
     pub user: Pubkey,
     pub token_x_program: Pubkey,
     pub token_y_program: Pubkey,
@@ -17697,7 +16839,7 @@ impl From<Swap2Accounts<'_, '_>> for Swap2Keys {
             token_x_mint: *accounts.token_x_mint.key,
             token_y_mint: *accounts.token_y_mint.key,
             oracle: *accounts.oracle.key,
-            host_fee_in: *accounts.host_fee_in.key,
+            host_fee: *accounts.host_fee.key,
             user: *accounts.user.key,
             token_x_program: *accounts.token_x_program.key,
             token_y_program: *accounts.token_y_program.key,
@@ -17756,7 +16898,7 @@ impl From<Swap2Keys> for [AccountMeta; SWAP2_IX_ACCOUNTS_LEN] {
                 is_writable: true,
             },
             AccountMeta {
-                pubkey: keys.host_fee_in,
+                pubkey: keys.host_fee,
                 is_signer: false,
                 is_writable: true,
             },
@@ -17805,7 +16947,7 @@ impl From<[Pubkey; SWAP2_IX_ACCOUNTS_LEN]> for Swap2Keys {
             token_x_mint: pubkeys[6],
             token_y_mint: pubkeys[7],
             oracle: pubkeys[8],
-            host_fee_in: pubkeys[9],
+            host_fee: pubkeys[9],
             user: pubkeys[10],
             token_x_program: pubkeys[11],
             token_y_program: pubkeys[12],
@@ -17828,7 +16970,7 @@ for [AccountInfo<'info>; SWAP2_IX_ACCOUNTS_LEN] {
             accounts.token_x_mint.clone(),
             accounts.token_y_mint.clone(),
             accounts.oracle.clone(),
-            accounts.host_fee_in.clone(),
+            accounts.host_fee.clone(),
             accounts.user.clone(),
             accounts.token_x_program.clone(),
             accounts.token_y_program.clone(),
@@ -17851,7 +16993,7 @@ for Swap2Accounts<'me, 'info> {
             token_x_mint: &arr[6],
             token_y_mint: &arr[7],
             oracle: &arr[8],
-            host_fee_in: &arr[9],
+            host_fee: &arr[9],
             user: &arr[10],
             token_x_program: &arr[11],
             token_y_program: &arr[12],
@@ -17966,7 +17108,7 @@ pub fn swap2_verify_account_keys(
         (*accounts.token_x_mint.key, keys.token_x_mint),
         (*accounts.token_y_mint.key, keys.token_y_mint),
         (*accounts.oracle.key, keys.oracle),
-        (*accounts.host_fee_in.key, keys.host_fee_in),
+        (*accounts.host_fee.key, keys.host_fee),
         (*accounts.user.key, keys.user),
         (*accounts.token_x_program.key, keys.token_x_program),
         (*accounts.token_y_program.key, keys.token_y_program),
@@ -17990,7 +17132,7 @@ pub fn swap2_verify_writable_privileges<'me, 'info>(
         accounts.user_token_in,
         accounts.user_token_out,
         accounts.oracle,
-        accounts.host_fee_in,
+        accounts.host_fee,
     ] {
         if !should_be_writable.is_writable {
             return Err((should_be_writable, ProgramError::InvalidAccountData));
@@ -18027,7 +17169,7 @@ pub struct SwapWithPriceImpact2Accounts<'me, 'info> {
     pub token_x_mint: &'me AccountInfo<'info>,
     pub token_y_mint: &'me AccountInfo<'info>,
     pub oracle: &'me AccountInfo<'info>,
-    pub host_fee_in: &'me AccountInfo<'info>,
+    pub host_fee: &'me AccountInfo<'info>,
     pub user: &'me AccountInfo<'info>,
     pub token_x_program: &'me AccountInfo<'info>,
     pub token_y_program: &'me AccountInfo<'info>,
@@ -18046,7 +17188,7 @@ pub struct SwapWithPriceImpact2Keys {
     pub token_x_mint: Pubkey,
     pub token_y_mint: Pubkey,
     pub oracle: Pubkey,
-    pub host_fee_in: Pubkey,
+    pub host_fee: Pubkey,
     pub user: Pubkey,
     pub token_x_program: Pubkey,
     pub token_y_program: Pubkey,
@@ -18066,7 +17208,7 @@ impl From<SwapWithPriceImpact2Accounts<'_, '_>> for SwapWithPriceImpact2Keys {
             token_x_mint: *accounts.token_x_mint.key,
             token_y_mint: *accounts.token_y_mint.key,
             oracle: *accounts.oracle.key,
-            host_fee_in: *accounts.host_fee_in.key,
+            host_fee: *accounts.host_fee.key,
             user: *accounts.user.key,
             token_x_program: *accounts.token_x_program.key,
             token_y_program: *accounts.token_y_program.key,
@@ -18126,7 +17268,7 @@ for [AccountMeta; SWAP_WITH_PRICE_IMPACT2_IX_ACCOUNTS_LEN] {
                 is_writable: true,
             },
             AccountMeta {
-                pubkey: keys.host_fee_in,
+                pubkey: keys.host_fee,
                 is_signer: false,
                 is_writable: true,
             },
@@ -18176,7 +17318,7 @@ for SwapWithPriceImpact2Keys {
             token_x_mint: pubkeys[6],
             token_y_mint: pubkeys[7],
             oracle: pubkeys[8],
-            host_fee_in: pubkeys[9],
+            host_fee: pubkeys[9],
             user: pubkeys[10],
             token_x_program: pubkeys[11],
             token_y_program: pubkeys[12],
@@ -18199,7 +17341,7 @@ for [AccountInfo<'info>; SWAP_WITH_PRICE_IMPACT2_IX_ACCOUNTS_LEN] {
             accounts.token_x_mint.clone(),
             accounts.token_y_mint.clone(),
             accounts.oracle.clone(),
-            accounts.host_fee_in.clone(),
+            accounts.host_fee.clone(),
             accounts.user.clone(),
             accounts.token_x_program.clone(),
             accounts.token_y_program.clone(),
@@ -18224,7 +17366,7 @@ for SwapWithPriceImpact2Accounts<'me, 'info> {
             token_x_mint: &arr[6],
             token_y_mint: &arr[7],
             oracle: &arr[8],
-            host_fee_in: &arr[9],
+            host_fee: &arr[9],
             user: &arr[10],
             token_x_program: &arr[11],
             token_y_program: &arr[12],
@@ -18357,7 +17499,7 @@ pub fn swap_with_price_impact2_verify_account_keys(
         (*accounts.token_x_mint.key, keys.token_x_mint),
         (*accounts.token_y_mint.key, keys.token_y_mint),
         (*accounts.oracle.key, keys.oracle),
-        (*accounts.host_fee_in.key, keys.host_fee_in),
+        (*accounts.host_fee.key, keys.host_fee),
         (*accounts.user.key, keys.user),
         (*accounts.token_x_program.key, keys.token_x_program),
         (*accounts.token_y_program.key, keys.token_y_program),
@@ -18381,7 +17523,7 @@ pub fn swap_with_price_impact2_verify_writable_privileges<'me, 'info>(
         accounts.user_token_in,
         accounts.user_token_out,
         accounts.oracle,
-        accounts.host_fee_in,
+        accounts.host_fee,
     ] {
         if !should_be_writable.is_writable {
             return Err((should_be_writable, ProgramError::InvalidAccountData));
