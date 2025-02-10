@@ -19,6 +19,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.3.13] - PR #162
+
+### Changed
+
+- `calculateFeeInfo` added new optional `baseFeePowerFactor` parameter
+
+#### Breaking
+
+- `getPairPubkeyIfExists` added new `baseFeePowerFactor` parameter
+- `getAllPresetParameters` now return `presetParameter` and `presetParameter2` accounts instead of only `presetParameter`
+- Rename `LBCLMM_PROGRAM_IDS` to `DLMM_PROGRAM_IDS`
+- `removeLiquidity`, `binIds` parameter has been replaced by `fromBinId` and `toBinId` which represent the bin range to be removed
+
+### Added
+
+- `createCustomizablePermissionlessLbPair2`, similar as `createCustomizablePermissionlessLbPair` but support token 2022.
+- `createLbPair2`, similar as `createLbPair` but support token 2022.
+- `closePositionIfEmpty`. Will close the position only if it's empty, else do nothing.
+
+### Deprecated
+
+- `initializePositionAndAddLiquidityByWeight`. Use `initializePositionAndAddLiquidityByStrategy` instead which support both token and token 2022 program.
+- `addLiquidityByWeight`. Use `addLiquidityByStrategy` instead which support both token and token2022.
+
+### Removed
+
+- `seedLiquiditySingleBin`. Checkout [meteora-pool-setup](https://github.com/MeteoraAg/meteora-pool-setup/blob/main/src/seed_liquidity_single_bin.ts) repository
+- `seedLiquidity`. Checkout [meteora-pool-setup](https://github.com/MeteoraAg/meteora-pool-setup/blob/main/src/seed_liquidity_lfg.ts) repository
+- `getWithdrawSingleSideAmount`. Unused.
+- `createPermissionLbPair`. Admin-only function.
+
+## cli [0.5.0]
+
+### Changed
+
+- File structure refactoring
+- Switched all the existing functions to support token 2022
+
+### Added
+
+- Admin function `initialize_token_badge` to initialize token badge for token 2022
+
+## lb_clmm [0.7.0]
+
+- DEPRECATED. Use `dlmm_interface` for types and `commons` for related account functions.
+
+## dlmm_interface [0.9.0]
+
+- Program interface generated using `solores`
+
+## commons [0.3.0]
+
+- Added token 2022 supportive functions.
+- Added position account supportive functions.
+
 ## @meteora-ag/dlmm [1.3.12] - PR #161
 
 ### Added
