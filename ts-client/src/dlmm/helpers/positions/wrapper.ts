@@ -1,10 +1,7 @@
 import BN from "bn.js";
 import {
   POSITION_V2_DISC,
-  POSITION_V3_DISC,
-  PositionBinInfo,
   PositionV2,
-  PositionV3,
   PositionVersion,
   UserFeeInfo,
   UserRewardInfo,
@@ -34,18 +31,13 @@ export interface IPosition {
   version(): PositionVersion;
 }
 
-export const POSITION_V3_METADATA_LENGTH = 336;
-export const POSITION_BIN_DATA_LENGTH = 112;
-
 export function wrapPosition(
   program: Program<LbClmm>,
   key: PublicKey,
   account: AccountInfo<Buffer<ArrayBufferLike>>
 ): IPosition {
   const disc = account.data.subarray(0, 8);
-  if (disc.equals(POSITION_V3_DISC)) {
-    return DynamicPosition.fromAccount(program, key, account);
-  } else if (disc.equals(POSITION_V2_DISC)) {
+  if (disc.equals(POSITION_V2_DISC)) {
     const state = program.coder.accounts.decode(
       program.account.positionV2.idlAccount.name,
       account.data
@@ -53,126 +45,6 @@ export function wrapPosition(
     return new PositionV2Wrapper(key, state);
   } else {
     throw new Error("Unknown position account");
-  }
-}
-
-export class DynamicPosition implements IPosition {
-  constructor(
-    public positionAddress: PublicKey,
-    public inner: PositionV3,
-    public positionBinsData: PositionBinInfo[]
-  ) {}
-
-  public static fromAccount(
-    program: Program<LbClmm>,
-    address: PublicKey,
-    account: AccountInfo<Buffer<ArrayBufferLike>>
-  ) {
-    const metadataBytes = account.data.subarray(0, POSITION_V3_METADATA_LENGTH);
-
-    const contentBytes = account.data.subarray(
-      POSITION_V3_METADATA_LENGTH,
-      account.data.length
-    );
-
-    const positionV3: PositionV3 = program.coder.accounts.decode(
-      program.account.positionV3.idlAccount.name,
-      metadataBytes
-    );
-
-    const binCount = positionV3.upperBinId - positionV3.lowerBinId + 1;
-    const positionBinsData: PositionBinInfo[] = [];
-
-    for (let i = 0; i < binCount; i++) {
-      const offset = POSITION_BIN_DATA_LENGTH * i;
-      const positionBinDataBytes = contentBytes.subarray(
-        offset,
-        offset + POSITION_BIN_DATA_LENGTH
-      );
-
-      const positionBinData: PositionBinInfo = program.coder.types.decode(
-        "PositionBinData",
-        // program.idl.types[18].name,
-        positionBinDataBytes
-      );
-
-      positionBinsData.push(positionBinData);
-    }
-
-    return new DynamicPosition(address, positionV3, positionBinsData);
-  }
-
-  address(): PublicKey {
-    return this.positionAddress;
-  }
-
-  lowerBinId(): BN {
-    return new BN(this.inner.lowerBinId);
-  }
-
-  upperBinId(): BN {
-    return new BN(this.inner.upperBinId);
-  }
-
-  liquidityShares(): BN[] {
-    return this.positionBinsData.map((p) => p.liquidityShare);
-  }
-
-  rewardInfos(): UserRewardInfo[] {
-    return this.positionBinsData.map((p) => p.rewardInfo);
-  }
-
-  feeInfos(): UserFeeInfo[] {
-    return this.positionBinsData.map((p) => p.feeInfo);
-  }
-
-  lastUpdatedAt(): BN {
-    return this.inner.lastUpdatedAt;
-  }
-
-  lbPair(): PublicKey {
-    return this.inner.lbPair;
-  }
-
-  totalClaimedFeeXAmount(): BN {
-    return this.inner.totalClaimedFeeXAmount;
-  }
-
-  totalClaimedFeeYAmount(): BN {
-    return this.inner.totalClaimedFeeYAmount;
-  }
-
-  totalClaimedRewards(): BN[] {
-    return this.inner.totalClaimedRewards;
-  }
-
-  operator(): PublicKey {
-    return this.inner.operator;
-  }
-
-  lockReleasePoint(): BN {
-    return this.inner.lockReleasePoint;
-  }
-
-  feeOwner(): PublicKey {
-    return this.inner.feeOwner;
-  }
-
-  getBinArrayKeysCoverage(programId: PublicKey): PublicKey[] {
-    return getBinArrayKeysCoverage(
-      this.lowerBinId(),
-      this.upperBinId(),
-      this.lbPair(),
-      programId
-    );
-  }
-
-  version(): PositionVersion {
-    return PositionVersion.V3;
-  }
-
-  owner(): PublicKey {
-    return this.inner.owner;
   }
 }
 
@@ -236,12 +108,7 @@ export class PositionV2Wrapper implements IPosition {
   }
 
   getBinArrayKeysCoverage(programId: PublicKey): PublicKey[] {
-    return getBinArrayKeysCoverage(
-      this.lowerBinId(),
-      this.upperBinId(),
-      this.lbPair(),
-      programId
-    );
+    return getBinArrayKeysCoverage(this.lowerBinId(), this.lbPair(), programId);
   }
 
   version(): PositionVersion {
