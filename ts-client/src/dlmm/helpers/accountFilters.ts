@@ -1,5 +1,4 @@
 import { GetProgramAccountsFilter, PublicKey } from "@solana/web3.js";
-import { POSITION_V3_DISC } from "../types";
 import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import BN from "bn.js";
 
@@ -65,15 +64,6 @@ export const positionLbPairFilter = (
     memcmp: {
       bytes: bs58.encode(lbPair.toBuffer()),
       offset: 8,
-    },
-  };
-};
-
-export const positionV3DiscFilter = (): GetProgramAccountsFilter => {
-  return {
-    memcmp: {
-      bytes: bs58.encode(POSITION_V3_DISC),
-      offset: 0,
     },
   };
 };

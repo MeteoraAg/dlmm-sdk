@@ -27,15 +27,15 @@ export const SCALE = new BN(1).shln(SCALE_OFFSET);
 export const FEE_PRECISION = new BN(1_000_000_000);
 export const MAX_FEE_RATE = new BN(100_000_000);
 export const BIN_ARRAY_FEE = 0.07054656;
+export const POSITION_FEE = 0.0565152;
 
 const CONSTANTS = Object.entries(IDL.constants);
 
 export const MAX_BIN_ARRAY_SIZE = new BN(
   CONSTANTS.find(([k, v]) => v.name == "MAX_BIN_PER_ARRAY")?.[1].value ?? 0
 );
-export const DEFAULT_BIN_PER_POSITION = new BN(
-  CONSTANTS.find(([k, v]) => v.name == "DEFAULT_BIN_PER_POSITION")?.[1].value ??
-    0
+export const MAX_BIN_PER_POSITION = new BN(
+  CONSTANTS.find(([k, v]) => v.name == "MAX_BIN_PER_POSITION")?.[1].value ?? 0
 );
 export const BIN_ARRAY_BITMAP_SIZE = new BN(
   CONSTANTS.find(([k, v]) => v.name == "BIN_ARRAY_BITMAP_SIZE")?.[1].value ?? 0
