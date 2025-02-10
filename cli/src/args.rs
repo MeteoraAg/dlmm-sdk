@@ -114,15 +114,6 @@ pub enum DLMMCommand {
     SeedLiquiditySingleBin(SeedLiquiditySingleBinParameters),
     SeedLiquiditySingleBinByOperator(SeedLiquiditySingleBinByOperatorParameters),
 
-    GetAllPositionsForAnOwner {
-        /// Address of the pair
-        #[clap(long)]
-        lb_pair: Pubkey,
-        /// owner of position
-        #[clap(long)]
-        owner: Pubkey,
-    },
-
     SetPairStatusPermissionless {
         /// Address of the pair
         #[clap(long)]
@@ -134,6 +125,7 @@ pub enum DLMMCommand {
 
     IncreasePositionLength(IncreasePositionLengthParams),
     DecreasePositionLength(DecreasePositionLengthParams),
+    GetAllPositionsForAnOwner(GetAllPositionsParams),
     #[clap(flatten)]
     Admin(AdminCommand),
 }

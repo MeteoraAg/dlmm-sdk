@@ -97,7 +97,7 @@ async fn get_or_create_position<C: Deref<Target = impl Signer> + Clone>(
     owner: &Keypair,
     transaction_config: RpcSendTransactionConfig,
     compute_unit_price_ix: Option<Instruction>,
-) -> Result<DynamicPosition> {
+) -> Result<PositionV2> {
     let (event_authority, _bump) = derive_event_authority_pda();
     let base = base_keypair.pubkey();
 
@@ -154,7 +154,7 @@ async fn get_or_create_position<C: Deref<Target = impl Signer> + Clone>(
 
     let position_state = rpc_client
         .get_account_and_deserialize(&position, |account| {
-            Ok(DynamicPosition::deserialize(&account.data)?)
+            Ok(PositionV2Account::deserialize(&account.data)?.0)
         })
         .await?;
 
@@ -164,7 +164,7 @@ async fn get_or_create_position<C: Deref<Target = impl Signer> + Clone>(
 pub async fn deposit<C: Deref<Target = impl Signer> + Clone>(
     program: &Program<C>,
     position: Pubkey,
-    position_state: &DynamicPosition,
+    position_state: &PositionV2,
     lb_pair_state: &LbPair,
     user_token_x: Pubkey,
     user_token_y: Pubkey,
@@ -185,12 +185,10 @@ pub async fn deposit<C: Deref<Target = impl Signer> + Clone>(
 
     let [token_x_program, token_y_program] = lb_pair_state.get_token_programs()?;
 
-    let bin_array_accounts_meta = position_state
-        .global_data
-        .get_bin_array_accounts_meta_coverage()?;
+    let bin_array_accounts_meta = position_state.get_bin_array_accounts_meta_coverage()?;
 
     let main_accounts: [AccountMeta; ADD_LIQUIDITY2_IX_ACCOUNTS_LEN] = AddLiquidity2Keys {
-        lb_pair: position_state.global_data.lb_pair,
+        lb_pair: position_state.lb_pair,
         position,
         sender: program.payer(),
         event_authority,
@@ -255,7 +253,7 @@ pub async fn deposit<C: Deref<Target = impl Signer> + Clone>(
 
     println!(
         "Seed liquidity min_bin_id {} max_bin_id {} Position {position}. Sig: {:#?}",
-        position_state.global_data.lower_bin_id, position_state.global_data.upper_bin_id, signature
+        position_state.lower_bin_id, position_state.upper_bin_id, signature
     );
 
     Ok(signature?.to_string())
@@ -659,11 +657,11 @@ pub async fn execute_seed_liquidity<C: Deref<Target = impl Signer> + Clone>(
         }
 
         assert_eq!(
-            position_state.global_data.lower_bin_id, lower_bin_id,
+            position_state.lower_bin_id, lower_bin_id,
             "Position lower bin id not equals"
         );
         assert_eq!(
-            position_state.global_data.upper_bin_id, upper_bin_id,
+            position_state.upper_bin_id, upper_bin_id,
             "Position upper bin id not equals"
         );
 
@@ -716,15 +714,12 @@ pub async fn execute_seed_liquidity<C: Deref<Target = impl Signer> + Clone>(
 
                 let position_state = rpc_client
                     .get_account_and_deserialize(&position, |account| {
-                        Ok(DynamicPosition::deserialize(&account.data)?)
+                        Ok(PositionV2Account::deserialize(&account.data)?.0)
                     })
                     .await?;
 
-                let position_liquidity_shares = position_state
-                    .position_bin_data
-                    .iter()
-                    .map(|position_bin_data| position_bin_data.liquidity_share)
-                    .collect();
+                let position_liquidity_shares = position_state.liquidity_shares.to_vec();
+
                 dust_deposit_state
                     .position_shares
                     .insert(position, position_liquidity_shares);
@@ -762,7 +757,7 @@ pub async fn execute_seed_liquidity<C: Deref<Target = impl Signer> + Clone>(
 
             let position_state = rpc_client
                 .get_account_and_deserialize(&position, |account| {
-                    Ok(DynamicPosition::deserialize(&account.data)?)
+                    Ok(PositionV2Account::deserialize(&account.data)?.0)
                 })
                 .await?;
 
@@ -770,14 +765,9 @@ pub async fn execute_seed_liquidity<C: Deref<Target = impl Signer> + Clone>(
                 position_share.get(&position).context("Missing snapshot")?;
 
             let mut dust_deposited = false;
-            for (i, share) in position_state
-                .position_bin_data
-                .iter()
-                .map(|position_bin_data| position_bin_data.liquidity_share)
-                .enumerate()
-            {
+            for (i, share) in position_state.liquidity_shares.iter().enumerate() {
                 let snapshot_share = position_share_snapshot[i];
-                if snapshot_share != share {
+                if snapshot_share != *share {
                     dust_deposited = true;
                     break;
                 }
@@ -788,8 +778,7 @@ pub async fn execute_seed_liquidity<C: Deref<Target = impl Signer> + Clone>(
             }
 
             // Don't deposit to the last bin because c(last_bin + 1) - c(last_bin) will > amount
-            let upper_bin_id =
-                std::cmp::min(position_state.global_data.upper_bin_id, max_bin_id - 1);
+            let upper_bin_id = std::cmp::min(position_state.upper_bin_id, max_bin_id - 1);
 
             assert!(
                 upper_bin_id < max_bin_id,
@@ -838,12 +827,12 @@ pub async fn execute_seed_liquidity<C: Deref<Target = impl Signer> + Clone>(
 
         let position_state = rpc_client
             .get_account_and_deserialize(&position, |account| {
-                Ok(DynamicPosition::deserialize(&account.data)?)
+                Ok(PositionV2Account::deserialize(&account.data)?.0)
             })
             .await?;
 
         // Don't deposit to the last bin because c(last_bin + 1) - c(last_bin) will > amount
-        let upper_bin_id = std::cmp::min(position_state.global_data.upper_bin_id, max_bin_id - 1);
+        let upper_bin_id = std::cmp::min(position_state.upper_bin_id, max_bin_id - 1);
 
         assert!(upper_bin_id < max_bin_id, "Funding to last bin id");
 
