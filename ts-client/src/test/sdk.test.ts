@@ -19,10 +19,7 @@ import {
 } from "@solana/web3.js";
 import Decimal from "decimal.js";
 import fs from "fs";
-import {
-  DEFAULT_BIN_PER_POSITION,
-  LBCLMM_PROGRAM_IDS,
-} from "../dlmm/constants";
+import { MAX_BIN_PER_POSITION, LBCLMM_PROGRAM_IDS } from "../dlmm/constants";
 import {
   binIdToBinArrayIndex,
   deriveBinArray,
@@ -32,19 +29,11 @@ import {
   derivePresetParameter2,
   deriveReserve,
 } from "../dlmm/helpers";
-import {
-  computeBaseFactorFromFeeBps,
-  getQPriceFromId,
-} from "../dlmm/helpers/math";
-import { DynamicPosition } from "../dlmm/helpers/positions";
+import { computeBaseFactorFromFeeBps } from "../dlmm/helpers/math";
 import { IDL } from "../dlmm/idl";
 import { DLMM } from "../dlmm/index";
-import {
-  ActivationType,
-  PairType,
-  ResizeSide,
-  StrategyType,
-} from "../dlmm/types";
+import { ActivationType, PairType, StrategyType } from "../dlmm/types";
+import { wrapPosition } from "../dlmm/helpers/positions";
 
 const keypairBuffer = fs.readFileSync(
   "../keys/localnet/admin-bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1.json",
@@ -374,7 +363,7 @@ describe("SDK test", () => {
     it("initialize position and add liquidity both side", async () => {
       const program = pair.program;
       const baseKeypair = Keypair.generate();
-      const width = DEFAULT_BIN_PER_POSITION;
+      const width = MAX_BIN_PER_POSITION;
       const lowerBinId = DEFAULT_ACTIVE_ID.sub(width.div(new BN(2)));
 
       const lowerBinIdBytes = lowerBinId.isNeg()
@@ -452,7 +441,7 @@ describe("SDK test", () => {
 
       await pair.refetchStates();
 
-      const positionV3 = await program.account.positionV3.fetch(
+      const position = await program.account.positionV2.fetch(
         customFeeOwnerPosition
       );
 
@@ -464,8 +453,8 @@ describe("SDK test", () => {
         totalYAmount: usdcInAmount,
         strategy: {
           strategyType: StrategyType.SpotImBalanced,
-          minBinId: positionV3.lowerBinId,
-          maxBinId: positionV3.upperBinId,
+          minBinId: position.lowerBinId,
+          maxBinId: position.upperBinId,
         },
         user: keypair.publicKey,
         slippage: 0,
@@ -477,8 +466,7 @@ describe("SDK test", () => {
     });
 
     it("Normal position add only buy side", async () => {
-      const minBinId =
-        pair.lbPair.activeId - DEFAULT_BIN_PER_POSITION.toNumber();
+      const minBinId = pair.lbPair.activeId - MAX_BIN_PER_POSITION.toNumber();
       const maxBinId = pair.lbPair.activeId - 1;
 
       const initPositionAddLiquidityTx =
@@ -503,15 +491,16 @@ describe("SDK test", () => {
       const positionAccount = await connection.getAccountInfo(
         normalPosition.publicKey
       );
-      const dynamicPosition = DynamicPosition.fromAccount(
+
+      const position = wrapPosition(
         pair.program,
         normalPosition.publicKey,
         positionAccount
       );
 
-      const lowerBinId = dynamicPosition.lowerBinId();
-      const upperBinId = dynamicPosition.upperBinId();
-      const share = dynamicPosition.liquidityShares();
+      const lowerBinId = position.lowerBinId();
+      const upperBinId = position.upperBinId();
+      const share = position.liquidityShares();
 
       for (let i = lowerBinId.toNumber(); i <= upperBinId.toNumber(); i++) {
         const idx = i - lowerBinId.toNumber();
@@ -543,53 +532,6 @@ describe("SDK test", () => {
       }
     });
 
-    it("Increase position length", async () => {
-      const buySideLengthToAdd = 10;
-      const sellSideLengthToAdd = 10;
-
-      const beforePositionV3 = await pair.program.account.positionV3.fetch(
-        normalPosition.publicKey
-      );
-
-      console.log("Increase buy side length");
-
-      const increaseBuySideLengthTx = await pair.increasePositionLength({
-        lengthToAdd: new BN(buySideLengthToAdd),
-        position: normalPosition.publicKey,
-        payer: keypair.publicKey,
-        side: ResizeSide.Lower,
-      });
-
-      await sendAndConfirmTransaction(connection, increaseBuySideLengthTx, [
-        keypair,
-      ]);
-
-      console.log("Increase sell side length");
-
-      const increaseSellSideLengthTx = await pair.increasePositionLength({
-        lengthToAdd: new BN(sellSideLengthToAdd),
-        position: normalPosition.publicKey,
-        payer: keypair.publicKey,
-        side: ResizeSide.Upper,
-      });
-
-      await sendAndConfirmTransaction(connection, increaseSellSideLengthTx, [
-        keypair,
-      ]);
-
-      const afterPositionV3 = await pair.program.account.positionV3.fetch(
-        normalPosition.publicKey
-      );
-
-      expect(
-        Math.abs(afterPositionV3.lowerBinId - beforePositionV3.lowerBinId)
-      ).toBe(buySideLengthToAdd);
-
-      expect(afterPositionV3.upperBinId - beforePositionV3.upperBinId).toBe(
-        sellSideLengthToAdd
-      );
-    });
-
     it("normal position add liquidity both side with full position width after activation", async () => {
       while (true) {
         const currentSlot = await connection.getSlot();
@@ -600,11 +542,9 @@ describe("SDK test", () => {
         }
       }
 
-      const positionV3 = await pair.program.account.positionV3.fetch(
+      const positionV2 = await pair.program.account.positionV2.fetch(
         normalPosition.publicKey
       );
-
-      console.log("Add liquidity > 70 bins");
 
       const addLiquidityTx = await pair.addLiquidityByStrategy({
         positionPubKey: normalPosition.publicKey,
@@ -612,8 +552,8 @@ describe("SDK test", () => {
         totalYAmount: usdcInAmount,
         strategy: {
           strategyType: StrategyType.SpotImBalanced,
-          minBinId: positionV3.lowerBinId,
-          maxBinId: positionV3.upperBinId,
+          minBinId: positionV2.lowerBinId,
+          maxBinId: positionV2.upperBinId,
         },
         user: keypair.publicKey,
         slippage: 0,
@@ -624,15 +564,16 @@ describe("SDK test", () => {
       const positionAccount = await connection.getAccountInfo(
         normalPosition.publicKey
       );
-      const dynamicPosition = DynamicPosition.fromAccount(
+
+      const position = wrapPosition(
         pair.program,
         normalPosition.publicKey,
         positionAccount
       );
 
-      const lowerBinId = dynamicPosition.lowerBinId();
-      const upperBinId = dynamicPosition.upperBinId();
-      const share = dynamicPosition.liquidityShares();
+      const lowerBinId = position.lowerBinId();
+      const upperBinId = position.upperBinId();
+      const share = position.liquidityShares();
 
       for (let i = lowerBinId.toNumber(); i <= upperBinId.toNumber(); i++) {
         const idx = i - lowerBinId.toNumber();
@@ -715,14 +656,14 @@ describe("SDK test", () => {
           .catch((_) => new BN(0)),
       ]);
 
-      const positionV3 = await pair.program.account.positionV3.fetch(
+      const positionV2 = await pair.program.account.positionV2.fetch(
         customFeeOwnerPosition
       );
 
       const removeLiquidityTx = await pair.removeLiquidity({
         user: customFeeOwnerPositionOwner.publicKey,
-        fromBinId: positionV3.lowerBinId,
-        toBinId: positionV3.upperBinId,
+        fromBinId: positionV2.lowerBinId,
+        toBinId: positionV2.upperBinId,
         position: customFeeOwnerPosition,
         bps: new BN(10_000),
         shouldClaimAndClose: true,
@@ -819,14 +760,14 @@ describe("SDK test", () => {
           .then((b) => new BN(b.value.amount)),
       ]);
 
-      const positionV3 = await pair.program.account.positionV3.fetch(
+      const positionV2 = await pair.program.account.positionV2.fetch(
         normalPosition.publicKey
       );
 
       const removeLiquidityTx = await pair.removeLiquidity({
         user: keypair.publicKey,
-        fromBinId: positionV3.lowerBinId,
-        toBinId: positionV3.upperBinId,
+        fromBinId: positionV2.lowerBinId,
+        toBinId: positionV2.upperBinId,
         position: normalPosition.publicKey,
         bps: new BN(10_000),
         shouldClaimAndClose: true,
@@ -1023,7 +964,7 @@ describe("SDK test", () => {
       console.log("Create bin arrays, position, and add liquidity", txHash);
     }
 
-    const positionState = await lbClmm.program.account.positionV3.fetch(
+    const positionState = await lbClmm.program.account.positionV2.fetch(
       positionKeypair.publicKey
     );
 
