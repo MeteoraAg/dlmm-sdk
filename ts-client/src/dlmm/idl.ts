@@ -15,7 +15,7 @@ export type LbClmm = {
       "value": "70"
     },
     {
-      "name": "DEFAULT_BIN_PER_POSITION",
+      "name": "MAX_BIN_PER_POSITION",
       "type": {
         "defined": "usize"
       },
@@ -2114,101 +2114,6 @@ export type LbClmm = {
       ]
     },
     {
-      "name": "increasePositionLength",
-      "accounts": [
-        {
-          "name": "funder",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "lbPair",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "position",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "owner",
-          "isMut": false,
-          "isSigner": true
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "eventAuthority",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "program",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "lengthToAdd",
-          "type": "u16"
-        },
-        {
-          "name": "side",
-          "type": "u8"
-        }
-      ]
-    },
-    {
-      "name": "decreasePositionLength",
-      "accounts": [
-        {
-          "name": "rentReceiver",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "position",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "owner",
-          "isMut": false,
-          "isSigner": true
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "eventAuthority",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "program",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "lengthToRemove",
-          "type": "u16"
-        },
-        {
-          "name": "side",
-          "type": "u8"
-        }
-      ]
-    },
-    {
       "name": "initializePresetParameter",
       "accounts": [
         {
@@ -2392,10 +2297,10 @@ export type LbClmm = {
       ]
     },
     {
-      "name": "migratePositionFromV1",
+      "name": "migratePosition",
       "accounts": [
         {
-          "name": "positionV3",
+          "name": "positionV2",
           "isMut": true,
           "isSigner": true
         },
@@ -2421,52 +2326,6 @@ export type LbClmm = {
         },
         {
           "name": "owner",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "rentReceiver",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "eventAuthority",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "program",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": []
-    },
-    {
-      "name": "migratePositionFromV2",
-      "accounts": [
-        {
-          "name": "positionV3",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "positionV2",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "lbPair",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "sender",
           "isMut": true,
           "isSigner": true
         },
@@ -4090,122 +3949,6 @@ export type LbClmm = {
       }
     },
     {
-      "name": "positionV3",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "lbPair",
-            "docs": [
-              "The LB pair of this position"
-            ],
-            "type": "publicKey"
-          },
-          {
-            "name": "owner",
-            "docs": [
-              "Owner of the position. Client rely on this to to fetch their positions."
-            ],
-            "type": "publicKey"
-          },
-          {
-            "name": "lowerBinId",
-            "docs": [
-              "Lower bin ID"
-            ],
-            "type": "i32"
-          },
-          {
-            "name": "upperBinId",
-            "docs": [
-              "Upper bin ID"
-            ],
-            "type": "i32"
-          },
-          {
-            "name": "lastUpdatedAt",
-            "docs": [
-              "Last updated timestamp"
-            ],
-            "type": "i64"
-          },
-          {
-            "name": "totalClaimedFeeXAmount",
-            "docs": [
-              "Total claimed token fee X"
-            ],
-            "type": "u64"
-          },
-          {
-            "name": "totalClaimedFeeYAmount",
-            "docs": [
-              "Total claimed token fee Y"
-            ],
-            "type": "u64"
-          },
-          {
-            "name": "totalClaimedRewards",
-            "docs": [
-              "Total claimed rewards"
-            ],
-            "type": {
-              "array": [
-                "u64",
-                2
-              ]
-            }
-          },
-          {
-            "name": "operator",
-            "docs": [
-              "Operator of position"
-            ],
-            "type": "publicKey"
-          },
-          {
-            "name": "lockReleasePoint",
-            "docs": [
-              "Time point which the locked liquidity can be withdraw"
-            ],
-            "type": "u64"
-          },
-          {
-            "name": "padding0",
-            "docs": [
-              "Padding"
-            ],
-            "type": "u64"
-          },
-          {
-            "name": "feeOwner",
-            "docs": [
-              "Address is able to claim fee in this position, only valid for bootstrap_liquidity_position"
-            ],
-            "type": "publicKey"
-          },
-          {
-            "name": "length",
-            "docs": [
-              "Number of bins"
-            ],
-            "type": "u64"
-          },
-          {
-            "name": "reserved",
-            "docs": [
-              "Reserved space for future use"
-            ],
-            "type": {
-              "array": [
-                "u8",
-                128
-              ]
-            }
-          }
-        ]
-      }
-    },
-    {
       "name": "lbPair",
       "type": {
         "kind": "struct",
@@ -5761,30 +5504,6 @@ export type LbClmm = {
       }
     },
     {
-      "name": "PositionBinData",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "liquidityShare",
-            "type": "u128"
-          },
-          {
-            "name": "rewardInfo",
-            "type": {
-              "defined": "UserRewardInfo"
-            }
-          },
-          {
-            "name": "feeInfo",
-            "type": {
-              "defined": "FeeInfo"
-            }
-          }
-        ]
-      }
-    },
-    {
       "name": "ProtocolFee",
       "type": {
         "kind": "struct",
@@ -6216,23 +5935,6 @@ export type LbClmm = {
           },
           {
             "name": "V1"
-          }
-        ]
-      }
-    },
-    {
-      "name": "ResizeSide",
-      "docs": [
-        "Side of resize, 0 for lower and 1 for upper"
-      ],
-      "type": {
-        "kind": "enum",
-        "variants": [
-          {
-            "name": "Lower"
-          },
-          {
-            "name": "Upper"
           }
         ]
       }
@@ -7347,7 +7049,7 @@ export const IDL: LbClmm = {
       "value": "70"
     },
     {
-      "name": "DEFAULT_BIN_PER_POSITION",
+      "name": "MAX_BIN_PER_POSITION",
       "type": {
         "defined": "usize"
       },
@@ -9446,101 +9148,6 @@ export const IDL: LbClmm = {
       ]
     },
     {
-      "name": "increasePositionLength",
-      "accounts": [
-        {
-          "name": "funder",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "lbPair",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "position",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "owner",
-          "isMut": false,
-          "isSigner": true
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "eventAuthority",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "program",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "lengthToAdd",
-          "type": "u16"
-        },
-        {
-          "name": "side",
-          "type": "u8"
-        }
-      ]
-    },
-    {
-      "name": "decreasePositionLength",
-      "accounts": [
-        {
-          "name": "rentReceiver",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "position",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "owner",
-          "isMut": false,
-          "isSigner": true
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "eventAuthority",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "program",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "lengthToRemove",
-          "type": "u16"
-        },
-        {
-          "name": "side",
-          "type": "u8"
-        }
-      ]
-    },
-    {
       "name": "initializePresetParameter",
       "accounts": [
         {
@@ -9724,10 +9331,10 @@ export const IDL: LbClmm = {
       ]
     },
     {
-      "name": "migratePositionFromV1",
+      "name": "migratePosition",
       "accounts": [
         {
-          "name": "positionV3",
+          "name": "positionV2",
           "isMut": true,
           "isSigner": true
         },
@@ -9753,52 +9360,6 @@ export const IDL: LbClmm = {
         },
         {
           "name": "owner",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "rentReceiver",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "eventAuthority",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "program",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": []
-    },
-    {
-      "name": "migratePositionFromV2",
-      "accounts": [
-        {
-          "name": "positionV3",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "positionV2",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "lbPair",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "sender",
           "isMut": true,
           "isSigner": true
         },
@@ -11422,122 +10983,6 @@ export const IDL: LbClmm = {
       }
     },
     {
-      "name": "positionV3",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "lbPair",
-            "docs": [
-              "The LB pair of this position"
-            ],
-            "type": "publicKey"
-          },
-          {
-            "name": "owner",
-            "docs": [
-              "Owner of the position. Client rely on this to to fetch their positions."
-            ],
-            "type": "publicKey"
-          },
-          {
-            "name": "lowerBinId",
-            "docs": [
-              "Lower bin ID"
-            ],
-            "type": "i32"
-          },
-          {
-            "name": "upperBinId",
-            "docs": [
-              "Upper bin ID"
-            ],
-            "type": "i32"
-          },
-          {
-            "name": "lastUpdatedAt",
-            "docs": [
-              "Last updated timestamp"
-            ],
-            "type": "i64"
-          },
-          {
-            "name": "totalClaimedFeeXAmount",
-            "docs": [
-              "Total claimed token fee X"
-            ],
-            "type": "u64"
-          },
-          {
-            "name": "totalClaimedFeeYAmount",
-            "docs": [
-              "Total claimed token fee Y"
-            ],
-            "type": "u64"
-          },
-          {
-            "name": "totalClaimedRewards",
-            "docs": [
-              "Total claimed rewards"
-            ],
-            "type": {
-              "array": [
-                "u64",
-                2
-              ]
-            }
-          },
-          {
-            "name": "operator",
-            "docs": [
-              "Operator of position"
-            ],
-            "type": "publicKey"
-          },
-          {
-            "name": "lockReleasePoint",
-            "docs": [
-              "Time point which the locked liquidity can be withdraw"
-            ],
-            "type": "u64"
-          },
-          {
-            "name": "padding0",
-            "docs": [
-              "Padding"
-            ],
-            "type": "u64"
-          },
-          {
-            "name": "feeOwner",
-            "docs": [
-              "Address is able to claim fee in this position, only valid for bootstrap_liquidity_position"
-            ],
-            "type": "publicKey"
-          },
-          {
-            "name": "length",
-            "docs": [
-              "Number of bins"
-            ],
-            "type": "u64"
-          },
-          {
-            "name": "reserved",
-            "docs": [
-              "Reserved space for future use"
-            ],
-            "type": {
-              "array": [
-                "u8",
-                128
-              ]
-            }
-          }
-        ]
-      }
-    },
-    {
       "name": "lbPair",
       "type": {
         "kind": "struct",
@@ -13093,30 +12538,6 @@ export const IDL: LbClmm = {
       }
     },
     {
-      "name": "PositionBinData",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "liquidityShare",
-            "type": "u128"
-          },
-          {
-            "name": "rewardInfo",
-            "type": {
-              "defined": "UserRewardInfo"
-            }
-          },
-          {
-            "name": "feeInfo",
-            "type": {
-              "defined": "FeeInfo"
-            }
-          }
-        ]
-      }
-    },
-    {
       "name": "ProtocolFee",
       "type": {
         "kind": "struct",
@@ -13548,23 +12969,6 @@ export const IDL: LbClmm = {
           },
           {
             "name": "V1"
-          }
-        ]
-      }
-    },
-    {
-      "name": "ResizeSide",
-      "docs": [
-        "Side of resize, 0 for lower and 1 for upper"
-      ],
-      "type": {
-        "kind": "enum",
-        "variants": [
-          {
-            "name": "Lower"
-          },
-          {
-            "name": "Upper"
           }
         ]
       }
