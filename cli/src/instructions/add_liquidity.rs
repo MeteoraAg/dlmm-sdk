@@ -58,7 +58,7 @@ pub async fn execute_add_liquidity<C: Deref<Target = impl Signer> + Clone>(
 
     let position_state = rpc_client
         .get_account_and_deserialize(&position, |account| {
-            Ok(DynamicPosition::deserialize(&account.data)?)
+            Ok(PositionV2Account::deserialize(&account.data)?.0)
         })
         .await?;
 
@@ -72,9 +72,8 @@ pub async fn execute_add_liquidity<C: Deref<Target = impl Signer> + Clone>(
         .map(|bld| bld.bin_id)
         .context("No bin liquidity distribution provided")?;
 
-    let bin_arrays_account_meta = position_state
-        .global_data
-        .get_bin_array_accounts_meta_coverage_by_chunk(min_bin_id, max_bin_id)?;
+    let bin_arrays_account_meta =
+        position_state.get_bin_array_accounts_meta_coverage_by_chunk(min_bin_id, max_bin_id)?;
 
     let user_token_x = get_or_create_ata(
         program,

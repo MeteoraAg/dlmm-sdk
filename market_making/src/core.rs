@@ -57,7 +57,7 @@ impl Core {
             let mut position_key_with_state = position_accounts
                 .into_iter()
                 .filter_map(|(key, account)| {
-                    let position = DynamicPosition::deserialize(&account.data).ok()?;
+                    let position = PositionV2Account::deserialize(&account.data).ok()?.0;
                     Some((key, position))
                 })
                 .collect::<Vec<_>>();
@@ -70,18 +70,17 @@ impl Core {
 
             if position_key_with_state.len() > 0 {
                 // sort position by bin id
-                position_key_with_state.sort_by(|(_, a), (_, b)| {
-                    a.global_data.lower_bin_id.cmp(&b.global_data.lower_bin_id)
-                });
+                position_key_with_state
+                    .sort_by(|(_, a), (_, b)| a.lower_bin_id.cmp(&b.lower_bin_id));
 
                 min_bin_id = position_key_with_state
                     .first()
-                    .map(|(_key, state)| state.global_data.lower_bin_id)
+                    .map(|(_key, state)| state.lower_bin_id)
                     .context("Missing min bin id")?;
 
                 max_bin_id = position_key_with_state
                     .last()
-                    .map(|(_key, state)| state.global_data.upper_bin_id)
+                    .map(|(_key, state)| state.upper_bin_id)
                     .context("Missing max bin id")?;
 
                 for (key, state) in position_key_with_state.iter() {
@@ -91,9 +90,7 @@ impl Core {
 
                 let bin_array_keys = position_key_with_state
                     .iter()
-                    .filter_map(|(_key, state)| {
-                        state.global_data.get_bin_array_keys_coverage().ok()
-                    })
+                    .filter_map(|(_key, state)| state.get_bin_array_keys_coverage().ok())
                     .flatten()
                     .unique()
                     .collect::<Vec<_>>();
@@ -223,9 +220,7 @@ impl Core {
         for (i, &position) in state.position_pks.iter().enumerate() {
             let position_state = &state.positions[i];
 
-            let bin_arrays_account_meta = position_state
-                .global_data
-                .get_bin_array_accounts_meta_coverage()?;
+            let bin_arrays_account_meta = position_state.get_bin_array_accounts_meta_coverage()?;
 
             let user_token_x = get_associated_token_address_with_program_id(
                 &payer.pubkey(),
@@ -269,8 +264,8 @@ impl Core {
             .concat();
 
             let data = RemoveLiquidityByRange2IxData(RemoveLiquidityByRange2IxArgs {
-                from_bin_id: position_state.global_data.lower_bin_id,
-                to_bin_id: position_state.global_data.upper_bin_id,
+                from_bin_id: position_state.lower_bin_id,
+                to_bin_id: position_state.upper_bin_id,
                 bps_to_remove: BASIS_POINT_MAX as u16,
                 remaining_accounts_info: remaining_account_info.clone(),
             })
@@ -311,8 +306,8 @@ impl Core {
             .concat();
 
             let data = ClaimFee2IxData(ClaimFee2IxArgs {
-                min_bin_id: position_state.global_data.lower_bin_id,
-                max_bin_id: position_state.global_data.upper_bin_id,
+                min_bin_id: position_state.lower_bin_id,
+                max_bin_id: position_state.upper_bin_id,
                 remaining_accounts_info: remaining_account_info.clone(),
             })
             .try_to_vec()?;
@@ -461,7 +456,7 @@ impl Core {
             user_token_in,
             user_token_out,
             oracle: lb_pair_state.oracle,
-            host_fee_in: dlmm_interface::ID,
+            host_fee: dlmm_interface::ID,
             event_authority,
             program: dlmm_interface::ID,
             memo_program: spl_memo::ID,

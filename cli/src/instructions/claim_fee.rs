@@ -18,65 +18,64 @@ pub async fn execute_claim_fee<C: Deref<Target = impl Signer> + Clone>(
     let rpc_client = program.async_rpc();
     let position_state = rpc_client
         .get_account_and_deserialize(&position, |account| {
-            Ok(DynamicPosition::deserialize(&account.data)?)
+            Ok(PositionV2Account::deserialize(&account.data)?.0)
         })
         .await?;
 
     let lb_pair_state = rpc_client
-        .get_account_and_deserialize(&position_state.global_data.lb_pair, |account| {
+        .get_account_and_deserialize(&position_state.lb_pair, |account| {
             Ok(LbPairAccount::deserialize(&account.data)?.0)
         })
         .await?;
 
-    let (user_token_x, user_token_y) =
-        if position_state.global_data.fee_owner.eq(&Pubkey::default()) {
-            let user_token_x = get_or_create_ata(
-                program,
-                transaction_config,
-                lb_pair_state.token_x_mint,
-                program.payer(),
-                compute_unit_price.clone(),
-            )
-            .await?;
+    let (user_token_x, user_token_y) = if position_state.fee_owner.eq(&Pubkey::default()) {
+        let user_token_x = get_or_create_ata(
+            program,
+            transaction_config,
+            lb_pair_state.token_x_mint,
+            program.payer(),
+            compute_unit_price.clone(),
+        )
+        .await?;
 
-            let user_token_y = get_or_create_ata(
-                program,
-                transaction_config,
-                lb_pair_state.token_y_mint,
-                program.payer(),
-                compute_unit_price.clone(),
-            )
-            .await?;
+        let user_token_y = get_or_create_ata(
+            program,
+            transaction_config,
+            lb_pair_state.token_y_mint,
+            program.payer(),
+            compute_unit_price.clone(),
+        )
+        .await?;
 
-            (user_token_x, user_token_y)
-        } else {
-            let user_token_x = get_or_create_ata(
-                program,
-                transaction_config,
-                lb_pair_state.token_x_mint,
-                position_state.global_data.fee_owner,
-                compute_unit_price.clone(),
-            )
-            .await?;
+        (user_token_x, user_token_y)
+    } else {
+        let user_token_x = get_or_create_ata(
+            program,
+            transaction_config,
+            lb_pair_state.token_x_mint,
+            position_state.fee_owner,
+            compute_unit_price.clone(),
+        )
+        .await?;
 
-            let user_token_y = get_or_create_ata(
-                program,
-                transaction_config,
-                lb_pair_state.token_y_mint,
-                position_state.global_data.fee_owner,
-                compute_unit_price.clone(),
-            )
-            .await?;
+        let user_token_y = get_or_create_ata(
+            program,
+            transaction_config,
+            lb_pair_state.token_y_mint,
+            position_state.fee_owner,
+            compute_unit_price.clone(),
+        )
+        .await?;
 
-            (user_token_x, user_token_y)
-        };
+        (user_token_x, user_token_y)
+    };
 
     let [token_program_x, token_program_y] = lb_pair_state.get_token_programs()?;
 
     let (event_authority, _bump) = derive_event_authority_pda();
 
     let main_accounts: [AccountMeta; CLAIM_FEE2_IX_ACCOUNTS_LEN] = dlmm_interface::ClaimFee2Keys {
-        lb_pair: position_state.global_data.lb_pair,
+        lb_pair: position_state.lb_pair,
         sender: program.payer(),
         position,
         reserve_x: lb_pair_state.reserve_x,
@@ -108,10 +107,9 @@ pub async fn execute_claim_fee<C: Deref<Target = impl Signer> + Clone>(
         token_2022_remaining_accounts.extend(transfer_hook_remaining_accounts);
     };
 
-    for (min_bin_id, max_bin_id) in position_bin_range_chunks(
-        position_state.global_data.lower_bin_id,
-        position_state.global_data.upper_bin_id,
-    ) {
+    for (min_bin_id, max_bin_id) in
+        position_bin_range_chunks(position_state.lower_bin_id, position_state.upper_bin_id)
+    {
         let data = ClaimFee2IxData(ClaimFee2IxArgs {
             min_bin_id,
             max_bin_id,
@@ -119,9 +117,8 @@ pub async fn execute_claim_fee<C: Deref<Target = impl Signer> + Clone>(
         })
         .try_to_vec()?;
 
-        let bin_arrays_account_meta = position_state
-            .global_data
-            .get_bin_array_accounts_meta_coverage_by_chunk(min_bin_id, max_bin_id)?;
+        let bin_arrays_account_meta =
+            position_state.get_bin_array_accounts_meta_coverage_by_chunk(min_bin_id, max_bin_id)?;
 
         let accounts = [
             main_accounts.to_vec(),

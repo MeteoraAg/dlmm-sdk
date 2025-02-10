@@ -29,7 +29,7 @@ pub struct SinglePosition {
     pub lb_pair: Pubkey,
     pub lb_pair_state: Option<LbPair>,
     pub bin_arrays: HashMap<Pubkey, BinArray>, // only store relevant bin arrays
-    pub positions: Vec<DynamicPosition>,
+    pub positions: Vec<PositionV2>,
     pub position_pks: Vec<Pubkey>,
     pub rebalance_time: u64,
     pub min_bin_id: i32,
@@ -74,7 +74,7 @@ impl SinglePosition {
         let mut fee_y = 0u64;
 
         for position in self.positions.iter() {
-            let bin_array_keys = position.global_data.get_bin_array_keys_coverage()?;
+            let bin_array_keys = position.get_bin_array_keys_coverage()?;
             let mut bin_arrays = vec![];
 
             for key in bin_array_keys {
@@ -89,16 +89,14 @@ impl SinglePosition {
                 bin_arrays: &bin_arrays,
             };
 
-            for (i, position_bin_info) in position.position_bin_data.iter().enumerate() {
+            for (i, liquidity_share) in position.liquidity_shares.iter().enumerate() {
                 let bin_id = position
-                    .global_data
                     .lower_bin_id
                     .checked_add(i as i32)
                     .context("math is overflow")?;
 
                 let bin = bin_array_manager.get_bin(bin_id)?;
-                let (bin_amount_x, bin_amount_y) =
-                    bin.calculate_out_amount(position_bin_info.liquidity_share)?;
+                let (bin_amount_x, bin_amount_y) = bin.calculate_out_amount(*liquidity_share)?;
 
                 amount_x = amount_x
                     .checked_add(bin_amount_x)
