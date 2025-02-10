@@ -148,7 +148,7 @@ pub async fn execute_swap_with_price_impact<C: Deref<Target = impl Signer> + Clo
         user_token_in,
         user_token_out,
         oracle: lb_pair_state.oracle,
-        host_fee_in: dlmm_interface::ID,
+        host_fee: dlmm_interface::ID,
         event_authority,
         program: dlmm_interface::ID,
         memo_program: spl_memo::ID,

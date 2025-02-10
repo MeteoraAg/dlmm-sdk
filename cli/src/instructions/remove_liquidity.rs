@@ -38,7 +38,7 @@ pub async fn execute_remove_liquidity<C: Deref<Target = impl Signer> + Clone>(
     let position_account = accounts[1].take().context("position not found")?;
 
     let lb_pair_state = LbPairAccount::deserialize(&lb_pair_account.data)?.0;
-    let position_state = DynamicPosition::deserialize(&position_account.data)?;
+    let position_state = PositionV2Account::deserialize(&position_account.data)?.0;
 
     let min_bin_id = bin_liquidity_removal
         .first()
@@ -50,9 +50,8 @@ pub async fn execute_remove_liquidity<C: Deref<Target = impl Signer> + Clone>(
         .map(|(bin_id, _)| *bin_id)
         .context("bin_liquidity_removal is empty")?;
 
-    let bin_arrays_account_meta = position_state
-        .global_data
-        .get_bin_array_accounts_meta_coverage_by_chunk(min_bin_id, max_bin_id)?;
+    let bin_arrays_account_meta =
+        position_state.get_bin_array_accounts_meta_coverage_by_chunk(min_bin_id, max_bin_id)?;
 
     let user_token_x = get_or_create_ata(
         program,
