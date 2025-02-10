@@ -67,20 +67,11 @@ pub use show_position::*;
 pub mod show_preset_parameters;
 pub use show_preset_parameters::*;
 
-pub mod increase_position_length;
-pub use increase_position_length::*;
-
-pub mod decrease_position_length;
-pub use decrease_position_length::*;
-
 pub mod admin;
 pub use admin::*;
 
 pub mod ilm;
 pub use ilm::*;
-
-pub mod migrate_position_v3;
-pub use migrate_position_v3::*;
 
 pub mod initialize_customizable_permissionless_lb_pair;
 pub use initialize_customizable_permissionless_lb_pair::*;

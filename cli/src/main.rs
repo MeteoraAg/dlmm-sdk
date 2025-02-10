@@ -13,14 +13,12 @@ use anchor_lang::prelude::AccountMeta;
 use anyhow::*;
 use clap::*;
 use commons::*;
-use download_user_pool_files::execute_download_user_pool_files;
 use solana_account_decoder::*;
 use std::ops::Deref;
 use std::rc::Rc;
 use std::time::Duration;
 
 mod args;
-mod download_user_pool_files;
 mod instructions;
 mod math;
 
@@ -217,18 +215,6 @@ async fn main() -> Result<()> {
                 compute_unit_price_ix,
             )
             .await?;
-        }
-        DLMMCommand::DecreasePositionLength(params) => {
-            execute_decrease_position_length(params, &program, transaction_config).await?;
-        }
-        DLMMCommand::IncreasePositionLength(params) => {
-            execute_increase_position_length(params, &program, transaction_config).await?;
-        }
-        DLMMCommand::MigratePositionToV3(params) => {
-            execute_migrate_position_v3(params, &program, transaction_config).await?;
-        }
-        DLMMCommand::DownloadUserPoolFiles(params) => {
-            execute_download_user_pool_files(params, program.async_rpc()).await?;
         }
         DLMMCommand::GetAllPositionsForAnOwner(params) => {
             execute_get_all_positions(&program, params).await?;

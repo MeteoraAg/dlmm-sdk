@@ -1,4 +1,4 @@
-use crate::{download_user_pool_files::DownloadUserPoolFilesParams, instructions::*};
+use crate::instructions::*;
 use anchor_client::Cluster;
 use clap::*;
 
@@ -117,10 +117,6 @@ pub enum DLMMCommand {
     SeedLiquiditySingleBin(SeedLiquiditySingleBinParameters),
     SeedLiquiditySingleBinByOperator(SeedLiquiditySingleBinByOperatorParameters),
     GetAllPositionsForAnOwner(GetAllPositionsParams),
-    IncreasePositionLength(IncreasePositionLengthParams),
-    DecreasePositionLength(DecreasePositionLengthParams),
-    MigratePositionToV3(MigratePositionV3Params),
-    DownloadUserPoolFiles(DownloadUserPoolFilesParams),
     #[clap(flatten)]
     Admin(AdminCommand),
 }

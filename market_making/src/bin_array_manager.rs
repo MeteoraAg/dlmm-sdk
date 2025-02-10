@@ -37,18 +37,18 @@ impl<'a> BinArrayManager<'a> {
     }
 
     /// Update reward + fee earning
-    pub fn get_total_fee_pending(&self, position: &DynamicPosition) -> Result<(u64, u64)> {
+    pub fn get_total_fee_pending(&self, position: &PositionV2) -> Result<(u64, u64)> {
         let (bin_arrays_lower_bin_id, bin_arrays_upper_bin_id) = self.get_lower_upper_bin_id()?;
 
-        if position.global_data.lower_bin_id < bin_arrays_lower_bin_id
-            && position.global_data.upper_bin_id > bin_arrays_upper_bin_id
+        if position.lower_bin_id < bin_arrays_lower_bin_id
+            && position.upper_bin_id > bin_arrays_upper_bin_id
         {
             return Err(anyhow::Error::msg("Bin array is not correct"));
         }
 
         let mut total_fee_x = 0u64;
         let mut total_fee_y = 0u64;
-        for bin_id in position.global_data.lower_bin_id..=position.global_data.upper_bin_id {
+        for bin_id in position.lower_bin_id..=position.upper_bin_id {
             let bin = self.get_bin(bin_id)?;
             let (fee_x_pending, fee_y_pending) =
                 BinArrayManager::get_fee_pending_for_a_bin(position, bin_id, &bin)?;
@@ -64,21 +64,19 @@ impl<'a> BinArrayManager<'a> {
     }
 
     fn get_fee_pending_for_a_bin(
-        position: &DynamicPosition,
+        position: &PositionV2,
         bin_id: i32,
         bin: &Bin,
     ) -> Result<(u64, u64)> {
         ensure!(
-            bin_id >= position.global_data.lower_bin_id
-                && bin_id <= position.global_data.upper_bin_id,
+            bin_id >= position.lower_bin_id && bin_id <= position.upper_bin_id,
             "Bin is not within the position"
         );
 
-        let idx = bin_id - position.global_data.lower_bin_id;
+        let idx = bin_id - position.lower_bin_id;
 
-        let position_bin_data = &position.position_bin_data[idx as usize];
-        let fee_infos = position_bin_data.fee_info;
-        let liquidity_share_in_bin = position_bin_data.liquidity_share;
+        let fee_infos = position.fee_infos[idx as usize];
+        let liquidity_share_in_bin = position.liquidity_shares[idx as usize];
 
         let fee_x_per_token_stored = bin.fee_amount_x_per_token_stored;
 
