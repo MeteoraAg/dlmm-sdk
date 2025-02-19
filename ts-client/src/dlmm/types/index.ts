@@ -408,3 +408,15 @@ export enum PairStatus {
   Enabled,
   Disabled,
 }
+
+export interface PairLockInfo {
+  positions: Array<PositionLockInfo>;
+}
+
+export interface PositionLockInfo {
+  positionAddress: PublicKey,
+  owner: PublicKey,
+  tokenXAmount: string,
+  tokenYAmount: string,
+  lockReleasePoint: number
+}
