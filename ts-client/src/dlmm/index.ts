@@ -831,12 +831,14 @@ export class DLMM {
 
   /**
   * The function `getLbPairLockInfo` retrieves all pair positions that has locked liquidity.
-  * @param {number} [lockDurationSecsOpt] - An optional value indicating the minimum position lock duration in seconds that the function should return. 
+  * @param {number} [lockDurationOpt] - An optional value indicating the minimum position lock duration that the function should return. 
+  * Depending on the lbPair activationType, the param should be a number of seconds or a number of slots.
   * @returns The function `getLbPairLockInfo` returns a `Promise` that resolves to a `PairLockInfo`
   * object. The `PairLockInfo` object contains an array of `PositionLockInfo` objects.
   */
-  public async getLbPairLockInfo(lockDurationSecsOpt?: number): Promise<PairLockInfo> {
-    const lockDurationSecs = lockDurationSecsOpt | 0;
+  public async getLbPairLockInfo(lockDurationOpt?: number): Promise<PairLockInfo> {
+    const lockDuration = lockDurationOpt | 0;
+
     const lbPairPositions = await this.program.account.positionV2.all([
       {
         memcmp: {
@@ -848,10 +850,10 @@ export class DLMM {
 
     // filter positions has lock_release_point > currentTimestamp + lockDurationSecs
     const clockAccInfo = await this.program.provider.connection.getAccountInfo(SYSVAR_CLOCK_PUBKEY);
-    const onChainTimestamp = new BN(
-      clockAccInfo.data.readBigInt64LE(32).toString()
-    );
-    const minLockReleasePoint = onChainTimestamp.add(new BN(lockDurationSecs));
+    const clock = ClockLayout.decode(clockAccInfo.data) as Clock;
+
+    const currentPoint = this.lbPair.activationType == ActivationType.Slot ? clock.slot : clock.unixTimestamp;
+    const minLockReleasePoint = currentPoint.add(new BN(lockDuration));
     const positionsWithLock = lbPairPositions.filter(p => p.account.lockReleasePoint.gt(minLockReleasePoint));
 
     if (positionsWithLock.length == 0) {
@@ -932,7 +934,7 @@ export class DLMM {
           this.program,
           PositionVersion.V2,
           this.lbPair,
-          onChainTimestamp.toNumber(),
+          clock.unixTimestamp.toNumber(),
           account,
           this.tokenX.decimal,
           this.tokenY.decimal,
