@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.3.13] - PR #166
+
+### Added
+
+- Add `ts-client` function `getLbPairLockInfo`.
+
 ## @meteora-ag/dlmm [1.3.12] - PR #161
 
 ### Added
