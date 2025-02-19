@@ -1,5 +1,5 @@
 export type LbClmm = {
-  "version": "0.8.2",
+  "version": "0.8.5",
   "name": "lb_clmm",
   "constants": [
     {
@@ -86,6 +86,16 @@ export type LbClmm = {
         "defined": "usize"
       },
       "value": "15"
+    },
+    {
+      "name": "ILM_PROTOCOL_SHARE",
+      "type": "u16",
+      "value": "2000"
+    },
+    {
+      "name": "PROTOCOL_SHARE",
+      "type": "u16",
+      "value": "500"
     },
     {
       "name": "MAX_BIN_STEP",
@@ -216,90 +226,6 @@ export type LbClmm = {
       ]
     },
     {
-      "name": "initializeCustomizablePermissionlessLbPair",
-      "accounts": [
-        {
-          "name": "lbPair",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayBitmapExtension",
-          "isMut": true,
-          "isSigner": false,
-          "isOptional": true
-        },
-        {
-          "name": "tokenMintX",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "tokenMintY",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "reserveX",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "reserveY",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "oracle",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "userTokenX",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "funder",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "tokenProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "userTokenY",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "eventAuthority",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "program",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "params",
-          "type": {
-            "defined": "CustomizableParams"
-          }
-        }
-      ]
-    },
-    {
       "name": "initializePermissionLbPair",
       "accounts": [
         {
@@ -379,6 +305,90 @@ export type LbClmm = {
           "name": "ixData",
           "type": {
             "defined": "InitPermissionPairIx"
+          }
+        }
+      ]
+    },
+    {
+      "name": "initializeCustomizablePermissionlessLbPair",
+      "accounts": [
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayBitmapExtension",
+          "isMut": true,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
+          "name": "tokenMintX",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenMintY",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "reserveX",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "reserveY",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "oracle",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userTokenX",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "funder",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "userTokenY",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": "CustomizableParams"
           }
         }
       ]
@@ -1297,6 +1307,196 @@ export type LbClmm = {
       ]
     },
     {
+      "name": "swapExactOut",
+      "accounts": [
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayBitmapExtension",
+          "isMut": false,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
+          "name": "reserveX",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "reserveY",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userTokenIn",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userTokenOut",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenXMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenYMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "oracle",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "hostFeeIn",
+          "isMut": true,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
+          "name": "user",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "tokenXProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenYProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "maxInAmount",
+          "type": "u64"
+        },
+        {
+          "name": "outAmount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "swapWithPriceImpact",
+      "accounts": [
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayBitmapExtension",
+          "isMut": false,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
+          "name": "reserveX",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "reserveY",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userTokenIn",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userTokenOut",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenXMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenYMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "oracle",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "hostFeeIn",
+          "isMut": true,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
+          "name": "user",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "tokenXProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenYProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "amountIn",
+          "type": "u64"
+        },
+        {
+          "name": "activeId",
+          "type": {
+            "option": "i32"
+          }
+        },
+        {
+          "name": "maxPriceImpactBps",
+          "type": "u16"
+        }
+      ]
+    },
+    {
       "name": "withdrawProtocolFee",
       "accounts": [
         {
@@ -1333,11 +1533,6 @@ export type LbClmm = {
           "name": "receiverTokenY",
           "isMut": true,
           "isSigner": false
-        },
-        {
-          "name": "feeOwner",
-          "isMut": false,
-          "isSigner": true
         },
         {
           "name": "tokenXProgram",
@@ -1753,7 +1948,7 @@ export type LbClmm = {
       "args": []
     },
     {
-      "name": "updateFeeParameters",
+      "name": "updateBaseFeeParameters",
       "accounts": [
         {
           "name": "lbPair",
@@ -1780,7 +1975,40 @@ export type LbClmm = {
         {
           "name": "feeParameter",
           "type": {
-            "defined": "FeeParameter"
+            "defined": "BaseFeeParameter"
+          }
+        }
+      ]
+    },
+    {
+      "name": "updateDynamicFeeParameters",
+      "accounts": [
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "admin",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "feeParameter",
+          "type": {
+            "defined": "DynamicFeeParameter"
           }
         }
       ]
@@ -1963,7 +2191,7 @@ export type LbClmm = {
       "args": []
     },
     {
-      "name": "togglePairStatus",
+      "name": "setPairStatus",
       "accounts": [
         {
           "name": "lbPair",
@@ -1976,7 +2204,12 @@ export type LbClmm = {
           "isSigner": true
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "status",
+          "type": "u8"
+        }
+      ]
     },
     {
       "name": "migratePosition",
@@ -2154,6 +2387,106 @@ export type LbClmm = {
       ]
     },
     {
+      "name": "removeLiquidityByRange",
+      "accounts": [
+        {
+          "name": "position",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayBitmapExtension",
+          "isMut": true,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
+          "name": "userTokenX",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userTokenY",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "reserveX",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "reserveY",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenXMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenYMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayLower",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayUpper",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "sender",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "tokenXProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenYProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "fromBinId",
+          "type": "i32"
+        },
+        {
+          "name": "toBinId",
+          "type": "i32"
+        },
+        {
+          "name": "bpsToRemove",
+          "type": "u16"
+        }
+      ]
+    },
+    {
       "name": "addLiquidityOneSidePrecise",
       "accounts": [
         {
@@ -2228,6 +2561,50 @@ export type LbClmm = {
       ]
     },
     {
+      "name": "goToABin",
+      "accounts": [
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayBitmapExtension",
+          "isMut": false,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
+          "name": "fromBinArray",
+          "isMut": false,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
+          "name": "toBinArray",
+          "isMut": false,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "binId",
+          "type": "i32"
+        }
+      ]
+    },
+    {
       "name": "setPreActivationDuration",
       "accounts": [
         {
@@ -2244,7 +2621,7 @@ export type LbClmm = {
       "args": [
         {
           "name": "preActivationDuration",
-          "type": "u16"
+          "type": "u64"
         }
       ]
     },
@@ -2266,196 +2643,6 @@ export type LbClmm = {
         {
           "name": "preActivationSwapAddress",
           "type": "publicKey"
-        }
-      ]
-    },
-    {
-      "name": "swapExactOut",
-      "accounts": [
-        {
-          "name": "lbPair",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayBitmapExtension",
-          "isMut": false,
-          "isSigner": false,
-          "isOptional": true
-        },
-        {
-          "name": "reserveX",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "reserveY",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "userTokenIn",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "userTokenOut",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "tokenXMint",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "tokenYMint",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "oracle",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "hostFeeIn",
-          "isMut": true,
-          "isSigner": false,
-          "isOptional": true
-        },
-        {
-          "name": "user",
-          "isMut": false,
-          "isSigner": true
-        },
-        {
-          "name": "tokenXProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "tokenYProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "eventAuthority",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "program",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "maxInAmount",
-          "type": "u64"
-        },
-        {
-          "name": "outAmount",
-          "type": "u64"
-        }
-      ]
-    },
-    {
-      "name": "swapWithPriceImpact",
-      "accounts": [
-        {
-          "name": "lbPair",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayBitmapExtension",
-          "isMut": false,
-          "isSigner": false,
-          "isOptional": true
-        },
-        {
-          "name": "reserveX",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "reserveY",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "userTokenIn",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "userTokenOut",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "tokenXMint",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "tokenYMint",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "oracle",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "hostFeeIn",
-          "isMut": true,
-          "isSigner": false,
-          "isOptional": true
-        },
-        {
-          "name": "user",
-          "isMut": false,
-          "isSigner": true
-        },
-        {
-          "name": "tokenXProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "tokenYProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "eventAuthority",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "program",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "amountIn",
-          "type": "u64"
-        },
-        {
-          "name": "activeId",
-          "type": {
-            "option": "i32"
-          }
-        },
-        {
-          "name": "maxPriceImpactBps",
-          "type": "u16"
         }
       ]
     }
@@ -2780,7 +2967,7 @@ export type LbClmm = {
           {
             "name": "preActivationDuration",
             "docs": [
-              "Duration before activation point. Used to calculate pre-activation point for pre_activation_swap_address"
+              "Duration before activation activation_point. Used to calculate pre-activation time point for pre_activation_swap_address"
             ],
             "type": "u64"
           },
@@ -3283,7 +3470,7 @@ export type LbClmm = {
       }
     },
     {
-      "name": "FeeParameter",
+      "name": "BaseFeeParameter",
       "type": {
         "kind": "struct",
         "fields": [
@@ -3300,6 +3487,49 @@ export type LbClmm = {
               "Base factor for base fee rate"
             ],
             "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "DynamicFeeParameter",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "filterPeriod",
+            "docs": [
+              "Filter period determine high frequency trading time window."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "decayPeriod",
+            "docs": [
+              "Decay period determine when the volatile fee start decay / decrease."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "reductionFactor",
+            "docs": [
+              "Reduction factor controls the volatile fee rate decrement rate."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "variableFeeControl",
+            "docs": [
+              "Used to scale the variable fee component depending on the dynamic of the market"
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "maxVolatilityAccumulator",
+            "docs": [
+              "Maximum number of bin crossed can be accumulated. Used to cap volatile fee rate."
+            ],
+            "type": "u32"
           }
         ]
       }
@@ -3725,10 +3955,6 @@ export type LbClmm = {
           {
             "name": "maxBinId",
             "type": "i32"
-          },
-          {
-            "name": "lockDuration",
-            "type": "u64"
           },
           {
             "name": "activationType",
@@ -4227,7 +4453,7 @@ export type LbClmm = {
     {
       "name": "PairType",
       "docs": [
-        "Type of the Pair. 0 = Permissionless, 1 = Permission, 2 = CustomizablePermissionless"
+        "Type of the Pair. 0 = Permissionless, 1 = Permission, 2 = CustomizablePermissionless. Putting 0 as permissionless for backward compatibility."
       ],
       "type": {
         "kind": "enum",
@@ -4674,6 +4900,41 @@ export type LbClmm = {
       ]
     },
     {
+      "name": "DynamicFeeParameterUpdate",
+      "fields": [
+        {
+          "name": "lbPair",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "filterPeriod",
+          "type": "u16",
+          "index": false
+        },
+        {
+          "name": "decayPeriod",
+          "type": "u16",
+          "index": false
+        },
+        {
+          "name": "reductionFactor",
+          "type": "u16",
+          "index": false
+        },
+        {
+          "name": "variableFeeControl",
+          "type": "u32",
+          "index": false
+        },
+        {
+          "name": "maxVolatilityAccumulator",
+          "type": "u32",
+          "index": false
+        }
+      ]
+    },
+    {
       "name": "IncreaseObservation",
       "fields": [
         {
@@ -4754,6 +5015,26 @@ export type LbClmm = {
         {
           "name": "sender",
           "type": "publicKey",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "GoToABin",
+      "fields": [
+        {
+          "name": "lbPair",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "fromBinId",
+          "type": "i32",
+          "index": false
+        },
+        {
+          "name": "toBinId",
+          "type": "i32",
           "index": false
         }
       ]
@@ -5089,12 +5370,17 @@ export type LbClmm = {
       "code": 6065,
       "name": "AlreadyPassPreActivationSwapPoint",
       "msg": "Already pass pre-activation swap point"
+    },
+    {
+      "code": 6066,
+      "name": "InvalidStatus",
+      "msg": "Invalid status"
     }
   ]
 };
 
 export const IDL: LbClmm = {
-  "version": "0.8.2",
+  "version": "0.8.5",
   "name": "lb_clmm",
   "constants": [
     {
@@ -5181,6 +5467,16 @@ export const IDL: LbClmm = {
         "defined": "usize"
       },
       "value": "15"
+    },
+    {
+      "name": "ILM_PROTOCOL_SHARE",
+      "type": "u16",
+      "value": "2000"
+    },
+    {
+      "name": "PROTOCOL_SHARE",
+      "type": "u16",
+      "value": "500"
     },
     {
       "name": "MAX_BIN_STEP",
@@ -5311,90 +5607,6 @@ export const IDL: LbClmm = {
       ]
     },
     {
-      "name": "initializeCustomizablePermissionlessLbPair",
-      "accounts": [
-        {
-          "name": "lbPair",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayBitmapExtension",
-          "isMut": true,
-          "isSigner": false,
-          "isOptional": true
-        },
-        {
-          "name": "tokenMintX",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "tokenMintY",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "reserveX",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "reserveY",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "oracle",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "userTokenX",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "funder",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "tokenProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "userTokenY",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "eventAuthority",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "program",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "params",
-          "type": {
-            "defined": "CustomizableParams"
-          }
-        }
-      ]
-    },
-    {
       "name": "initializePermissionLbPair",
       "accounts": [
         {
@@ -5474,6 +5686,90 @@ export const IDL: LbClmm = {
           "name": "ixData",
           "type": {
             "defined": "InitPermissionPairIx"
+          }
+        }
+      ]
+    },
+    {
+      "name": "initializeCustomizablePermissionlessLbPair",
+      "accounts": [
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayBitmapExtension",
+          "isMut": true,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
+          "name": "tokenMintX",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenMintY",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "reserveX",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "reserveY",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "oracle",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userTokenX",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "funder",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "userTokenY",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": "CustomizableParams"
           }
         }
       ]
@@ -6392,6 +6688,196 @@ export const IDL: LbClmm = {
       ]
     },
     {
+      "name": "swapExactOut",
+      "accounts": [
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayBitmapExtension",
+          "isMut": false,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
+          "name": "reserveX",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "reserveY",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userTokenIn",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userTokenOut",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenXMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenYMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "oracle",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "hostFeeIn",
+          "isMut": true,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
+          "name": "user",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "tokenXProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenYProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "maxInAmount",
+          "type": "u64"
+        },
+        {
+          "name": "outAmount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "swapWithPriceImpact",
+      "accounts": [
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayBitmapExtension",
+          "isMut": false,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
+          "name": "reserveX",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "reserveY",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userTokenIn",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userTokenOut",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenXMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenYMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "oracle",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "hostFeeIn",
+          "isMut": true,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
+          "name": "user",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "tokenXProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenYProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "amountIn",
+          "type": "u64"
+        },
+        {
+          "name": "activeId",
+          "type": {
+            "option": "i32"
+          }
+        },
+        {
+          "name": "maxPriceImpactBps",
+          "type": "u16"
+        }
+      ]
+    },
+    {
       "name": "withdrawProtocolFee",
       "accounts": [
         {
@@ -6428,11 +6914,6 @@ export const IDL: LbClmm = {
           "name": "receiverTokenY",
           "isMut": true,
           "isSigner": false
-        },
-        {
-          "name": "feeOwner",
-          "isMut": false,
-          "isSigner": true
         },
         {
           "name": "tokenXProgram",
@@ -6848,7 +7329,7 @@ export const IDL: LbClmm = {
       "args": []
     },
     {
-      "name": "updateFeeParameters",
+      "name": "updateBaseFeeParameters",
       "accounts": [
         {
           "name": "lbPair",
@@ -6875,7 +7356,40 @@ export const IDL: LbClmm = {
         {
           "name": "feeParameter",
           "type": {
-            "defined": "FeeParameter"
+            "defined": "BaseFeeParameter"
+          }
+        }
+      ]
+    },
+    {
+      "name": "updateDynamicFeeParameters",
+      "accounts": [
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "admin",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "feeParameter",
+          "type": {
+            "defined": "DynamicFeeParameter"
           }
         }
       ]
@@ -7058,7 +7572,7 @@ export const IDL: LbClmm = {
       "args": []
     },
     {
-      "name": "togglePairStatus",
+      "name": "setPairStatus",
       "accounts": [
         {
           "name": "lbPair",
@@ -7071,7 +7585,12 @@ export const IDL: LbClmm = {
           "isSigner": true
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "status",
+          "type": "u8"
+        }
+      ]
     },
     {
       "name": "migratePosition",
@@ -7249,6 +7768,106 @@ export const IDL: LbClmm = {
       ]
     },
     {
+      "name": "removeLiquidityByRange",
+      "accounts": [
+        {
+          "name": "position",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayBitmapExtension",
+          "isMut": true,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
+          "name": "userTokenX",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userTokenY",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "reserveX",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "reserveY",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenXMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenYMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayLower",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayUpper",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "sender",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "tokenXProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenYProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "fromBinId",
+          "type": "i32"
+        },
+        {
+          "name": "toBinId",
+          "type": "i32"
+        },
+        {
+          "name": "bpsToRemove",
+          "type": "u16"
+        }
+      ]
+    },
+    {
       "name": "addLiquidityOneSidePrecise",
       "accounts": [
         {
@@ -7323,6 +7942,50 @@ export const IDL: LbClmm = {
       ]
     },
     {
+      "name": "goToABin",
+      "accounts": [
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayBitmapExtension",
+          "isMut": false,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
+          "name": "fromBinArray",
+          "isMut": false,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
+          "name": "toBinArray",
+          "isMut": false,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "binId",
+          "type": "i32"
+        }
+      ]
+    },
+    {
       "name": "setPreActivationDuration",
       "accounts": [
         {
@@ -7339,7 +8002,7 @@ export const IDL: LbClmm = {
       "args": [
         {
           "name": "preActivationDuration",
-          "type": "u16"
+          "type": "u64"
         }
       ]
     },
@@ -7361,196 +8024,6 @@ export const IDL: LbClmm = {
         {
           "name": "preActivationSwapAddress",
           "type": "publicKey"
-        }
-      ]
-    },
-    {
-      "name": "swapExactOut",
-      "accounts": [
-        {
-          "name": "lbPair",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayBitmapExtension",
-          "isMut": false,
-          "isSigner": false,
-          "isOptional": true
-        },
-        {
-          "name": "reserveX",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "reserveY",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "userTokenIn",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "userTokenOut",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "tokenXMint",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "tokenYMint",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "oracle",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "hostFeeIn",
-          "isMut": true,
-          "isSigner": false,
-          "isOptional": true
-        },
-        {
-          "name": "user",
-          "isMut": false,
-          "isSigner": true
-        },
-        {
-          "name": "tokenXProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "tokenYProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "eventAuthority",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "program",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "maxInAmount",
-          "type": "u64"
-        },
-        {
-          "name": "outAmount",
-          "type": "u64"
-        }
-      ]
-    },
-    {
-      "name": "swapWithPriceImpact",
-      "accounts": [
-        {
-          "name": "lbPair",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "binArrayBitmapExtension",
-          "isMut": false,
-          "isSigner": false,
-          "isOptional": true
-        },
-        {
-          "name": "reserveX",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "reserveY",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "userTokenIn",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "userTokenOut",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "tokenXMint",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "tokenYMint",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "oracle",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "hostFeeIn",
-          "isMut": true,
-          "isSigner": false,
-          "isOptional": true
-        },
-        {
-          "name": "user",
-          "isMut": false,
-          "isSigner": true
-        },
-        {
-          "name": "tokenXProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "tokenYProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "eventAuthority",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "program",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "amountIn",
-          "type": "u64"
-        },
-        {
-          "name": "activeId",
-          "type": {
-            "option": "i32"
-          }
-        },
-        {
-          "name": "maxPriceImpactBps",
-          "type": "u16"
         }
       ]
     }
@@ -7875,7 +8348,7 @@ export const IDL: LbClmm = {
           {
             "name": "preActivationDuration",
             "docs": [
-              "Duration before activation point. Used to calculate pre-activation point for pre_activation_swap_address"
+              "Duration before activation activation_point. Used to calculate pre-activation time point for pre_activation_swap_address"
             ],
             "type": "u64"
           },
@@ -8378,7 +8851,7 @@ export const IDL: LbClmm = {
       }
     },
     {
-      "name": "FeeParameter",
+      "name": "BaseFeeParameter",
       "type": {
         "kind": "struct",
         "fields": [
@@ -8395,6 +8868,49 @@ export const IDL: LbClmm = {
               "Base factor for base fee rate"
             ],
             "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "DynamicFeeParameter",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "filterPeriod",
+            "docs": [
+              "Filter period determine high frequency trading time window."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "decayPeriod",
+            "docs": [
+              "Decay period determine when the volatile fee start decay / decrease."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "reductionFactor",
+            "docs": [
+              "Reduction factor controls the volatile fee rate decrement rate."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "variableFeeControl",
+            "docs": [
+              "Used to scale the variable fee component depending on the dynamic of the market"
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "maxVolatilityAccumulator",
+            "docs": [
+              "Maximum number of bin crossed can be accumulated. Used to cap volatile fee rate."
+            ],
+            "type": "u32"
           }
         ]
       }
@@ -8820,10 +9336,6 @@ export const IDL: LbClmm = {
           {
             "name": "maxBinId",
             "type": "i32"
-          },
-          {
-            "name": "lockDuration",
-            "type": "u64"
           },
           {
             "name": "activationType",
@@ -9322,7 +9834,7 @@ export const IDL: LbClmm = {
     {
       "name": "PairType",
       "docs": [
-        "Type of the Pair. 0 = Permissionless, 1 = Permission, 2 = CustomizablePermissionless"
+        "Type of the Pair. 0 = Permissionless, 1 = Permission, 2 = CustomizablePermissionless. Putting 0 as permissionless for backward compatibility."
       ],
       "type": {
         "kind": "enum",
@@ -9769,6 +10281,41 @@ export const IDL: LbClmm = {
       ]
     },
     {
+      "name": "DynamicFeeParameterUpdate",
+      "fields": [
+        {
+          "name": "lbPair",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "filterPeriod",
+          "type": "u16",
+          "index": false
+        },
+        {
+          "name": "decayPeriod",
+          "type": "u16",
+          "index": false
+        },
+        {
+          "name": "reductionFactor",
+          "type": "u16",
+          "index": false
+        },
+        {
+          "name": "variableFeeControl",
+          "type": "u32",
+          "index": false
+        },
+        {
+          "name": "maxVolatilityAccumulator",
+          "type": "u32",
+          "index": false
+        }
+      ]
+    },
+    {
       "name": "IncreaseObservation",
       "fields": [
         {
@@ -9849,6 +10396,26 @@ export const IDL: LbClmm = {
         {
           "name": "sender",
           "type": "publicKey",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "GoToABin",
+      "fields": [
+        {
+          "name": "lbPair",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "fromBinId",
+          "type": "i32",
+          "index": false
+        },
+        {
+          "name": "toBinId",
+          "type": "i32",
           "index": false
         }
       ]
@@ -10184,6 +10751,11 @@ export const IDL: LbClmm = {
       "code": 6065,
       "name": "AlreadyPassPreActivationSwapPoint",
       "msg": "Already pass pre-activation swap point"
+    },
+    {
+      "code": 6066,
+      "name": "InvalidStatus",
+      "msg": "Invalid status"
     }
   ]
 };
