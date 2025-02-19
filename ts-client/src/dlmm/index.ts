@@ -831,10 +831,12 @@ export class DLMM {
 
   /**
   * The function `getLbPairLockInfo` retrieves all pair positions that has locked liquidity.
+  * @param {number} [lockDurationSecsOpt] - An optional value indicating the minimum position lock duration in seconds that the function should return. 
   * @returns The function `getLbPairLockInfo` returns a `Promise` that resolves to a `PairLockInfo`
   * object. The `PairLockInfo` object contains an array of `PositionLockInfo` objects.
   */
-  public async getLbPairLockInfo(): Promise<PairLockInfo> {
+  public async getLbPairLockInfo(lockDurationSecsOpt?: number): Promise<PairLockInfo> {
+    const lockDurationSecs = lockDurationSecsOpt | 0;
     const lbPairPositions = await this.program.account.positionV2.all([
       {
         memcmp: {
@@ -844,8 +846,13 @@ export class DLMM {
       },
     ]);
 
-    // filter positions has lock_release_point > 0
-    const positionsWithLock = lbPairPositions.filter(p => p.account.lockReleasePoint.gt(new BN(0)));
+    // filter positions has lock_release_point > currentTimestamp + lockDurationSecs
+    const clockAccInfo = await this.program.provider.connection.getAccountInfo(SYSVAR_CLOCK_PUBKEY);
+    const onChainTimestamp = new BN(
+      clockAccInfo.data.readBigInt64LE(32).toString()
+    );
+    const minLockReleasePoint = onChainTimestamp.add(new BN(lockDurationSecs));
+    const positionsWithLock = lbPairPositions.filter(p => p.account.lockReleasePoint.gt(minLockReleasePoint));
 
     if (positionsWithLock.length == 0) {
       return {
@@ -875,16 +882,10 @@ export class DLMM {
       (pubkey) => new PublicKey(pubkey)
     );
 
-    const clockAndBinArrayInfo = await chunkedGetMultipleAccountInfos(
+    const binArraysAccInfo = await chunkedGetMultipleAccountInfos(
       this.program.provider.connection,
-      [
-        SYSVAR_CLOCK_PUBKEY,
-        ...binArrayPubkeyArrayV2,
-      ]
+      binArrayPubkeyArrayV2,
     );
-
-    const [clockAccInfo, ...binArraysAccInfo] =
-      clockAndBinArrayInfo;
 
     const positionBinArraysMapV2 = new Map();
     for (let i = 0; i < binArraysAccInfo.length; i++) {
@@ -902,9 +903,7 @@ export class DLMM {
       positionBinArraysMapV2.set(binArrayPubkey.toBase58(), binArrayAccInfo);
     }
 
-    const onChainTimestamp = new BN(
-      clockAccInfo.data.readBigInt64LE(32).toString()
-    ).toNumber();
+
 
     const positionsLockInfo = await Promise.all(
       positionsWithLock.map(async ({ publicKey, account }) => {
@@ -933,7 +932,7 @@ export class DLMM {
           this.program,
           PositionVersion.V2,
           this.lbPair,
-          onChainTimestamp,
+          onChainTimestamp.toNumber(),
           account,
           this.tokenX.decimal,
           this.tokenY.decimal,
