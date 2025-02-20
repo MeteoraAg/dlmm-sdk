@@ -114,6 +114,7 @@ import {
   LiquidityParameter,
   LiquidityParameterByStrategy,
   LiquidityParameterByWeight,
+  PairLockInfo,
   PairStatus,
   PairType,
   Position,
@@ -826,6 +827,134 @@ export class DLMM {
       .log()
       .dividedBy(new Decimal(1).add(binStepNum).log());
     return (min ? binId.floor() : binId.ceil()).toNumber();
+  }
+
+  /**
+  * The function `getLbPairLockInfo` retrieves all pair positions that has locked liquidity.
+  * @param {number} [lockDurationOpt] - An optional value indicating the minimum position lock duration that the function should return. 
+  * Depending on the lbPair activationType, the param should be a number of seconds or a number of slots.
+  * @returns The function `getLbPairLockInfo` returns a `Promise` that resolves to a `PairLockInfo`
+  * object. The `PairLockInfo` object contains an array of `PositionLockInfo` objects.
+  */
+  public async getLbPairLockInfo(lockDurationOpt?: number): Promise<PairLockInfo> {
+    const lockDuration = lockDurationOpt | 0;
+
+    const lbPairPositions = await this.program.account.positionV2.all([
+      {
+        memcmp: {
+          bytes: bs58.encode(this.pubkey.toBuffer()),
+          offset: 8,
+        },
+      },
+    ]);
+
+    // filter positions has lock_release_point > currentTimestamp + lockDurationSecs
+    const clockAccInfo = await this.program.provider.connection.getAccountInfo(SYSVAR_CLOCK_PUBKEY);
+    const clock = ClockLayout.decode(clockAccInfo.data) as Clock;
+
+    const currentPoint = this.lbPair.activationType == ActivationType.Slot ? clock.slot : clock.unixTimestamp;
+    const minLockReleasePoint = currentPoint.add(new BN(lockDuration));
+    const positionsWithLock = lbPairPositions.filter(p => p.account.lockReleasePoint.gt(minLockReleasePoint));
+
+    if (positionsWithLock.length == 0) {
+      return {
+        positions: [],
+      }
+    }
+
+    const binArrayPubkeySetV2 = new Set<string>();
+    positionsWithLock.forEach(({ account: { upperBinId, lowerBinId, lbPair } }) => {
+      const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(lowerBinId));
+      const upperBinArrayIndex = binIdToBinArrayIndex(new BN(upperBinId));
+
+      const [lowerBinArrayPubKey] = deriveBinArray(
+        this.pubkey,
+        lowerBinArrayIndex,
+        this.program.programId
+      );
+      const [upperBinArrayPubKey] = deriveBinArray(
+        this.pubkey,
+        upperBinArrayIndex,
+        this.program.programId
+      );
+      binArrayPubkeySetV2.add(lowerBinArrayPubKey.toBase58());
+      binArrayPubkeySetV2.add(upperBinArrayPubKey.toBase58());
+    });
+    const binArrayPubkeyArrayV2 = Array.from(binArrayPubkeySetV2).map(
+      (pubkey) => new PublicKey(pubkey)
+    );
+
+    const binArraysAccInfo = await chunkedGetMultipleAccountInfos(
+      this.program.provider.connection,
+      binArrayPubkeyArrayV2,
+    );
+
+    const positionBinArraysMapV2 = new Map();
+    for (let i = 0; i < binArraysAccInfo.length; i++) {
+      const binArrayPubkey =
+        binArrayPubkeyArrayV2[i];
+      const binArrayAccBufferV2 = binArraysAccInfo[i];
+      if (!binArrayAccBufferV2)
+        throw new Error(
+          `Bin Array account ${binArrayPubkey.toBase58()} not found`
+        );
+      const binArrayAccInfo = this.program.coder.accounts.decode(
+        "binArray",
+        binArrayAccBufferV2.data
+      );
+      positionBinArraysMapV2.set(binArrayPubkey.toBase58(), binArrayAccInfo);
+    }
+
+
+
+    const positionsLockInfo = await Promise.all(
+      positionsWithLock.map(async ({ publicKey, account }) => {
+        const { lowerBinId, upperBinId, feeOwner } = account;
+        const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(lowerBinId));
+        const upperBinArrayIndex = binIdToBinArrayIndex(new BN(upperBinId));
+
+        const [lowerBinArrayPubKey] = deriveBinArray(
+          this.pubkey,
+          lowerBinArrayIndex,
+          this.program.programId
+        );
+        const [upperBinArrayPubKey] = deriveBinArray(
+          this.pubkey,
+          upperBinArrayIndex,
+          this.program.programId
+        );
+        const lowerBinArray = positionBinArraysMapV2.get(
+          lowerBinArrayPubKey.toBase58()
+        );
+        const upperBinArray = positionBinArraysMapV2.get(
+          upperBinArrayPubKey.toBase58()
+        );
+
+        const positionData = await DLMM.processPosition(
+          this.program,
+          PositionVersion.V2,
+          this.lbPair,
+          clock.unixTimestamp.toNumber(),
+          account,
+          this.tokenX.decimal,
+          this.tokenY.decimal,
+          lowerBinArray,
+          upperBinArray,
+          feeOwner
+        );
+        return {
+          positionAddress: publicKey,
+          owner: account.owner,
+          lockReleasePoint: account.lockReleasePoint.toNumber(),
+          tokenXAmount: positionData.totalXAmount,
+          tokenYAmount: positionData.totalYAmount,
+        };
+      })
+    );
+
+    return {
+      positions: positionsLockInfo
+    };
   }
 
   /** Public methods */

@@ -1963,7 +1963,7 @@ export type LbClmm = {
       "args": []
     },
     {
-      "name": "togglePairStatus",
+      "name": "setPairStatus",
       "accounts": [
         {
           "name": "lbPair",
@@ -1976,7 +1976,12 @@ export type LbClmm = {
           "isSigner": true
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "status",
+          "type": "u8"
+        }
+      ]
     },
     {
       "name": "migratePosition",
@@ -7058,7 +7063,7 @@ export const IDL: LbClmm = {
       "args": []
     },
     {
-      "name": "togglePairStatus",
+      "name": "setPairStatus",
       "accounts": [
         {
           "name": "lbPair",
@@ -7071,7 +7076,12 @@ export const IDL: LbClmm = {
           "isSigner": true
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "status",
+          "type": "u8"
+        }
+      ]
     },
     {
       "name": "migratePosition",

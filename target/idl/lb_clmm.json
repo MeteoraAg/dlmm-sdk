@@ -1963,7 +1963,7 @@
       "args": []
     },
     {
-      "name": "togglePairStatus",
+      "name": "setPairStatus",
       "accounts": [
         {
           "name": "lbPair",
@@ -1976,7 +1976,12 @@
           "isSigner": true
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "status",
+          "type": "u8"
+        }
+      ]
     },
     {
       "name": "migratePosition",
