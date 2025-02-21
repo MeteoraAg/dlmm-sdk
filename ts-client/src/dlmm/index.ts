@@ -3248,7 +3248,7 @@ export class DLMM {
    *    - `allowedSlippage`: Allowed slippage for the swap. Expressed in BPS. To convert from slippage percentage to BPS unit: SLIPPAGE_PERCENTAGE * 100
    *    - `binArrays`: binArrays for swapQuote.
    *    - `isPartialFill`: Flag to check whether the the swapQuote is partial fill, default = false.
-   *    - `returnExtraBinArrays`: Flag to indicate whether the function should return extra bin arrays along with the bin arrays used for swap
+   *    - `maxExtraBinArrays`: Maximum number of extra binArrays to return
    * @returns {SwapQuote}
    *    - `consumedInAmount`: Amount of lamport to swap in
    *    - `outAmount`: Amount of lamport to swap out
@@ -3265,7 +3265,7 @@ export class DLMM {
     allowedSlippage: BN,
     binArrays: BinArrayAccount[],
     isPartialFill?: boolean,
-    returnExtraBinArrays?: boolean
+    maxExtraBinArrays?: number
   ): SwapQuote {
     // TODO: Should we use onchain clock ? Volatile fee rate is sensitive to time. Caching clock might causes the quoted fee off ...
     const currentTimestamp = Date.now() / 1000;
@@ -3393,7 +3393,8 @@ export class DLMM {
     // Extra binArrays that doesn't exist in the binArraysForSwap
     const extraBinArrays = binArrays.map(item => item.publicKey).filter(binArrayPubkey => !binArraysForSwap.has(binArrayPubkey));
     const binArraysForSwapKeys = Array.from(binArraysForSwap.keys());
-    const binArraysPubkey = returnExtraBinArrays ? [...binArraysForSwapKeys, ...extraBinArrays] : [...binArraysForSwapKeys];
+    const extraBinArrayIndexEnd = maxExtraBinArrays | 0;
+    const binArraysPubkey = [...binArraysForSwapKeys, ...extraBinArrays.slice(0, extraBinArrayIndexEnd)];
 
     return {
       consumedInAmount: inAmount,
