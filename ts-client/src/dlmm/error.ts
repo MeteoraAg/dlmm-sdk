@@ -46,7 +46,7 @@ export class DLMMError extends Error {
 }
 
 // SDK error
-type ErrorName = "SWAP_QUOTE_INSUFFICIENT_LIQUIDITY";
+type ErrorName = "SWAP_QUOTE_INSUFFICIENT_LIQUIDITY" | "INVALID_MAX_EXTRA_BIN_ARRAYS";
 
 export class DlmmSdkError extends Error {
   name: ErrorName;

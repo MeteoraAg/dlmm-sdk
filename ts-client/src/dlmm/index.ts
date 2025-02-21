@@ -3394,6 +3394,9 @@ export class DLMM {
     const extraBinArrays = binArrays.map(item => item.publicKey).filter(binArrayPubkey => !binArraysForSwap.has(binArrayPubkey));
     const binArraysForSwapKeys = Array.from(binArraysForSwap.keys());
     const extraBinArrayIndexEnd = maxExtraBinArrays | 0;
+    if (extraBinArrayIndexEnd < 0) {
+      throw new DlmmSdkError("INVALID_MAX_EXTRA_BIN_ARRAYS", "maxExtraBinArrays must be greater than or equal 0");
+    }
     const binArraysPubkey = [...binArraysForSwapKeys, ...extraBinArrays.slice(0, extraBinArrayIndexEnd)];
 
     return {
