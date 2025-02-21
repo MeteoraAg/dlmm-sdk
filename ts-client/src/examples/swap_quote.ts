@@ -6,7 +6,8 @@ async function swapQuote(
   poolAddress: PublicKey,
   swapAmount: BN,
   swapYtoX: boolean,
-  isPartialFill: boolean
+  isPartialFill: boolean,
+  returnExtraBinArrays?: boolean
 ) {
   let rpc = "https://api.mainnet-beta.solana.com";
   const connection = new Connection(rpc, "finalized");
@@ -20,7 +21,8 @@ async function swapQuote(
     swapYtoX,
     new BN(10),
     binArrays,
-    isPartialFill
+    isPartialFill,
+    returnExtraBinArrays
   );
   console.log("🚀 ~ swapQuote:", swapQuote);
   console.log(
@@ -32,8 +34,9 @@ async function swapQuote(
 
 async function main() {
   await swapQuote(
-    new PublicKey("8kCbYxnF8ggdJACxz4NLYtVhEEz6EBvN5NQcKAazpkEY"),
-    new BN(1_000_000_000),
+    new PublicKey("5BKxfWMbmYBAEWvyPZS9esPducUba9GqyMjtLCfbaqyF"),
+    new BN(1_000_000),
+    true,
     true,
     true
   );
