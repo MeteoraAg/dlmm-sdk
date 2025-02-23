@@ -3271,6 +3271,9 @@ export class DLMM {
     // TODO: Should we use onchain clock ? Volatile fee rate is sensitive to time. Caching clock might causes the quoted fee off ...
     const currentTimestamp = Date.now() / 1000;
     let inAmountLeft = inAmount;
+    if (maxExtraBinArrays < 0 || maxExtraBinArrays > MAX_EXTRA_BIN_ARRAYS) {
+      throw new DlmmSdkError("INVALID_MAX_EXTRA_BIN_ARRAYS", `maxExtraBinArrays must be a value between 0 and ${MAX_EXTRA_BIN_ARRAYS}`);
+    }
 
     let vParameterClone = Object.assign({}, this.lbPair.vParameters);
     let activeId = new BN(this.lbPair.activeId);
@@ -3291,14 +3294,8 @@ export class DLMM {
     let feeAmount: BN = new BN(0);
     let protocolFeeAmount: BN = new BN(0);
     let lastFilledActiveBinId = activeId;
-    let extraBinArrayIndex = 0;
-
-    if (maxExtraBinArrays < 0 || maxExtraBinArrays > MAX_EXTRA_BIN_ARRAYS) {
-      throw new DlmmSdkError("INVALID_MAX_EXTRA_BIN_ARRAYS", `maxExtraBinArrays must be a value between 0 and ${MAX_EXTRA_BIN_ARRAYS}`);
-    }
 
     while (!inAmountLeft.isZero()) {
-      console.log(activeId.toNumber());
       let binArrayAccountToSwap = findNextBinArrayWithLiquidity(
         swapForY,
         activeId,
@@ -3397,6 +3394,35 @@ export class DLMM {
       lastFilledActiveBinId.toNumber(),
       this.lbPair.binStep
     );
+
+    if (maxExtraBinArrays >= 0 && maxExtraBinArrays <= MAX_EXTRA_BIN_ARRAYS) {
+      let extraBinArrayIndex = 0;
+      while (extraBinArrayIndex < maxExtraBinArrays) {
+        let binArrayAccountToSwap = findNextBinArrayWithLiquidity(
+          swapForY,
+          activeId,
+          this.lbPair,
+          this.binArrayBitmapExtension?.account ?? null,
+          binArrays
+        );
+
+        if (binArrayAccountToSwap == null) {
+          break;
+        }
+
+        if (!binArraysForSwap.has(binArrayAccountToSwap.publicKey)) {
+          extraBinArrayIndex++;
+          binArraysForSwap.set(binArrayAccountToSwap.publicKey, true);
+        }
+
+        if (swapForY) {
+          activeId = activeId.sub(new BN(1));
+        } else {
+          activeId = activeId.add(new BN(1));
+        }
+        continue;
+      }
+    }
 
     const binArraysPubkey = Array.from(binArraysForSwap.keys());
 

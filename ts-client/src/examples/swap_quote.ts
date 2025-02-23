@@ -17,6 +17,9 @@ async function swapQuote(
 
   const binArrays = await dlmmPool.getBinArrayForSwap(swapYtoX);
   console.log(`binArrays length ${binArrays.length}`);
+  binArrays.forEach(binArray => {
+    console.log("binArray pubkey ", binArray.publicKey);
+  })
 
   const swapQuote = dlmmPool.swapQuote(
     swapAmount,
@@ -36,11 +39,11 @@ async function swapQuote(
 
 async function main() {
   await swapQuote(
-    new PublicKey("HTvjzsfX3yU6BUodCjZ5vZkUrAxMDTrBs3CJaq43ashR"),
-    new BN(20_000 * 10 ** 6),
+    new PublicKey("5BKxfWMbmYBAEWvyPZS9esPducUba9GqyMjtLCfbaqyF"),
+    new BN(5_000 * 10 ** 6),
     true,
     false,
-    1
+    2
   );
 }
 
