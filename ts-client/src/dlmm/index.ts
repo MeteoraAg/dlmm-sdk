@@ -3307,12 +3307,12 @@ export class DLMM {
       );
 
       if (binArrayAccountToSwap == null) {
-        if (isPartialFill) {
-          break;
-        } else if (extraBinArrayIndex < maxExtraBinArrays) {
+        if (extraBinArrayIndex < maxExtraBinArrays) {
           // incase the liquidity is insufficient and user want to get extra bin array
           extraBinArrayIndex++;
           continue;
+        } else if (isPartialFill) {
+          break;
         } else {
           throw new DlmmSdkError(
             "SWAP_QUOTE_INSUFFICIENT_LIQUIDITY",
