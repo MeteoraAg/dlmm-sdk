@@ -3298,6 +3298,7 @@ export class DLMM {
     }
 
     while (!inAmountLeft.isZero()) {
+      console.log(activeId.toNumber());
       let binArrayAccountToSwap = findNextBinArrayWithLiquidity(
         swapForY,
         activeId,
@@ -3307,11 +3308,7 @@ export class DLMM {
       );
 
       if (binArrayAccountToSwap == null) {
-        if (extraBinArrayIndex < maxExtraBinArrays) {
-          // incase the liquidity is insufficient and user want to get extra bin array
-          extraBinArrayIndex++;
-          continue;
-        } else if (isPartialFill) {
+        if (isPartialFill) {
           break;
         } else {
           throw new DlmmSdkError(
