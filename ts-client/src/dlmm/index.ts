@@ -32,6 +32,7 @@ import {
   MAX_BIN_PER_POSITION,
   MAX_BIN_PER_TX,
   MAX_CLAIM_ALL_ALLOWED,
+  MAX_EXTRA_BIN_ARRAYS,
   MAX_FEE_RATE,
   POSITION_FEE,
   PRECISION,
@@ -3265,7 +3266,7 @@ export class DLMM {
     allowedSlippage: BN,
     binArrays: BinArrayAccount[],
     isPartialFill?: boolean,
-    maxExtraBinArrays?: number
+    maxExtraBinArrays: number = 0
   ): SwapQuote {
     // TODO: Should we use onchain clock ? Volatile fee rate is sensitive to time. Caching clock might causes the quoted fee off ...
     const currentTimestamp = Date.now() / 1000;
@@ -3290,6 +3291,11 @@ export class DLMM {
     let feeAmount: BN = new BN(0);
     let protocolFeeAmount: BN = new BN(0);
     let lastFilledActiveBinId = activeId;
+    let extraBinArrayIndex = 0;
+
+    if (maxExtraBinArrays < 0 || maxExtraBinArrays > MAX_EXTRA_BIN_ARRAYS) {
+      throw new DlmmSdkError("INVALID_MAX_EXTRA_BIN_ARRAYS", `maxExtraBinArrays must be a value between 0 and ${MAX_EXTRA_BIN_ARRAYS}`);
+    }
 
     while (!inAmountLeft.isZero()) {
       let binArrayAccountToSwap = findNextBinArrayWithLiquidity(
@@ -3303,6 +3309,10 @@ export class DLMM {
       if (binArrayAccountToSwap == null) {
         if (isPartialFill) {
           break;
+        } else if (extraBinArrayIndex < maxExtraBinArrays) {
+          // incase the liquidity is insufficient and user want to get extra bin array
+          extraBinArrayIndex++;
+          continue;
         } else {
           throw new DlmmSdkError(
             "SWAP_QUOTE_INSUFFICIENT_LIQUIDITY",
@@ -3366,6 +3376,7 @@ export class DLMM {
       );
     }
 
+    // in case partialFill is true
     inAmount = inAmount.sub(inAmountLeft);
 
     const outAmountWithoutSlippage = getOutAmount(
@@ -3390,14 +3401,7 @@ export class DLMM {
       this.lbPair.binStep
     );
 
-    // Extra binArrays that doesn't exist in the binArraysForSwap
-    const extraBinArrays = binArrays.map(item => item.publicKey).filter(binArrayPubkey => !binArraysForSwap.has(binArrayPubkey));
-    const binArraysForSwapKeys = Array.from(binArraysForSwap.keys());
-    const extraBinArrayIndexEnd = maxExtraBinArrays | 0;
-    if (extraBinArrayIndexEnd < 0) {
-      throw new DlmmSdkError("INVALID_MAX_EXTRA_BIN_ARRAYS", "maxExtraBinArrays must be greater than or equal 0");
-    }
-    const binArraysPubkey = [...binArraysForSwapKeys, ...extraBinArrays.slice(0, extraBinArrayIndexEnd)];
+    const binArraysPubkey = Array.from(binArraysForSwap.keys());
 
     return {
       consumedInAmount: inAmount,
