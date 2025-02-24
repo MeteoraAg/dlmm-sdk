@@ -3420,7 +3420,6 @@ export class DLMM {
         } else {
           activeId = activeId.add(new BN(1));
         }
-        continue;
       }
     }
 
