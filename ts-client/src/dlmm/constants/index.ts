@@ -62,4 +62,4 @@ export const ILM_BASE = new PublicKey(
   "MFGQxwAmB91SwuYX36okv2Qmdc9aMuHTwWGUrp4AtB1"
 );
 
-export const MAX_EXTRA_BIN_ARRAYS = 5;
+export const MAX_EXTRA_BIN_ARRAYS = 3;
