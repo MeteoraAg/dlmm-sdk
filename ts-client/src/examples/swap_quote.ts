@@ -39,7 +39,7 @@ async function main() {
     new BN(5_000 * 10 ** 6),
     true,
     false,
-    2
+    3
   );
 }
 

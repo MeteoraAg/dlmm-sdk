@@ -3395,9 +3395,10 @@ export class DLMM {
       this.lbPair.binStep
     );
 
-    if (maxExtraBinArrays >= 0 && maxExtraBinArrays <= MAX_EXTRA_BIN_ARRAYS) {
-      let extraBinArrayIndex = 0;
-      while (extraBinArrayIndex < maxExtraBinArrays) {
+    if (maxExtraBinArrays > 0 && maxExtraBinArrays <= MAX_EXTRA_BIN_ARRAYS) {
+      const extraBinArrays: Array<PublicKey> = new Array<PublicKey>();
+
+      while (extraBinArrays.length < maxExtraBinArrays) {
         let binArrayAccountToSwap = findNextBinArrayWithLiquidity(
           swapForY,
           activeId,
@@ -3410,17 +3411,28 @@ export class DLMM {
           break;
         }
 
-        if (!binArraysForSwap.has(binArrayAccountToSwap.publicKey)) {
-          extraBinArrayIndex++;
-          binArraysForSwap.set(binArrayAccountToSwap.publicKey, true);
-        }
+        const binArrayAccountToSwapExisted = binArraysForSwap.has(binArrayAccountToSwap.publicKey);
 
-        if (swapForY) {
-          activeId = activeId.sub(new BN(1));
+        if (binArrayAccountToSwapExisted) {
+          if (swapForY) {
+            activeId = activeId.sub(new BN(1));
+          } else {
+            activeId = activeId.add(new BN(1));
+          }
         } else {
-          activeId = activeId.add(new BN(1));
+          extraBinArrays.push(binArrayAccountToSwap.publicKey);
+          if (swapForY) {
+            activeId = activeId.sub(new BN(binArrayAccountToSwap.account.bins.length));
+          } else {
+            activeId = activeId.add(new BN(binArrayAccountToSwap.account.bins.length));
+          }
         }
       }
+
+      // save to binArraysForSwap result
+      extraBinArrays.forEach(binArrayPubkey => {
+        binArraysForSwap.set(binArrayPubkey, true);
+      })
     }
 
     const binArraysPubkey = Array.from(binArraysForSwap.keys());
