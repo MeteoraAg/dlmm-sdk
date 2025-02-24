@@ -140,6 +140,7 @@ import {
   vParameters,
 } from "./types";
 import { DEFAULT_ADD_LIQUIDITY_CU } from "./helpers/computeUnit";
+import { max, min } from "bn.js";
 
 type Opt = {
   cluster?: Cluster | "localhost";
@@ -3421,10 +3422,12 @@ export class DLMM {
           }
         } else {
           extraBinArrays.push(binArrayAccountToSwap.publicKey);
+          const [lowerBinId, upperBinId] = getBinArrayLowerUpperBinId(binArrayAccountToSwap.account.index);
+
           if (swapForY) {
-            activeId = activeId.sub(new BN(binArrayAccountToSwap.account.bins.length));
+            activeId = lowerBinId.sub(new BN(1));
           } else {
-            activeId = activeId.add(new BN(binArrayAccountToSwap.account.bins.length));
+            activeId = upperBinId.add(new BN(1));
           }
         }
       }
