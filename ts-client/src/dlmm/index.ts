@@ -32,6 +32,7 @@ import {
   MAX_BIN_PER_POSITION,
   MAX_BIN_PER_TX,
   MAX_CLAIM_ALL_ALLOWED,
+  MAX_EXTRA_BIN_ARRAYS,
   MAX_FEE_RATE,
   POSITION_FEE,
   PRECISION,
@@ -139,6 +140,7 @@ import {
   vParameters,
 } from "./types";
 import { DEFAULT_ADD_LIQUIDITY_CU } from "./helpers/computeUnit";
+import { max, min } from "bn.js";
 
 type Opt = {
   cluster?: Cluster | "localhost";
@@ -3113,6 +3115,7 @@ export class DLMM {
    *    - `outAmount`: Amount of lamport to swap out
    *    - `swapForY`: Swap token X to Y when it is true, else reversed.
    *    - `allowedSlippage`: Allowed slippage for the swap. Expressed in BPS. To convert from slippage percentage to BPS unit: SLIPPAGE_PERCENTAGE * 100
+   *    - `maxExtraBinArrays`: Maximum number of extra binArrays to return
    * @returns {SwapQuote}
    *    - `inAmount`: Amount of lamport to swap in
    *    - `outAmount`: Amount of lamport to swap out
@@ -3127,11 +3130,15 @@ export class DLMM {
     outAmount: BN,
     swapForY: boolean,
     allowedSlippage: BN,
-    binArrays: BinArrayAccount[]
+    binArrays: BinArrayAccount[],
+    maxExtraBinArrays: number = 0
   ): SwapQuoteExactOut {
     // TODO: Should we use onchain clock ? Volatile fee rate is sensitive to time. Caching clock might causes the quoted fee off ...
     const currentTimestamp = Date.now() / 1000;
     let outAmountLeft = outAmount;
+    if (maxExtraBinArrays < 0 || maxExtraBinArrays > MAX_EXTRA_BIN_ARRAYS) {
+      throw new DlmmSdkError("INVALID_MAX_EXTRA_BIN_ARRAYS", `maxExtraBinArrays must be a value between 0 and ${MAX_EXTRA_BIN_ARRAYS}`);
+    }
 
     let vParameterClone = Object.assign({}, this.lbPair.vParameters);
     let activeId = new BN(this.lbPair.activeId);
@@ -3229,6 +3236,50 @@ export class DLMM {
       .mul(new BN(BASIS_POINT_MAX).add(allowedSlippage))
       .div(new BN(BASIS_POINT_MAX));
 
+    if (maxExtraBinArrays > 0 && maxExtraBinArrays <= MAX_EXTRA_BIN_ARRAYS) {
+      const extraBinArrays: Array<PublicKey> = new Array<PublicKey>();
+
+      while (extraBinArrays.length < maxExtraBinArrays) {
+        let binArrayAccountToSwap = findNextBinArrayWithLiquidity(
+          swapForY,
+          activeId,
+          this.lbPair,
+          this.binArrayBitmapExtension?.account ?? null,
+          binArrays
+        );
+
+        if (binArrayAccountToSwap == null) {
+          break;
+        }
+
+        const binArrayAccountToSwapExisted = binArraysForSwap.has(binArrayAccountToSwap.publicKey);
+
+        if (binArrayAccountToSwapExisted) {
+          if (swapForY) {
+            activeId = activeId.sub(new BN(1));
+          } else {
+            activeId = activeId.add(new BN(1));
+          }
+        } else {
+          extraBinArrays.push(binArrayAccountToSwap.publicKey);
+          const [lowerBinId, upperBinId] = getBinArrayLowerUpperBinId(binArrayAccountToSwap.account.index);
+
+          if (swapForY) {
+            activeId = lowerBinId.sub(new BN(1));
+          } else {
+            activeId = upperBinId.add(new BN(1));
+          }
+        }
+      }
+
+      // save to binArraysForSwap result
+      extraBinArrays.forEach(binArrayPubkey => {
+        binArraysForSwap.set(binArrayPubkey, true);
+      })
+    }
+
+    const binArraysPubkey = Array.from(binArraysForSwap.keys());
+
     return {
       inAmount: actualInAmount,
       maxInAmount,
@@ -3236,7 +3287,7 @@ export class DLMM {
       priceImpact,
       fee: feeAmount,
       protocolFee: protocolFeeAmount,
-      binArraysPubkey: [...binArraysForSwap.keys()],
+      binArraysPubkey,
     };
   }
 
@@ -3248,6 +3299,7 @@ export class DLMM {
    *    - `allowedSlippage`: Allowed slippage for the swap. Expressed in BPS. To convert from slippage percentage to BPS unit: SLIPPAGE_PERCENTAGE * 100
    *    - `binArrays`: binArrays for swapQuote.
    *    - `isPartialFill`: Flag to check whether the the swapQuote is partial fill, default = false.
+   *    - `maxExtraBinArrays`: Maximum number of extra binArrays to return
    * @returns {SwapQuote}
    *    - `consumedInAmount`: Amount of lamport to swap in
    *    - `outAmount`: Amount of lamport to swap out
@@ -3263,11 +3315,15 @@ export class DLMM {
     swapForY: boolean,
     allowedSlippage: BN,
     binArrays: BinArrayAccount[],
-    isPartialFill?: boolean
+    isPartialFill?: boolean,
+    maxExtraBinArrays: number = 0
   ): SwapQuote {
     // TODO: Should we use onchain clock ? Volatile fee rate is sensitive to time. Caching clock might causes the quoted fee off ...
     const currentTimestamp = Date.now() / 1000;
     let inAmountLeft = inAmount;
+    if (maxExtraBinArrays < 0 || maxExtraBinArrays > MAX_EXTRA_BIN_ARRAYS) {
+      throw new DlmmSdkError("INVALID_MAX_EXTRA_BIN_ARRAYS", `maxExtraBinArrays must be a value between 0 and ${MAX_EXTRA_BIN_ARRAYS}`);
+    }
 
     let vParameterClone = Object.assign({}, this.lbPair.vParameters);
     let activeId = new BN(this.lbPair.activeId);
@@ -3364,6 +3420,7 @@ export class DLMM {
       );
     }
 
+    // in case partialFill is true
     inAmount = inAmount.sub(inAmountLeft);
 
     const outAmountWithoutSlippage = getOutAmount(
@@ -3388,6 +3445,50 @@ export class DLMM {
       this.lbPair.binStep
     );
 
+    if (maxExtraBinArrays > 0 && maxExtraBinArrays <= MAX_EXTRA_BIN_ARRAYS) {
+      const extraBinArrays: Array<PublicKey> = new Array<PublicKey>();
+
+      while (extraBinArrays.length < maxExtraBinArrays) {
+        let binArrayAccountToSwap = findNextBinArrayWithLiquidity(
+          swapForY,
+          activeId,
+          this.lbPair,
+          this.binArrayBitmapExtension?.account ?? null,
+          binArrays
+        );
+
+        if (binArrayAccountToSwap == null) {
+          break;
+        }
+
+        const binArrayAccountToSwapExisted = binArraysForSwap.has(binArrayAccountToSwap.publicKey);
+
+        if (binArrayAccountToSwapExisted) {
+          if (swapForY) {
+            activeId = activeId.sub(new BN(1));
+          } else {
+            activeId = activeId.add(new BN(1));
+          }
+        } else {
+          extraBinArrays.push(binArrayAccountToSwap.publicKey);
+          const [lowerBinId, upperBinId] = getBinArrayLowerUpperBinId(binArrayAccountToSwap.account.index);
+
+          if (swapForY) {
+            activeId = lowerBinId.sub(new BN(1));
+          } else {
+            activeId = upperBinId.add(new BN(1));
+          }
+        }
+      }
+
+      // save to binArraysForSwap result
+      extraBinArrays.forEach(binArrayPubkey => {
+        binArraysForSwap.set(binArrayPubkey, true);
+      })
+    }
+
+    const binArraysPubkey = Array.from(binArraysForSwap.keys());
+
     return {
       consumedInAmount: inAmount,
       outAmount: actualOutAmount,
@@ -3395,7 +3496,7 @@ export class DLMM {
       protocolFee: protocolFeeAmount,
       minOutAmount,
       priceImpact,
-      binArraysPubkey: [...binArraysForSwap.keys()],
+      binArraysPubkey,
       endPrice,
     };
   }

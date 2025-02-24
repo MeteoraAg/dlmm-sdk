@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.3.14] - PR #167
+
+### Added
+
+- Add param `maxExtraBinArrays` to `swapQuote` and `swapQuoteExactOut` functions.
+
 ## @meteora-ag/dlmm [1.3.13] - PR #166
 
 ### Added
