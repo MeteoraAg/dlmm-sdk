@@ -2437,9 +2437,29 @@ describe("SDK Test with Mainnet RPC", () => {
     expect(binArrays.length).toBeGreaterThan(1);
     let quote = lbPair.swapQuote(inAmount, swapForY, allowedSlippage, binArrays, isPartialFill, 0);
     expect(quote.binArraysPubkey.length).toEqual(1);
+    const binArrayToSwapPubkey = quote.binArraysPubkey[0];
+    const binArrayToSwap = await lbPair.program.account.binArray.fetch(binArrayToSwapPubkey);
 
     quote = lbPair.swapQuote(inAmount, swapForY, allowedSlippage, binArrays, isPartialFill, 3);
     expect(quote.binArraysPubkey.length).toEqual(4);
+
+    // expect binArrays are in correct order
+    expect(quote.binArraysPubkey[0]).toEqual(binArrayToSwapPubkey);
+
+    let lastBinArrayIdx = binArrayToSwap.index;
+    for (let i = 1; i < binArrays.length; i++) {
+      let assertBinArrayPubkey = quote.binArraysPubkey[i];
+
+      const assertBinArray = await lbPair.program.account.binArray.fetch(assertBinArrayPubkey);
+      console.log(assertBinArray.index);
+      if (swapForY) {
+        expect(assertBinArray.index).toEqual(lastBinArrayIdx.sub(new BN(1)));
+      } else {
+        expect(assertBinArray.index).toEqual(lastBinArrayIdx.add(new BN(1)));
+      }
+
+      lastBinArrayIdx = assertBinArray.index;
+    }
   });
 
   it("quote Y -> X with maxExtraBinArrays", async () => {
@@ -2455,7 +2475,28 @@ describe("SDK Test with Mainnet RPC", () => {
     let quote = lbPair.swapQuote(inAmount, swapForY, allowedSlippage, binArrays, isPartialFill, 0);
     expect(quote.binArraysPubkey.length).toEqual(1);
 
+    const binArrayToSwapPubkey = quote.binArraysPubkey[0];
+    const binArrayToSwap = await lbPair.program.account.binArray.fetch(binArrayToSwapPubkey);
+
     quote = lbPair.swapQuote(inAmount, swapForY, allowedSlippage, binArrays, isPartialFill, 3);
     expect(quote.binArraysPubkey.length).toEqual(4);
+
+    // expect binArrays are in correct order
+    expect(quote.binArraysPubkey[0]).toEqual(binArrayToSwapPubkey);
+
+    let lastBinArrayIdx = binArrayToSwap.index;
+    for (let i = 1; i < binArrays.length; i++) {
+      let assertBinArrayPubkey = quote.binArraysPubkey[i];
+
+      const assertBinArray = await lbPair.program.account.binArray.fetch(assertBinArrayPubkey);
+      console.log(assertBinArray.index);
+      if (swapForY) {
+        expect(assertBinArray.index).toEqual(lastBinArrayIdx.sub(new BN(1)));
+      } else {
+        expect(assertBinArray.index).toEqual(lastBinArrayIdx.add(new BN(1)));
+      }
+
+      lastBinArrayIdx = assertBinArray.index;
+    }
   });
 });
