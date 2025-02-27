@@ -55,27 +55,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - `calculateFeeInfo` added new optional `baseFeePowerFactor` parameter
-- `claimLMReward` added new optional `binRange` parameter
-- `claimSwapFee` added new optional `binRange` parameter
 
 #### Breaking
 
 - `getPairPubkeyIfExists` added new `baseFeePowerFactor` parameter
 - `getAllPresetParameters` now return `presetParameter` and `presetParameter2` accounts instead of only `presetParameter`
 - Rename `LBCLMM_PROGRAM_IDS` to `DLMM_PROGRAM_IDS`
-- `createPermissionLbPair` added new `protocolFeeBps` parameter
 - `removeLiquidity`, `binIds` parameter has been replaced by `fromBinId` and `toBinId` which represent the bin range to be removed
-- `claimLMReward` now return `Transaction[]` instead of `Transaction`
-- `claimSwapFee` now return `Transaction[]` instead of `Transaction`
 
 ### Added
 
-- `createCustomizablePermissionlessLbPair2`, similar as `createCustomizablePermissionlessLbPair` but support token 2022. Currently disabled on program side until next phase.
-- `createLbPair2`, similar as `createLbPair` but support token 2022. Currently disabled on program side until next phase.
-- `decreasePositionLength`. Use to shrink dynamic position.
-- `increasePositionLength`. Use to expand dynamic position.
+- `createCustomizablePermissionlessLbPair2`, similar as `createCustomizablePermissionlessLbPair` but support token 2022.
+- `createLbPair2`, similar as `createLbPair` but support token 2022.
 - `closePositionIfEmpty`. Will close the position only if it's empty, else do nothing.
-- `migratePositionV3`. Use to migrate position from v2 to v3 a.k.a dynamic position.
 
 ### Deprecated
 
@@ -94,13 +86,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - File structure refactoring
-- Switched all the existing functions to support dynamic position and token 2022
+- Switched all the existing functions to support token 2022
 
 ### Added
 
 - Admin function `initialize_token_badge` to initialize token badge for token 2022
-- Permissionless function `increase_position_length` to increase dynamic position length
-- Permissionless function `decrease_position_length` to decrease dynamic position length
 
 ## lb_clmm [0.7.0]
 
@@ -113,7 +103,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## commons [0.3.0]
 
 - Added token 2022 supportive functions.
-- Added dynamic position account supportive functions.
+- Added position account supportive functions.
 
 ## @meteora-ag/dlmm [1.3.15] - PR #173
 
