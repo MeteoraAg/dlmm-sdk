@@ -1,8 +1,10 @@
 import {
+  ComputeBudgetProgram,
   Connection,
   Keypair,
   PublicKey,
   sendAndConfirmTransaction,
+  Transaction,
 } from "@solana/web3.js";
 import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import { DLMM } from "../dlmm";
@@ -39,6 +41,7 @@ let userPositions: LbPosition[] = [];
 const newBalancePosition = new Keypair();
 const newImbalancePosition = new Keypair();
 const newOneSidePosition = new Keypair();
+const newEmptyPosition = new Keypair();
 
 async function getActiveBin(dlmmPool: DLMM) {
   // Get pool state
@@ -275,6 +278,88 @@ async function swap(dlmmPool: DLMM) {
   }
 }
 
+async function  addPriorityFeeToTransaction(
+  connection: Connection, 
+  originalTx: Transaction, 
+  microLamports: number = 10000
+): Promise<Transaction> {
+  // Create a new transaction
+  const priorityFeeTx = new Transaction();
+  
+  priorityFeeTx.add(
+      ComputeBudgetProgram.setComputeUnitPrice({ microLamports })
+  );
+
+  // Add all instructions from the original transaction
+  originalTx.instructions.forEach(instruction => {
+      priorityFeeTx.add(instruction);
+  });
+
+  // Set recent blockhash and fee payer
+  const { blockhash } = await connection.getLatestBlockhash();
+  priorityFeeTx.recentBlockhash = blockhash;
+  priorityFeeTx.feePayer = user.publicKey;
+
+  return priorityFeeTx;
+}
+
+async function createEmptyPosition(dlmmPool:DLMM) {
+    const minBinId = activeBin.binId - 68/2; //Below 69 Bins for standard position 
+    const maxBinId = activeBin.binId + 68/2;   //34 Bins each side of current active bin
+    const emptyPositionTx = await dlmmPool.createEmptyPosition({
+      positionPubKey: newEmptyPosition.publicKey,
+      user: user.publicKey,
+        maxBinId,
+        minBinId,
+    });
+  
+    try {
+      /*
+      Adding priority fee as an example here can be implemented in other functions as well 
+      by replacing emptyPositionTx with priorityFeeTX 
+      */
+      const priorityFeeTx = await addPriorityFeeToTransaction(
+        connection, 
+        emptyPositionTx
+      );
+
+      const addLiquidityTxHash = await sendAndConfirmTransaction(connection, priorityFeeTx, [user,newEmptyPosition]);
+      console.log("🚀 ~ Created Empty Position:", addLiquidityTxHash);
+    } catch (error) {
+      console.log("🚀 ~ error:", JSON.parse(JSON.stringify(error)));
+    }
+}
+
+
+
+async function claimRewards(dlmmPool:DLMM) {
+  
+  const claimTx = await dlmmPool.claimAllRewardsByPosition({owner:user.publicKey,position:userPositions[0]}); //Claiming fee for first position if exists
+          
+  try {
+      for (const tx of claimTx) {
+        const txHash = await sendAndConfirmTransaction(connection, tx, [user]);
+        console.log("🚀 ~ claimAllRewardsTxHash:", txHash);
+      }
+    } catch (error) {
+      console.log("🚀 ~ error:", JSON.parse(JSON.stringify(error)));
+    }
+}
+
+async function closeAnEmptyPosition(dlmmPool:DLMM) {
+  const closetx = await dlmmPool.closePosition(
+    {owner:user.publicKey,
+    position:userPositions[0] //Closing first empty position
+    })
+
+    try {
+      const closePositionTx = await sendAndConfirmTransaction(connection, closetx, [user]);
+      console.log("🚀 ~ closePositionTxHash:", closePositionTx);
+    } catch (error) {
+     console.log("🚀 ~ error:", JSON.parse(JSON.stringify(error)));
+    }
+}
+
 async function main() {
   const dlmmPool = await DLMM.create(connection, poolAddress, {
     cluster: "devnet",
@@ -288,6 +373,9 @@ async function main() {
   await addLiquidityToExistingPosition(dlmmPool);
   await removePositionLiquidity(dlmmPool);
   await swap(dlmmPool);
+  await closeAnEmptyPosition(dlmmPool);
+  await claimRewards(dlmmPool);
+  await createEmptyPosition(dlmmPool)
 }
 
 main();
