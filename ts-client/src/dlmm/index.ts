@@ -145,6 +145,7 @@ import {
   sParameters,
   vParameters,
 } from "./types";
+import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 
 type Opt = {
   cluster?: Cluster | "localhost";
@@ -1187,7 +1188,9 @@ export class DLMM {
       this.lbPair.activationType == ActivationType.Slot
         ? clock.slot
         : clock.unixTimestamp;
+
     const minLockReleasePoint = currentPoint.add(new BN(lockDuration));
+
     const positionsWithLock = lbPairPositions.filter((p) =>
       p.account.lockReleasePoint.gt(minLockReleasePoint)
     );
@@ -1198,26 +1201,23 @@ export class DLMM {
       };
     }
 
-    const binArrayPubkeySetV2 = new Set<string>();
-    positionsWithLock.forEach(
-      ({ account: { upperBinId, lowerBinId, lbPair } }) => {
-        const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(lowerBinId));
-        const upperBinArrayIndex = binIdToBinArrayIndex(new BN(upperBinId));
+    const positions = [
+      ...positionsWithLock.map(
+        (p) => new PositionV2Wrapper(p.publicKey, p.account)
+      ),
+    ];
 
-        const [lowerBinArrayPubKey] = deriveBinArray(
-          this.pubkey,
-          lowerBinArrayIndex,
-          this.program.programId
-        );
-        const [upperBinArrayPubKey] = deriveBinArray(
-          this.pubkey,
-          upperBinArrayIndex,
-          this.program.programId
-        );
-        binArrayPubkeySetV2.add(lowerBinArrayPubKey.toBase58());
-        binArrayPubkeySetV2.add(upperBinArrayPubKey.toBase58());
-      }
-    );
+    const binArrayPubkeySetV2 = new Set<string>();
+    positions.forEach((position) => {
+      const binArrayKeys = position.getBinArrayKeysCoverage(
+        this.program.programId
+      );
+
+      binArrayKeys.forEach((key) => {
+        binArrayPubkeySetV2.add(key.toBase58());
+      });
+    });
+
     const binArrayPubkeyArrayV2 = Array.from(binArrayPubkeySetV2).map(
       (pubkey) => new PublicKey(pubkey)
     );
@@ -1228,6 +1228,7 @@ export class DLMM {
     );
 
     const positionBinArraysMapV2 = new Map();
+
     for (let i = 0; i < binArraysAccInfo.length; i++) {
       const binArrayPubkey = binArrayPubkeyArrayV2[i];
       const binArrayAccBufferV2 = binArraysAccInfo[i];
@@ -1236,51 +1237,30 @@ export class DLMM {
           `Bin Array account ${binArrayPubkey.toBase58()} not found`
         );
       const binArrayAccInfo = this.program.coder.accounts.decode(
-        "binArray",
+        this.program.account.binArray.idlAccount.name,
         binArrayAccBufferV2.data
       );
       positionBinArraysMapV2.set(binArrayPubkey.toBase58(), binArrayAccInfo);
     }
 
     const positionsLockInfo = await Promise.all(
-      positionsWithLock.map(async ({ publicKey, account }) => {
-        const { lowerBinId, upperBinId, feeOwner } = account;
-        const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(lowerBinId));
-        const upperBinArrayIndex = binIdToBinArrayIndex(new BN(upperBinId));
-
-        const [lowerBinArrayPubKey] = deriveBinArray(
-          this.pubkey,
-          lowerBinArrayIndex,
-          this.program.programId
-        );
-        const [upperBinArrayPubKey] = deriveBinArray(
-          this.pubkey,
-          upperBinArrayIndex,
-          this.program.programId
-        );
-        const lowerBinArray = positionBinArraysMapV2.get(
-          lowerBinArrayPubKey.toBase58()
-        );
-        const upperBinArray = positionBinArraysMapV2.get(
-          upperBinArrayPubKey.toBase58()
-        );
-
+      positions.map(async (position) => {
         const positionData = await DLMM.processPosition(
           this.program,
-          PositionVersion.V2,
           this.lbPair,
-          clock.unixTimestamp.toNumber(),
-          account,
-          this.tokenX.decimal,
-          this.tokenY.decimal,
-          lowerBinArray,
-          upperBinArray,
-          feeOwner
+          clock,
+          position,
+          this.tokenX.mint,
+          this.tokenY.mint,
+          this.rewards[0].mint,
+          this.rewards[1].mint,
+          positionBinArraysMapV2
         );
+
         return {
-          positionAddress: publicKey,
-          owner: account.owner,
-          lockReleasePoint: account.lockReleasePoint.toNumber(),
+          positionAddress: position.address(),
+          owner: position.owner(),
+          lockReleasePoint: position.lockReleasePoint().toNumber(),
           tokenXAmount: positionData.totalXAmount,
           tokenYAmount: positionData.totalYAmount,
         };
