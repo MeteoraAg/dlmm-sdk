@@ -1,38 +1,36 @@
-use std::ops::Deref;
-
-use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
-use anchor_client::{solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, Program};
-
-use anyhow::*;
-use lb_clmm::math::u128x128_math::Rounding;
-use lb_clmm::state::lb_pair::LbPair;
+use crate::*;
+use instructions::*;
 use rust_decimal::Decimal;
 
-use crate::math::get_id_from_price;
-
-use super::initialize_position::{initialize_position, InitPositionParameters};
-
-#[derive(Debug)]
-pub struct InitPositionWithPriceRangeParameters {
+#[derive(Debug, Parser)]
+pub struct InitPositionWithPriceRangeParams {
+    /// Address of the liquidity pair.
     pub lb_pair: Pubkey,
+    /// Lower bound of the price.
     pub lower_price: f64,
+    /// Width of the position. Start with 1 until 70.
     pub width: i32,
-    pub nft_mint: Option<Pubkey>,
 }
 
-pub async fn initialize_position_with_price_range<C: Deref<Target = impl Signer> + Clone>(
-    params: InitPositionWithPriceRangeParameters,
+pub async fn execute_initialize_position_with_price_range<
+    C: Deref<Target = impl Signer> + Clone,
+>(
+    params: InitPositionWithPriceRangeParams,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
 ) -> Result<Pubkey> {
-    let InitPositionWithPriceRangeParameters {
+    let InitPositionWithPriceRangeParams {
         lb_pair,
         lower_price,
         width,
-        nft_mint,
     } = params;
 
-    let lb_pair_state = program.account::<LbPair>(lb_pair).await?;
+    let rpc_client = program.async_rpc();
+    let lb_pair_state = rpc_client
+        .get_account_and_deserialize(&lb_pair, |account| {
+            Ok(LbPairAccount::deserialize(&account.data)?.0)
+        })
+        .await?;
 
     let lower_bin_id = get_id_from_price(
         lb_pair_state.bin_step,
@@ -41,12 +39,11 @@ pub async fn initialize_position_with_price_range<C: Deref<Target = impl Signer>
     )
     .context("get_id_from_price overflow")?;
 
-    let params = InitPositionParameters {
+    let params = InitPositionParams {
         lb_pair,
         lower_bin_id,
         width,
-        nft_mint,
     };
 
-    initialize_position(params, program, transaction_config).await
+    execute_initialize_position(params, program, transaction_config).await
 }

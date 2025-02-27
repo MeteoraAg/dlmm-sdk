@@ -1,14 +1,9 @@
-use anyhow::*;
-use lb_clmm::constants::MAX_BIN_PER_ARRAY;
-use lb_clmm::math::safe_math::SafeMath;
-use lb_clmm::math::u128x128_math::Rounding;
-use lb_clmm::math::u64x64_math::SCALE_OFFSET;
-use lb_clmm::math::utils_math::safe_mul_shr_cast;
-use lb_clmm::state::bin::{Bin, BinArray};
-use lb_clmm::state::position::PositionV2;
+use crate::*;
+
 pub struct BinArrayManager<'a> {
-    pub bin_arrays: &'a Vec<BinArray>,
+    pub bin_arrays: &'a [BinArray],
 }
+
 impl<'a> BinArrayManager<'a> {
     pub fn get_bin(&self, bin_id: i32) -> Result<&Bin> {
         let bin_array_idx = BinArray::bin_id_to_bin_array_index(bin_id)?;
@@ -27,15 +22,16 @@ impl<'a> BinArrayManager<'a> {
         let upper_bin_array_idx = self.bin_arrays[self.bin_arrays.len() - 1].index as i32;
 
         let lower_bin_id = lower_bin_array_idx
-            .safe_mul(MAX_BIN_PER_ARRAY as i32)
-            .map_err(|_| anyhow::Error::msg("math is overflow"))?;
+            .checked_mul(MAX_BIN_PER_ARRAY as i32)
+            .context("math is overflow")?;
+
         let upper_bin_id = upper_bin_array_idx
-            .safe_mul(MAX_BIN_PER_ARRAY as i32)
-            .map_err(|_| anyhow::Error::msg("math is overflow"))?
-            .safe_add(MAX_BIN_PER_ARRAY as i32)
-            .map_err(|_| anyhow::Error::msg("math is overflow"))?
-            .safe_sub(1)
-            .map_err(|_| anyhow::Error::msg("math is overflow"))?;
+            .checked_mul(MAX_BIN_PER_ARRAY as i32)
+            .context("math is overflow")?
+            .checked_add(MAX_BIN_PER_ARRAY as i32)
+            .context("math is overflow")?
+            .checked_sub(1)
+            .context("math is overflow")?;
 
         Ok((lower_bin_id, upper_bin_id))
     }
@@ -57,11 +53,11 @@ impl<'a> BinArrayManager<'a> {
             let (fee_x_pending, fee_y_pending) =
                 BinArrayManager::get_fee_pending_for_a_bin(position, bin_id, &bin)?;
             total_fee_x = fee_x_pending
-                .safe_add(total_fee_x)
-                .map_err(|_| anyhow::Error::msg("math is overflow"))?;
+                .checked_add(total_fee_x)
+                .context("math is overflow")?;
             total_fee_y = fee_y_pending
-                .safe_add(total_fee_y)
-                .map_err(|_| anyhow::Error::msg("math is overflow"))?;
+                .checked_add(total_fee_y)
+                .context("math is overflow")?;
         }
 
         Ok((total_fee_x, total_fee_y))
@@ -72,46 +68,49 @@ impl<'a> BinArrayManager<'a> {
         bin_id: i32,
         bin: &Bin,
     ) -> Result<(u64, u64)> {
-        let idx = position.get_idx(bin_id)?;
+        ensure!(
+            bin_id >= position.lower_bin_id && bin_id <= position.upper_bin_id,
+            "Bin is not within the position"
+        );
 
-        let fee_infos = &position.fee_infos[idx];
+        let idx = bin_id - position.lower_bin_id;
+
+        let fee_infos = position.fee_infos[idx as usize];
+        let liquidity_share_in_bin = position.liquidity_shares[idx as usize];
 
         let fee_x_per_token_stored = bin.fee_amount_x_per_token_stored;
 
+        let liquidity_share_in_bin_downscaled = liquidity_share_in_bin
+            .checked_shr(SCALE_OFFSET.into())
+            .context("math is overflow")?;
+
         let new_fee_x: u64 = safe_mul_shr_cast(
-            position.liquidity_shares[idx]
-                .safe_shr(SCALE_OFFSET.into())
-                .map_err(|_| anyhow::Error::msg("math is overflow"))?
-                .try_into()
-                .map_err(|_| anyhow::Error::msg("math is overflow"))?,
+            liquidity_share_in_bin_downscaled,
             fee_x_per_token_stored
-                .safe_sub(fee_infos.fee_x_per_token_complete)
-                .map_err(|_| anyhow::Error::msg("math is overflow"))?,
+                .checked_sub(fee_infos.fee_x_per_token_complete)
+                .context("math is overflow")?,
             SCALE_OFFSET,
             Rounding::Down,
         )?;
 
         let fee_x_pending = new_fee_x
-            .safe_add(fee_infos.fee_x_pending)
-            .map_err(|_| anyhow::Error::msg("math is overflow"))?;
+            .checked_add(fee_infos.fee_x_pending)
+            .context("math is overflow")?;
 
         let fee_y_per_token_stored = bin.fee_amount_y_per_token_stored;
+
         let new_fee_y: u64 = safe_mul_shr_cast(
-            position.liquidity_shares[idx]
-                .safe_shr(SCALE_OFFSET.into())
-                .map_err(|_| anyhow::Error::msg("math is overflow"))?
-                .try_into()
-                .map_err(|_| anyhow::Error::msg("math is overflow"))?,
+            liquidity_share_in_bin_downscaled,
             fee_y_per_token_stored
-                .safe_sub(fee_infos.fee_y_per_token_complete)
-                .map_err(|_| anyhow::Error::msg("math is overflow"))?,
+                .checked_sub(fee_infos.fee_y_per_token_complete)
+                .context("math is overflow")?,
             SCALE_OFFSET,
             Rounding::Down,
         )?;
 
         let fee_y_pending = new_fee_y
-            .safe_add(fee_infos.fee_y_pending)
-            .map_err(|_| anyhow::Error::msg("math is overflow"))?;
+            .checked_add(fee_infos.fee_y_pending)
+            .context("math is overflow")?;
 
         Ok((fee_x_pending, fee_y_pending))
     }
