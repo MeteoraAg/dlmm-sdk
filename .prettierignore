@@ -6,3 +6,6 @@ node_modules
 dist
 build
 test-ledger
+
+keys
+python-client

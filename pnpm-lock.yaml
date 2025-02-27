@@ -1,0 +1,49 @@
+lockfileVersion: "9.0"
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+  .:
+    dependencies:
+      pako:
+        specifier: ^2.1.0
+        version: 2.1.0
+    devDependencies:
+      husky:
+        specifier: ^9.1.7
+        version: 9.1.7
+      prettier:
+        specifier: 3.5.2
+        version: 3.5.2
+
+packages:
+  husky@9.1.7:
+    resolution:
+      {
+        integrity: sha512-5gs5ytaNjBrh5Ow3zrvdUUY+0VxIuWVL4i9irt6friV+BqdCfmV11CQTWMiBYWHbXhco+J1kHfTOUkePhCDvMA==
+      }
+    engines: { node: ">=18" }
+    hasBin: true
+
+  pako@2.1.0:
+    resolution:
+      {
+        integrity: sha512-w+eufiZ1WuJYgPXbV/PO3NCMEc3xqylkKHzp8bxp1uW4qaSNQUkwmLLEc3kKsfz8lpV1F8Ht3U1Cm+9Srog2ug==
+      }
+
+  prettier@3.5.2:
+    resolution:
+      {
+        integrity: sha512-lc6npv5PH7hVqozBR7lkBNOGXV9vMwROAPlumdBkX0wTbbzPu/U1hk5yL8p2pt4Xoc+2mkT8t/sow2YrV/M5qg==
+      }
+    engines: { node: ">=14" }
+    hasBin: true
+
+snapshots:
+  husky@9.1.7: {}
+
+  pako@2.1.0: {}
+
+  prettier@3.5.2: {}
