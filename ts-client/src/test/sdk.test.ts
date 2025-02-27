@@ -449,18 +449,31 @@ describe("SDK test", () => {
 
       let addLiquidityTx = await pair.addLiquidityByStrategy({
         positionPubKey: customFeeOwnerPosition,
-        totalXAmount: btcInAmount,
+        totalXAmount: new BN(0),
         totalYAmount: usdcInAmount,
         strategy: {
           strategyType: StrategyType.SpotImBalanced,
           minBinId: position.lowerBinId,
-          maxBinId: position.upperBinId,
+          maxBinId: pair.lbPair.activeId - 1,
         },
         user: keypair.publicKey,
         slippage: 0,
       });
 
       await sendAndConfirmTransaction(connection, addLiquidityTx, [keypair]);
+
+      addLiquidityTx = await pair.addLiquidityByStrategy({
+        positionPubKey: customFeeOwnerPosition,
+        totalXAmount: btcInAmount,
+        totalYAmount: new BN(0),
+        strategy: {
+          strategyType: StrategyType.SpotImBalanced,
+          minBinId: pair.lbPair.activeId,
+          maxBinId: position.upperBinId,
+        },
+        user: keypair.publicKey,
+        slippage: 0,
+      });
 
       await pair.refetchStates();
     });
@@ -950,7 +963,7 @@ describe("SDK test", () => {
         const txHash = await sendAndConfirmTransaction(connection, rawTx, [
           keypair,
           positionKeypair,
-        ]).catch(console.error);
+        ]);
         expect(txHash).not.toBeNull();
         console.log("Create bin arrays, position, and add liquidity", txHash);
       }
@@ -959,7 +972,7 @@ describe("SDK test", () => {
       const txHash = await sendAndConfirmTransaction(connection, rawTxs, [
         keypair,
         positionKeypair,
-      ]).catch(console.error);
+      ]);
       expect(txHash).not.toBeNull();
       console.log("Create bin arrays, position, and add liquidity", txHash);
     }
