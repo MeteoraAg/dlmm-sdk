@@ -1,5 +1,13 @@
 {
-  "dependencies": {
-    "pako": "^2.1.0"
-  }
+	"scripts": {
+		"format": "pnpm exec prettier . --write",
+		"prepare": "husky"
+	},
+	"dependencies": {
+		"pako": "^2.1.0"
+	},
+	"devDependencies": {
+		"husky": "^9.1.7",
+		"prettier": "3.5.2"
+	}
 }

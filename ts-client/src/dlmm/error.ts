@@ -1,60 +1,58 @@
-import { IDL } from "./idl";
-import { AnchorError, ProgramError } from "@coral-xyz/anchor";
-import { LBCLMM_PROGRAM_IDS } from "./constants";
+import { IDL } from "./idl"
+import { AnchorError, ProgramError } from "@coral-xyz/anchor"
+import { LBCLMM_PROGRAM_IDS } from "./constants"
 
-type Codes = (typeof IDL.errors)[number]["code"];
+type Codes = (typeof IDL.errors)[number]["code"]
 
 // ProgramError error parser
 export class DLMMError extends Error {
-  public errorCode: number;
-  public errorName: string;
-  public errorMessage: string;
+	public errorCode: number
+	public errorName: string
+	public errorMessage: string
 
-  constructor(error: object | Codes) {
-    let _errorCode = 0;
-    let _errorName = "Something went wrong";
-    let _errorMessage = "Something went wrong";
+	constructor(error: object | Codes) {
+		let _errorCode = 0
+		let _errorName = "Something went wrong"
+		let _errorMessage = "Something went wrong"
 
-    if (error instanceof Error) {
-      const anchorError = AnchorError.parse(
-        JSON.parse(JSON.stringify(error)).logs as string[]
-      );
+		if (error instanceof Error) {
+			const anchorError = AnchorError.parse(
+				JSON.parse(JSON.stringify(error)).logs as string[]
+			)
 
-      if (
-        anchorError?.program.toBase58() === LBCLMM_PROGRAM_IDS["mainnet-beta"]
-      ) {
-        _errorCode = anchorError.error.errorCode.number;
-        _errorName = anchorError.error.errorCode.code;
-        _errorMessage = anchorError.error.errorMessage;
-      }
-    } else {
-      const idlError = IDL.errors.find((err) => err.code === error);
+			if (anchorError?.program.toBase58() === LBCLMM_PROGRAM_IDS["mainnet-beta"]) {
+				_errorCode = anchorError.error.errorCode.number
+				_errorName = anchorError.error.errorCode.code
+				_errorMessage = anchorError.error.errorMessage
+			}
+		} else {
+			const idlError = IDL.errors.find((err) => err.code === error)
 
-      if (idlError) {
-        _errorCode = idlError.code;
-        _errorName = idlError.name;
-        _errorMessage = idlError.msg;
-      }
-    }
+			if (idlError) {
+				_errorCode = idlError.code
+				_errorName = idlError.name
+				_errorMessage = idlError.msg
+			}
+		}
 
-    super(_errorMessage);
+		super(_errorMessage)
 
-    this.errorCode = _errorCode;
-    this.errorName = _errorName;
-    this.errorMessage = _errorMessage;
-  }
+		this.errorCode = _errorCode
+		this.errorName = _errorName
+		this.errorMessage = _errorMessage
+	}
 }
 
 // SDK error
-type ErrorName = "SWAP_QUOTE_INSUFFICIENT_LIQUIDITY";
+type ErrorName = "SWAP_QUOTE_INSUFFICIENT_LIQUIDITY"
 
 export class DlmmSdkError extends Error {
-  name: ErrorName;
-  message: string;
+	name: ErrorName
+	message: string
 
-  constructor(name: ErrorName, message: string) {
-    super();
-    this.name = name;
-    this.message = message;
-  }
+	constructor(name: ErrorName, message: string) {
+		super()
+		this.name = name
+		this.message = message
+	}
 }

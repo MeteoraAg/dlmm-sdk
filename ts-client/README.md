@@ -41,90 +41,81 @@ const dlmmPool = await DLMM.createMultiple(connection, [USDC_USDT_POOL, ...]);
 - Get Active Bin
 
 ```ts
-const activeBin = await dlmmPool.getActiveBin();
-const activeBinPriceLamport = activeBin.price;
-const activeBinPricePerToken = dlmmPool.fromPricePerLamport(
-  Number(activeBin.price)
-);
+const activeBin = await dlmmPool.getActiveBin()
+const activeBinPriceLamport = activeBin.price
+const activeBinPricePerToken = dlmmPool.fromPricePerLamport(Number(activeBin.price))
 ```
 
 - Create Position
 
 ```ts
-const TOTAL_RANGE_INTERVAL = 10; // 10 bins on each side of the active bin
-const minBinId = activeBin.bin_id - TOTAL_RANGE_INTERVAL;
-const maxBinId = activeBin.bin_id + TOTAL_RANGE_INTERVAL;
+const TOTAL_RANGE_INTERVAL = 10 // 10 bins on each side of the active bin
+const minBinId = activeBin.bin_id - TOTAL_RANGE_INTERVAL
+const maxBinId = activeBin.bin_id + TOTAL_RANGE_INTERVAL
 
-const activeBinPricePerToken = dlmmPool.fromPricePerLamport(
-  Number(activeBin.price)
-);
-const totalXAmount = new BN(100);
-const totalYAmount = totalXAmount.mul(new BN(Number(activeBinPricePerToken)));
+const activeBinPricePerToken = dlmmPool.fromPricePerLamport(Number(activeBin.price))
+const totalXAmount = new BN(100)
+const totalYAmount = totalXAmount.mul(new BN(Number(activeBinPricePerToken)))
 
 // Create Position (Spot Balance deposit, Please refer ``example.ts` for more example)
-const createPositionTx =
-  await dlmmPool.initializePositionAndAddLiquidityByStrategy({
-    positionPubKey: newBalancePosition.publicKey,
-    user: user.publicKey,
-    totalXAmount,
-    totalYAmount,
-    strategy: {
-      maxBinId,
-      minBinId,
-      strategyType: StrategyType.SpotBalanced,
-    },
-  });
+const createPositionTx = await dlmmPool.initializePositionAndAddLiquidityByStrategy({
+	positionPubKey: newBalancePosition.publicKey,
+	user: user.publicKey,
+	totalXAmount,
+	totalYAmount,
+	strategy: {
+		maxBinId,
+		minBinId,
+		strategyType: StrategyType.SpotBalanced
+	}
+})
 
 try {
-  const createBalancePositionTxHash = await sendAndConfirmTransaction(
-    connection,
-    createPositionTx,
-    [user, newBalancePosition]
-  );
+	const createBalancePositionTxHash = await sendAndConfirmTransaction(
+		connection,
+		createPositionTx,
+		[user, newBalancePosition]
+	)
 } catch (error) {}
 ```
 
 - Get list of positions
 
 ```ts
-const { userPositions } = await dlmmPool.getPositionsByUserAndLbPair(
-  user.publicKey
-);
-const binData = userPositions[0].positionData.positionBinData;
+const { userPositions } = await dlmmPool.getPositionsByUserAndLbPair(user.publicKey)
+const binData = userPositions[0].positionData.positionBinData
 ```
 
 - Add liquidity to existing position
 
 ```ts
-const TOTAL_RANGE_INTERVAL = 10; // 10 bins on each side of the active bin
-const minBinId = activeBin.bin_id - TOTAL_RANGE_INTERVAL;
-const maxBinId = activeBin.bin_id + TOTAL_RANGE_INTERVAL;
+const TOTAL_RANGE_INTERVAL = 10 // 10 bins on each side of the active bin
+const minBinId = activeBin.bin_id - TOTAL_RANGE_INTERVAL
+const maxBinId = activeBin.bin_id + TOTAL_RANGE_INTERVAL
 
-const activeBinPricePerToken = dlmmPool.fromPricePerLamport(
-  Number(activeBin.price)
-);
-const totalXAmount = new BN(100);
-const totalYAmount = totalXAmount.mul(new BN(Number(activeBinPricePerToken)));
+const activeBinPricePerToken = dlmmPool.fromPricePerLamport(Number(activeBin.price))
+const totalXAmount = new BN(100)
+const totalYAmount = totalXAmount.mul(new BN(Number(activeBinPricePerToken)))
 
 // Add Liquidity to existing position
 const addLiquidityTx = await dlmmPool.addLiquidityByStrategy({
-  positionPubKey: newBalancePosition.publicKey,
-  user: user.publicKey,
-  totalXAmount,
-  totalYAmount,
-  strategy: {
-    maxBinId,
-    minBinId,
-    strategyType: StrategyType.SpotBalanced,
-  },
-});
+	positionPubKey: newBalancePosition.publicKey,
+	user: user.publicKey,
+	totalXAmount,
+	totalYAmount,
+	strategy: {
+		maxBinId,
+		minBinId,
+		strategyType: StrategyType.SpotBalanced
+	}
+})
 
 try {
-  const addLiquidityTxHash = await sendAndConfirmTransaction(
-    connection,
-    addLiquidityTx,
-    [user]
-  );
+	const addLiquidityTxHash = await sendAndConfirmTransaction(
+		connection,
+		addLiquidityTx,
+		[user]
+	)
 } catch (error) {}
 ```
 
@@ -132,65 +123,61 @@ try {
 
 ```ts
 const userPosition = userPositions.find(({ publicKey }) =>
-  publicKey.equals(newBalancePosition.publicKey)
-);
+	publicKey.equals(newBalancePosition.publicKey)
+)
 // Remove Liquidity
 const binIdsToRemove = userPosition.positionData.positionBinData.map(
-  (bin) => bin.binId
-);
+	(bin) => bin.binId
+)
 const removeLiquidityTx = await dlmmPool.removeLiquidity({
-  position: userPosition.publicKey,
-  user: user.publicKey,
-  binIds: binIdsToRemove,
-  liquiditiesBpsToRemove: new Array(binIdsToRemove.length).fill(
-    new BN(100 * 100)
-  ), // 100% (range from 0 to 100)
-  shouldClaimAndClose: true, // should claim swap fee and close position together
-});
+	position: userPosition.publicKey,
+	user: user.publicKey,
+	binIds: binIdsToRemove,
+	liquiditiesBpsToRemove: new Array(binIdsToRemove.length).fill(new BN(100 * 100)), // 100% (range from 0 to 100)
+	shouldClaimAndClose: true // should claim swap fee and close position together
+})
 
 try {
-  for (let tx of Array.isArray(removeLiquidityTx)
-    ? removeLiquidityTx
-    : [removeLiquidityTx]) {
-    const removeBalanceLiquidityTxHash = await sendAndConfirmTransaction(
-      connection,
-      tx,
-      [user],
-      { skipPreflight: false, preflightCommitment: "singleGossip" }
-    );
-  }
+	for (let tx of Array.isArray(removeLiquidityTx)
+		? removeLiquidityTx
+		: [removeLiquidityTx]) {
+		const removeBalanceLiquidityTxHash = await sendAndConfirmTransaction(
+			connection,
+			tx,
+			[user],
+			{ skipPreflight: false, preflightCommitment: "singleGossip" }
+		)
+	}
 } catch (error) {}
 ```
 
 - Swap
 
 ```ts
-const swapAmount = new BN(100);
+const swapAmount = new BN(100)
 // Swap quote
-const swapYtoX = true;
-const binArrays = await dlmmPool.getBinArrayForSwap(swapYtoX);
+const swapYtoX = true
+const binArrays = await dlmmPool.getBinArrayForSwap(swapYtoX)
 const swapQuote = await dlmmPool.swapQuote(
-  swapAmount,
-  swapYtoX,
-  new BN(10),
-  binArrays
-);
+	swapAmount,
+	swapYtoX,
+	new BN(10),
+	binArrays
+)
 
 // Swap
 const swapTx = await dlmmPool.swap({
-  inToken: dlmmPool.tokenX.publicKey,
-  binArraysPubkey: swapQuote.binArraysPubkey,
-  inAmount: swapAmount,
-  lbPair: dlmmPool.pubkey,
-  user: user.publicKey,
-  minOutAmount: swapQuote.minOutAmount,
-  outToken: dlmmPool.tokenY.publicKey,
-});
+	inToken: dlmmPool.tokenX.publicKey,
+	binArraysPubkey: swapQuote.binArraysPubkey,
+	inAmount: swapAmount,
+	lbPair: dlmmPool.pubkey,
+	user: user.publicKey,
+	minOutAmount: swapQuote.minOutAmount,
+	outToken: dlmmPool.tokenY.publicKey
+})
 
 try {
-  const swapTxHash = await sendAndConfirmTransaction(connection, swapTx, [
-    user,
-  ]);
+	const swapTxHash = await sendAndConfirmTransaction(connection, swapTx, [user])
 } catch (error) {}
 ```
 

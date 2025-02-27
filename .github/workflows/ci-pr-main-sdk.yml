@@ -50,6 +50,8 @@ jobs:
         with:
           path: ./ts-client/node_modules
           key: ${{ runner.os }}-${{ hashFiles('./pnpm-lock.yaml') }}
+      - run: pnpm install && npx prettier . --check
+        shell: bash
       - run: anchor build -- --features localnet
         shell: bash
       - run: anchor localnet -- --features localnet & sleep 2
