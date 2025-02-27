@@ -41,7 +41,6 @@ describe("ILM test", () => {
     const wenDecimal = 5;
     const usdcDecimal = 6;
     const feeBps = new BN(500);
-    const lockDuration = new BN(0);
 
     let WEN: web3.PublicKey;
     let USDC: web3.PublicKey;
@@ -187,7 +186,10 @@ describe("ILM test", () => {
           curvature,
           minPrice,
           maxPrice,
-          baseKeypair.publicKey
+          baseKeypair.publicKey,
+          keypair.publicKey,
+          keypair.publicKey,
+          new BN(0)
         );
 
       // Initialize all bin array and position, transaction order can be in sequence or not
@@ -445,7 +447,10 @@ describe("ILM test", () => {
           curvature,
           minPrice,
           maxPrice,
-          baseKeypair.publicKey
+          baseKeypair.publicKey,
+          keypair.publicKey,
+          keypair.publicKey,
+          new BN(0)
         );
 
       // Initialize all bin array and position, transaction order can be in sequence or not

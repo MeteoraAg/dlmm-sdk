@@ -193,10 +193,7 @@ export module BinLiquidity {
     quoteTokenDecimal: number,
     version: number
   ): BinLiquidity {
-    const pricePerLamport = getPriceOfBinByBinId(
-      binId,
-      binStep
-    ).toString();
+    const pricePerLamport = getPriceOfBinByBinId(binId, binStep).toString();
     return {
       binId,
       xAmount: bin.amountX,
@@ -217,10 +214,7 @@ export module BinLiquidity {
     quoteTokenDecimal: number,
     version: number
   ): BinLiquidity {
-    const pricePerLamport = getPriceOfBinByBinId(
-      binId,
-      binStep
-    ).toString();
+    const pricePerLamport = getPriceOfBinByBinId(binId, binStep).toString();
     return {
       binId,
       xAmount: new BN(0),
@@ -414,9 +408,9 @@ export interface PairLockInfo {
 }
 
 export interface PositionLockInfo {
-  positionAddress: PublicKey,
-  owner: PublicKey,
-  tokenXAmount: string,
-  tokenYAmount: string,
-  lockReleasePoint: number
+  positionAddress: PublicKey;
+  owner: PublicKey;
+  tokenXAmount: string;
+  tokenYAmount: string;
+  lockReleasePoint: number;
 }

@@ -88,7 +88,7 @@ import {
   mulShr,
   shlDiv,
 } from "./helpers/math";
-import { IDL } from "./idl";
+import { IDL, LbClmm } from "./idl";
 import {
   ActivationType,
   Bin,
@@ -157,7 +157,7 @@ export class DLMM {
     public tokenY: TokenReserve,
     public clock: Clock,
     private opt?: Opt
-  ) { }
+  ) {}
 
   /** Static public method */
 
@@ -469,7 +469,7 @@ export class DLMM {
           reserveAndTokenMintAccountsInfo[reservePublicKeys.length + index * 2];
         const tokenYMintAccountInfo =
           reserveAndTokenMintAccountsInfo[
-          reservePublicKeys.length + index * 2 + 1
+            reservePublicKeys.length + index * 2 + 1
           ];
 
         if (!reserveXAccountInfo || !reserveYAccountInfo)
@@ -603,15 +603,8 @@ export class DLMM {
 
     const positionBinArraysMapV2 = new Map();
 
-    for (
-      let i = 0;
-      i < binArrayPubkeyArrayV2.length;
-      i++
-    ) {
-      const binArrayPubkey =
-        binArrayPubkeyArrayV2[
-        i
-        ];
+    for (let i = 0; i < binArrayPubkeyArrayV2.length; i++) {
+      const binArrayPubkey = binArrayPubkeyArrayV2[i];
       const binArrayAccInfoBufferV2 = binArraysAccInfo[i];
       if (binArrayAccInfoBufferV2) {
         const binArrayAccInfo = program.coder.accounts.decode(
@@ -624,15 +617,11 @@ export class DLMM {
 
     const lbPairArraysMapV2 = new Map<string, LbPair>();
     for (
-      let i =
-        binArrayPubkeyArrayV2.length;
+      let i = binArrayPubkeyArrayV2.length;
       i < binArraysAccInfo.length;
       i++
     ) {
-      const lbPairPubkey =
-        lbPairArrayV2[
-        i - binArrayPubkeyArrayV2.length
-        ];
+      const lbPairPubkey = lbPairArrayV2[i - binArrayPubkeyArrayV2.length];
       const lbPairAccInfoBufferV2 = binArraysAccInfo[i];
       if (!lbPairAccInfoBufferV2)
         throw new Error(`LB Pair account ${lbPairPubkey.toBase58()} not found`);
@@ -667,10 +656,8 @@ export class DLMM {
     >();
     lbPairArrayV2.forEach((lbPair, idx) => {
       const index = idx * 4;
-      const reserveAccBufferXV2 =
-        reserveAccountsInfo[index];
-      const reserveAccBufferYV2 =
-        reserveAccountsInfo[index + 1];
+      const reserveAccBufferXV2 = reserveAccountsInfo[index];
+      const reserveAccBufferYV2 = reserveAccountsInfo[index + 1];
       if (!reserveAccBufferXV2 || !reserveAccBufferYV2)
         throw new Error(
           `Reserve account for LB Pair ${lbPair.toBase58()} not found`
@@ -683,10 +670,8 @@ export class DLMM {
         reserveY: reserveAccY.amount,
       });
 
-      const mintXBufferV2 =
-        reserveAccountsInfo[index + 2];
-      const mintYBufferV2 =
-        reserveAccountsInfo[index + 3];
+      const mintXBufferV2 = reserveAccountsInfo[index + 2];
+      const mintYBufferV2 = reserveAccountsInfo[index + 3];
       if (!mintXBufferV2 || !mintYBufferV2)
         throw new Error(
           `Mint account for LB Pair ${lbPair.toBase58()} not found`
@@ -761,32 +746,35 @@ export class DLMM {
         amount: reserveYBalance,
         decimal: quoteTokenDecimal,
       };
-      const positionData = !!lowerBinArray && !!upperBinArray ? await DLMM.processPosition(
-        program,
-        PositionVersion.V2,
-        lbPairAcc,
-        onChainTimestamp,
-        account,
-        baseTokenDecimal,
-        quoteTokenDecimal,
-        lowerBinArray,
-        upperBinArray,
-        feeOwner
-      ) : {
-        totalXAmount: '0',
-        totalYAmount: '0',
-        positionBinData: [],
-        lastUpdatedAt: new BN(0),
-        upperBinId,
-        lowerBinId,
-        feeX: new BN(0),
-        feeY: new BN(0),
-        rewardOne: new BN(0),
-        rewardTwo: new BN(0),
-        feeOwner,
-        totalClaimedFeeXAmount: new BN(0),
-        totalClaimedFeeYAmount: new BN(0),
-      };
+      const positionData =
+        !!lowerBinArray && !!upperBinArray
+          ? await DLMM.processPosition(
+              program,
+              PositionVersion.V2,
+              lbPairAcc,
+              onChainTimestamp,
+              account,
+              baseTokenDecimal,
+              quoteTokenDecimal,
+              lowerBinArray,
+              upperBinArray,
+              feeOwner
+            )
+          : {
+              totalXAmount: "0",
+              totalYAmount: "0",
+              positionBinData: [],
+              lastUpdatedAt: new BN(0),
+              upperBinId,
+              lowerBinId,
+              feeX: new BN(0),
+              feeY: new BN(0),
+              rewardOne: new BN(0),
+              rewardTwo: new BN(0),
+              feeOwner,
+              totalClaimedFeeXAmount: new BN(0),
+              totalClaimedFeeYAmount: new BN(0),
+            };
 
       if (positionData) {
         positionsMap.set(lbPair.toBase58(), {
@@ -832,13 +820,15 @@ export class DLMM {
   }
 
   /**
-  * The function `getLbPairLockInfo` retrieves all pair positions that has locked liquidity.
-  * @param {number} [lockDurationOpt] - An optional value indicating the minimum position lock duration that the function should return. 
-  * Depending on the lbPair activationType, the param should be a number of seconds or a number of slots.
-  * @returns The function `getLbPairLockInfo` returns a `Promise` that resolves to a `PairLockInfo`
-  * object. The `PairLockInfo` object contains an array of `PositionLockInfo` objects.
-  */
-  public async getLbPairLockInfo(lockDurationOpt?: number): Promise<PairLockInfo> {
+   * The function `getLbPairLockInfo` retrieves all pair positions that has locked liquidity.
+   * @param {number} [lockDurationOpt] - An optional value indicating the minimum position lock duration that the function should return.
+   * Depending on the lbPair activationType, the param should be a number of seconds or a number of slots.
+   * @returns The function `getLbPairLockInfo` returns a `Promise` that resolves to a `PairLockInfo`
+   * object. The `PairLockInfo` object contains an array of `PositionLockInfo` objects.
+   */
+  public async getLbPairLockInfo(
+    lockDurationOpt?: number
+  ): Promise<PairLockInfo> {
     const lockDuration = lockDurationOpt | 0;
 
     const lbPairPositions = await this.program.account.positionV2.all([
@@ -851,50 +841,58 @@ export class DLMM {
     ]);
 
     // filter positions has lock_release_point > currentTimestamp + lockDurationSecs
-    const clockAccInfo = await this.program.provider.connection.getAccountInfo(SYSVAR_CLOCK_PUBKEY);
+    const clockAccInfo = await this.program.provider.connection.getAccountInfo(
+      SYSVAR_CLOCK_PUBKEY
+    );
     const clock = ClockLayout.decode(clockAccInfo.data) as Clock;
 
-    const currentPoint = this.lbPair.activationType == ActivationType.Slot ? clock.slot : clock.unixTimestamp;
+    const currentPoint =
+      this.lbPair.activationType == ActivationType.Slot
+        ? clock.slot
+        : clock.unixTimestamp;
     const minLockReleasePoint = currentPoint.add(new BN(lockDuration));
-    const positionsWithLock = lbPairPositions.filter(p => p.account.lockReleasePoint.gt(minLockReleasePoint));
+    const positionsWithLock = lbPairPositions.filter((p) =>
+      p.account.lockReleasePoint.gt(minLockReleasePoint)
+    );
 
     if (positionsWithLock.length == 0) {
       return {
         positions: [],
-      }
+      };
     }
 
     const binArrayPubkeySetV2 = new Set<string>();
-    positionsWithLock.forEach(({ account: { upperBinId, lowerBinId, lbPair } }) => {
-      const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(lowerBinId));
-      const upperBinArrayIndex = binIdToBinArrayIndex(new BN(upperBinId));
+    positionsWithLock.forEach(
+      ({ account: { upperBinId, lowerBinId, lbPair } }) => {
+        const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(lowerBinId));
+        const upperBinArrayIndex = binIdToBinArrayIndex(new BN(upperBinId));
 
-      const [lowerBinArrayPubKey] = deriveBinArray(
-        this.pubkey,
-        lowerBinArrayIndex,
-        this.program.programId
-      );
-      const [upperBinArrayPubKey] = deriveBinArray(
-        this.pubkey,
-        upperBinArrayIndex,
-        this.program.programId
-      );
-      binArrayPubkeySetV2.add(lowerBinArrayPubKey.toBase58());
-      binArrayPubkeySetV2.add(upperBinArrayPubKey.toBase58());
-    });
+        const [lowerBinArrayPubKey] = deriveBinArray(
+          this.pubkey,
+          lowerBinArrayIndex,
+          this.program.programId
+        );
+        const [upperBinArrayPubKey] = deriveBinArray(
+          this.pubkey,
+          upperBinArrayIndex,
+          this.program.programId
+        );
+        binArrayPubkeySetV2.add(lowerBinArrayPubKey.toBase58());
+        binArrayPubkeySetV2.add(upperBinArrayPubKey.toBase58());
+      }
+    );
     const binArrayPubkeyArrayV2 = Array.from(binArrayPubkeySetV2).map(
       (pubkey) => new PublicKey(pubkey)
     );
 
     const binArraysAccInfo = await chunkedGetMultipleAccountInfos(
       this.program.provider.connection,
-      binArrayPubkeyArrayV2,
+      binArrayPubkeyArrayV2
     );
 
     const positionBinArraysMapV2 = new Map();
     for (let i = 0; i < binArraysAccInfo.length; i++) {
-      const binArrayPubkey =
-        binArrayPubkeyArrayV2[i];
+      const binArrayPubkey = binArrayPubkeyArrayV2[i];
       const binArrayAccBufferV2 = binArraysAccInfo[i];
       if (!binArrayAccBufferV2)
         throw new Error(
@@ -906,8 +904,6 @@ export class DLMM {
       );
       positionBinArraysMapV2.set(binArrayPubkey.toBase58(), binArrayAccInfo);
     }
-
-
 
     const positionsLockInfo = await Promise.all(
       positionsWithLock.map(async ({ publicKey, account }) => {
@@ -955,7 +951,7 @@ export class DLMM {
     );
 
     return {
-      positions: positionsLockInfo
+      positions: positionsLockInfo,
     };
   }
 
@@ -1590,20 +1586,20 @@ export class DLMM {
     const promiseResults = await Promise.all([
       this.getActiveBin(),
       userPubKey &&
-      this.program.account.positionV2.all([
-        {
-          memcmp: {
-            bytes: bs58.encode(userPubKey.toBuffer()),
-            offset: 8 + 32,
+        this.program.account.positionV2.all([
+          {
+            memcmp: {
+              bytes: bs58.encode(userPubKey.toBuffer()),
+              offset: 8 + 32,
+            },
           },
-        },
-        {
-          memcmp: {
-            bytes: bs58.encode(this.pubkey.toBuffer()),
-            offset: 8,
+          {
+            memcmp: {
+              bytes: bs58.encode(this.pubkey.toBuffer()),
+              offset: 8,
+            },
           },
-        },
-      ]),
+        ]),
     ]);
 
     const [activeBin, positionsV2] = promiseResults;
@@ -1647,11 +1643,7 @@ export class DLMM {
 
     const lbPairAndBinArrays = await chunkedGetMultipleAccountInfos(
       this.program.provider.connection,
-      [
-        this.pubkey,
-        SYSVAR_CLOCK_PUBKEY,
-        ...binArrayPubkeyArrayV2,
-      ]
+      [this.pubkey, SYSVAR_CLOCK_PUBKEY, ...binArrayPubkeyArrayV2]
     );
 
     const [lbPairAccInfo, clockAccInfo, ...binArraysAccInfo] =
@@ -1659,8 +1651,7 @@ export class DLMM {
 
     const positionBinArraysMapV2 = new Map();
     for (let i = 0; i < binArraysAccInfo.length; i++) {
-      const binArrayPubkey =
-        binArrayPubkeyArrayV2[i];
+      const binArrayPubkey = binArrayPubkeyArrayV2[i];
       const binArrayAccBufferV2 = binArraysAccInfo[i];
       if (!binArrayAccBufferV2)
         throw new Error(
@@ -1817,9 +1808,13 @@ export class DLMM {
    * - `version`: The version of the position (in this case, `Position.V2`)
    */
   public async getPosition(positionPubKey: PublicKey): Promise<LbPosition> {
-    const positionAccountInfo = await this.program.account.positionV2.fetch(positionPubKey);
+    const positionAccountInfo = await this.program.account.positionV2.fetch(
+      positionPubKey
+    );
     if (!positionAccountInfo) {
-      throw new Error(`Position account ${positionPubKey.toBase58()} not found`);
+      throw new Error(
+        `Position account ${positionPubKey.toBase58()} not found`
+      );
     }
 
     const { lowerBinId, upperBinId, feeOwner } = positionAccountInfo;
@@ -1836,21 +1831,19 @@ export class DLMM {
       this.program.programId
     );
 
-    const [clockAccInfo, lowerBinArrayAccInfo, upperBinArrayAccInfo] = await chunkedGetMultipleAccountInfos(
-      this.program.provider.connection,
-      [
+    const [clockAccInfo, lowerBinArrayAccInfo, upperBinArrayAccInfo] =
+      await chunkedGetMultipleAccountInfos(this.program.provider.connection, [
         SYSVAR_CLOCK_PUBKEY,
         lowerBinArrayPubKey,
         upperBinArrayPubKey,
-      ]
-    );
+      ]);
 
     if (!lowerBinArrayAccInfo || !upperBinArrayAccInfo) {
       return {
         publicKey: positionPubKey,
         positionData: {
-          totalXAmount: '0',
-          totalYAmount: '0',
+          totalXAmount: "0",
+          totalYAmount: "0",
           positionBinData: [],
           lastUpdatedAt: new BN(0),
           upperBinId,
@@ -1864,7 +1857,7 @@ export class DLMM {
           totalClaimedFeeYAmount: new BN(0),
         },
         version: PositionVersion.V2,
-      }
+      };
     }
 
     const onChainTimestamp = new BN(
@@ -1874,11 +1867,11 @@ export class DLMM {
     const lowerBinArray = this.program.coder.accounts.decode(
       "binArray",
       lowerBinArrayAccInfo.data
-    )
+    );
     const upperBinArray = this.program.coder.accounts.decode(
       "binArray",
       upperBinArrayAccInfo.data
-    )
+    );
 
     return {
       publicKey: positionPubKey,
@@ -1895,7 +1888,7 @@ export class DLMM {
         feeOwner
       ),
       version: PositionVersion.V2,
-    }
+    };
   }
 
   /**
@@ -2832,7 +2825,13 @@ export class DLMM {
   }): Promise<Transaction | Transaction[]> {
     const lowerBinIdToRemove = Math.min(...binIds);
     const upperBinIdToRemove = Math.max(...binIds);
-    const { lbPair, owner, feeOwner, lowerBinId: positionLowerBinId, liquidityShares } = await this.program.account.positionV2.fetch(position);
+    const {
+      lbPair,
+      owner,
+      feeOwner,
+      lowerBinId: positionLowerBinId,
+      liquidityShares,
+    } = await this.program.account.positionV2.fetch(position);
 
     if (liquidityShares.every((share) => share.isZero())) {
       throw new Error("No liquidity to remove");
@@ -2988,7 +2987,11 @@ export class DLMM {
       : null;
 
     const removeLiquidityTx = await this.program.methods
-      .removeLiquidityByRange(lowerBinIdToRemove, upperBinIdToRemove, bps.toNumber())
+      .removeLiquidityByRange(
+        lowerBinIdToRemove,
+        upperBinIdToRemove,
+        bps.toNumber()
+      )
       .accounts({
         position,
         lbPair,
@@ -3775,7 +3778,6 @@ export class DLMM {
       closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
     }
 
-
     // TODO: needs some refinement in case binArray not yet initialized
     const binArrays: AccountMeta[] = binArraysPubkey.map((pubkey) => {
       return {
@@ -3939,16 +3941,15 @@ export class DLMM {
     }).add(setActivationPointTx);
   }
 
-  public async setPairStatus(
-    enabled: boolean,
-  ): Promise<Transaction> {
+  public async setPairStatus(enabled: boolean): Promise<Transaction> {
     const pairStatus = enabled ? 0 : 1;
-    const tx = await this.program.methods.setPairStatus(pairStatus).accounts(
-      {
+    const tx = await this.program.methods
+      .setPairStatus(pairStatus)
+      .accounts({
         lbPair: this.pubkey,
-        admin: this.lbPair.creator
-      }
-    ).transaction();
+        admin: this.lbPair.creator,
+      })
+      .transaction();
 
     const { blockhash, lastValidBlockHeight } =
       await this.program.provider.connection.getLatestBlockhash("confirmed");
@@ -4164,6 +4165,9 @@ export class DLMM {
    *    - `minPrice`: Start price in UI format
    *    - `maxPrice`: End price in UI format
    *    - `base`: Base key
+   *    - `feeOwner`: Position fee owner
+   *    - `operator`: Operator of the position
+   *    - `lockReleasePoint`: Timestamp / slot at which the position can withdraw the liquidity
    * @returns {Promise<SeedLiquidityResponse>}
    */
   public async seedLiquidity(
@@ -4172,7 +4176,10 @@ export class DLMM {
     curvature: number,
     minPrice: number,
     maxPrice: number,
-    base: PublicKey
+    base: PublicKey,
+    feeOwner: PublicKey,
+    operator: PublicKey,
+    lockReleasePoint: BN
   ): Promise<SeedLiquidityResponse> {
     const toLamportMultiplier = new Decimal(
       10 ** (this.tokenY.decimal - this.tokenX.decimal)
@@ -4210,24 +4217,6 @@ export class DLMM {
       k
     );
 
-    const decompressMultiplier = new BN(10 ** this.tokenX.decimal);
-
-    let { compressedBinAmount, compressionLoss } = compressBinAmount(
-      binDepositAmount,
-      decompressMultiplier
-    );
-
-    // Distribute loss after compression back to bins based on bin ratio with total deposited amount
-    let {
-      newCompressedBinAmount: compressedBinDepositAmount,
-      loss: finalLoss,
-    } = distributeAmountToCompressedBinsByRatio(
-      compressedBinAmount,
-      compressionLoss,
-      decompressMultiplier,
-      new BN(2 ** 32 - 1) // u32
-    );
-
     // This amount will be deposited to the last bin without compression
     const positionCount = getPositionCount(minBinId, maxBinId.sub(new BN(1)));
 
@@ -4237,16 +4226,21 @@ export class DLMM {
       false
     );
 
-    const initializeBinArraysAndPositionIxs = [];
-    const addLiquidityIxs = [];
-    const appendedInitBinArrayIx = new Set();
+    const seederTokenY = getAssociatedTokenAddressSync(
+      this.lbPair.tokenYMint,
+      owner,
+      false
+    );
+
+    const initializeBinArraysAndPositionIxs: TransactionInstruction[][] = [];
+    const addLiquidityIxs: TransactionInstruction[][] = [];
+    const appendedInitBinArrayIx = new Set<String>();
+
+    let simTotalAmountXOnChain = new BN(0);
 
     for (let i = 0; i < positionCount.toNumber(); i++) {
       const lowerBinId = minBinId.add(MAX_BIN_PER_POSITION.mul(new BN(i)));
       const upperBinId = lowerBinId.add(MAX_BIN_PER_POSITION).sub(new BN(1));
-
-      const lowerBinArrayIndex = binIdToBinArrayIndex(lowerBinId);
-      const upperBinArrayIndex = binIdToBinArrayIndex(upperBinId);
 
       const [positionPda, _bump] = derivePosition(
         this.pubkey,
@@ -4256,178 +4250,160 @@ export class DLMM {
         this.program.programId
       );
 
-      const [lowerBinArray] = deriveBinArray(
-        this.pubkey,
-        lowerBinArrayIndex,
-        this.program.programId
+      const cappedUpperBinId = Math.min(
+        upperBinId.toNumber(),
+        maxBinId.toNumber() - 1
       );
 
-      const [upperBinArray] = deriveBinArray(
-        this.pubkey,
-        upperBinArrayIndex,
-        this.program.programId
+      const {
+        lowerBinArray,
+        upperBinArray,
+        lowerBinArrayState,
+        upperBinArrayState,
+        instructions: initPositionAndBinArrayIxs,
+      } = await this.preparePositionAndBinArrayForSeeding(
+        lowerBinId,
+        upperBinId,
+        base,
+        positionPda,
+        operator,
+        owner,
+        feeOwner,
+        appendedInitBinArrayIx,
+        lockReleasePoint
       );
 
-      const accounts =
-        await this.program.provider.connection.getMultipleAccountsInfo([
-          lowerBinArray,
-          upperBinArray,
-          positionPda,
-        ]);
+      if (initPositionAndBinArrayIxs.length > 0) {
+        initializeBinArraysAndPositionIxs.push(initPositionAndBinArrayIxs);
+      }
 
-      let instructions: TransactionInstruction[] = [];
-
-      const lowerBinArrayAccount = accounts[0];
-      if (
-        !lowerBinArrayAccount &&
-        !appendedInitBinArrayIx.has(lowerBinArray.toBase58())
-      ) {
-        instructions.push(
-          await this.program.methods
-            .initializeBinArray(lowerBinArrayIndex)
-            .accounts({
-              lbPair: this.pubkey,
-              binArray: lowerBinArray,
-              funder: owner,
-            })
-            .instruction()
-        );
-
+      if (!lowerBinArrayState) {
         appendedInitBinArrayIx.add(lowerBinArray.toBase58());
       }
 
-      const upperBinArrayAccount = accounts[1];
-      if (
-        !upperBinArrayAccount &&
-        !appendedInitBinArrayIx.has(upperBinArray.toBase58())
-      ) {
-        instructions.push(
-          await this.program.methods
-            .initializeBinArray(upperBinArrayIndex)
-            .accounts({
-              lbPair: this.pubkey,
-              binArray: upperBinArray,
-              funder: owner,
-            })
-            .instruction()
-        );
-
+      if (!upperBinArrayState) {
         appendedInitBinArrayIx.add(upperBinArray.toBase58());
       }
 
-      const positionAccount = accounts[2];
-      if (!positionAccount) {
-        instructions.push(
-          await this.program.methods
-            .initializePositionPda(
-              lowerBinId.toNumber(),
-              MAX_BIN_PER_POSITION.toNumber()
-            )
-            .accounts({
-              lbPair: this.pubkey,
-              position: positionPda,
-              base,
-              owner,
-              payer: owner,
-            })
-            .instruction()
-        );
-      }
+      // Get total amount in this position
+      const positionSeedAmount = this.getSeedAmountForPosition(
+        lowerBinId.toNumber(),
+        cappedUpperBinId,
+        binDepositAmount
+      );
 
-      // Initialize bin arrays and initialize position account in 1 tx
-      if (instructions.length > 1) {
-        instructions.push(
-          await getEstimatedComputeUnitIxWithBuffer(
-            this.program.provider.connection,
-            instructions,
-            owner
-          )
-        );
-        initializeBinArraysAndPositionIxs.push(instructions);
-        instructions = [];
-      }
+      const {
+        simAmountDeposited,
+        simLossAmountDeposited,
+        simTotalLossAmount,
+        binLiquidityDistribution,
+      } = this.simulateAndPreparePositionDepositParams(
+        positionSeedAmount,
+        lowerBinId.toNumber(),
+        cappedUpperBinId,
+        binDepositAmount
+      );
 
-      const positionDeposited =
-        positionAccount &&
-        this.program.coder.accounts
-          .decode<PositionV2>("positionV2", positionAccount.data)
-          .liquidityShares.reduce((total, cur) => total.add(cur), new BN(0))
-          .gt(new BN(0));
+      let amountXInPositionRangeOnChain = this.getSeededAmountXInBinRange(
+        lowerBinArrayState,
+        upperBinArrayState,
+        lowerBinId.toNumber(),
+        cappedUpperBinId
+      );
 
-      if (!positionDeposited) {
-        const cappedUpperBinId = Math.min(
-          upperBinId.toNumber(),
-          maxBinId.toNumber() - 1
-        );
+      let simPositionAmountX = amountXInPositionRangeOnChain;
 
-        const bins: CompressedBinDepositAmounts = [];
+      const depositAccounts = {
+        position: positionPda,
+        lbPair: this.pubkey,
+        binArrayBitmapExtension: this.binArrayBitmapExtension
+          ? this.binArrayBitmapExtension.publicKey
+          : this.program.programId,
+        userTokenX: seederTokenX,
+        userTokenY: seederTokenY,
+        reserveX: this.lbPair.reserveX,
+        reserveY: this.lbPair.reserveY,
+        tokenXMint: this.lbPair.tokenXMint,
+        tokenYMint: this.lbPair.tokenYMint,
+        tokenXProgram: TOKEN_PROGRAM_ID,
+        tokenYProgram: TOKEN_PROGRAM_ID,
+        binArrayLower: lowerBinArray,
+        binArrayUpper: upperBinArray,
+        sender: owner,
+      };
 
-        for (let i = lowerBinId.toNumber(); i <= cappedUpperBinId; i++) {
-          bins.push({
-            binId: i,
-            amount: compressedBinDepositAmount.get(i).toNumber(),
-          });
-        }
+      // Take care of 4 scenarios:
+      // 1. Success deposit liquidity but fail deposit loss
+      // 2. Success deposit loss but fail deposit liquidity
+      // 3. Both success
+      // 4. Both fail
 
-        instructions.push(
-          await this.program.methods
-            .addLiquidityOneSidePrecise({
-              bins,
-              decompressMultiplier,
-            })
-            .accounts({
-              position: positionPda,
-              lbPair: this.pubkey,
-              binArrayBitmapExtension: this.binArrayBitmapExtension
-                ? this.binArrayBitmapExtension.publicKey
-                : this.program.programId,
-              userToken: seederTokenX,
-              reserve: this.lbPair.reserveX,
-              tokenMint: this.lbPair.tokenXMint,
-              binArrayLower: lowerBinArray,
-              binArrayUpper: upperBinArray,
-              sender: owner,
-            })
-            .instruction()
-        );
-
-        // Last position
-        if (i + 1 >= positionCount.toNumber() && !finalLoss.isZero()) {
-          instructions.push(
-            await this.program.methods
-              .addLiquidityOneSide({
-                amount: finalLoss,
-                activeId: this.lbPair.activeId,
-                maxActiveBinSlippage: 0,
-                binLiquidityDist: [
-                  {
-                    binId: cappedUpperBinId,
-                    weight: 1,
-                  },
-                ],
-              })
-              .accounts({
-                position: positionPda,
-                lbPair: this.pubkey,
-                binArrayBitmapExtension: this.binArrayBitmapExtension
-                  ? this.binArrayBitmapExtension.publicKey
-                  : this.program.programId,
-                userToken: seederTokenX,
-                reserve: this.lbPair.reserveX,
-                tokenMint: this.lbPair.tokenXMint,
-                binArrayLower: lowerBinArray,
-                binArrayUpper: upperBinArray,
-                sender: owner,
-              })
-              .instruction()
-          );
-        }
-
+      // Position empty / loss amount deposited
+      if (
+        simPositionAmountX.isZero() ||
+        simPositionAmountX.eq(simLossAmountDeposited)
+      ) {
         addLiquidityIxs.push([
           ComputeBudgetProgram.setComputeUnitLimit({
             units: DEFAULT_ADD_LIQUIDITY_CU,
           }),
-          ...instructions,
+          await this.program.methods
+            .addLiquidity({
+              amountX: positionSeedAmount,
+              amountY: new BN(0),
+              binLiquidityDist: binLiquidityDistribution,
+            })
+            .accounts(depositAccounts)
+            .instruction(),
+        ]);
+
+        simPositionAmountX = simPositionAmountX.add(simAmountDeposited);
+      }
+
+      // Position deposited initial liquidity, redeposit loss
+      if (simPositionAmountX.eq(simAmountDeposited)) {
+        addLiquidityIxs.push([
+          ComputeBudgetProgram.setComputeUnitLimit({
+            units: DEFAULT_ADD_LIQUIDITY_CU,
+          }),
+          await this.program.methods
+            .addLiquidity({
+              amountX: simTotalLossAmount,
+              amountY: new BN(0),
+              binLiquidityDist: binLiquidityDistribution,
+            })
+            .accounts(depositAccounts)
+            .instruction(),
+        ]);
+
+        simPositionAmountX = simPositionAmountX.add(simLossAmountDeposited);
+      }
+
+      simTotalAmountXOnChain = simTotalAmountXOnChain.add(simPositionAmountX);
+
+      // Last position for final loss deposit
+      if (
+        i == positionCount.toNumber() - 1 &&
+        !seedAmount.eq(simTotalAmountXOnChain)
+      ) {
+        addLiquidityIxs.push([
+          ComputeBudgetProgram.setComputeUnitLimit({
+            units: DEFAULT_ADD_LIQUIDITY_CU,
+          }),
+          await this.program.methods
+            .addLiquidity({
+              amountX: seedAmount.sub(simTotalAmountXOnChain),
+              amountY: new BN(0),
+              binLiquidityDist: [
+                {
+                  binId: cappedUpperBinId,
+                  distributionX: 10_000,
+                  distributionY: 0,
+                },
+              ],
+            })
+            .accounts(depositAccounts)
+            .instruction(),
         ]);
       }
     }
@@ -4439,22 +4415,22 @@ export class DLMM {
   }
 
   /**
- * The `seedLiquidity` function create multiple grouped instructions. The grouped instructions will be either [initialize bin array + initialize position instructions] or [deposit instruction] combination.
- * @param
- *    - `payer`: The public key of the tx payer.
- *    - `base`: Base key
- *    - `seedAmount`: Token X lamport amount to be seeded to the pool.
- *    - `price`: TokenX/TokenY Price in UI format
- *    - `roundingUp`: Whether to round up the price
- *    - `positionOwner`: The owner of the position
- *    - `feeOwner`: Position fee owner
- *    - `operator`: Operator of the position. Operator able to manage the position on behalf of the position owner. However, liquidity withdrawal issue by the operator can only send to the position owner.
- *    - `lockReleasePoint`: The lock release point of the position.
- *    - `shouldSeedPositionOwner` (optional): Whether to send 1 lamport amount of token X to the position owner to prove ownership.
- * 
- * The returned instructions need to be executed sequentially if it was separated into multiple transactions.
- * @returns {Promise<TransactionInstruction[]>}
- */
+   * The `seedLiquidity` function create multiple grouped instructions. The grouped instructions will be either [initialize bin array + initialize position instructions] or [deposit instruction] combination.
+   * @param
+   *    - `payer`: The public key of the tx payer.
+   *    - `base`: Base key
+   *    - `seedAmount`: Token X lamport amount to be seeded to the pool.
+   *    - `price`: TokenX/TokenY Price in UI format
+   *    - `roundingUp`: Whether to round up the price
+   *    - `positionOwner`: The owner of the position
+   *    - `feeOwner`: Position fee owner
+   *    - `operator`: Operator of the position. Operator able to manage the position on behalf of the position owner. However, liquidity withdrawal issue by the operator can only send to the position owner.
+   *    - `lockReleasePoint`: The lock release point of the position.
+   *    - `shouldSeedPositionOwner` (optional): Whether to send 1 lamport amount of token X to the position owner to prove ownership.
+   *
+   * The returned instructions need to be executed sequentially if it was separated into multiple transactions.
+   * @returns {Promise<TransactionInstruction[]>}
+   */
   public async seedLiquiditySingleBin(
     payer: PublicKey,
     base: PublicKey,
@@ -4482,9 +4458,23 @@ export class DLMM {
     const lowerBinArrayIndex = binIdToBinArrayIndex(binId);
     const upperBinArrayIndex = lowerBinArrayIndex.add(new BN(1));
 
-    const [lowerBinArray] = deriveBinArray(this.pubkey, lowerBinArrayIndex, this.program.programId);
-    const [upperBinArray] = deriveBinArray(this.pubkey, upperBinArrayIndex, this.program.programId);
-    const [positionPda] = derivePosition(this.pubkey, base, binId, new BN(1), this.program.programId);
+    const [lowerBinArray] = deriveBinArray(
+      this.pubkey,
+      lowerBinArrayIndex,
+      this.program.programId
+    );
+    const [upperBinArray] = deriveBinArray(
+      this.pubkey,
+      upperBinArrayIndex,
+      this.program.programId
+    );
+    const [positionPda] = derivePosition(
+      this.pubkey,
+      base,
+      binId,
+      new BN(1),
+      this.program.programId
+    );
 
     const preInstructions = [];
 
@@ -4525,11 +4515,16 @@ export class DLMM {
     if (isOverflowDefaultBinArrayBitmap(lowerBinArrayIndex)) {
       const bitmapExtensionAccount = accounts[3];
       if (!bitmapExtensionAccount) {
-        preInstructions.push(await this.program.methods.initializeBinArrayBitmapExtension().accounts({
-          binArrayBitmapExtension,
-          funder: payer,
-          lbPair: this.pubkey
-        }).instruction());
+        preInstructions.push(
+          await this.program.methods
+            .initializeBinArrayBitmapExtension()
+            .accounts({
+              binArrayBitmapExtension,
+              funder: payer,
+              lbPair: this.pubkey,
+            })
+            .instruction()
+        );
       }
     } else {
       binArrayBitmapExtension = this.program.programId;
@@ -4547,20 +4542,39 @@ export class DLMM {
     );
 
     if (shouldSeedPositionOwner) {
-      const positionOwnerTokenXAccount = await this.program.provider.connection.getAccountInfo(positionOwnerTokenX);
+      const positionOwnerTokenXAccount =
+        await this.program.provider.connection.getAccountInfo(
+          positionOwnerTokenX
+        );
       if (positionOwnerTokenXAccount) {
         const account = AccountLayout.decode(positionOwnerTokenXAccount.data);
         if (account.amount == BigInt(0)) {
           // send 1 lamport to position owner token X to prove ownership
-          const transferIx = createTransferInstruction(operatorTokenX, positionOwnerTokenX, payer, 1);
+          const transferIx = createTransferInstruction(
+            operatorTokenX,
+            positionOwnerTokenX,
+            payer,
+            1
+          );
           preInstructions.push(transferIx);
         }
       } else {
-        const createPositionOwnerTokenXIx = createAssociatedTokenAccountInstruction(payer, positionOwnerTokenX, positionOwner, this.lbPair.tokenXMint);
+        const createPositionOwnerTokenXIx =
+          createAssociatedTokenAccountInstruction(
+            payer,
+            positionOwnerTokenX,
+            positionOwner,
+            this.lbPair.tokenXMint
+          );
         preInstructions.push(createPositionOwnerTokenXIx);
 
         // send 1 lamport to position owner token X to prove ownership
-        const transferIx = createTransferInstruction(operatorTokenX, positionOwnerTokenX, payer, 1);
+        const transferIx = createTransferInstruction(
+          operatorTokenX,
+          positionOwnerTokenX,
+          payer,
+          1
+        );
         preInstructions.push(transferIx);
       }
     }
@@ -4630,22 +4644,25 @@ export class DLMM {
       binLiquidityDist: [binLiquidityDist],
     };
 
-    const depositLiquidityIx = await this.program.methods.addLiquidity(addLiquidityParams).accounts({
-      position: positionPda,
-      lbPair: this.pubkey,
-      binArrayBitmapExtension,
-      userTokenX,
-      userTokenY,
-      reserveX: this.lbPair.reserveX,
-      reserveY: this.lbPair.reserveY,
-      tokenXMint: this.lbPair.tokenXMint,
-      tokenYMint: this.lbPair.tokenYMint,
-      binArrayLower: lowerBinArray,
-      binArrayUpper: upperBinArray,
-      sender: operator,
-      tokenXProgram: TOKEN_PROGRAM_ID,
-      tokenYProgram: TOKEN_PROGRAM_ID,
-    }).instruction();
+    const depositLiquidityIx = await this.program.methods
+      .addLiquidity(addLiquidityParams)
+      .accounts({
+        position: positionPda,
+        lbPair: this.pubkey,
+        binArrayBitmapExtension,
+        userTokenX,
+        userTokenY,
+        reserveX: this.lbPair.reserveX,
+        reserveY: this.lbPair.reserveY,
+        tokenXMint: this.lbPair.tokenXMint,
+        tokenYMint: this.lbPair.tokenYMint,
+        binArrayLower: lowerBinArray,
+        binArrayUpper: upperBinArray,
+        sender: operator,
+        tokenXProgram: TOKEN_PROGRAM_ID,
+        tokenYProgram: TOKEN_PROGRAM_ID,
+      })
+      .instruction();
 
     return [...preInstructions, depositLiquidityIx];
   }
@@ -5239,7 +5256,7 @@ export class DLMM {
 
       const activationPoint =
         !this.lbPair.preActivationSwapAddress.equals(PublicKey.default) &&
-          this.lbPair.preActivationSwapAddress.equals(swapInitiator)
+        this.lbPair.preActivationSwapAddress.equals(swapInitiator)
           ? preActivationSwapPoint
           : this.lbPair.activationPoint;
 
@@ -5678,33 +5695,42 @@ export class DLMM {
     const binArrayPubkeys = range(
       lowerBinArrayIndex.toNumber() + lowerBinArrayIndexOffset,
       upperBinArrayIndex.toNumber() + upperBinArrayIndexOffset,
-      i => deriveBinArray(lbPairPubKey, new BN(i), this.program.programId)[0]
+      (i) => deriveBinArray(lbPairPubKey, new BN(i), this.program.programId)[0]
     );
-    const fetchedBinArrays = binArrayPubkeys.length !== 0 ?
-      await this.program.account.binArray.fetchMultiple(binArrayPubkeys) : [];
+    const fetchedBinArrays =
+      binArrayPubkeys.length !== 0
+        ? await this.program.account.binArray.fetchMultiple(binArrayPubkeys)
+        : [];
     const binArrays = [
       ...(hasCachedLowerBinArray ? [lowerBinArray] : []),
       ...fetchedBinArrays,
-      ...((hasCachedUpperBinArray && !isSingleBinArray) ? [upperBinArray] : [])
+      ...(hasCachedUpperBinArray && !isSingleBinArray ? [upperBinArray] : []),
     ];
 
-    const binsById = new Map(binArrays
-      .filter(x => x != null)
-      .flatMap(({ bins, index }) => {
-        const [lowerBinId] = getBinArrayLowerUpperBinId(index);
-        return bins.map((b, i) => [lowerBinId.toNumber() + i, b] as [number, Bin]);
-      }));
-    const version = binArrays.find(binArray => binArray != null)?.version ?? 1;
+    const binsById = new Map(
+      binArrays
+        .filter((x) => x != null)
+        .flatMap(({ bins, index }) => {
+          const [lowerBinId] = getBinArrayLowerUpperBinId(index);
+          return bins.map(
+            (b, i) => [lowerBinId.toNumber() + i, b] as [number, Bin]
+          );
+        })
+    );
+    const version =
+      binArrays.find((binArray) => binArray != null)?.version ?? 1;
 
-    return Array.from(enumerateBins(
-      binsById,
-      lowerBinId,
-      upperBinId,
-      this.lbPair.binStep,
-      baseTokenDecimal,
-      quoteTokenDecimal,
-      version,
-    ));
+    return Array.from(
+      enumerateBins(
+        binsById,
+        lowerBinId,
+        upperBinId,
+        this.lbPair.binStep,
+        baseTokenDecimal,
+        quoteTokenDecimal,
+        version
+      )
+    );
   }
 
   private async binArraysToBeCreate(
@@ -5801,7 +5827,7 @@ export class DLMM {
       if (elapsed < sParameter.decayPeriod) {
         const decayedVolatilityReference = Math.floor(
           (vParameter.volatilityAccumulator * sParameter.reductionFactor) /
-          BASIS_POINT_MAX
+            BASIS_POINT_MAX
         );
         vParameter.volatilityReference = decayedVolatilityReference;
       } else {
@@ -5963,5 +5989,242 @@ export class DLMM {
       .transaction();
 
     return claimFeeTx;
+  }
+
+  private getSeedAmountForPosition(
+    lowerBinId: number,
+    upperBinId: number,
+    binDepositAmount: Map<number, BN>
+  ) {
+    let totalAmount = new BN(0);
+
+    for (let i = lowerBinId; i <= upperBinId; i++) {
+      const amount = binDepositAmount.get(i);
+      totalAmount = totalAmount.add(amount);
+    }
+
+    return totalAmount;
+  }
+
+  private getSeededAmountXInBinRange(
+    lowerBinArrayState: BinArray | null,
+    upperBinArrayState: BinArray | null,
+    lowerBinId: number,
+    upperBinId: number
+  ) {
+    let totalAmount = new BN(0);
+
+    for (const binArrayState of [lowerBinArrayState, upperBinArrayState].filter(
+      Boolean
+    )) {
+      const [binArrayLowerBinId, binArrayUpperBinId] =
+        getBinArrayLowerUpperBinId(binArrayState.index);
+
+      for (
+        let binId = binArrayLowerBinId.toNumber();
+        binId <= binArrayUpperBinId.toNumber();
+        binId++
+      ) {
+        if (binId >= lowerBinId && binId <= upperBinId) {
+          const bin = binArrayState.bins[binId - binArrayLowerBinId.toNumber()];
+          totalAmount = totalAmount.add(bin.amountX);
+        }
+      }
+    }
+
+    return totalAmount;
+  }
+
+  private simulateAndPreparePositionDepositParams(
+    positionSeedAmount: BN,
+    lowerBinId: number,
+    upperBinId: number,
+    binDepositAmount: Map<number, BN>
+  ) {
+    let simAmountDeposited = new BN(0);
+    let simTotalLossAmount = new BN(0);
+    let simLossAmountDeposited = new BN(0);
+
+    let binLiquidityDistribution: BinLiquidityDistribution[] = [];
+
+    // Simulate deposit amount after loss
+    for (let i = lowerBinId; i <= upperBinId; i++) {
+      const amount = binDepositAmount.get(i);
+
+      const distrubitonX = amount
+        .mul(new BN(BASIS_POINT_MAX))
+        .div(positionSeedAmount);
+
+      const depositedAmount = positionSeedAmount
+        .mul(distrubitonX)
+        .div(new BN(BASIS_POINT_MAX));
+
+      simAmountDeposited = simAmountDeposited.add(depositedAmount);
+
+      binLiquidityDistribution.push({
+        binId: i,
+        distributionX: distrubitonX.toNumber(),
+        distributionY: 0,
+      });
+
+      const loss = amount.sub(depositedAmount);
+      simTotalLossAmount = simTotalLossAmount.add(loss);
+    }
+
+    // Simulate loss distribution
+    for (let i = lowerBinId; i <= upperBinId; i++) {
+      const amount = binDepositAmount.get(i);
+
+      const distrubitonX = amount
+        .mul(new BN(BASIS_POINT_MAX))
+        .div(positionSeedAmount);
+
+      const depositedLossAmount = simTotalLossAmount
+        .mul(distrubitonX)
+        .div(new BN(BASIS_POINT_MAX));
+
+      simLossAmountDeposited = simLossAmountDeposited.add(depositedLossAmount);
+    }
+
+    return {
+      simAmountDeposited,
+      simLossAmountDeposited,
+      simTotalLossAmount,
+      binLiquidityDistribution,
+    };
+  }
+
+  private async preparePositionAndBinArrayForSeeding(
+    lowerBinId: BN,
+    upperBinId: BN,
+    base: PublicKey,
+    position: PublicKey,
+    operator: PublicKey,
+    owner: PublicKey,
+    feeOwner: PublicKey,
+    appendedInitBinArrayIx: Set<String>,
+    lockReleasePoint: BN
+  ) {
+    const lowerBinArrayIndex = binIdToBinArrayIndex(lowerBinId);
+    const upperBinArrayIndex = binIdToBinArrayIndex(upperBinId);
+
+    const [lowerBinArray] = deriveBinArray(
+      this.pubkey,
+      lowerBinArrayIndex,
+      this.program.programId
+    );
+
+    const [upperBinArray] = deriveBinArray(
+      this.pubkey,
+      upperBinArrayIndex,
+      this.program.programId
+    );
+
+    const accounts =
+      await this.program.provider.connection.getMultipleAccountsInfo([
+        lowerBinArray,
+        upperBinArray,
+        position,
+      ]);
+
+    const instructions: TransactionInstruction[] = [];
+    const lowerBinArrayAccount = accounts[0];
+
+    if (
+      !lowerBinArrayAccount &&
+      !appendedInitBinArrayIx.has(lowerBinArray.toBase58())
+    ) {
+      instructions.push(
+        await this.program.methods
+          .initializeBinArray(lowerBinArrayIndex)
+          .accounts({
+            lbPair: this.pubkey,
+            binArray: lowerBinArray,
+            funder: operator,
+          })
+          .instruction()
+      );
+    }
+
+    const upperBinArrayAccount = accounts[1];
+    if (
+      !upperBinArrayAccount &&
+      !appendedInitBinArrayIx.has(upperBinArray.toBase58())
+    ) {
+      instructions.push(
+        await this.program.methods
+          .initializeBinArray(upperBinArrayIndex)
+          .accounts({
+            lbPair: this.pubkey,
+            binArray: upperBinArray,
+            funder: operator,
+          })
+          .instruction()
+      );
+    }
+
+    const positionAccount = accounts[2];
+    if (!positionAccount) {
+      instructions.push(
+        await this.program.methods
+          .initializePositionByOperator(
+            lowerBinId.toNumber(),
+            MAX_BIN_PER_POSITION.toNumber(),
+            feeOwner,
+            lockReleasePoint
+          )
+          .accounts({
+            lbPair: this.pubkey,
+            position,
+            base,
+            owner,
+            ownerTokenX: getAssociatedTokenAddressSync(
+              this.tokenX.publicKey,
+              owner,
+              true
+            ),
+            operator,
+            operatorTokenX: getAssociatedTokenAddressSync(
+              this.tokenX.publicKey,
+              operator
+            ),
+            payer: operator,
+          })
+          .instruction()
+      );
+    }
+
+    // Initialize bin arrays and initialize position account in 1 tx
+    if (instructions.length > 1) {
+      instructions.unshift(
+        await getEstimatedComputeUnitIxWithBuffer(
+          this.program.provider.connection,
+          instructions,
+          owner
+        )
+      );
+    }
+
+    const lowerBinArrayState = lowerBinArrayAccount
+      ? this.program.coder.accounts.decode<BinArray>(
+          this.program.account.binArray.idlAccount.name,
+          lowerBinArrayAccount.data
+        )
+      : null;
+
+    const upperBinArrayState = upperBinArrayAccount
+      ? this.program.coder.accounts.decode<BinArray>(
+          this.program.account.binArray.idlAccount.name,
+          upperBinArrayAccount.data
+        )
+      : null;
+
+    return {
+      lowerBinArray,
+      upperBinArray,
+      lowerBinArrayState,
+      upperBinArrayState,
+      instructions,
+    };
   }
 }
