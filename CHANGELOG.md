@@ -19,7 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-## @meteora-ag/dlmm [1.3.14] - PR #167
+## @meteora-ag/dlmm [1.3.15] - PR #170
+
+### Changed
+
+- Updated `seedLiquidity` to allow custom fee owner, time lock, and operator. Besides that, switch seeding to `add_liquidity` endpoint which will support token2022 in the future.
 
 ### Added
 
