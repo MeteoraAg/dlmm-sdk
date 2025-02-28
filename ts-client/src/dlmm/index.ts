@@ -4277,14 +4277,6 @@ export class DLMM {
         initializeBinArraysAndPositionIxs.push(initPositionAndBinArrayIxs);
       }
 
-      if (!lowerBinArrayState) {
-        appendedInitBinArrayIx.add(lowerBinArray.toBase58());
-      }
-
-      if (!upperBinArrayState) {
-        appendedInitBinArrayIx.add(upperBinArray.toBase58());
-      }
-
       // Get total amount in this position
       const positionSeedAmount = this.getSeedAmountForPosition(
         lowerBinId.toNumber(),
@@ -6144,6 +6136,8 @@ export class DLMM {
           })
           .instruction()
       );
+
+      appendedInitBinArrayIx.add(lowerBinArray.toBase58());
     }
 
     const upperBinArrayAccount = accounts[1];
@@ -6161,6 +6155,8 @@ export class DLMM {
           })
           .instruction()
       );
+
+      appendedInitBinArrayIx.add(upperBinArray.toBase58());
     }
 
     const positionAccount = accounts[2];
