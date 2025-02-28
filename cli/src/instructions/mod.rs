@@ -37,3 +37,4 @@ pub mod update_reward_duration;
 pub mod update_reward_funder;
 pub mod utils;
 pub mod withdraw_protocol_fee;
+pub mod set_pair_status_permissionless;

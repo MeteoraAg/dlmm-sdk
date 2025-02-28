@@ -1,5 +1,5 @@
 export type LbClmm = {
-  "version": "0.8.5",
+  "version": "0.8.6",
   "name": "lb_clmm",
   "constants": [
     {
@@ -111,6 +111,11 @@ export type LbClmm = {
       "name": "MIN_BASE_FEE",
       "type": "u128",
       "value": "100_000"
+    },
+    {
+      "name": "MINIMUM_LIQUIDITY",
+      "type": "u128",
+      "value": "1_000_000"
     },
     {
       "name": "BIN_ARRAY",
@@ -2645,6 +2650,27 @@ export type LbClmm = {
           "type": "publicKey"
         }
       ]
+    },
+    {
+      "name": "setPairStatusPermissionless",
+      "accounts": [
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "creator",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "status",
+          "type": "u8"
+        }
+      ]
     }
   ],
   "accounts": [
@@ -2836,9 +2862,9 @@ export type LbClmm = {
             "type": "u8"
           },
           {
-            "name": "padding0",
+            "name": "creatorPoolOnOffControl",
             "docs": [
-              "padding 0"
+              "Allow pool creator to enable/disable pool with restricted validation. Only applicable for customizable permissionless pair type."
             ],
             "type": "u8"
           },
@@ -3917,6 +3943,13 @@ export type LbClmm = {
             }
           },
           {
+            "name": "creatorPoolOnOffControl",
+            "docs": [
+              "Pool creator have permission to enable/disable pool with restricted program validation. Only applicable for customizable permissionless pool."
+            ],
+            "type": "bool"
+          },
+          {
             "name": "padding",
             "docs": [
               "Padding, for future use"
@@ -3924,7 +3957,7 @@ export type LbClmm = {
             "type": {
               "array": [
                 "u8",
-                64
+                63
               ]
             }
           }
@@ -5375,12 +5408,22 @@ export type LbClmm = {
       "code": 6066,
       "name": "InvalidStatus",
       "msg": "Invalid status"
+    },
+    {
+      "code": 6067,
+      "name": "ExceededMaxOracleLength",
+      "msg": "Exceed max oracle length"
+    },
+    {
+      "code": 6068,
+      "name": "InvalidMinimumLiquidity",
+      "msg": "Invalid minimum liquidity"
     }
   ]
 };
 
 export const IDL: LbClmm = {
-  "version": "0.8.5",
+  "version": "0.8.6",
   "name": "lb_clmm",
   "constants": [
     {
@@ -5492,6 +5535,11 @@ export const IDL: LbClmm = {
       "name": "MIN_BASE_FEE",
       "type": "u128",
       "value": "100_000"
+    },
+    {
+      "name": "MINIMUM_LIQUIDITY",
+      "type": "u128",
+      "value": "1_000_000"
     },
     {
       "name": "BIN_ARRAY",
@@ -8026,6 +8074,27 @@ export const IDL: LbClmm = {
           "type": "publicKey"
         }
       ]
+    },
+    {
+      "name": "setPairStatusPermissionless",
+      "accounts": [
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "creator",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "status",
+          "type": "u8"
+        }
+      ]
     }
   ],
   "accounts": [
@@ -8217,9 +8286,9 @@ export const IDL: LbClmm = {
             "type": "u8"
           },
           {
-            "name": "padding0",
+            "name": "creatorPoolOnOffControl",
             "docs": [
-              "padding 0"
+              "Allow pool creator to enable/disable pool with restricted validation. Only applicable for customizable permissionless pair type."
             ],
             "type": "u8"
           },
@@ -9298,6 +9367,13 @@ export const IDL: LbClmm = {
             }
           },
           {
+            "name": "creatorPoolOnOffControl",
+            "docs": [
+              "Pool creator have permission to enable/disable pool with restricted program validation. Only applicable for customizable permissionless pool."
+            ],
+            "type": "bool"
+          },
+          {
             "name": "padding",
             "docs": [
               "Padding, for future use"
@@ -9305,7 +9381,7 @@ export const IDL: LbClmm = {
             "type": {
               "array": [
                 "u8",
-                64
+                63
               ]
             }
           }
@@ -10756,6 +10832,16 @@ export const IDL: LbClmm = {
       "code": 6066,
       "name": "InvalidStatus",
       "msg": "Invalid status"
+    },
+    {
+      "code": 6067,
+      "name": "ExceededMaxOracleLength",
+      "msg": "Exceed max oracle length"
+    },
+    {
+      "code": 6068,
+      "name": "InvalidMinimumLiquidity",
+      "msg": "Invalid minimum liquidity"
     }
   ]
 };
