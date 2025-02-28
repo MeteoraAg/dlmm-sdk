@@ -4234,7 +4234,7 @@ export class DLMM {
 
     const initializeBinArraysAndPositionIxs: TransactionInstruction[][] = [];
     const addLiquidityIxs: TransactionInstruction[][] = [];
-    const appendedInitBinArrayIx = new Set<String>();
+    const appendedInitBinArrayIx = new Set<PublicKey>();
 
     let simTotalAmountXOnChain = new BN(0);
 
@@ -4278,11 +4278,11 @@ export class DLMM {
       }
 
       if (!lowerBinArrayState) {
-        appendedInitBinArrayIx.add(lowerBinArray.toBase58());
+        appendedInitBinArrayIx.add(lowerBinArray);
       }
 
       if (!upperBinArrayState) {
-        appendedInitBinArrayIx.add(upperBinArray.toBase58());
+        appendedInitBinArrayIx.add(upperBinArray);
       }
 
       // Get total amount in this position
@@ -6102,7 +6102,7 @@ export class DLMM {
     operator: PublicKey,
     owner: PublicKey,
     feeOwner: PublicKey,
-    appendedInitBinArrayIx: Set<String>,
+    appendedInitBinArrayIx: Set<PublicKey>,
     lockReleasePoint: BN
   ) {
     const lowerBinArrayIndex = binIdToBinArrayIndex(lowerBinId);
@@ -6132,7 +6132,7 @@ export class DLMM {
 
     if (
       !lowerBinArrayAccount &&
-      !appendedInitBinArrayIx.has(lowerBinArray.toBase58())
+      !appendedInitBinArrayIx.has(lowerBinArray)
     ) {
       instructions.push(
         await this.program.methods
@@ -6149,7 +6149,7 @@ export class DLMM {
     const upperBinArrayAccount = accounts[1];
     if (
       !upperBinArrayAccount &&
-      !appendedInitBinArrayIx.has(upperBinArray.toBase58())
+      !appendedInitBinArrayIx.has(upperBinArray)
     ) {
       instructions.push(
         await this.program.methods
