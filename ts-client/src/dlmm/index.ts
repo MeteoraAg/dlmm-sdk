@@ -6200,7 +6200,7 @@ export class DLMM {
         await getEstimatedComputeUnitIxWithBuffer(
           this.program.provider.connection,
           instructions,
-          owner
+          operator
         )
       );
     }
