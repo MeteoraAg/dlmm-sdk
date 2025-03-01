@@ -28,6 +28,7 @@ pub struct InitCustomizablePermissionlessLbPairParameters {
     pub has_alpha_vault: bool,
     pub activation_point: Option<u64>,
     pub selective_rounding: SelectiveRounding,
+    pub creator_pool_on_off_control: bool,
 }
 
 pub async fn initialize_customizable_permissionless_lb_pair<
@@ -48,6 +49,7 @@ pub async fn initialize_customizable_permissionless_lb_pair<
         activation_point,
         has_alpha_vault,
         selective_rounding,
+        creator_pool_on_off_control,
     } = params;
 
     let token_mint_base: Mint = program.account(token_mint_x).await?;
@@ -122,7 +124,8 @@ pub async fn initialize_customizable_permissionless_lb_pair<
             activation_type,
             activation_point,
             has_alpha_vault,
-            padding: [0u8; 64],
+            creator_pool_on_off_control,
+            padding: [0u8; 63],
         },
     };
 

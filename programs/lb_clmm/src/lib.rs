@@ -26,6 +26,7 @@ use instructions::initialize_pool::*;
 use instructions::migrate_bin_array::*;
 use instructions::migrate_position::*;
 use instructions::position_authorize::*;
+use instructions::set_pair_status_permissionless::*;
 use instructions::swap::*;
 use instructions::update_fees_and_rewards::*;
 use instructions::update_position_operator::*;
@@ -383,5 +384,12 @@ pub mod lb_clmm {
             active_id,
             max_price_impact_bps,
         )
+    }
+
+    pub fn set_pair_status_permissionless(
+        ctx: Context<UpdatePairStatusPermissionless>,
+        status: u8,
+    ) -> Result<()> {
+        instructions::set_pair_status_permissionless::handle(ctx, status)
     }
 }

@@ -277,6 +277,8 @@ pub enum Command {
         /// Pool activation point. None = Now
         #[clap(long)]
         activation_point: Option<u64>,
+        #[clap(long)]
+        creator_pool_on_off_control: bool,
     },
 
     /// Seed liquidity
@@ -407,6 +409,15 @@ pub enum Command {
         /// owner of position
         #[clap(long)]
         owner: Pubkey,
+    },
+
+    SetPairStatusPermissionless {
+        /// Address of the pair
+        #[clap(long)]
+        lb_pair: Pubkey,
+        /// Enable
+        #[clap(long)]
+        enable: bool,
     },
 
     #[clap(flatten)]

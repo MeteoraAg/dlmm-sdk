@@ -70,6 +70,9 @@ use crate::{
         seed_liquidity::{seed_liquidity, SeedLiquidityParameters},
         set_activation_point::*,
         set_pair_status::{set_pair_status, SetPairStatusParam},
+        set_pair_status_permissionless::{
+            set_pair_status_permissionless, SetPairStatusPermissionlessParam,
+        },
         set_pre_activation_duration::{set_pre_activation_duration, SetPreactivationDurationParam},
         set_pre_activation_swap_address::{
             set_pre_activation_swap_address, SetPreactivationSwapAddressParam,
@@ -391,6 +394,7 @@ async fn main() -> Result<()> {
             has_alpha_vault,
             activation_point,
             selective_rounding,
+            creator_pool_on_off_control,
         } => {
             let params = InitCustomizablePermissionlessLbPairParameters {
                 token_mint_x,
@@ -402,6 +406,7 @@ async fn main() -> Result<()> {
                 has_alpha_vault,
                 activation_type,
                 selective_rounding,
+                creator_pool_on_off_control,
             };
             initialize_customizable_permissionless_lb_pair(
                 params,
@@ -577,6 +582,10 @@ async fn main() -> Result<()> {
         }
         Command::GetAllPositionsForAnOwner { lb_pair, owner } => {
             get_all_positions(&amm_program, lb_pair, owner).await?;
+        }
+        Command::SetPairStatusPermissionless { lb_pair, enable } => {
+            let params = SetPairStatusPermissionlessParam { lb_pair, enable };
+            set_pair_status_permissionless(params, &amm_program, transaction_config).await?
         }
         Command::Admin(admin_command) => match admin_command {
             AdminCommand::InitializePermissionPair {

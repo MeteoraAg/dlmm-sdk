@@ -26,8 +26,10 @@ pub struct CustomizableParams {
     pub has_alpha_vault: bool,
     /// Decide when does the pool start trade. None = Now
     pub activation_point: Option<u64>,
+    /// Pool creator have permission to enable/disable pool with restricted program validation. Only applicable for customizable permissionless pool.
+    pub creator_pool_on_off_control: bool,
     /// Padding, for future use
-    pub padding: [u8; 64],
+    pub padding: [u8; 63],
 }
 
 #[event_cpi]

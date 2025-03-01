@@ -12,6 +12,7 @@ pub mod initialize_pool;
 pub mod migrate_bin_array;
 pub mod migrate_position;
 pub mod position_authorize;
+pub mod set_pair_status_permissionless;
 pub mod swap;
 pub mod update_fees_and_rewards;
 pub mod update_position_operator;

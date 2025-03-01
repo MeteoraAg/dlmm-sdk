@@ -1044,6 +1044,7 @@ export class DLMM {
     hasAlphaVault: boolean,
     creatorKey: PublicKey,
     activationPoint?: BN,
+    creatorPoolOnOffControl?: boolean,
     opt?: Opt
   ): Promise<Transaction> {
     const provider = new AnchorProvider(
@@ -1081,7 +1082,8 @@ export class DLMM {
       activationType,
       activationPoint: activationPoint ? activationPoint : null,
       hasAlphaVault,
-      padding: Array(64).fill(0),
+      creatorPoolOnOffControl: creatorPoolOnOffControl ? creatorPoolOnOffControl : false,
+      padding: Array(63).fill(0),
     };
 
     const userTokenX = getAssociatedTokenAddressSync(tokenX, creatorKey);
@@ -1243,6 +1245,31 @@ export class DLMM {
     };
 
     this.lbPair = lbPairState;
+  }
+
+  /**
+   * Set the status of a permissionless LB pair to either enabled or disabled. This require pool field `creator_pool_on_off_control` to be true and type `CustomizablePermissionless`.
+   * Pool creator can enable/disable the pair anytime before the pool is opened / activated. Once the pool activation time is passed, the pool creator can only enable the pair.
+   * Useful for token launches which do not have fixed activation time.
+   * @param enable If true, the pair will be enabled. If false, the pair will be disabled.
+   * @param creator The public key of the pool creator.
+   * @returns a Promise that resolves to the transaction.
+   */
+  public async setPairStatusPermissionless(enable: boolean, creator: PublicKey) {
+    const tx = await this.program.methods.setPairStatusPermissionless(Number(enable))
+      .accounts({
+        lbPair: this.pubkey,
+        creator
+      }).transaction();
+
+    const { blockhash, lastValidBlockHeight } = 
+      await this.program.provider.connection.getLatestBlockhash("confirmed");
+
+    return new Transaction({
+      feePayer: this.lbPair.creator,
+      blockhash,
+      lastValidBlockHeight,
+    }).add(tx);
   }
 
   /**

@@ -73,8 +73,8 @@ pub struct LbPair {
     pub base_factor_seed: [u8; 2],
     /// Activation type
     pub activation_type: u8,
-    /// padding 0
-    pub _padding_0: u8,
+    /// Allow pool creator to enable/disable pool with restricted validation. Only applicable for customizable permissionless pair type.
+    pub creator_pool_on_off_control: u8,
     /// Token X mint
     pub token_x_mint: Pubkey,
     /// Token Y mint
@@ -144,7 +144,7 @@ impl Default for LbPair {
             require_base_factor_seed: 0,
             base_factor_seed: [0u8; 2],
             pre_activation_duration: 0,
-            _padding_0: 0u8,
+            creator_pool_on_off_control: 0u8,
             _padding_1: [0u8; 32],
             _padding_2: [0u8; 32],
             _padding_3: [0u8; 8],
