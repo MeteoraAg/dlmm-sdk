@@ -19,6 +19,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.3.15] - PR #173
+
+### Added
+
+- Add param `enablePoolOnOffControl` to `createCustomizablePermissionlessLbPair` function.
+- Add `setPairStatusPermissionless` function. This require pool field `creator_pool_on_off_control` to be true and pair type is `CustomizablePermissionless`. Pool creator can enable/disable the pair anytime before the pool is opened / activated. Once the pool activation time is passed, the pool creator can only enable the pair. Useful for token launches which do not have fixed activation time.
+
+## cli [0.4.2] -  PR #173
+
+- Add param `creator_pool_on_off_control` to `InitializeCustomizablePermissionlessLbPair` function.
+- Add `set_pair_status_permissionless` function.
+
 ## @meteora-ag/dlmm [1.3.14] - PR #167
 
 ### Added
