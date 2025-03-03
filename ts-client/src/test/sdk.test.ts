@@ -2416,3 +2416,87 @@ describe("SDK test", () => {
     });
   });
 });
+
+describe("SDK Test with Mainnet RPC", () => {
+  let mainnetRpc: string = process.env.RPC || "https://api.mainnet-beta.solana.com";
+  let connection: Connection;
+
+  beforeAll(async () => {
+    connection = new Connection(mainnetRpc);
+  });
+
+  it("quote X -> Y with maxExtraBinArrays", async () => {
+    const pair = new PublicKey("5rCf1DM8LjKTw4YqhnoLcngyZYeNnQqztScTogYHAS6");
+    const lbPair = await DLMM.create(connection, pair);
+    const swapForY = true;
+    const inAmount = new BN(1 * 10 ** 9);
+    const allowedSlippage = new BN(2);
+    const isPartialFill = false;
+
+    const binArrays = await lbPair.getBinArrayForSwap(swapForY);
+    expect(binArrays.length).toBeGreaterThan(1);
+    let quote = lbPair.swapQuote(inAmount, swapForY, allowedSlippage, binArrays, isPartialFill, 0);
+    expect(quote.binArraysPubkey.length).toEqual(1);
+    const binArrayToSwapPubkey = quote.binArraysPubkey[0];
+    const binArrayToSwap = await lbPair.program.account.binArray.fetch(binArrayToSwapPubkey);
+
+    quote = lbPair.swapQuote(inAmount, swapForY, allowedSlippage, binArrays, isPartialFill, 3);
+    expect(quote.binArraysPubkey.length).toEqual(4);
+
+    // expect binArrays are in correct order
+    expect(quote.binArraysPubkey[0]).toEqual(binArrayToSwapPubkey);
+
+    let lastBinArrayIdx = binArrayToSwap.index;
+    for (let i = 1; i < binArrays.length; i++) {
+      let assertBinArrayPubkey = quote.binArraysPubkey[i];
+
+      const assertBinArray = await lbPair.program.account.binArray.fetch(assertBinArrayPubkey);
+      console.log(assertBinArray.index);
+      if (swapForY) {
+        expect(assertBinArray.index).toEqual(lastBinArrayIdx.sub(new BN(1)));
+      } else {
+        expect(assertBinArray.index).toEqual(lastBinArrayIdx.add(new BN(1)));
+      }
+
+      lastBinArrayIdx = assertBinArray.index;
+    }
+  });
+
+  it("quote Y -> X with maxExtraBinArrays", async () => {
+    const pair = new PublicKey("5rCf1DM8LjKTw4YqhnoLcngyZYeNnQqztScTogYHAS6");
+    const lbPair = await DLMM.create(connection, pair);
+    const swapForY = true;
+    const inAmount = new BN(1_000 * 10 ** 6);
+    const allowedSlippage = new BN(2);
+    const isPartialFill = false;
+
+    const binArrays = await lbPair.getBinArrayForSwap(swapForY);
+    expect(binArrays.length).toBeGreaterThan(1);
+    let quote = lbPair.swapQuote(inAmount, swapForY, allowedSlippage, binArrays, isPartialFill, 0);
+    expect(quote.binArraysPubkey.length).toEqual(1);
+
+    const binArrayToSwapPubkey = quote.binArraysPubkey[0];
+    const binArrayToSwap = await lbPair.program.account.binArray.fetch(binArrayToSwapPubkey);
+
+    quote = lbPair.swapQuote(inAmount, swapForY, allowedSlippage, binArrays, isPartialFill, 3);
+    expect(quote.binArraysPubkey.length).toEqual(4);
+
+    // expect binArrays are in correct order
+    expect(quote.binArraysPubkey[0]).toEqual(binArrayToSwapPubkey);
+
+    let lastBinArrayIdx = binArrayToSwap.index;
+    for (let i = 1; i < binArrays.length; i++) {
+      let assertBinArrayPubkey = quote.binArraysPubkey[i];
+
+      const assertBinArray = await lbPair.program.account.binArray.fetch(assertBinArrayPubkey);
+      console.log(assertBinArray.index);
+      if (swapForY) {
+        expect(assertBinArray.index).toEqual(lastBinArrayIdx.sub(new BN(1)));
+      } else {
+        expect(assertBinArray.index).toEqual(lastBinArrayIdx.add(new BN(1)));
+      }
+
+      lastBinArrayIdx = assertBinArray.index;
+    }
+  });
+});
