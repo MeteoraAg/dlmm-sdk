@@ -1,4 +1,4 @@
-use crate::instructions::*;
+use crate::instructions::{set_pair_status_permissionless::SetPairStatusPermissionlessParams, *};
 use anchor_client::Cluster;
 use clap::*;
 
@@ -72,6 +72,8 @@ pub enum SelectiveRounding {
 #[derive(Parser, Debug)]
 pub enum DLMMCommand {
     /// Create a new liquidity pair.
+    InitializePair2(InitLbPair2Params),
+    /// Create a new liquidity pair.
     InitializePair(InitLbPairParams),
     /// Initialize bin array for the given liquidity pair. Use InitializeBinArrayWithPriceRange or InitializeBinArrayWithBinRange for a more user friendly version.
     InitializeBinArray(InitBinArrayParams),
@@ -107,24 +109,14 @@ pub enum DLMMCommand {
     ShowPresetParameter(ShowPresetAccountParams),
     ListAllBinStep,
     InitializeCustomizablePermissionlessLbPair(InitCustomizablePermissionlessLbPairParam),
+    InitializeCustomizablePermissionlessLbPair2(InitCustomizablePermissionlessLbPair2Param),
     /// Seed liquidity
     SeedLiquidity(SeedLiquidityParameters),
     /// Seed liquidity by operator
     SeedLiquidityByOperator(SeedLiquidityByOperatorParameters),
     SeedLiquiditySingleBin(SeedLiquiditySingleBinParameters),
     SeedLiquiditySingleBinByOperator(SeedLiquiditySingleBinByOperatorParameters),
-
-    SetPairStatusPermissionless {
-        /// Address of the pair
-        #[clap(long)]
-        lb_pair: Pubkey,
-        /// Enable
-        #[clap(long)]
-        enable: bool,
-    },
-
-    IncreasePositionLength(IncreasePositionLengthParams),
-    DecreasePositionLength(DecreasePositionLengthParams),
+    SetPairStatusPermissionless(SetPairStatusPermissionlessParams),
     GetAllPositionsForAnOwner(GetAllPositionsParams),
     #[clap(flatten)]
     Admin(AdminCommand),
@@ -143,8 +135,7 @@ pub struct Cli {
 pub enum AdminCommand {
     /// Create a new permission liquidity pair. It allow liquidity fragmentation with exact bin step.
     InitializePermissionPair(InitPermissionLbPairParameters),
-    /// Toggle pool status
-    TogglePoolStatus(TogglePairStatusParams),
+    SetPairStatus(SetPairStatusParams),
     /// Remove liquidity by price range
     RemoveLiquidityByPriceRange(RemoveLiquidityByPriceRangeParameters),
     SetActivationPoint(SetActivationPointParam),
@@ -156,4 +147,6 @@ pub enum AdminCommand {
     SetPreActivationDuration(SetPreactivationDurationParam),
     SetPreActivationSwapAddress(SetPreactivationSwapAddressParam),
     InitializeTokenBadge(InitializeTokenBadgeParams),
+    CreateClaimProtocolFeeOperator(CreateClaimFeeOperatorParams),
+    CloseclaimProtocolFeeOperator(CloseClaimFeeOperatorParams),
 }

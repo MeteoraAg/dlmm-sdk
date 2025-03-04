@@ -126,8 +126,9 @@ pub struct CustomizableParams {
     pub activation_type: u8,
     pub has_alpha_vault: bool,
     pub activation_point: Option<u64>,
+    pub creator_pool_on_off_control: bool,
     pub base_fee_power_factor: u8,
-    pub padding: [u8; 63],
+    pub padding: [u8; 62],
 }
 #[derive(Clone, Debug, BorshDeserialize, BorshSerialize, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -285,13 +286,6 @@ pub enum PairType {
     Permission,
     CustomizablePermissionless,
     PermissionlessV2,
-}
-#[derive(Clone, Debug, BorshDeserialize, BorshSerialize, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum FeeChargeSide {
-    Xy,
-    Y,
-    X,
 }
 #[derive(Clone, Debug, BorshDeserialize, BorshSerialize, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

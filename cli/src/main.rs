@@ -13,6 +13,7 @@ use anchor_lang::prelude::AccountMeta;
 use anyhow::*;
 use clap::*;
 use commons::*;
+use instructions::set_pair_status_permissionless::execute_set_pair_status_permissionless;
 use solana_account_decoder::*;
 use std::ops::Deref;
 use std::rc::Rc;
@@ -219,6 +220,9 @@ async fn main() -> Result<()> {
         DLMMCommand::GetAllPositionsForAnOwner(params) => {
             execute_get_all_positions(&program, params).await?;
         }
+        DLMMCommand::SetPairStatusPermissionless(params) => {
+            execute_set_pair_status_permissionless(params, &program, transaction_config).await?;
+        }
         DLMMCommand::Admin(command) => match command {
             AdminCommand::InitializePermissionPair(params) => {
                 execute_initialize_permission_lb_pair(params, &program, transaction_config).await?;
@@ -263,6 +267,14 @@ async fn main() -> Result<()> {
             }
             AdminCommand::InitializeTokenBadge(params) => {
                 execute_initialize_token_badge(params, &program, transaction_config).await?;
+            }
+            AdminCommand::CreateClaimProtocolFeeOperator(params) => {
+                execute_create_claim_protocol_fee_operator(params, &program, transaction_config)
+                    .await?;
+            }
+            AdminCommand::CloseclaimProtocolFeeOperator(params) => {
+                execute_close_claim_protocol_fee_operator(params, &program, transaction_config)
+                    .await?;
             }
         },
     };

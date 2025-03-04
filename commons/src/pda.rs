@@ -164,3 +164,10 @@ pub fn derive_preset_parameter_pda_v2(index: u16) -> (Pubkey, u8) {
 pub fn derive_token_badge_pda(mint: Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(&[TOKEN_BADGE, mint.as_ref()], &dlmm_interface::ID)
 }
+
+pub fn derive_claim_protocol_fee_operator_pda(operator: Pubkey) -> (Pubkey, u8) {
+    Pubkey::find_program_address(
+        &[CLAIM_PROTOCOL_FEE_OPERATOR, operator.as_ref()],
+        &dlmm_interface::ID,
+    )
+}
