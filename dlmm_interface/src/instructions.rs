@@ -55,7 +55,10 @@ pub enum LbClmmProgramIx {
     GoToABin(GoToABinIxArgs),
     SetPreActivationDuration(SetPreActivationDurationIxArgs),
     SetPreActivationSwapAddress(SetPreActivationSwapAddressIxArgs),
+    SetPairStatusPermissionless(SetPairStatusPermissionlessIxArgs),
     InitializeTokenBadge,
+    CreateClaimProtocolFeeOperator,
+    CloseClaimProtocolFeeOperator,
     InitializePresetParameter2(InitializePresetParameter2IxArgs),
     InitializeLbPair2(InitializeLbPair2IxArgs),
     InitializeCustomizablePermissionlessLbPair2(
@@ -307,7 +310,20 @@ impl LbClmmProgramIx {
                     ),
                 )
             }
+            SET_PAIR_STATUS_PERMISSIONLESS_IX_DISCM => {
+                Ok(
+                    Self::SetPairStatusPermissionless(
+                        SetPairStatusPermissionlessIxArgs::deserialize(&mut reader)?,
+                    ),
+                )
+            }
             INITIALIZE_TOKEN_BADGE_IX_DISCM => Ok(Self::InitializeTokenBadge),
+            CREATE_CLAIM_PROTOCOL_FEE_OPERATOR_IX_DISCM => {
+                Ok(Self::CreateClaimProtocolFeeOperator)
+            }
+            CLOSE_CLAIM_PROTOCOL_FEE_OPERATOR_IX_DISCM => {
+                Ok(Self::CloseClaimProtocolFeeOperator)
+            }
             INITIALIZE_PRESET_PARAMETER2_IX_DISCM => {
                 Ok(
                     Self::InitializePresetParameter2(
@@ -550,8 +566,18 @@ impl LbClmmProgramIx {
                 writer.write_all(&SET_PRE_ACTIVATION_SWAP_ADDRESS_IX_DISCM)?;
                 args.serialize(&mut writer)
             }
+            Self::SetPairStatusPermissionless(args) => {
+                writer.write_all(&SET_PAIR_STATUS_PERMISSIONLESS_IX_DISCM)?;
+                args.serialize(&mut writer)
+            }
             Self::InitializeTokenBadge => {
                 writer.write_all(&INITIALIZE_TOKEN_BADGE_IX_DISCM)
+            }
+            Self::CreateClaimProtocolFeeOperator => {
+                writer.write_all(&CREATE_CLAIM_PROTOCOL_FEE_OPERATOR_IX_DISCM)
+            }
+            Self::CloseClaimProtocolFeeOperator => {
+                writer.write_all(&CLOSE_CLAIM_PROTOCOL_FEE_OPERATOR_IX_DISCM)
             }
             Self::InitializePresetParameter2(args) => {
                 writer.write_all(&INITIALIZE_PRESET_PARAMETER2_IX_DISCM)?;
@@ -5623,7 +5649,7 @@ pub struct SwapAccounts<'me, 'info> {
     pub token_x_mint: &'me AccountInfo<'info>,
     pub token_y_mint: &'me AccountInfo<'info>,
     pub oracle: &'me AccountInfo<'info>,
-    pub host_fee: &'me AccountInfo<'info>,
+    pub host_fee_in: &'me AccountInfo<'info>,
     pub user: &'me AccountInfo<'info>,
     pub token_x_program: &'me AccountInfo<'info>,
     pub token_y_program: &'me AccountInfo<'info>,
@@ -5641,7 +5667,7 @@ pub struct SwapKeys {
     pub token_x_mint: Pubkey,
     pub token_y_mint: Pubkey,
     pub oracle: Pubkey,
-    pub host_fee: Pubkey,
+    pub host_fee_in: Pubkey,
     pub user: Pubkey,
     pub token_x_program: Pubkey,
     pub token_y_program: Pubkey,
@@ -5660,7 +5686,7 @@ impl From<SwapAccounts<'_, '_>> for SwapKeys {
             token_x_mint: *accounts.token_x_mint.key,
             token_y_mint: *accounts.token_y_mint.key,
             oracle: *accounts.oracle.key,
-            host_fee: *accounts.host_fee.key,
+            host_fee_in: *accounts.host_fee_in.key,
             user: *accounts.user.key,
             token_x_program: *accounts.token_x_program.key,
             token_y_program: *accounts.token_y_program.key,
@@ -5718,7 +5744,7 @@ impl From<SwapKeys> for [AccountMeta; SWAP_IX_ACCOUNTS_LEN] {
                 is_writable: true,
             },
             AccountMeta {
-                pubkey: keys.host_fee,
+                pubkey: keys.host_fee_in,
                 is_signer: false,
                 is_writable: true,
             },
@@ -5762,7 +5788,7 @@ impl From<[Pubkey; SWAP_IX_ACCOUNTS_LEN]> for SwapKeys {
             token_x_mint: pubkeys[6],
             token_y_mint: pubkeys[7],
             oracle: pubkeys[8],
-            host_fee: pubkeys[9],
+            host_fee_in: pubkeys[9],
             user: pubkeys[10],
             token_x_program: pubkeys[11],
             token_y_program: pubkeys[12],
@@ -5784,7 +5810,7 @@ for [AccountInfo<'info>; SWAP_IX_ACCOUNTS_LEN] {
             accounts.token_x_mint.clone(),
             accounts.token_y_mint.clone(),
             accounts.oracle.clone(),
-            accounts.host_fee.clone(),
+            accounts.host_fee_in.clone(),
             accounts.user.clone(),
             accounts.token_x_program.clone(),
             accounts.token_y_program.clone(),
@@ -5806,7 +5832,7 @@ for SwapAccounts<'me, 'info> {
             token_x_mint: &arr[6],
             token_y_mint: &arr[7],
             oracle: &arr[8],
-            host_fee: &arr[9],
+            host_fee_in: &arr[9],
             user: &arr[10],
             token_x_program: &arr[11],
             token_y_program: &arr[12],
@@ -5916,7 +5942,7 @@ pub fn swap_verify_account_keys(
         (*accounts.token_x_mint.key, keys.token_x_mint),
         (*accounts.token_y_mint.key, keys.token_y_mint),
         (*accounts.oracle.key, keys.oracle),
-        (*accounts.host_fee.key, keys.host_fee),
+        (*accounts.host_fee_in.key, keys.host_fee_in),
         (*accounts.user.key, keys.user),
         (*accounts.token_x_program.key, keys.token_x_program),
         (*accounts.token_y_program.key, keys.token_y_program),
@@ -5939,7 +5965,7 @@ pub fn swap_verify_writable_privileges<'me, 'info>(
         accounts.user_token_in,
         accounts.user_token_out,
         accounts.oracle,
-        accounts.host_fee,
+        accounts.host_fee_in,
     ] {
         if !should_be_writable.is_writable {
             return Err((should_be_writable, ProgramError::InvalidAccountData));
@@ -5976,7 +6002,7 @@ pub struct SwapExactOutAccounts<'me, 'info> {
     pub token_x_mint: &'me AccountInfo<'info>,
     pub token_y_mint: &'me AccountInfo<'info>,
     pub oracle: &'me AccountInfo<'info>,
-    pub host_fee: &'me AccountInfo<'info>,
+    pub host_fee_in: &'me AccountInfo<'info>,
     pub user: &'me AccountInfo<'info>,
     pub token_x_program: &'me AccountInfo<'info>,
     pub token_y_program: &'me AccountInfo<'info>,
@@ -5994,7 +6020,7 @@ pub struct SwapExactOutKeys {
     pub token_x_mint: Pubkey,
     pub token_y_mint: Pubkey,
     pub oracle: Pubkey,
-    pub host_fee: Pubkey,
+    pub host_fee_in: Pubkey,
     pub user: Pubkey,
     pub token_x_program: Pubkey,
     pub token_y_program: Pubkey,
@@ -6013,7 +6039,7 @@ impl From<SwapExactOutAccounts<'_, '_>> for SwapExactOutKeys {
             token_x_mint: *accounts.token_x_mint.key,
             token_y_mint: *accounts.token_y_mint.key,
             oracle: *accounts.oracle.key,
-            host_fee: *accounts.host_fee.key,
+            host_fee_in: *accounts.host_fee_in.key,
             user: *accounts.user.key,
             token_x_program: *accounts.token_x_program.key,
             token_y_program: *accounts.token_y_program.key,
@@ -6071,7 +6097,7 @@ impl From<SwapExactOutKeys> for [AccountMeta; SWAP_EXACT_OUT_IX_ACCOUNTS_LEN] {
                 is_writable: true,
             },
             AccountMeta {
-                pubkey: keys.host_fee,
+                pubkey: keys.host_fee_in,
                 is_signer: false,
                 is_writable: true,
             },
@@ -6115,7 +6141,7 @@ impl From<[Pubkey; SWAP_EXACT_OUT_IX_ACCOUNTS_LEN]> for SwapExactOutKeys {
             token_x_mint: pubkeys[6],
             token_y_mint: pubkeys[7],
             oracle: pubkeys[8],
-            host_fee: pubkeys[9],
+            host_fee_in: pubkeys[9],
             user: pubkeys[10],
             token_x_program: pubkeys[11],
             token_y_program: pubkeys[12],
@@ -6137,7 +6163,7 @@ for [AccountInfo<'info>; SWAP_EXACT_OUT_IX_ACCOUNTS_LEN] {
             accounts.token_x_mint.clone(),
             accounts.token_y_mint.clone(),
             accounts.oracle.clone(),
-            accounts.host_fee.clone(),
+            accounts.host_fee_in.clone(),
             accounts.user.clone(),
             accounts.token_x_program.clone(),
             accounts.token_y_program.clone(),
@@ -6159,7 +6185,7 @@ for SwapExactOutAccounts<'me, 'info> {
             token_x_mint: &arr[6],
             token_y_mint: &arr[7],
             oracle: &arr[8],
-            host_fee: &arr[9],
+            host_fee_in: &arr[9],
             user: &arr[10],
             token_x_program: &arr[11],
             token_y_program: &arr[12],
@@ -6275,7 +6301,7 @@ pub fn swap_exact_out_verify_account_keys(
         (*accounts.token_x_mint.key, keys.token_x_mint),
         (*accounts.token_y_mint.key, keys.token_y_mint),
         (*accounts.oracle.key, keys.oracle),
-        (*accounts.host_fee.key, keys.host_fee),
+        (*accounts.host_fee_in.key, keys.host_fee_in),
         (*accounts.user.key, keys.user),
         (*accounts.token_x_program.key, keys.token_x_program),
         (*accounts.token_y_program.key, keys.token_y_program),
@@ -6298,7 +6324,7 @@ pub fn swap_exact_out_verify_writable_privileges<'me, 'info>(
         accounts.user_token_in,
         accounts.user_token_out,
         accounts.oracle,
-        accounts.host_fee,
+        accounts.host_fee_in,
     ] {
         if !should_be_writable.is_writable {
             return Err((should_be_writable, ProgramError::InvalidAccountData));
@@ -6335,7 +6361,7 @@ pub struct SwapWithPriceImpactAccounts<'me, 'info> {
     pub token_x_mint: &'me AccountInfo<'info>,
     pub token_y_mint: &'me AccountInfo<'info>,
     pub oracle: &'me AccountInfo<'info>,
-    pub host_fee: &'me AccountInfo<'info>,
+    pub host_fee_in: &'me AccountInfo<'info>,
     pub user: &'me AccountInfo<'info>,
     pub token_x_program: &'me AccountInfo<'info>,
     pub token_y_program: &'me AccountInfo<'info>,
@@ -6353,7 +6379,7 @@ pub struct SwapWithPriceImpactKeys {
     pub token_x_mint: Pubkey,
     pub token_y_mint: Pubkey,
     pub oracle: Pubkey,
-    pub host_fee: Pubkey,
+    pub host_fee_in: Pubkey,
     pub user: Pubkey,
     pub token_x_program: Pubkey,
     pub token_y_program: Pubkey,
@@ -6372,7 +6398,7 @@ impl From<SwapWithPriceImpactAccounts<'_, '_>> for SwapWithPriceImpactKeys {
             token_x_mint: *accounts.token_x_mint.key,
             token_y_mint: *accounts.token_y_mint.key,
             oracle: *accounts.oracle.key,
-            host_fee: *accounts.host_fee.key,
+            host_fee_in: *accounts.host_fee_in.key,
             user: *accounts.user.key,
             token_x_program: *accounts.token_x_program.key,
             token_y_program: *accounts.token_y_program.key,
@@ -6431,7 +6457,7 @@ for [AccountMeta; SWAP_WITH_PRICE_IMPACT_IX_ACCOUNTS_LEN] {
                 is_writable: true,
             },
             AccountMeta {
-                pubkey: keys.host_fee,
+                pubkey: keys.host_fee_in,
                 is_signer: false,
                 is_writable: true,
             },
@@ -6475,7 +6501,7 @@ impl From<[Pubkey; SWAP_WITH_PRICE_IMPACT_IX_ACCOUNTS_LEN]> for SwapWithPriceImp
             token_x_mint: pubkeys[6],
             token_y_mint: pubkeys[7],
             oracle: pubkeys[8],
-            host_fee: pubkeys[9],
+            host_fee_in: pubkeys[9],
             user: pubkeys[10],
             token_x_program: pubkeys[11],
             token_y_program: pubkeys[12],
@@ -6497,7 +6523,7 @@ for [AccountInfo<'info>; SWAP_WITH_PRICE_IMPACT_IX_ACCOUNTS_LEN] {
             accounts.token_x_mint.clone(),
             accounts.token_y_mint.clone(),
             accounts.oracle.clone(),
-            accounts.host_fee.clone(),
+            accounts.host_fee_in.clone(),
             accounts.user.clone(),
             accounts.token_x_program.clone(),
             accounts.token_y_program.clone(),
@@ -6521,7 +6547,7 @@ for SwapWithPriceImpactAccounts<'me, 'info> {
             token_x_mint: &arr[6],
             token_y_mint: &arr[7],
             oracle: &arr[8],
-            host_fee: &arr[9],
+            host_fee_in: &arr[9],
             user: &arr[10],
             token_x_program: &arr[11],
             token_y_program: &arr[12],
@@ -6652,7 +6678,7 @@ pub fn swap_with_price_impact_verify_account_keys(
         (*accounts.token_x_mint.key, keys.token_x_mint),
         (*accounts.token_y_mint.key, keys.token_y_mint),
         (*accounts.oracle.key, keys.oracle),
-        (*accounts.host_fee.key, keys.host_fee),
+        (*accounts.host_fee_in.key, keys.host_fee_in),
         (*accounts.user.key, keys.user),
         (*accounts.token_x_program.key, keys.token_x_program),
         (*accounts.token_y_program.key, keys.token_y_program),
@@ -6675,7 +6701,7 @@ pub fn swap_with_price_impact_verify_writable_privileges<'me, 'info>(
         accounts.user_token_in,
         accounts.user_token_out,
         accounts.oracle,
-        accounts.host_fee,
+        accounts.host_fee_in,
     ] {
         if !should_be_writable.is_writable {
             return Err((should_be_writable, ProgramError::InvalidAccountData));
@@ -6700,7 +6726,7 @@ pub fn swap_with_price_impact_verify_account_privileges<'me, 'info>(
     swap_with_price_impact_verify_signer_privileges(accounts)?;
     Ok(())
 }
-pub const WITHDRAW_PROTOCOL_FEE_IX_ACCOUNTS_LEN: usize = 10;
+pub const WITHDRAW_PROTOCOL_FEE_IX_ACCOUNTS_LEN: usize = 12;
 #[derive(Copy, Clone, Debug)]
 pub struct WithdrawProtocolFeeAccounts<'me, 'info> {
     pub lb_pair: &'me AccountInfo<'info>,
@@ -6710,6 +6736,8 @@ pub struct WithdrawProtocolFeeAccounts<'me, 'info> {
     pub token_y_mint: &'me AccountInfo<'info>,
     pub receiver_token_x: &'me AccountInfo<'info>,
     pub receiver_token_y: &'me AccountInfo<'info>,
+    pub claim_fee_operator: &'me AccountInfo<'info>,
+    pub operator: &'me AccountInfo<'info>,
     pub token_x_program: &'me AccountInfo<'info>,
     pub token_y_program: &'me AccountInfo<'info>,
     pub memo_program: &'me AccountInfo<'info>,
@@ -6723,6 +6751,8 @@ pub struct WithdrawProtocolFeeKeys {
     pub token_y_mint: Pubkey,
     pub receiver_token_x: Pubkey,
     pub receiver_token_y: Pubkey,
+    pub claim_fee_operator: Pubkey,
+    pub operator: Pubkey,
     pub token_x_program: Pubkey,
     pub token_y_program: Pubkey,
     pub memo_program: Pubkey,
@@ -6737,6 +6767,8 @@ impl From<WithdrawProtocolFeeAccounts<'_, '_>> for WithdrawProtocolFeeKeys {
             token_y_mint: *accounts.token_y_mint.key,
             receiver_token_x: *accounts.receiver_token_x.key,
             receiver_token_y: *accounts.receiver_token_y.key,
+            claim_fee_operator: *accounts.claim_fee_operator.key,
+            operator: *accounts.operator.key,
             token_x_program: *accounts.token_x_program.key,
             token_y_program: *accounts.token_y_program.key,
             memo_program: *accounts.memo_program.key,
@@ -6783,6 +6815,16 @@ for [AccountMeta; WITHDRAW_PROTOCOL_FEE_IX_ACCOUNTS_LEN] {
                 is_writable: true,
             },
             AccountMeta {
+                pubkey: keys.claim_fee_operator,
+                is_signer: false,
+                is_writable: false,
+            },
+            AccountMeta {
+                pubkey: keys.operator,
+                is_signer: true,
+                is_writable: false,
+            },
+            AccountMeta {
                 pubkey: keys.token_x_program,
                 is_signer: false,
                 is_writable: false,
@@ -6810,9 +6852,11 @@ impl From<[Pubkey; WITHDRAW_PROTOCOL_FEE_IX_ACCOUNTS_LEN]> for WithdrawProtocolF
             token_y_mint: pubkeys[4],
             receiver_token_x: pubkeys[5],
             receiver_token_y: pubkeys[6],
-            token_x_program: pubkeys[7],
-            token_y_program: pubkeys[8],
-            memo_program: pubkeys[9],
+            claim_fee_operator: pubkeys[7],
+            operator: pubkeys[8],
+            token_x_program: pubkeys[9],
+            token_y_program: pubkeys[10],
+            memo_program: pubkeys[11],
         }
     }
 }
@@ -6827,6 +6871,8 @@ for [AccountInfo<'info>; WITHDRAW_PROTOCOL_FEE_IX_ACCOUNTS_LEN] {
             accounts.token_y_mint.clone(),
             accounts.receiver_token_x.clone(),
             accounts.receiver_token_y.clone(),
+            accounts.claim_fee_operator.clone(),
+            accounts.operator.clone(),
             accounts.token_x_program.clone(),
             accounts.token_y_program.clone(),
             accounts.memo_program.clone(),
@@ -6846,9 +6892,11 @@ for WithdrawProtocolFeeAccounts<'me, 'info> {
             token_y_mint: &arr[4],
             receiver_token_x: &arr[5],
             receiver_token_y: &arr[6],
-            token_x_program: &arr[7],
-            token_y_program: &arr[8],
-            memo_program: &arr[9],
+            claim_fee_operator: &arr[7],
+            operator: &arr[8],
+            token_x_program: &arr[9],
+            token_y_program: &arr[10],
+            memo_program: &arr[11],
         }
     }
 }
@@ -6967,6 +7015,8 @@ pub fn withdraw_protocol_fee_verify_account_keys(
         (*accounts.token_y_mint.key, keys.token_y_mint),
         (*accounts.receiver_token_x.key, keys.receiver_token_x),
         (*accounts.receiver_token_y.key, keys.receiver_token_y),
+        (*accounts.claim_fee_operator.key, keys.claim_fee_operator),
+        (*accounts.operator.key, keys.operator),
         (*accounts.token_x_program.key, keys.token_x_program),
         (*accounts.token_y_program.key, keys.token_y_program),
         (*accounts.memo_program.key, keys.memo_program),
@@ -6993,10 +7043,21 @@ pub fn withdraw_protocol_fee_verify_writable_privileges<'me, 'info>(
     }
     Ok(())
 }
+pub fn withdraw_protocol_fee_verify_signer_privileges<'me, 'info>(
+    accounts: WithdrawProtocolFeeAccounts<'me, 'info>,
+) -> Result<(), (&'me AccountInfo<'info>, ProgramError)> {
+    for should_be_signer in [accounts.operator] {
+        if !should_be_signer.is_signer {
+            return Err((should_be_signer, ProgramError::MissingRequiredSignature));
+        }
+    }
+    Ok(())
+}
 pub fn withdraw_protocol_fee_verify_account_privileges<'me, 'info>(
     accounts: WithdrawProtocolFeeAccounts<'me, 'info>,
 ) -> Result<(), (&'me AccountInfo<'info>, ProgramError)> {
     withdraw_protocol_fee_verify_writable_privileges(accounts)?;
+    withdraw_protocol_fee_verify_signer_privileges(accounts)?;
     Ok(())
 }
 pub const INITIALIZE_REWARD_IX_ACCOUNTS_LEN: usize = 10;
@@ -13399,6 +13460,220 @@ pub fn set_pre_activation_swap_address_verify_account_privileges<'me, 'info>(
     set_pre_activation_swap_address_verify_signer_privileges(accounts)?;
     Ok(())
 }
+pub const SET_PAIR_STATUS_PERMISSIONLESS_IX_ACCOUNTS_LEN: usize = 2;
+#[derive(Copy, Clone, Debug)]
+pub struct SetPairStatusPermissionlessAccounts<'me, 'info> {
+    pub lb_pair: &'me AccountInfo<'info>,
+    pub creator: &'me AccountInfo<'info>,
+}
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct SetPairStatusPermissionlessKeys {
+    pub lb_pair: Pubkey,
+    pub creator: Pubkey,
+}
+impl From<SetPairStatusPermissionlessAccounts<'_, '_>>
+for SetPairStatusPermissionlessKeys {
+    fn from(accounts: SetPairStatusPermissionlessAccounts) -> Self {
+        Self {
+            lb_pair: *accounts.lb_pair.key,
+            creator: *accounts.creator.key,
+        }
+    }
+}
+impl From<SetPairStatusPermissionlessKeys>
+for [AccountMeta; SET_PAIR_STATUS_PERMISSIONLESS_IX_ACCOUNTS_LEN] {
+    fn from(keys: SetPairStatusPermissionlessKeys) -> Self {
+        [
+            AccountMeta {
+                pubkey: keys.lb_pair,
+                is_signer: false,
+                is_writable: true,
+            },
+            AccountMeta {
+                pubkey: keys.creator,
+                is_signer: true,
+                is_writable: false,
+            },
+        ]
+    }
+}
+impl From<[Pubkey; SET_PAIR_STATUS_PERMISSIONLESS_IX_ACCOUNTS_LEN]>
+for SetPairStatusPermissionlessKeys {
+    fn from(pubkeys: [Pubkey; SET_PAIR_STATUS_PERMISSIONLESS_IX_ACCOUNTS_LEN]) -> Self {
+        Self {
+            lb_pair: pubkeys[0],
+            creator: pubkeys[1],
+        }
+    }
+}
+impl<'info> From<SetPairStatusPermissionlessAccounts<'_, 'info>>
+for [AccountInfo<'info>; SET_PAIR_STATUS_PERMISSIONLESS_IX_ACCOUNTS_LEN] {
+    fn from(accounts: SetPairStatusPermissionlessAccounts<'_, 'info>) -> Self {
+        [accounts.lb_pair.clone(), accounts.creator.clone()]
+    }
+}
+impl<
+    'me,
+    'info,
+> From<&'me [AccountInfo<'info>; SET_PAIR_STATUS_PERMISSIONLESS_IX_ACCOUNTS_LEN]>
+for SetPairStatusPermissionlessAccounts<'me, 'info> {
+    fn from(
+        arr: &'me [AccountInfo<'info>; SET_PAIR_STATUS_PERMISSIONLESS_IX_ACCOUNTS_LEN],
+    ) -> Self {
+        Self {
+            lb_pair: &arr[0],
+            creator: &arr[1],
+        }
+    }
+}
+pub const SET_PAIR_STATUS_PERMISSIONLESS_IX_DISCM: [u8; 8] = [
+    78,
+    59,
+    152,
+    211,
+    70,
+    183,
+    46,
+    208,
+];
+#[derive(BorshDeserialize, BorshSerialize, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct SetPairStatusPermissionlessIxArgs {
+    pub status: u8,
+}
+#[derive(Clone, Debug, PartialEq)]
+pub struct SetPairStatusPermissionlessIxData(pub SetPairStatusPermissionlessIxArgs);
+impl From<SetPairStatusPermissionlessIxArgs> for SetPairStatusPermissionlessIxData {
+    fn from(args: SetPairStatusPermissionlessIxArgs) -> Self {
+        Self(args)
+    }
+}
+impl SetPairStatusPermissionlessIxData {
+    pub fn deserialize(buf: &[u8]) -> std::io::Result<Self> {
+        let mut reader = buf;
+        let mut maybe_discm = [0u8; 8];
+        reader.read_exact(&mut maybe_discm)?;
+        if maybe_discm != SET_PAIR_STATUS_PERMISSIONLESS_IX_DISCM {
+            return Err(
+                std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!(
+                        "discm does not match. Expected: {:?}. Received: {:?}",
+                        SET_PAIR_STATUS_PERMISSIONLESS_IX_DISCM, maybe_discm
+                    ),
+                ),
+            );
+        }
+        Ok(Self(SetPairStatusPermissionlessIxArgs::deserialize(&mut reader)?))
+    }
+    pub fn serialize<W: std::io::Write>(&self, mut writer: W) -> std::io::Result<()> {
+        writer.write_all(&SET_PAIR_STATUS_PERMISSIONLESS_IX_DISCM)?;
+        self.0.serialize(&mut writer)
+    }
+    pub fn try_to_vec(&self) -> std::io::Result<Vec<u8>> {
+        let mut data = Vec::new();
+        self.serialize(&mut data)?;
+        Ok(data)
+    }
+}
+pub fn set_pair_status_permissionless_ix_with_program_id(
+    program_id: Pubkey,
+    keys: SetPairStatusPermissionlessKeys,
+    args: SetPairStatusPermissionlessIxArgs,
+) -> std::io::Result<Instruction> {
+    let metas: [AccountMeta; SET_PAIR_STATUS_PERMISSIONLESS_IX_ACCOUNTS_LEN] = keys
+        .into();
+    let data: SetPairStatusPermissionlessIxData = args.into();
+    Ok(Instruction {
+        program_id,
+        accounts: Vec::from(metas),
+        data: data.try_to_vec()?,
+    })
+}
+pub fn set_pair_status_permissionless_ix(
+    keys: SetPairStatusPermissionlessKeys,
+    args: SetPairStatusPermissionlessIxArgs,
+) -> std::io::Result<Instruction> {
+    set_pair_status_permissionless_ix_with_program_id(crate::ID, keys, args)
+}
+pub fn set_pair_status_permissionless_invoke_with_program_id(
+    program_id: Pubkey,
+    accounts: SetPairStatusPermissionlessAccounts<'_, '_>,
+    args: SetPairStatusPermissionlessIxArgs,
+) -> ProgramResult {
+    let keys: SetPairStatusPermissionlessKeys = accounts.into();
+    let ix = set_pair_status_permissionless_ix_with_program_id(program_id, keys, args)?;
+    invoke_instruction(&ix, accounts)
+}
+pub fn set_pair_status_permissionless_invoke(
+    accounts: SetPairStatusPermissionlessAccounts<'_, '_>,
+    args: SetPairStatusPermissionlessIxArgs,
+) -> ProgramResult {
+    set_pair_status_permissionless_invoke_with_program_id(crate::ID, accounts, args)
+}
+pub fn set_pair_status_permissionless_invoke_signed_with_program_id(
+    program_id: Pubkey,
+    accounts: SetPairStatusPermissionlessAccounts<'_, '_>,
+    args: SetPairStatusPermissionlessIxArgs,
+    seeds: &[&[&[u8]]],
+) -> ProgramResult {
+    let keys: SetPairStatusPermissionlessKeys = accounts.into();
+    let ix = set_pair_status_permissionless_ix_with_program_id(program_id, keys, args)?;
+    invoke_instruction_signed(&ix, accounts, seeds)
+}
+pub fn set_pair_status_permissionless_invoke_signed(
+    accounts: SetPairStatusPermissionlessAccounts<'_, '_>,
+    args: SetPairStatusPermissionlessIxArgs,
+    seeds: &[&[&[u8]]],
+) -> ProgramResult {
+    set_pair_status_permissionless_invoke_signed_with_program_id(
+        crate::ID,
+        accounts,
+        args,
+        seeds,
+    )
+}
+pub fn set_pair_status_permissionless_verify_account_keys(
+    accounts: SetPairStatusPermissionlessAccounts<'_, '_>,
+    keys: SetPairStatusPermissionlessKeys,
+) -> Result<(), (Pubkey, Pubkey)> {
+    for (actual, expected) in [
+        (*accounts.lb_pair.key, keys.lb_pair),
+        (*accounts.creator.key, keys.creator),
+    ] {
+        if actual != expected {
+            return Err((actual, expected));
+        }
+    }
+    Ok(())
+}
+pub fn set_pair_status_permissionless_verify_writable_privileges<'me, 'info>(
+    accounts: SetPairStatusPermissionlessAccounts<'me, 'info>,
+) -> Result<(), (&'me AccountInfo<'info>, ProgramError)> {
+    for should_be_writable in [accounts.lb_pair] {
+        if !should_be_writable.is_writable {
+            return Err((should_be_writable, ProgramError::InvalidAccountData));
+        }
+    }
+    Ok(())
+}
+pub fn set_pair_status_permissionless_verify_signer_privileges<'me, 'info>(
+    accounts: SetPairStatusPermissionlessAccounts<'me, 'info>,
+) -> Result<(), (&'me AccountInfo<'info>, ProgramError)> {
+    for should_be_signer in [accounts.creator] {
+        if !should_be_signer.is_signer {
+            return Err((should_be_signer, ProgramError::MissingRequiredSignature));
+        }
+    }
+    Ok(())
+}
+pub fn set_pair_status_permissionless_verify_account_privileges<'me, 'info>(
+    accounts: SetPairStatusPermissionlessAccounts<'me, 'info>,
+) -> Result<(), (&'me AccountInfo<'info>, ProgramError)> {
+    set_pair_status_permissionless_verify_writable_privileges(accounts)?;
+    set_pair_status_permissionless_verify_signer_privileges(accounts)?;
+    Ok(())
+}
 pub const INITIALIZE_TOKEN_BADGE_IX_ACCOUNTS_LEN: usize = 4;
 #[derive(Copy, Clone, Debug)]
 pub struct InitializeTokenBadgeAccounts<'me, 'info> {
@@ -13610,6 +13885,444 @@ pub fn initialize_token_badge_verify_account_privileges<'me, 'info>(
 ) -> Result<(), (&'me AccountInfo<'info>, ProgramError)> {
     initialize_token_badge_verify_writable_privileges(accounts)?;
     initialize_token_badge_verify_signer_privileges(accounts)?;
+    Ok(())
+}
+pub const CREATE_CLAIM_PROTOCOL_FEE_OPERATOR_IX_ACCOUNTS_LEN: usize = 4;
+#[derive(Copy, Clone, Debug)]
+pub struct CreateClaimProtocolFeeOperatorAccounts<'me, 'info> {
+    pub claim_fee_operator: &'me AccountInfo<'info>,
+    pub operator: &'me AccountInfo<'info>,
+    pub admin: &'me AccountInfo<'info>,
+    pub system_program: &'me AccountInfo<'info>,
+}
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct CreateClaimProtocolFeeOperatorKeys {
+    pub claim_fee_operator: Pubkey,
+    pub operator: Pubkey,
+    pub admin: Pubkey,
+    pub system_program: Pubkey,
+}
+impl From<CreateClaimProtocolFeeOperatorAccounts<'_, '_>>
+for CreateClaimProtocolFeeOperatorKeys {
+    fn from(accounts: CreateClaimProtocolFeeOperatorAccounts) -> Self {
+        Self {
+            claim_fee_operator: *accounts.claim_fee_operator.key,
+            operator: *accounts.operator.key,
+            admin: *accounts.admin.key,
+            system_program: *accounts.system_program.key,
+        }
+    }
+}
+impl From<CreateClaimProtocolFeeOperatorKeys>
+for [AccountMeta; CREATE_CLAIM_PROTOCOL_FEE_OPERATOR_IX_ACCOUNTS_LEN] {
+    fn from(keys: CreateClaimProtocolFeeOperatorKeys) -> Self {
+        [
+            AccountMeta {
+                pubkey: keys.claim_fee_operator,
+                is_signer: false,
+                is_writable: true,
+            },
+            AccountMeta {
+                pubkey: keys.operator,
+                is_signer: false,
+                is_writable: false,
+            },
+            AccountMeta {
+                pubkey: keys.admin,
+                is_signer: true,
+                is_writable: true,
+            },
+            AccountMeta {
+                pubkey: keys.system_program,
+                is_signer: false,
+                is_writable: false,
+            },
+        ]
+    }
+}
+impl From<[Pubkey; CREATE_CLAIM_PROTOCOL_FEE_OPERATOR_IX_ACCOUNTS_LEN]>
+for CreateClaimProtocolFeeOperatorKeys {
+    fn from(
+        pubkeys: [Pubkey; CREATE_CLAIM_PROTOCOL_FEE_OPERATOR_IX_ACCOUNTS_LEN],
+    ) -> Self {
+        Self {
+            claim_fee_operator: pubkeys[0],
+            operator: pubkeys[1],
+            admin: pubkeys[2],
+            system_program: pubkeys[3],
+        }
+    }
+}
+impl<'info> From<CreateClaimProtocolFeeOperatorAccounts<'_, 'info>>
+for [AccountInfo<'info>; CREATE_CLAIM_PROTOCOL_FEE_OPERATOR_IX_ACCOUNTS_LEN] {
+    fn from(accounts: CreateClaimProtocolFeeOperatorAccounts<'_, 'info>) -> Self {
+        [
+            accounts.claim_fee_operator.clone(),
+            accounts.operator.clone(),
+            accounts.admin.clone(),
+            accounts.system_program.clone(),
+        ]
+    }
+}
+impl<
+    'me,
+    'info,
+> From<&'me [AccountInfo<'info>; CREATE_CLAIM_PROTOCOL_FEE_OPERATOR_IX_ACCOUNTS_LEN]>
+for CreateClaimProtocolFeeOperatorAccounts<'me, 'info> {
+    fn from(
+        arr: &'me [AccountInfo<
+            'info,
+        >; CREATE_CLAIM_PROTOCOL_FEE_OPERATOR_IX_ACCOUNTS_LEN],
+    ) -> Self {
+        Self {
+            claim_fee_operator: &arr[0],
+            operator: &arr[1],
+            admin: &arr[2],
+            system_program: &arr[3],
+        }
+    }
+}
+pub const CREATE_CLAIM_PROTOCOL_FEE_OPERATOR_IX_DISCM: [u8; 8] = [
+    51,
+    19,
+    150,
+    252,
+    105,
+    157,
+    48,
+    91,
+];
+#[derive(Clone, Debug, PartialEq)]
+pub struct CreateClaimProtocolFeeOperatorIxData;
+impl CreateClaimProtocolFeeOperatorIxData {
+    pub fn deserialize(buf: &[u8]) -> std::io::Result<Self> {
+        let mut reader = buf;
+        let mut maybe_discm = [0u8; 8];
+        reader.read_exact(&mut maybe_discm)?;
+        if maybe_discm != CREATE_CLAIM_PROTOCOL_FEE_OPERATOR_IX_DISCM {
+            return Err(
+                std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!(
+                        "discm does not match. Expected: {:?}. Received: {:?}",
+                        CREATE_CLAIM_PROTOCOL_FEE_OPERATOR_IX_DISCM, maybe_discm
+                    ),
+                ),
+            );
+        }
+        Ok(Self)
+    }
+    pub fn serialize<W: std::io::Write>(&self, mut writer: W) -> std::io::Result<()> {
+        writer.write_all(&CREATE_CLAIM_PROTOCOL_FEE_OPERATOR_IX_DISCM)
+    }
+    pub fn try_to_vec(&self) -> std::io::Result<Vec<u8>> {
+        let mut data = Vec::new();
+        self.serialize(&mut data)?;
+        Ok(data)
+    }
+}
+pub fn create_claim_protocol_fee_operator_ix_with_program_id(
+    program_id: Pubkey,
+    keys: CreateClaimProtocolFeeOperatorKeys,
+) -> std::io::Result<Instruction> {
+    let metas: [AccountMeta; CREATE_CLAIM_PROTOCOL_FEE_OPERATOR_IX_ACCOUNTS_LEN] = keys
+        .into();
+    Ok(Instruction {
+        program_id,
+        accounts: Vec::from(metas),
+        data: CreateClaimProtocolFeeOperatorIxData.try_to_vec()?,
+    })
+}
+pub fn create_claim_protocol_fee_operator_ix(
+    keys: CreateClaimProtocolFeeOperatorKeys,
+) -> std::io::Result<Instruction> {
+    create_claim_protocol_fee_operator_ix_with_program_id(crate::ID, keys)
+}
+pub fn create_claim_protocol_fee_operator_invoke_with_program_id(
+    program_id: Pubkey,
+    accounts: CreateClaimProtocolFeeOperatorAccounts<'_, '_>,
+) -> ProgramResult {
+    let keys: CreateClaimProtocolFeeOperatorKeys = accounts.into();
+    let ix = create_claim_protocol_fee_operator_ix_with_program_id(program_id, keys)?;
+    invoke_instruction(&ix, accounts)
+}
+pub fn create_claim_protocol_fee_operator_invoke(
+    accounts: CreateClaimProtocolFeeOperatorAccounts<'_, '_>,
+) -> ProgramResult {
+    create_claim_protocol_fee_operator_invoke_with_program_id(crate::ID, accounts)
+}
+pub fn create_claim_protocol_fee_operator_invoke_signed_with_program_id(
+    program_id: Pubkey,
+    accounts: CreateClaimProtocolFeeOperatorAccounts<'_, '_>,
+    seeds: &[&[&[u8]]],
+) -> ProgramResult {
+    let keys: CreateClaimProtocolFeeOperatorKeys = accounts.into();
+    let ix = create_claim_protocol_fee_operator_ix_with_program_id(program_id, keys)?;
+    invoke_instruction_signed(&ix, accounts, seeds)
+}
+pub fn create_claim_protocol_fee_operator_invoke_signed(
+    accounts: CreateClaimProtocolFeeOperatorAccounts<'_, '_>,
+    seeds: &[&[&[u8]]],
+) -> ProgramResult {
+    create_claim_protocol_fee_operator_invoke_signed_with_program_id(
+        crate::ID,
+        accounts,
+        seeds,
+    )
+}
+pub fn create_claim_protocol_fee_operator_verify_account_keys(
+    accounts: CreateClaimProtocolFeeOperatorAccounts<'_, '_>,
+    keys: CreateClaimProtocolFeeOperatorKeys,
+) -> Result<(), (Pubkey, Pubkey)> {
+    for (actual, expected) in [
+        (*accounts.claim_fee_operator.key, keys.claim_fee_operator),
+        (*accounts.operator.key, keys.operator),
+        (*accounts.admin.key, keys.admin),
+        (*accounts.system_program.key, keys.system_program),
+    ] {
+        if actual != expected {
+            return Err((actual, expected));
+        }
+    }
+    Ok(())
+}
+pub fn create_claim_protocol_fee_operator_verify_writable_privileges<'me, 'info>(
+    accounts: CreateClaimProtocolFeeOperatorAccounts<'me, 'info>,
+) -> Result<(), (&'me AccountInfo<'info>, ProgramError)> {
+    for should_be_writable in [accounts.claim_fee_operator, accounts.admin] {
+        if !should_be_writable.is_writable {
+            return Err((should_be_writable, ProgramError::InvalidAccountData));
+        }
+    }
+    Ok(())
+}
+pub fn create_claim_protocol_fee_operator_verify_signer_privileges<'me, 'info>(
+    accounts: CreateClaimProtocolFeeOperatorAccounts<'me, 'info>,
+) -> Result<(), (&'me AccountInfo<'info>, ProgramError)> {
+    for should_be_signer in [accounts.admin] {
+        if !should_be_signer.is_signer {
+            return Err((should_be_signer, ProgramError::MissingRequiredSignature));
+        }
+    }
+    Ok(())
+}
+pub fn create_claim_protocol_fee_operator_verify_account_privileges<'me, 'info>(
+    accounts: CreateClaimProtocolFeeOperatorAccounts<'me, 'info>,
+) -> Result<(), (&'me AccountInfo<'info>, ProgramError)> {
+    create_claim_protocol_fee_operator_verify_writable_privileges(accounts)?;
+    create_claim_protocol_fee_operator_verify_signer_privileges(accounts)?;
+    Ok(())
+}
+pub const CLOSE_CLAIM_PROTOCOL_FEE_OPERATOR_IX_ACCOUNTS_LEN: usize = 3;
+#[derive(Copy, Clone, Debug)]
+pub struct CloseClaimProtocolFeeOperatorAccounts<'me, 'info> {
+    pub claim_fee_operator: &'me AccountInfo<'info>,
+    pub rent_receiver: &'me AccountInfo<'info>,
+    pub admin: &'me AccountInfo<'info>,
+}
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct CloseClaimProtocolFeeOperatorKeys {
+    pub claim_fee_operator: Pubkey,
+    pub rent_receiver: Pubkey,
+    pub admin: Pubkey,
+}
+impl From<CloseClaimProtocolFeeOperatorAccounts<'_, '_>>
+for CloseClaimProtocolFeeOperatorKeys {
+    fn from(accounts: CloseClaimProtocolFeeOperatorAccounts) -> Self {
+        Self {
+            claim_fee_operator: *accounts.claim_fee_operator.key,
+            rent_receiver: *accounts.rent_receiver.key,
+            admin: *accounts.admin.key,
+        }
+    }
+}
+impl From<CloseClaimProtocolFeeOperatorKeys>
+for [AccountMeta; CLOSE_CLAIM_PROTOCOL_FEE_OPERATOR_IX_ACCOUNTS_LEN] {
+    fn from(keys: CloseClaimProtocolFeeOperatorKeys) -> Self {
+        [
+            AccountMeta {
+                pubkey: keys.claim_fee_operator,
+                is_signer: false,
+                is_writable: true,
+            },
+            AccountMeta {
+                pubkey: keys.rent_receiver,
+                is_signer: false,
+                is_writable: true,
+            },
+            AccountMeta {
+                pubkey: keys.admin,
+                is_signer: true,
+                is_writable: false,
+            },
+        ]
+    }
+}
+impl From<[Pubkey; CLOSE_CLAIM_PROTOCOL_FEE_OPERATOR_IX_ACCOUNTS_LEN]>
+for CloseClaimProtocolFeeOperatorKeys {
+    fn from(
+        pubkeys: [Pubkey; CLOSE_CLAIM_PROTOCOL_FEE_OPERATOR_IX_ACCOUNTS_LEN],
+    ) -> Self {
+        Self {
+            claim_fee_operator: pubkeys[0],
+            rent_receiver: pubkeys[1],
+            admin: pubkeys[2],
+        }
+    }
+}
+impl<'info> From<CloseClaimProtocolFeeOperatorAccounts<'_, 'info>>
+for [AccountInfo<'info>; CLOSE_CLAIM_PROTOCOL_FEE_OPERATOR_IX_ACCOUNTS_LEN] {
+    fn from(accounts: CloseClaimProtocolFeeOperatorAccounts<'_, 'info>) -> Self {
+        [
+            accounts.claim_fee_operator.clone(),
+            accounts.rent_receiver.clone(),
+            accounts.admin.clone(),
+        ]
+    }
+}
+impl<
+    'me,
+    'info,
+> From<&'me [AccountInfo<'info>; CLOSE_CLAIM_PROTOCOL_FEE_OPERATOR_IX_ACCOUNTS_LEN]>
+for CloseClaimProtocolFeeOperatorAccounts<'me, 'info> {
+    fn from(
+        arr: &'me [AccountInfo<'info>; CLOSE_CLAIM_PROTOCOL_FEE_OPERATOR_IX_ACCOUNTS_LEN],
+    ) -> Self {
+        Self {
+            claim_fee_operator: &arr[0],
+            rent_receiver: &arr[1],
+            admin: &arr[2],
+        }
+    }
+}
+pub const CLOSE_CLAIM_PROTOCOL_FEE_OPERATOR_IX_DISCM: [u8; 8] = [
+    8,
+    41,
+    87,
+    35,
+    80,
+    48,
+    121,
+    26,
+];
+#[derive(Clone, Debug, PartialEq)]
+pub struct CloseClaimProtocolFeeOperatorIxData;
+impl CloseClaimProtocolFeeOperatorIxData {
+    pub fn deserialize(buf: &[u8]) -> std::io::Result<Self> {
+        let mut reader = buf;
+        let mut maybe_discm = [0u8; 8];
+        reader.read_exact(&mut maybe_discm)?;
+        if maybe_discm != CLOSE_CLAIM_PROTOCOL_FEE_OPERATOR_IX_DISCM {
+            return Err(
+                std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!(
+                        "discm does not match. Expected: {:?}. Received: {:?}",
+                        CLOSE_CLAIM_PROTOCOL_FEE_OPERATOR_IX_DISCM, maybe_discm
+                    ),
+                ),
+            );
+        }
+        Ok(Self)
+    }
+    pub fn serialize<W: std::io::Write>(&self, mut writer: W) -> std::io::Result<()> {
+        writer.write_all(&CLOSE_CLAIM_PROTOCOL_FEE_OPERATOR_IX_DISCM)
+    }
+    pub fn try_to_vec(&self) -> std::io::Result<Vec<u8>> {
+        let mut data = Vec::new();
+        self.serialize(&mut data)?;
+        Ok(data)
+    }
+}
+pub fn close_claim_protocol_fee_operator_ix_with_program_id(
+    program_id: Pubkey,
+    keys: CloseClaimProtocolFeeOperatorKeys,
+) -> std::io::Result<Instruction> {
+    let metas: [AccountMeta; CLOSE_CLAIM_PROTOCOL_FEE_OPERATOR_IX_ACCOUNTS_LEN] = keys
+        .into();
+    Ok(Instruction {
+        program_id,
+        accounts: Vec::from(metas),
+        data: CloseClaimProtocolFeeOperatorIxData.try_to_vec()?,
+    })
+}
+pub fn close_claim_protocol_fee_operator_ix(
+    keys: CloseClaimProtocolFeeOperatorKeys,
+) -> std::io::Result<Instruction> {
+    close_claim_protocol_fee_operator_ix_with_program_id(crate::ID, keys)
+}
+pub fn close_claim_protocol_fee_operator_invoke_with_program_id(
+    program_id: Pubkey,
+    accounts: CloseClaimProtocolFeeOperatorAccounts<'_, '_>,
+) -> ProgramResult {
+    let keys: CloseClaimProtocolFeeOperatorKeys = accounts.into();
+    let ix = close_claim_protocol_fee_operator_ix_with_program_id(program_id, keys)?;
+    invoke_instruction(&ix, accounts)
+}
+pub fn close_claim_protocol_fee_operator_invoke(
+    accounts: CloseClaimProtocolFeeOperatorAccounts<'_, '_>,
+) -> ProgramResult {
+    close_claim_protocol_fee_operator_invoke_with_program_id(crate::ID, accounts)
+}
+pub fn close_claim_protocol_fee_operator_invoke_signed_with_program_id(
+    program_id: Pubkey,
+    accounts: CloseClaimProtocolFeeOperatorAccounts<'_, '_>,
+    seeds: &[&[&[u8]]],
+) -> ProgramResult {
+    let keys: CloseClaimProtocolFeeOperatorKeys = accounts.into();
+    let ix = close_claim_protocol_fee_operator_ix_with_program_id(program_id, keys)?;
+    invoke_instruction_signed(&ix, accounts, seeds)
+}
+pub fn close_claim_protocol_fee_operator_invoke_signed(
+    accounts: CloseClaimProtocolFeeOperatorAccounts<'_, '_>,
+    seeds: &[&[&[u8]]],
+) -> ProgramResult {
+    close_claim_protocol_fee_operator_invoke_signed_with_program_id(
+        crate::ID,
+        accounts,
+        seeds,
+    )
+}
+pub fn close_claim_protocol_fee_operator_verify_account_keys(
+    accounts: CloseClaimProtocolFeeOperatorAccounts<'_, '_>,
+    keys: CloseClaimProtocolFeeOperatorKeys,
+) -> Result<(), (Pubkey, Pubkey)> {
+    for (actual, expected) in [
+        (*accounts.claim_fee_operator.key, keys.claim_fee_operator),
+        (*accounts.rent_receiver.key, keys.rent_receiver),
+        (*accounts.admin.key, keys.admin),
+    ] {
+        if actual != expected {
+            return Err((actual, expected));
+        }
+    }
+    Ok(())
+}
+pub fn close_claim_protocol_fee_operator_verify_writable_privileges<'me, 'info>(
+    accounts: CloseClaimProtocolFeeOperatorAccounts<'me, 'info>,
+) -> Result<(), (&'me AccountInfo<'info>, ProgramError)> {
+    for should_be_writable in [accounts.claim_fee_operator, accounts.rent_receiver] {
+        if !should_be_writable.is_writable {
+            return Err((should_be_writable, ProgramError::InvalidAccountData));
+        }
+    }
+    Ok(())
+}
+pub fn close_claim_protocol_fee_operator_verify_signer_privileges<'me, 'info>(
+    accounts: CloseClaimProtocolFeeOperatorAccounts<'me, 'info>,
+) -> Result<(), (&'me AccountInfo<'info>, ProgramError)> {
+    for should_be_signer in [accounts.admin] {
+        if !should_be_signer.is_signer {
+            return Err((should_be_signer, ProgramError::MissingRequiredSignature));
+        }
+    }
+    Ok(())
+}
+pub fn close_claim_protocol_fee_operator_verify_account_privileges<'me, 'info>(
+    accounts: CloseClaimProtocolFeeOperatorAccounts<'me, 'info>,
+) -> Result<(), (&'me AccountInfo<'info>, ProgramError)> {
+    close_claim_protocol_fee_operator_verify_writable_privileges(accounts)?;
+    close_claim_protocol_fee_operator_verify_signer_privileges(accounts)?;
     Ok(())
 }
 pub const INITIALIZE_PRESET_PARAMETER2_IX_ACCOUNTS_LEN: usize = 3;
@@ -16800,7 +17513,7 @@ pub struct Swap2Accounts<'me, 'info> {
     pub token_x_mint: &'me AccountInfo<'info>,
     pub token_y_mint: &'me AccountInfo<'info>,
     pub oracle: &'me AccountInfo<'info>,
-    pub host_fee: &'me AccountInfo<'info>,
+    pub host_fee_in: &'me AccountInfo<'info>,
     pub user: &'me AccountInfo<'info>,
     pub token_x_program: &'me AccountInfo<'info>,
     pub token_y_program: &'me AccountInfo<'info>,
@@ -16819,7 +17532,7 @@ pub struct Swap2Keys {
     pub token_x_mint: Pubkey,
     pub token_y_mint: Pubkey,
     pub oracle: Pubkey,
-    pub host_fee: Pubkey,
+    pub host_fee_in: Pubkey,
     pub user: Pubkey,
     pub token_x_program: Pubkey,
     pub token_y_program: Pubkey,
@@ -16839,7 +17552,7 @@ impl From<Swap2Accounts<'_, '_>> for Swap2Keys {
             token_x_mint: *accounts.token_x_mint.key,
             token_y_mint: *accounts.token_y_mint.key,
             oracle: *accounts.oracle.key,
-            host_fee: *accounts.host_fee.key,
+            host_fee_in: *accounts.host_fee_in.key,
             user: *accounts.user.key,
             token_x_program: *accounts.token_x_program.key,
             token_y_program: *accounts.token_y_program.key,
@@ -16898,7 +17611,7 @@ impl From<Swap2Keys> for [AccountMeta; SWAP2_IX_ACCOUNTS_LEN] {
                 is_writable: true,
             },
             AccountMeta {
-                pubkey: keys.host_fee,
+                pubkey: keys.host_fee_in,
                 is_signer: false,
                 is_writable: true,
             },
@@ -16947,7 +17660,7 @@ impl From<[Pubkey; SWAP2_IX_ACCOUNTS_LEN]> for Swap2Keys {
             token_x_mint: pubkeys[6],
             token_y_mint: pubkeys[7],
             oracle: pubkeys[8],
-            host_fee: pubkeys[9],
+            host_fee_in: pubkeys[9],
             user: pubkeys[10],
             token_x_program: pubkeys[11],
             token_y_program: pubkeys[12],
@@ -16970,7 +17683,7 @@ for [AccountInfo<'info>; SWAP2_IX_ACCOUNTS_LEN] {
             accounts.token_x_mint.clone(),
             accounts.token_y_mint.clone(),
             accounts.oracle.clone(),
-            accounts.host_fee.clone(),
+            accounts.host_fee_in.clone(),
             accounts.user.clone(),
             accounts.token_x_program.clone(),
             accounts.token_y_program.clone(),
@@ -16993,7 +17706,7 @@ for Swap2Accounts<'me, 'info> {
             token_x_mint: &arr[6],
             token_y_mint: &arr[7],
             oracle: &arr[8],
-            host_fee: &arr[9],
+            host_fee_in: &arr[9],
             user: &arr[10],
             token_x_program: &arr[11],
             token_y_program: &arr[12],
@@ -17108,7 +17821,7 @@ pub fn swap2_verify_account_keys(
         (*accounts.token_x_mint.key, keys.token_x_mint),
         (*accounts.token_y_mint.key, keys.token_y_mint),
         (*accounts.oracle.key, keys.oracle),
-        (*accounts.host_fee.key, keys.host_fee),
+        (*accounts.host_fee_in.key, keys.host_fee_in),
         (*accounts.user.key, keys.user),
         (*accounts.token_x_program.key, keys.token_x_program),
         (*accounts.token_y_program.key, keys.token_y_program),
@@ -17132,7 +17845,7 @@ pub fn swap2_verify_writable_privileges<'me, 'info>(
         accounts.user_token_in,
         accounts.user_token_out,
         accounts.oracle,
-        accounts.host_fee,
+        accounts.host_fee_in,
     ] {
         if !should_be_writable.is_writable {
             return Err((should_be_writable, ProgramError::InvalidAccountData));
@@ -17169,7 +17882,7 @@ pub struct SwapWithPriceImpact2Accounts<'me, 'info> {
     pub token_x_mint: &'me AccountInfo<'info>,
     pub token_y_mint: &'me AccountInfo<'info>,
     pub oracle: &'me AccountInfo<'info>,
-    pub host_fee: &'me AccountInfo<'info>,
+    pub host_fee_in: &'me AccountInfo<'info>,
     pub user: &'me AccountInfo<'info>,
     pub token_x_program: &'me AccountInfo<'info>,
     pub token_y_program: &'me AccountInfo<'info>,
@@ -17188,7 +17901,7 @@ pub struct SwapWithPriceImpact2Keys {
     pub token_x_mint: Pubkey,
     pub token_y_mint: Pubkey,
     pub oracle: Pubkey,
-    pub host_fee: Pubkey,
+    pub host_fee_in: Pubkey,
     pub user: Pubkey,
     pub token_x_program: Pubkey,
     pub token_y_program: Pubkey,
@@ -17208,7 +17921,7 @@ impl From<SwapWithPriceImpact2Accounts<'_, '_>> for SwapWithPriceImpact2Keys {
             token_x_mint: *accounts.token_x_mint.key,
             token_y_mint: *accounts.token_y_mint.key,
             oracle: *accounts.oracle.key,
-            host_fee: *accounts.host_fee.key,
+            host_fee_in: *accounts.host_fee_in.key,
             user: *accounts.user.key,
             token_x_program: *accounts.token_x_program.key,
             token_y_program: *accounts.token_y_program.key,
@@ -17268,7 +17981,7 @@ for [AccountMeta; SWAP_WITH_PRICE_IMPACT2_IX_ACCOUNTS_LEN] {
                 is_writable: true,
             },
             AccountMeta {
-                pubkey: keys.host_fee,
+                pubkey: keys.host_fee_in,
                 is_signer: false,
                 is_writable: true,
             },
@@ -17318,7 +18031,7 @@ for SwapWithPriceImpact2Keys {
             token_x_mint: pubkeys[6],
             token_y_mint: pubkeys[7],
             oracle: pubkeys[8],
-            host_fee: pubkeys[9],
+            host_fee_in: pubkeys[9],
             user: pubkeys[10],
             token_x_program: pubkeys[11],
             token_y_program: pubkeys[12],
@@ -17341,7 +18054,7 @@ for [AccountInfo<'info>; SWAP_WITH_PRICE_IMPACT2_IX_ACCOUNTS_LEN] {
             accounts.token_x_mint.clone(),
             accounts.token_y_mint.clone(),
             accounts.oracle.clone(),
-            accounts.host_fee.clone(),
+            accounts.host_fee_in.clone(),
             accounts.user.clone(),
             accounts.token_x_program.clone(),
             accounts.token_y_program.clone(),
@@ -17366,7 +18079,7 @@ for SwapWithPriceImpact2Accounts<'me, 'info> {
             token_x_mint: &arr[6],
             token_y_mint: &arr[7],
             oracle: &arr[8],
-            host_fee: &arr[9],
+            host_fee_in: &arr[9],
             user: &arr[10],
             token_x_program: &arr[11],
             token_y_program: &arr[12],
@@ -17499,7 +18212,7 @@ pub fn swap_with_price_impact2_verify_account_keys(
         (*accounts.token_x_mint.key, keys.token_x_mint),
         (*accounts.token_y_mint.key, keys.token_y_mint),
         (*accounts.oracle.key, keys.oracle),
-        (*accounts.host_fee.key, keys.host_fee),
+        (*accounts.host_fee_in.key, keys.host_fee_in),
         (*accounts.user.key, keys.user),
         (*accounts.token_x_program.key, keys.token_x_program),
         (*accounts.token_y_program.key, keys.token_y_program),
@@ -17523,7 +18236,7 @@ pub fn swap_with_price_impact2_verify_writable_privileges<'me, 'info>(
         accounts.user_token_in,
         accounts.user_token_out,
         accounts.oracle,
-        accounts.host_fee,
+        accounts.host_fee_in,
     ] {
         if !should_be_writable.is_writable {
             return Err((should_be_writable, ProgramError::InvalidAccountData));

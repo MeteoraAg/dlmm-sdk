@@ -138,36 +138,40 @@ pub enum LbClmmError {
     AlreadyPassPreActivationSwapPoint = 6065,
     #[error("Invalid status")]
     InvalidStatus = 6066,
+    #[error("Exceed max oracle length")]
+    ExceededMaxOracleLength = 6067,
+    #[error("Invalid minimum liquidity")]
+    InvalidMinimumLiquidity = 6068,
     #[error("Not support token_2022 mint extension")]
-    NotSupportMint = 6067,
+    NotSupportMint = 6069,
     #[error("Unsupported mint extension")]
-    UnsupportedMintExtension = 6068,
+    UnsupportedMintExtension = 6070,
     #[error("Unsupported native mint token2022")]
-    UnsupportNativeMintToken2022 = 6069,
+    UnsupportNativeMintToken2022 = 6071,
     #[error("Unmatch token mint")]
-    UnmatchTokenMint = 6070,
+    UnmatchTokenMint = 6072,
     #[error("Unsupported token mint")]
-    UnsupportedTokenMint = 6071,
+    UnsupportedTokenMint = 6073,
     #[error("Insufficient remaining accounts")]
-    InsufficientRemainingAccounts = 6072,
+    InsufficientRemainingAccounts = 6074,
     #[error("Invalid remaining account slice")]
-    InvalidRemainingAccountSlice = 6073,
+    InvalidRemainingAccountSlice = 6075,
     #[error("Duplicated remaining account types")]
-    DuplicatedRemainingAccountTypes = 6074,
+    DuplicatedRemainingAccountTypes = 6076,
     #[error("Missing remaining account for transfer hook")]
-    MissingRemainingAccountForTransferHook = 6075,
+    MissingRemainingAccountForTransferHook = 6077,
     #[error(
         "Remaining account was passed for transfer hook but there's no hook program"
     )]
-    NoTransferHookProgram = 6076,
+    NoTransferHookProgram = 6078,
     #[error("Zero funded amount")]
-    ZeroFundedAmount = 6077,
+    ZeroFundedAmount = 6079,
     #[error("Invalid side")]
-    InvalidSide = 6078,
+    InvalidSide = 6080,
     #[error("Invalid resize length")]
-    InvalidResizeLength = 6079,
+    InvalidResizeLength = 6081,
     #[error("Not support at the moment")]
-    NotSupportAtTheMoment = 6080,
+    NotSupportAtTheMoment = 6082,
 }
 impl From<LbClmmError> for ProgramError {
     fn from(e: LbClmmError) -> Self {
