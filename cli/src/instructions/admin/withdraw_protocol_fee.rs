@@ -41,6 +41,8 @@ pub async fn execute_withdraw_protocol_fee<C: Deref<Target = impl Signer> + Clon
         &token_y_program,
     );
 
+    let (claim_fee_operator, _) = derive_claim_protocol_fee_operator_pda(program.payer());
+
     let main_accounts: [AccountMeta; WITHDRAW_PROTOCOL_FEE_IX_ACCOUNTS_LEN] =
         WithdrawProtocolFeeKeys {
             lb_pair,
@@ -52,6 +54,8 @@ pub async fn execute_withdraw_protocol_fee<C: Deref<Target = impl Signer> + Clon
             token_y_program,
             receiver_token_x,
             receiver_token_y,
+            claim_fee_operator,
+            operator: program.payer(),
             memo_program: spl_memo::ID,
         }
         .into();

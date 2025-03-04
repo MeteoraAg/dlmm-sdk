@@ -160,6 +160,11 @@ export type LbClmm = {
       "name": "POSITION",
       "type": "bytes",
       "value": "[112, 111, 115, 105, 116, 105, 111, 110]"
+    },
+    {
+      "name": "CLAIM_PROTOCOL_FEE_OPERATOR",
+      "type": "bytes",
+      "value": "[99, 102, 95, 111, 112, 101, 114, 97, 116, 111, 114]"
     }
   ],
   "instructions": [
@@ -1576,6 +1581,19 @@ export type LbClmm = {
           "isSigner": false
         },
         {
+          "name": "claimFeeOperator",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "operator",
+          "isMut": false,
+          "isSigner": true,
+          "docs": [
+            "operator"
+          ]
+        },
+        {
           "name": "tokenXProgram",
           "isMut": false,
           "isSigner": false
@@ -2743,6 +2761,27 @@ export type LbClmm = {
       ]
     },
     {
+      "name": "setPairStatusPermissionless",
+      "accounts": [
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "creator",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "status",
+          "type": "u8"
+        }
+      ]
+    },
+    {
       "name": "initializeTokenBadge",
       "accounts": [
         {
@@ -2764,6 +2803,53 @@ export type LbClmm = {
           "name": "systemProgram",
           "isMut": false,
           "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "createClaimProtocolFeeOperator",
+      "accounts": [
+        {
+          "name": "claimFeeOperator",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "operator",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "admin",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "closeClaimProtocolFeeOperator",
+      "accounts": [
+        {
+          "name": "claimFeeOperator",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "rentReceiver",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "admin",
+          "isMut": false,
+          "isSigner": true
         }
       ],
       "args": []
@@ -3942,6 +4028,36 @@ export type LbClmm = {
                   "defined": "Bin"
                 },
                 70
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "claimFeeOperator",
+      "docs": [
+        "Parameter that set by the protocol"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "operator",
+            "docs": [
+              "operator"
+            ],
+            "type": "publicKey"
+          },
+          {
+            "name": "padding",
+            "docs": [
+              "Reserve"
+            ],
+            "type": {
+              "array": [
+                "u8",
+                128
               ]
             }
           }
@@ -5331,6 +5447,13 @@ export type LbClmm = {
             }
           },
           {
+            "name": "creatorPoolOnOffControl",
+            "docs": [
+              "Pool creator have permission to enable/disable pool with restricted program validation. Only applicable for customizable permissionless pool."
+            ],
+            "type": "bool"
+          },
+          {
             "name": "baseFeePowerFactor",
             "docs": [
               "Base fee power factor"
@@ -5345,7 +5468,7 @@ export type LbClmm = {
             "type": {
               "array": [
                 "u8",
-                63
+                62
               ]
             }
           }
@@ -6961,71 +7084,81 @@ export type LbClmm = {
     },
     {
       "code": 6067,
+      "name": "ExceededMaxOracleLength",
+      "msg": "Exceed max oracle length"
+    },
+    {
+      "code": 6068,
+      "name": "InvalidMinimumLiquidity",
+      "msg": "Invalid minimum liquidity"
+    },
+    {
+      "code": 6069,
       "name": "NotSupportMint",
       "msg": "Not support token_2022 mint extension"
     },
     {
-      "code": 6068,
+      "code": 6070,
       "name": "UnsupportedMintExtension",
       "msg": "Unsupported mint extension"
     },
     {
-      "code": 6069,
+      "code": 6071,
       "name": "UnsupportNativeMintToken2022",
       "msg": "Unsupported native mint token2022"
     },
     {
-      "code": 6070,
+      "code": 6072,
       "name": "UnmatchTokenMint",
       "msg": "Unmatch token mint"
     },
     {
-      "code": 6071,
+      "code": 6073,
       "name": "UnsupportedTokenMint",
       "msg": "Unsupported token mint"
     },
     {
-      "code": 6072,
+      "code": 6074,
       "name": "InsufficientRemainingAccounts",
       "msg": "Insufficient remaining accounts"
     },
     {
-      "code": 6073,
+      "code": 6075,
       "name": "InvalidRemainingAccountSlice",
       "msg": "Invalid remaining account slice"
     },
     {
-      "code": 6074,
+      "code": 6076,
       "name": "DuplicatedRemainingAccountTypes",
       "msg": "Duplicated remaining account types"
     },
     {
-      "code": 6075,
+      "code": 6077,
       "name": "MissingRemainingAccountForTransferHook",
       "msg": "Missing remaining account for transfer hook"
     },
     {
-      "code": 6076,
+      "code": 6078,
       "name": "NoTransferHookProgram",
       "msg": "Remaining account was passed for transfer hook but there's no hook program"
     },
     {
-      "code": 6077,
+      "code": 6079,
       "name": "ZeroFundedAmount",
       "msg": "Zero funded amount"
     },
     {
-      "code": 6078,
+      "code": 6080,
       "name": "InvalidSide",
       "msg": "Invalid side"
     },
     {
-      "code": 6079,
+      "code": 6081,
       "name": "InvalidResizeLength",
       "msg": "Invalid resize length"
     },
     {
-      "code": 6080,
+      "code": 6082,
       "name": "NotSupportAtTheMoment",
       "msg": "Not support at the moment"
     }
@@ -7194,6 +7327,11 @@ export const IDL: LbClmm = {
       "name": "POSITION",
       "type": "bytes",
       "value": "[112, 111, 115, 105, 116, 105, 111, 110]"
+    },
+    {
+      "name": "CLAIM_PROTOCOL_FEE_OPERATOR",
+      "type": "bytes",
+      "value": "[99, 102, 95, 111, 112, 101, 114, 97, 116, 111, 114]"
     }
   ],
   "instructions": [
@@ -8610,6 +8748,19 @@ export const IDL: LbClmm = {
           "isSigner": false
         },
         {
+          "name": "claimFeeOperator",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "operator",
+          "isMut": false,
+          "isSigner": true,
+          "docs": [
+            "operator"
+          ]
+        },
+        {
           "name": "tokenXProgram",
           "isMut": false,
           "isSigner": false
@@ -9777,6 +9928,27 @@ export const IDL: LbClmm = {
       ]
     },
     {
+      "name": "setPairStatusPermissionless",
+      "accounts": [
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "creator",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "status",
+          "type": "u8"
+        }
+      ]
+    },
+    {
       "name": "initializeTokenBadge",
       "accounts": [
         {
@@ -9798,6 +9970,53 @@ export const IDL: LbClmm = {
           "name": "systemProgram",
           "isMut": false,
           "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "createClaimProtocolFeeOperator",
+      "accounts": [
+        {
+          "name": "claimFeeOperator",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "operator",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "admin",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "closeClaimProtocolFeeOperator",
+      "accounts": [
+        {
+          "name": "claimFeeOperator",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "rentReceiver",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "admin",
+          "isMut": false,
+          "isSigner": true
         }
       ],
       "args": []
@@ -10976,6 +11195,36 @@ export const IDL: LbClmm = {
                   "defined": "Bin"
                 },
                 70
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "claimFeeOperator",
+      "docs": [
+        "Parameter that set by the protocol"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "operator",
+            "docs": [
+              "operator"
+            ],
+            "type": "publicKey"
+          },
+          {
+            "name": "padding",
+            "docs": [
+              "Reserve"
+            ],
+            "type": {
+              "array": [
+                "u8",
+                128
               ]
             }
           }
@@ -12365,6 +12614,13 @@ export const IDL: LbClmm = {
             }
           },
           {
+            "name": "creatorPoolOnOffControl",
+            "docs": [
+              "Pool creator have permission to enable/disable pool with restricted program validation. Only applicable for customizable permissionless pool."
+            ],
+            "type": "bool"
+          },
+          {
             "name": "baseFeePowerFactor",
             "docs": [
               "Base fee power factor"
@@ -12379,7 +12635,7 @@ export const IDL: LbClmm = {
             "type": {
               "array": [
                 "u8",
-                63
+                62
               ]
             }
           }
@@ -13995,71 +14251,81 @@ export const IDL: LbClmm = {
     },
     {
       "code": 6067,
+      "name": "ExceededMaxOracleLength",
+      "msg": "Exceed max oracle length"
+    },
+    {
+      "code": 6068,
+      "name": "InvalidMinimumLiquidity",
+      "msg": "Invalid minimum liquidity"
+    },
+    {
+      "code": 6069,
       "name": "NotSupportMint",
       "msg": "Not support token_2022 mint extension"
     },
     {
-      "code": 6068,
+      "code": 6070,
       "name": "UnsupportedMintExtension",
       "msg": "Unsupported mint extension"
     },
     {
-      "code": 6069,
+      "code": 6071,
       "name": "UnsupportNativeMintToken2022",
       "msg": "Unsupported native mint token2022"
     },
     {
-      "code": 6070,
+      "code": 6072,
       "name": "UnmatchTokenMint",
       "msg": "Unmatch token mint"
     },
     {
-      "code": 6071,
+      "code": 6073,
       "name": "UnsupportedTokenMint",
       "msg": "Unsupported token mint"
     },
     {
-      "code": 6072,
+      "code": 6074,
       "name": "InsufficientRemainingAccounts",
       "msg": "Insufficient remaining accounts"
     },
     {
-      "code": 6073,
+      "code": 6075,
       "name": "InvalidRemainingAccountSlice",
       "msg": "Invalid remaining account slice"
     },
     {
-      "code": 6074,
+      "code": 6076,
       "name": "DuplicatedRemainingAccountTypes",
       "msg": "Duplicated remaining account types"
     },
     {
-      "code": 6075,
+      "code": 6077,
       "name": "MissingRemainingAccountForTransferHook",
       "msg": "Missing remaining account for transfer hook"
     },
     {
-      "code": 6076,
+      "code": 6078,
       "name": "NoTransferHookProgram",
       "msg": "Remaining account was passed for transfer hook but there's no hook program"
     },
     {
-      "code": 6077,
+      "code": 6079,
       "name": "ZeroFundedAmount",
       "msg": "Zero funded amount"
     },
     {
-      "code": 6078,
+      "code": 6080,
       "name": "InvalidSide",
       "msg": "Invalid side"
     },
     {
-      "code": 6079,
+      "code": 6081,
       "name": "InvalidResizeLength",
       "msg": "Invalid resize length"
     },
     {
-      "code": 6080,
+      "code": 6082,
       "name": "NotSupportAtTheMoment",
       "msg": "Not support at the moment"
     }
