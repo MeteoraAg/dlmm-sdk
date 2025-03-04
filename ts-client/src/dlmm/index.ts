@@ -35,6 +35,7 @@ import {
   MAX_BIN_PER_POSITION,
   MAX_BIN_PER_TX,
   MAX_CLAIM_ALL_ALLOWED,
+  MAX_EXTRA_BIN_ARRAYS,
   MAX_FEE_RATE,
   POSITION_FEE,
   PRECISION,
@@ -1179,9 +1180,10 @@ export class DLMM {
     ]);
 
     // filter positions has lock_release_point > currentTimestamp + lockDurationSecs
-    const clockAccInfo = await this.program.provider.connection.getAccountInfo(
-      SYSVAR_CLOCK_PUBKEY
-    );
+    const clockAccInfo =
+      await this.program.provider.connection.getAccountInfo(
+        SYSVAR_CLOCK_PUBKEY
+      );
     const clock = ClockLayout.decode(clockAccInfo.data) as Clock;
 
     const currentPoint =
@@ -1358,7 +1360,9 @@ export class DLMM {
       activationType,
       activationPoint: activationPoint ? activationPoint : null,
       hasAlphaVault,
-      creatorPoolOnOffControl: creatorPoolOnOffControl ? creatorPoolOnOffControl : false,
+      creatorPoolOnOffControl: creatorPoolOnOffControl
+        ? creatorPoolOnOffControl
+        : false,
       baseFeePowerFactor: baseFeePowerFactor.toNumber(),
       padding: Array(63).fill(0),
     };
@@ -1425,6 +1429,7 @@ export class DLMM {
     hasAlphaVault: boolean,
     creatorKey: PublicKey,
     activationPoint?: BN,
+    creatorPoolOnOffControl?: boolean,
     opt?: Opt
   ): Promise<Transaction> {
     const provider = new AnchorProvider(
@@ -1471,8 +1476,11 @@ export class DLMM {
       activationType,
       activationPoint: activationPoint ? activationPoint : null,
       hasAlphaVault,
-      padding: Array(64).fill(0),
       baseFeePowerFactor: 0,
+      creatorPoolOnOffControl: creatorPoolOnOffControl
+        ? creatorPoolOnOffControl
+        : false,
+      padding: Array(63).fill(0),
     };
 
     const userTokenX = getAssociatedTokenAddressSync(tokenX, creatorKey);
@@ -1631,9 +1639,8 @@ export class DLMM {
       tokenBadgeY,
     ]);
 
-    const presetParameterState = await program.account.presetParameter2.fetch(
-      presetParameter
-    );
+    const presetParameterState =
+      await program.account.presetParameter2.fetch(presetParameter);
 
     const existsPool = await this.getPairPubkeyIfExists(
       connection,
@@ -1862,10 +1869,11 @@ export class DLMM {
     const tx = await this.program.methods.setPairStatusPermissionless(status)
       .accounts({
         lbPair: this.pubkey,
-        creator
-      }).transaction();
+        creator,
+      })
+      .transaction();
 
-    const { blockhash, lastValidBlockHeight } = 
+    const { blockhash, lastValidBlockHeight } =
       await this.program.provider.connection.getLatestBlockhash("confirmed");
 
     return new Transaction({
@@ -3144,9 +3152,8 @@ export class DLMM {
       ? Math.ceil(slippage / (this.lbPair.binStep / 100))
       : MAX_ACTIVE_BIN_SLIPPAGE;
 
-    const positionAccount = await this.program.account.positionV2.fetch(
-      positionPubKey
-    );
+    const positionAccount =
+      await this.program.account.positionV2.fetch(positionPubKey);
     const { lowerBinId, upperBinId, binIds } =
       this.processXYAmountDistribution(xYAmountDistribution);
 
@@ -3770,7 +3777,10 @@ export class DLMM {
     const currentTimestamp = Date.now() / 1000;
     let outAmountLeft = outAmount;
     if (maxExtraBinArrays < 0 || maxExtraBinArrays > MAX_EXTRA_BIN_ARRAYS) {
-      throw new DlmmSdkError("INVALID_MAX_EXTRA_BIN_ARRAYS", `maxExtraBinArrays must be a value between 0 and ${MAX_EXTRA_BIN_ARRAYS}`);
+      throw new DlmmSdkError(
+        "INVALID_MAX_EXTRA_BIN_ARRAYS",
+        `maxExtraBinArrays must be a value between 0 and ${MAX_EXTRA_BIN_ARRAYS}`
+      );
     }
 
     let vParameterClone = Object.assign({}, this.lbPair.vParameters);
@@ -3885,7 +3895,9 @@ export class DLMM {
           break;
         }
 
-        const binArrayAccountToSwapExisted = binArraysForSwap.has(binArrayAccountToSwap.publicKey);
+        const binArrayAccountToSwapExisted = binArraysForSwap.has(
+          binArrayAccountToSwap.publicKey
+        );
 
         if (binArrayAccountToSwapExisted) {
           if (swapForY) {
@@ -3895,7 +3907,9 @@ export class DLMM {
           }
         } else {
           extraBinArrays.push(binArrayAccountToSwap.publicKey);
-          const [lowerBinId, upperBinId] = getBinArrayLowerUpperBinId(binArrayAccountToSwap.account.index);
+          const [lowerBinId, upperBinId] = getBinArrayLowerUpperBinId(
+            binArrayAccountToSwap.account.index
+          );
 
           if (swapForY) {
             activeId = lowerBinId.sub(new BN(1));
@@ -3906,9 +3920,9 @@ export class DLMM {
       }
 
       // save to binArraysForSwap result
-      extraBinArrays.forEach(binArrayPubkey => {
+      extraBinArrays.forEach((binArrayPubkey) => {
         binArraysForSwap.set(binArrayPubkey, true);
-      })
+      });
     }
 
     const binArraysPubkey = Array.from(binArraysForSwap.keys());
@@ -3953,9 +3967,11 @@ export class DLMM {
   ): SwapQuote {
     const currentTimestamp = Date.now() / 1000;
 
-    let inAmountLeft = inAmount;
     if (maxExtraBinArrays < 0 || maxExtraBinArrays > MAX_EXTRA_BIN_ARRAYS) {
-      throw new DlmmSdkError("INVALID_MAX_EXTRA_BIN_ARRAYS", `maxExtraBinArrays must be a value between 0 and ${MAX_EXTRA_BIN_ARRAYS}`);
+      throw new DlmmSdkError(
+        "INVALID_MAX_EXTRA_BIN_ARRAYS",
+        `maxExtraBinArrays must be a value between 0 and ${MAX_EXTRA_BIN_ARRAYS}`
+      );
     }
 
     const [inMint, outMint] = swapForY
@@ -4116,7 +4132,9 @@ export class DLMM {
           break;
         }
 
-        const binArrayAccountToSwapExisted = binArraysForSwap.has(binArrayAccountToSwap.publicKey);
+        const binArrayAccountToSwapExisted = binArraysForSwap.has(
+          binArrayAccountToSwap.publicKey
+        );
 
         if (binArrayAccountToSwapExisted) {
           if (swapForY) {
@@ -4126,7 +4144,9 @@ export class DLMM {
           }
         } else {
           extraBinArrays.push(binArrayAccountToSwap.publicKey);
-          const [lowerBinId, upperBinId] = getBinArrayLowerUpperBinId(binArrayAccountToSwap.account.index);
+          const [lowerBinId, upperBinId] = getBinArrayLowerUpperBinId(
+            binArrayAccountToSwap.account.index
+          );
 
           if (swapForY) {
             activeId = lowerBinId.sub(new BN(1));
@@ -4137,9 +4157,9 @@ export class DLMM {
       }
 
       // save to binArraysForSwap result
-      extraBinArrays.forEach(binArrayPubkey => {
+      extraBinArrays.forEach((binArrayPubkey) => {
         binArraysForSwap.set(binArrayPubkey, true);
-      })
+      });
     }
 
     const binArraysPubkey = Array.from(binArraysForSwap.keys());
