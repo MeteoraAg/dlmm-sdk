@@ -3,7 +3,8 @@
 ## Using the SDK
 1. Install the SDK and other necessary libraries
 ```bash
-pip install dlmm solders
+pip install solders
+pip install git+https://github.com/MeteoraAg/dlmm-sdk.git@main#subdirectory=python-client/dlmm
 ```
 2. Initialize DLMM instance
 ```python
