@@ -1,4 +1,4 @@
-name: Lb Clmm Cli
+name: DLMM Market Making Example
 
 on:
   pull_request:
@@ -32,9 +32,6 @@ jobs:
     if: needs.market_making_changed_files.outputs.market_making == 'true'
     steps:
       - uses: actions/checkout@v2
-      - uses: ./.github/actions/setup-solana
-      - uses: ./.github/actions/setup-dep
-      - uses: ./.github/actions/setup-anchor
       # Install rust + toolchain
       - uses: actions-rs/toolchain@v1
         with:

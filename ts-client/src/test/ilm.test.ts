@@ -188,7 +188,12 @@ describe("ILM test", () => {
           curvature,
           minPrice,
           maxPrice,
-          baseKeypair.publicKey
+          baseKeypair.publicKey,
+          keypair.publicKey,
+          keypair.publicKey,
+          keypair.publicKey,
+          new BN(0),
+          false
         );
 
       // Initialize all bin array and position, transaction order can be in sequence or not
@@ -447,7 +452,12 @@ describe("ILM test", () => {
           curvature,
           minPrice,
           maxPrice,
-          baseKeypair.publicKey
+          baseKeypair.publicKey,
+          keypair.publicKey,
+          keypair.publicKey,
+          keypair.publicKey,
+          new BN(0),
+          false
         );
 
       // Initialize all bin array and position, transaction order can be in sequence or not
