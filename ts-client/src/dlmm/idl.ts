@@ -3436,6 +3436,76 @@ export type LbClmm = {
       ]
     },
     {
+      "name": "addLiquidityOneSidePrecise2",
+      "accounts": [
+        {
+          "name": "position",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayBitmapExtension",
+          "isMut": true,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
+          "name": "userToken",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "reserve",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "sender",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "liquidityParameter",
+          "type": {
+            "defined": "AddLiquiditySingleSidePreciseParameter2"
+          }
+        },
+        {
+          "name": "remainingAccountsInfo",
+          "type": {
+            "defined": "RemainingAccountsInfo"
+          }
+        }
+      ]
+    },
+    {
       "name": "removeLiquidity2",
       "accounts": [
         {
@@ -5503,6 +5573,46 @@ export type LbClmm = {
           {
             "name": "protocolShare",
             "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "AddLiquiditySingleSidePreciseParameter2",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "bins",
+            "type": {
+              "vec": {
+                "defined": "CompressedBinDepositAmount"
+              }
+            }
+          },
+          {
+            "name": "decompressMultiplier",
+            "type": "u64"
+          },
+          {
+            "name": "maxAmount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "CompressedBinDepositAmount2",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "binId",
+            "type": "i32"
+          },
+          {
+            "name": "amount",
+            "type": "u32"
           }
         ]
       }
@@ -10603,6 +10713,76 @@ export const IDL: LbClmm = {
       ]
     },
     {
+      "name": "addLiquidityOneSidePrecise2",
+      "accounts": [
+        {
+          "name": "position",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayBitmapExtension",
+          "isMut": true,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
+          "name": "userToken",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "reserve",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "sender",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "liquidityParameter",
+          "type": {
+            "defined": "AddLiquiditySingleSidePreciseParameter2"
+          }
+        },
+        {
+          "name": "remainingAccountsInfo",
+          "type": {
+            "defined": "RemainingAccountsInfo"
+          }
+        }
+      ]
+    },
+    {
       "name": "removeLiquidity2",
       "accounts": [
         {
@@ -12670,6 +12850,46 @@ export const IDL: LbClmm = {
           {
             "name": "protocolShare",
             "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "AddLiquiditySingleSidePreciseParameter2",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "bins",
+            "type": {
+              "vec": {
+                "defined": "CompressedBinDepositAmount"
+              }
+            }
+          },
+          {
+            "name": "decompressMultiplier",
+            "type": "u64"
+          },
+          {
+            "name": "maxAmount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "CompressedBinDepositAmount2",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "binId",
+            "type": "i32"
+          },
+          {
+            "name": "amount",
+            "type": "u32"
           }
         ]
       }

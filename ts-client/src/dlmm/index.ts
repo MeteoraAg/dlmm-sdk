@@ -5,12 +5,17 @@ import {
   NATIVE_MINT,
   TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
+  createAssociatedTokenAccountIdempotentInstruction,
+  createAssociatedTokenAccountIdempotentInstructionWithDerivation,
+  createTransferCheckedInstruction,
   getAssociatedTokenAddressSync,
+  unpackAccount,
   unpackMint,
 } from "@solana/spl-token";
 import {
   AccountMeta,
   Cluster,
+  ComputeBudgetProgram,
   Connection,
   PublicKey,
   SYSVAR_CLOCK_PUBKEY,
@@ -36,6 +41,7 @@ import {
   POSITION_FEE,
   PRECISION,
   SCALE_OFFSET,
+  U64_MAX,
 } from "./constants";
 import { DlmmSdkError } from "./error";
 import {
@@ -83,7 +89,15 @@ import {
   presetParameter2BinStepFilter,
 } from "./helpers/accountFilters";
 import { DEFAULT_ADD_LIQUIDITY_CU } from "./helpers/computeUnit";
-import { Rounding, computeBaseFactorFromFeeBps, mulShr } from "./helpers/math";
+import {
+  Rounding,
+  compressBinAmount,
+  computeBaseFactorFromFeeBps,
+  distributeAmountToCompressedBinsByRatio,
+  generateAmountForBinRange,
+  getPositionCount,
+  mulShr,
+} from "./helpers/math";
 import {
   IPosition,
   PositionV2Wrapper,
@@ -141,8 +155,14 @@ import {
   TokenReserve,
   sParameters,
   vParameters,
+  SeedLiquidityResponse,
+  PositionV2,
+  CompressedBinDepositAmounts,
+  BinLiquidityDistribution,
+  LiquidityParameter,
 } from "./types";
 import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
+import { u64 } from "@coral-xyz/borsh";
 
 type Opt = {
   cluster?: Cluster | "localhost";
@@ -4782,6 +4802,717 @@ export class DLMM {
         return tx;
       })
     );
+  }
+
+  /**
+   * The `seedLiquidity` function create multiple grouped instructions. The grouped instructions will be [init ata + send lamport for token provde], [initialize bin array + initialize position instructions] and [deposit instruction]. Each grouped instructions can be executed parallelly.
+   * @param
+   *    - `owner`: The public key of the positions owner.
+   *    - `seedAmount`: Lamport amount to be seeded to the pool.
+   *    - `minPrice`: Start price in UI format
+   *    - `maxPrice`: End price in UI format
+   *    - `base`: Base
+   *    - `txPayer`: Account rental fee payer
+   *    - `feeOwner`: Fee owner key. Default to position owner
+   *    - `operator`: Operator key
+   *    - `lockReleasePoint`: Timelock. Point (slot/timestamp) the position can withdraw the liquidity,
+   *    - `shouldSeedPositionOwner` (optional): Whether to send 1 lamport amount of token X to the position owner to prove ownership.
+   * @returns {Promise<SeedLiquidityResponse>}
+   */
+  public async seedLiquidity(
+    owner: PublicKey,
+    seedAmount: BN,
+    curvature: number,
+    minPrice: number,
+    maxPrice: number,
+    base: PublicKey,
+    payer: PublicKey,
+    feeOwner: PublicKey,
+    operator: PublicKey,
+    lockReleasePoint: BN,
+    shouldSeedPositionOwner: boolean = false
+  ): Promise<SeedLiquidityResponse> {
+    const toLamportMultiplier = new Decimal(
+      10 ** (this.tokenY.mint.decimals - this.tokenX.mint.decimals)
+    );
+
+    const minPricePerLamport = new Decimal(minPrice).mul(toLamportMultiplier);
+    const maxPricePerLamport = new Decimal(maxPrice).mul(toLamportMultiplier);
+
+    const minBinId = new BN(
+      DLMM.getBinIdFromPrice(minPricePerLamport, this.lbPair.binStep, false)
+    );
+
+    const maxBinId = new BN(
+      DLMM.getBinIdFromPrice(maxPricePerLamport, this.lbPair.binStep, true)
+    );
+
+    if (minBinId.toNumber() < this.lbPair.activeId) {
+      throw new Error("minPrice < current pair price");
+    }
+
+    if (minBinId.toNumber() >= maxBinId.toNumber()) {
+      throw new Error("Price range too small");
+    }
+
+    // Generate amount for each bin
+    const k = 1.0 / curvature;
+
+    const binDepositAmount = generateAmountForBinRange(
+      seedAmount,
+      this.lbPair.binStep,
+      this.tokenX.mint.decimals,
+      this.tokenY.mint.decimals,
+      minBinId,
+      maxBinId,
+      k
+    );
+
+    const decompressMultiplier = new BN(10 ** this.tokenX.mint.decimals);
+
+    let { compressedBinAmount, compressionLoss } = compressBinAmount(
+      binDepositAmount,
+      decompressMultiplier
+    );
+
+    // Distribute loss after compression back to bins based on bin ratio with total deposited amount
+    let {
+      newCompressedBinAmount: compressedBinDepositAmount,
+      loss: finalLoss,
+    } = distributeAmountToCompressedBinsByRatio(
+      compressedBinAmount,
+      compressionLoss,
+      decompressMultiplier,
+      new BN(2 ** 32 - 1) // u32
+    );
+
+    // This amount will be deposited to the last bin without compression
+    const positionCount = getPositionCount(minBinId, maxBinId.sub(new BN(1)));
+
+    const seederTokenX = getAssociatedTokenAddressSync(
+      this.lbPair.tokenXMint,
+      operator,
+      false,
+      this.tokenX.owner
+    );
+
+    const seederTokenY = getAssociatedTokenAddressSync(
+      this.lbPair.tokenYMint,
+      operator,
+      false,
+      this.tokenY.owner
+    );
+
+    const ownerTokenX = getAssociatedTokenAddressSync(
+      this.lbPair.tokenXMint,
+      owner,
+      false,
+      this.tokenX.owner
+    );
+
+    const sendPositionOwnerTokenProve = [];
+    const initializeBinArraysAndPositionIxs = [];
+    const addLiquidityIxs = [];
+    const appendedInitBinArrayIx = new Set();
+
+    if (shouldSeedPositionOwner) {
+      const positionOwnerTokenX =
+        await this.program.provider.connection.getAccountInfo(ownerTokenX);
+
+      let requireTokenProve = false;
+
+      if (positionOwnerTokenX) {
+        const ownerTokenXState = unpackAccount(
+          ownerTokenX,
+          positionOwnerTokenX,
+          this.tokenX.owner
+        );
+
+        requireTokenProve = ownerTokenXState.amount == 0n;
+      } else {
+        requireTokenProve = true;
+      }
+
+      if (requireTokenProve) {
+        const initPositionOwnerTokenX =
+          createAssociatedTokenAccountIdempotentInstruction(
+            payer,
+            ownerTokenX,
+            owner,
+            this.lbPair.tokenXMint,
+            this.tokenX.owner
+          );
+
+        sendPositionOwnerTokenProve.push(initPositionOwnerTokenX);
+        sendPositionOwnerTokenProve.push(
+          createTransferCheckedInstruction(
+            seederTokenX,
+            this.lbPair.tokenXMint,
+            ownerTokenX,
+            operator,
+            1n,
+            this.tokenX.mint.decimals,
+            [],
+            this.tokenX.owner
+          )
+        );
+      }
+    }
+
+    const slices: RemainingAccountsInfoSlice[] = [
+      {
+        accountsType: {
+          transferHookX: {},
+        },
+        length: this.tokenX.transferHookAccountMetas.length,
+      },
+    ];
+    const transferHookAccountMetas = this.tokenX.transferHookAccountMetas;
+
+    for (let i = 0; i < positionCount.toNumber(); i++) {
+      const lowerBinId = minBinId.add(MAX_BIN_PER_POSITION.mul(new BN(i)));
+      const upperBinId = lowerBinId.add(MAX_BIN_PER_POSITION).sub(new BN(1));
+
+      const lowerBinArrayIndex = binIdToBinArrayIndex(lowerBinId);
+      const upperBinArrayIndex = binIdToBinArrayIndex(upperBinId);
+
+      const [positionPda, _bump] = derivePosition(
+        this.pubkey,
+        base,
+        lowerBinId,
+        MAX_BIN_PER_POSITION,
+        this.program.programId
+      );
+
+      const [lowerBinArray] = deriveBinArray(
+        this.pubkey,
+        lowerBinArrayIndex,
+        this.program.programId
+      );
+
+      const [upperBinArray] = deriveBinArray(
+        this.pubkey,
+        upperBinArrayIndex,
+        this.program.programId
+      );
+
+      const accounts =
+        await this.program.provider.connection.getMultipleAccountsInfo([
+          lowerBinArray,
+          upperBinArray,
+          positionPda,
+        ]);
+
+      let instructions: TransactionInstruction[] = [];
+
+      const lowerBinArrayAccount = accounts[0];
+      if (
+        !lowerBinArrayAccount &&
+        !appendedInitBinArrayIx.has(lowerBinArray.toBase58())
+      ) {
+        instructions.push(
+          await this.program.methods
+            .initializeBinArray(lowerBinArrayIndex)
+            .accounts({
+              lbPair: this.pubkey,
+              binArray: lowerBinArray,
+              funder: payer,
+            })
+            .instruction()
+        );
+
+        appendedInitBinArrayIx.add(lowerBinArray.toBase58());
+      }
+
+      const upperBinArrayAccount = accounts[1];
+      if (
+        !upperBinArrayAccount &&
+        !appendedInitBinArrayIx.has(upperBinArray.toBase58())
+      ) {
+        instructions.push(
+          await this.program.methods
+            .initializeBinArray(upperBinArrayIndex)
+            .accounts({
+              lbPair: this.pubkey,
+              binArray: upperBinArray,
+              funder: payer,
+            })
+            .instruction()
+        );
+
+        appendedInitBinArrayIx.add(upperBinArray.toBase58());
+      }
+
+      const positionAccount = accounts[2];
+      if (!positionAccount) {
+        instructions.push(
+          await this.program.methods
+            .initializePositionByOperator(
+              lowerBinId.toNumber(),
+              MAX_BIN_PER_POSITION.toNumber(),
+              feeOwner,
+              lockReleasePoint
+            )
+            .accounts({
+              lbPair: this.pubkey,
+              position: positionPda,
+              base,
+              owner,
+              operator,
+              operatorTokenX: seederTokenX,
+              ownerTokenX,
+              systemProgram: SystemProgram.programId,
+              payer,
+            })
+            .instruction()
+        );
+      }
+
+      // Initialize bin arrays and initialize position account in 1 tx
+      if (instructions.length > 1) {
+        instructions.push(
+          await getEstimatedComputeUnitIxWithBuffer(
+            this.program.provider.connection,
+            instructions,
+            operator
+          )
+        );
+        initializeBinArraysAndPositionIxs.push(instructions);
+        instructions = [];
+      }
+
+      const positionDeposited =
+        positionAccount &&
+        this.program.coder.accounts
+          .decode<PositionV2>(
+            this.program.account.positionV2.idlAccount.name,
+            positionAccount.data
+          )
+          .liquidityShares.reduce((total, cur) => total.add(cur), new BN(0))
+          .gt(new BN(0));
+
+      if (!positionDeposited) {
+        const cappedUpperBinId = Math.min(
+          upperBinId.toNumber(),
+          maxBinId.toNumber() - 1
+        );
+
+        const bins: CompressedBinDepositAmounts = [];
+
+        for (let i = lowerBinId.toNumber(); i <= cappedUpperBinId; i++) {
+          bins.push({
+            binId: i,
+            amount: compressedBinDepositAmount.get(i).toNumber(),
+          });
+        }
+
+        const positionBinArraysAccountMeta = [lowerBinArray, upperBinArray].map(
+          (pubkey) => {
+            return {
+              pubkey,
+              isSigner: false,
+              isWritable: true,
+            };
+          }
+        );
+
+        instructions.push(
+          await this.program.methods
+            .addLiquidityOneSidePrecise2(
+              {
+                bins,
+                decompressMultiplier,
+                maxAmount: U64_MAX,
+              },
+              {
+                slices,
+              }
+            )
+            .accounts({
+              position: positionPda,
+              lbPair: this.pubkey,
+              binArrayBitmapExtension: this.binArrayBitmapExtension
+                ? this.binArrayBitmapExtension.publicKey
+                : this.program.programId,
+              userToken: seederTokenX,
+              reserve: this.lbPair.reserveX,
+              tokenMint: this.lbPair.tokenXMint,
+              sender: operator,
+              tokenProgram: this.tokenX.owner,
+            })
+            .remainingAccounts([
+              ...transferHookAccountMetas,
+              ...positionBinArraysAccountMeta,
+            ])
+            .instruction()
+        );
+
+        // Last position
+        if (i + 1 >= positionCount.toNumber() && !finalLoss.isZero()) {
+          const finalLossIncludesTransferFee =
+            calculateTransferFeeIncludedAmount(
+              finalLoss,
+              this.tokenX.mint,
+              this.clock.epoch.toNumber()
+            ).amount;
+
+          instructions.push(
+            await this.program.methods
+              .addLiquidity2(
+                {
+                  amountX: finalLossIncludesTransferFee,
+                  amountY: new BN(0),
+                  binLiquidityDist: [
+                    {
+                      binId: cappedUpperBinId,
+                      distributionX: BASIS_POINT_MAX,
+                      distributionY: BASIS_POINT_MAX,
+                    },
+                  ],
+                },
+                {
+                  slices,
+                }
+              )
+              .accounts({
+                position: positionPda,
+                lbPair: this.pubkey,
+                binArrayBitmapExtension: this.binArrayBitmapExtension
+                  ? this.binArrayBitmapExtension.publicKey
+                  : this.program.programId,
+                userTokenX: seederTokenX,
+                userTokenY: seederTokenY,
+                reserveX: this.lbPair.reserveX,
+                reserveY: this.lbPair.reserveY,
+                tokenXMint: this.lbPair.tokenXMint,
+                tokenYMint: this.lbPair.tokenYMint,
+                tokenXProgram: this.tokenX.owner,
+                tokenYProgram: this.tokenY.owner,
+                sender: operator,
+                memoProgram: MEMO_PROGRAM_ID,
+              })
+              .remainingAccounts([
+                ...transferHookAccountMetas,
+                ...positionBinArraysAccountMeta,
+              ])
+              .instruction()
+          );
+        }
+
+        addLiquidityIxs.push([
+          ComputeBudgetProgram.setComputeUnitLimit({
+            units: DEFAULT_ADD_LIQUIDITY_CU,
+          }),
+          ...instructions,
+        ]);
+      }
+    }
+
+    return {
+      sendPositionOwnerTokenProve,
+      initializeBinArraysAndPositionIxs,
+      addLiquidityIxs,
+    };
+  }
+
+  /**
+   * The `seedLiquiditySingleBin` function seed liquidity into a single bin.
+   * @param
+   *    - `payer`: The public key of the tx payer.
+   *    - `base`: Base key
+   *    - `seedAmount`: Token X lamport amount to be seeded to the pool.
+   *    - `price`: TokenX/TokenY Price in UI format
+   *    - `roundingUp`: Whether to round up the price
+   *    - `positionOwner`: The owner of the position
+   *    - `feeOwner`: Position fee owner
+   *    - `operator`: Operator of the position. Operator able to manage the position on behalf of the position owner. However, liquidity withdrawal issue by the operator can only send to the position owner.
+   *    - `lockReleasePoint`: The lock release point of the position.
+   *    - `shouldSeedPositionOwner` (optional): Whether to send 1 lamport amount of token X to the position owner to prove ownership.
+   *
+   * The returned instructions need to be executed sequentially if it was separated into multiple transactions.
+   * @returns {Promise<TransactionInstruction[]>}
+   */
+  public async seedLiquiditySingleBin(
+    payer: PublicKey,
+    base: PublicKey,
+    seedAmount: BN,
+    price: number,
+    roundingUp: boolean,
+    positionOwner: PublicKey,
+    feeOwner: PublicKey,
+    operator: PublicKey,
+    lockReleasePoint: BN,
+    shouldSeedPositionOwner: boolean = false
+  ): Promise<TransactionInstruction[]> {
+    const pricePerLamport = DLMM.getPricePerLamport(
+      this.tokenX.mint.decimals,
+      this.tokenY.mint.decimals,
+      price
+    );
+
+    const binIdNumber = DLMM.getBinIdFromPrice(
+      pricePerLamport,
+      this.lbPair.binStep,
+      !roundingUp
+    );
+
+    const binId = new BN(binIdNumber);
+    const lowerBinArrayIndex = binIdToBinArrayIndex(binId);
+    const upperBinArrayIndex = lowerBinArrayIndex.add(new BN(1));
+
+    const [lowerBinArray] = deriveBinArray(
+      this.pubkey,
+      lowerBinArrayIndex,
+      this.program.programId
+    );
+    const [upperBinArray] = deriveBinArray(
+      this.pubkey,
+      upperBinArrayIndex,
+      this.program.programId
+    );
+    const [positionPda] = derivePosition(
+      this.pubkey,
+      base,
+      binId,
+      new BN(1),
+      this.program.programId
+    );
+
+    const preInstructions = [];
+
+    const [
+      { ataPubKey: userTokenX, ix: createPayerTokenXIx },
+      { ataPubKey: userTokenY, ix: createPayerTokenYIx },
+    ] = await Promise.all([
+      getOrCreateATAInstruction(
+        this.program.provider.connection,
+        this.tokenX.publicKey,
+        operator,
+        this.tokenX.owner,
+        payer
+      ),
+      getOrCreateATAInstruction(
+        this.program.provider.connection,
+        this.tokenY.publicKey,
+        operator,
+        this.tokenY.owner,
+        payer
+      ),
+    ]);
+
+    // create userTokenX and userTokenY accounts
+    createPayerTokenXIx && preInstructions.push(createPayerTokenXIx);
+    createPayerTokenYIx && preInstructions.push(createPayerTokenYIx);
+
+    let [binArrayBitmapExtension] = deriveBinArrayBitmapExtension(
+      this.pubkey,
+      this.program.programId
+    );
+    const accounts =
+      await this.program.provider.connection.getMultipleAccountsInfo([
+        lowerBinArray,
+        upperBinArray,
+        positionPda,
+        binArrayBitmapExtension,
+      ]);
+
+    if (isOverflowDefaultBinArrayBitmap(lowerBinArrayIndex)) {
+      const bitmapExtensionAccount = accounts[3];
+      if (!bitmapExtensionAccount) {
+        preInstructions.push(
+          await this.program.methods
+            .initializeBinArrayBitmapExtension()
+            .accounts({
+              binArrayBitmapExtension,
+              funder: payer,
+              lbPair: this.pubkey,
+            })
+            .instruction()
+        );
+      }
+    } else {
+      binArrayBitmapExtension = this.program.programId;
+    }
+
+    const operatorTokenX = getAssociatedTokenAddressSync(
+      this.lbPair.tokenXMint,
+      operator,
+      true,
+      this.tokenX.owner
+    );
+    const positionOwnerTokenX = getAssociatedTokenAddressSync(
+      this.lbPair.tokenXMint,
+      positionOwner,
+      true,
+      this.tokenY.owner
+    );
+
+    if (shouldSeedPositionOwner) {
+      const positionOwnerTokenXAccount =
+        await this.program.provider.connection.getAccountInfo(
+          positionOwnerTokenX
+        );
+      if (positionOwnerTokenXAccount) {
+        const account = unpackAccount(
+          positionOwnerTokenX,
+          positionOwnerTokenXAccount,
+          this.tokenX.owner
+        );
+
+        if (account.amount == BigInt(0)) {
+          // send 1 lamport to position owner token X to prove ownership
+          const transferIx = createTransferCheckedInstruction(
+            operatorTokenX,
+            this.lbPair.tokenXMint,
+            positionOwnerTokenX,
+            operator,
+            1,
+            this.tokenX.mint.decimals,
+            [],
+            this.tokenX.owner
+          );
+          preInstructions.push(transferIx);
+        }
+      } else {
+        const createPositionOwnerTokenXIx =
+          createAssociatedTokenAccountIdempotentInstructionWithDerivation(
+            payer,
+            positionOwner,
+            this.lbPair.tokenXMint,
+            false,
+            this.tokenX.owner,
+            positionOwnerTokenX
+          );
+        preInstructions.push(createPositionOwnerTokenXIx);
+
+        // send 1 lamport to position owner token X to prove ownership
+        const transferIx = createTransferCheckedInstruction(
+          operatorTokenX,
+          this.lbPair.tokenXMint,
+          positionOwnerTokenX,
+          operator,
+          1,
+          this.tokenX.mint.decimals,
+          [],
+          this.tokenX.owner
+        );
+        preInstructions.push(transferIx);
+      }
+    }
+
+    const lowerBinArrayAccount = accounts[0];
+    const upperBinArrayAccount = accounts[1];
+    const positionAccount = accounts[2];
+
+    if (!lowerBinArrayAccount) {
+      preInstructions.push(
+        await this.program.methods
+          .initializeBinArray(lowerBinArrayIndex)
+          .accounts({
+            binArray: lowerBinArray,
+            funder: payer,
+            lbPair: this.pubkey,
+          })
+          .instruction()
+      );
+    }
+
+    if (!upperBinArrayAccount) {
+      preInstructions.push(
+        await this.program.methods
+          .initializeBinArray(upperBinArrayIndex)
+          .accounts({
+            binArray: upperBinArray,
+            funder: payer,
+            lbPair: this.pubkey,
+          })
+          .instruction()
+      );
+    }
+
+    if (!positionAccount) {
+      preInstructions.push(
+        await this.program.methods
+          .initializePositionByOperator(
+            binId.toNumber(),
+            1,
+            feeOwner,
+            lockReleasePoint
+          )
+          .accounts({
+            payer,
+            base,
+            position: positionPda,
+            lbPair: this.pubkey,
+            owner: positionOwner,
+            operator,
+            operatorTokenX,
+            ownerTokenX: positionOwnerTokenX,
+          })
+          .instruction()
+      );
+    }
+
+    const slices: RemainingAccountsInfoSlice[] = [
+      {
+        accountsType: {
+          transferHookX: {},
+        },
+        length: this.tokenX.transferHookAccountMetas.length,
+      },
+    ];
+    const transferHookAccountMetas = this.tokenX.transferHookAccountMetas;
+
+    const binLiquidityDist: BinLiquidityDistribution = {
+      binId: binIdNumber,
+      distributionX: BASIS_POINT_MAX,
+      distributionY: BASIS_POINT_MAX,
+    };
+
+    const seedAmountIncludeTransferFee = calculateTransferFeeIncludedAmount(
+      seedAmount,
+      this.tokenX.mint,
+      this.clock.epoch.toNumber()
+    ).amount;
+
+    const addLiquidityParams: LiquidityParameter = {
+      amountX: seedAmountIncludeTransferFee,
+      amountY: new BN(0),
+      binLiquidityDist: [binLiquidityDist],
+    };
+
+    const depositLiquidityIx = await this.program.methods
+      .addLiquidity2(addLiquidityParams, {
+        slices,
+      })
+      .accounts({
+        position: positionPda,
+        lbPair: this.pubkey,
+        binArrayBitmapExtension,
+        userTokenX,
+        userTokenY,
+        reserveX: this.lbPair.reserveX,
+        reserveY: this.lbPair.reserveY,
+        tokenXMint: this.lbPair.tokenXMint,
+        tokenYMint: this.lbPair.tokenYMint,
+        sender: operator,
+        tokenXProgram: this.tokenX.owner,
+        tokenYProgram: this.tokenY.owner,
+        memoProgram: MEMO_PROGRAM_ID,
+      })
+      .remainingAccounts([
+        ...transferHookAccountMetas,
+        ...[lowerBinArray, upperBinArray].map((pubkey) => {
+          return {
+            pubkey,
+            isSigner: false,
+            isWritable: true,
+          };
+        }),
+      ])
+      .instruction();
+
+    return [...preInstructions, depositLiquidityIx];
   }
 
   /**
