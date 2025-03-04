@@ -16,3 +16,5 @@ pub const POSITION: &[u8] = b"position";
 pub const ILM_BASE_KEY: Pubkey = pubkey!("MFGQxwAmB91SwuYX36okv2Qmdc9aMuHTwWGUrp4AtB1");
 
 pub const TOKEN_BADGE: &[u8] = b"token_badge";
+
+pub const CLAIM_PROTOCOL_FEE_OPERATOR: &[u8] = b"cf_operator";

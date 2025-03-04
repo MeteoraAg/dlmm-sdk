@@ -29,13 +29,12 @@ pub struct InitCustomizablePermissionlessLbPairParam {
     /// Initial price rounding
     #[clap(long)]
     pub selective_rounding: SelectiveRounding,
-<<<<<<< HEAD
+    /// Indicate whether the launch pool creator can enable/disable pool
+    #[clap(long)]
     pub creator_pool_on_off_control: bool,
-=======
     /// Pool activation point. None = Now
     #[clap(long)]
     pub activation_point: Option<u64>,
->>>>>>> 3298af4 (fix: cli to use v3 position and support token2022)
 }
 
 pub async fn execute_initialize_customizable_permissionless_lb_pair<
@@ -148,7 +147,8 @@ pub async fn execute_initialize_customizable_permissionless_lb_pair<
                 activation_point,
                 has_alpha_vault,
                 base_fee_power_factor,
-                padding: [0u8; 63],
+                creator_pool_on_off_control,
+                padding: [0u8; 62],
             },
         },
     )

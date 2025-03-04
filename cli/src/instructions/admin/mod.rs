@@ -33,3 +33,9 @@ pub use withdraw_protocol_fee::*;
 
 pub mod initialize_token_badge;
 pub use initialize_token_badge::*;
+
+pub mod create_claim_protocol_fee_operator;
+pub use create_claim_protocol_fee_operator::*;
+
+pub mod close_claim_protocol_fee_operator;
+pub use close_claim_protocol_fee_operator::*;
