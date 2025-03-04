@@ -34,7 +34,7 @@ export interface IPosition {
 export function wrapPosition(
   program: Program<LbClmm>,
   key: PublicKey,
-  account: AccountInfo<Buffer<ArrayBufferLike>>
+  account: AccountInfo<Buffer>
 ): IPosition {
   const disc = account.data.subarray(0, 8);
   if (disc.equals(POSITION_V2_DISC)) {
@@ -49,7 +49,10 @@ export function wrapPosition(
 }
 
 export class PositionV2Wrapper implements IPosition {
-  constructor(public positionAddress: PublicKey, public inner: PositionV2) {}
+  constructor(
+    public positionAddress: PublicKey,
+    public inner: PositionV2
+  ) {}
 
   address(): PublicKey {
     return this.positionAddress;
