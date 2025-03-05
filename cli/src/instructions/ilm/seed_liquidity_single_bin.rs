@@ -263,7 +263,6 @@ pub async fn execute_seed_liquidity_single_bin<C: Deref<Target = impl Signer> + 
         token_y_program,
         event_authority,
         program: dlmm_interface::ID,
-        memo_program: spl_memo::ID,
     }
     .into();
 

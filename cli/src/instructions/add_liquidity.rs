@@ -118,7 +118,6 @@ pub async fn execute_add_liquidity<C: Deref<Target = impl Signer> + Clone>(
         token_y_program,
         event_authority,
         program: dlmm_interface::ID,
-        memo_program: spl_memo::ID,
     }
     .into();
 
