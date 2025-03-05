@@ -201,7 +201,6 @@ pub async fn deposit<C: Deref<Target = impl Signer> + Clone>(
         user_token_y,
         token_x_program,
         token_y_program,
-        memo_program: spl_memo::ID,
         bin_array_bitmap_extension: dlmm_interface::ID,
     }
     .into();

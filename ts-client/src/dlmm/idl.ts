@@ -3310,11 +3310,6 @@ export type LbClmm = {
           "isSigner": false
         },
         {
-          "name": "memoProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
           "name": "eventAuthority",
           "isMut": false,
           "isSigner": false
@@ -3401,11 +3396,6 @@ export type LbClmm = {
         },
         {
           "name": "tokenYProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "memoProgram",
           "isMut": false,
           "isSigner": false
         },
@@ -3796,6 +3786,109 @@ export type LbClmm = {
         },
         {
           "name": "minAmountOut",
+          "type": "u64"
+        },
+        {
+          "name": "remainingAccountsInfo",
+          "type": {
+            "defined": "RemainingAccountsInfo"
+          }
+        }
+      ]
+    },
+    {
+      "name": "swapExactOut2",
+      "accounts": [
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayBitmapExtension",
+          "isMut": false,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
+          "name": "reserveX",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "reserveY",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userTokenIn",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userTokenOut",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenXMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenYMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "oracle",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "hostFeeIn",
+          "isMut": true,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
+          "name": "user",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "tokenXProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenYProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "memoProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "maxInAmount",
+          "type": "u64"
+        },
+        {
+          "name": "outAmount",
           "type": "u64"
         },
         {
@@ -10587,11 +10680,6 @@ export const IDL: LbClmm = {
           "isSigner": false
         },
         {
-          "name": "memoProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
           "name": "eventAuthority",
           "isMut": false,
           "isSigner": false
@@ -10678,11 +10766,6 @@ export const IDL: LbClmm = {
         },
         {
           "name": "tokenYProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "memoProgram",
           "isMut": false,
           "isSigner": false
         },
@@ -11073,6 +11156,109 @@ export const IDL: LbClmm = {
         },
         {
           "name": "minAmountOut",
+          "type": "u64"
+        },
+        {
+          "name": "remainingAccountsInfo",
+          "type": {
+            "defined": "RemainingAccountsInfo"
+          }
+        }
+      ]
+    },
+    {
+      "name": "swapExactOut2",
+      "accounts": [
+        {
+          "name": "lbPair",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "binArrayBitmapExtension",
+          "isMut": false,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
+          "name": "reserveX",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "reserveY",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userTokenIn",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "userTokenOut",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenXMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenYMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "oracle",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "hostFeeIn",
+          "isMut": true,
+          "isSigner": false,
+          "isOptional": true
+        },
+        {
+          "name": "user",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "tokenXProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenYProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "memoProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "eventAuthority",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "maxInAmount",
+          "type": "u64"
+        },
+        {
+          "name": "outAmount",
           "type": "u64"
         },
         {
