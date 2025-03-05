@@ -5,9 +5,11 @@ import {
   MintLayout,
   NATIVE_MINT,
   TOKEN_PROGRAM_ID,
+  createAssociatedTokenAccountIdempotentInstruction,
   createAssociatedTokenAccountInstruction,
   createTransferInstruction,
   getAssociatedTokenAddressSync,
+  unpackAccount,
 } from "@solana/spl-token";
 import {
   AccountMeta,
@@ -4191,6 +4193,11 @@ export class DLMM {
    *    - `minPrice`: Start price in UI format
    *    - `maxPrice`: End price in UI format
    *    - `base`: Base key
+   *    - `txPayer`: Account rental fee payer
+   *    - `feeOwner`: Fee owner key. Default to position owner
+   *    - `operator`: Operator key
+   *    - `lockReleasePoint`: Timelock. Point (slot/timestamp) the position can withdraw the liquidity,
+   *    - `shouldSeedPositionOwner` (optional): Whether to send 1 lamport amount of token X to the position owner to prove ownership.
    * @returns {Promise<SeedLiquidityResponse>}
    */
   public async seedLiquidity(
@@ -4199,7 +4206,12 @@ export class DLMM {
     curvature: number,
     minPrice: number,
     maxPrice: number,
-    base: PublicKey
+    base: PublicKey,
+    payer: PublicKey,
+    feeOwner: PublicKey,
+    operator: PublicKey,
+    lockReleasePoint: BN,
+    shouldSeedPositionOwner: boolean = false
   ): Promise<SeedLiquidityResponse> {
     const toLamportMultiplier = new Decimal(
       10 ** (this.tokenY.decimal - this.tokenX.decimal)
@@ -4260,13 +4272,66 @@ export class DLMM {
 
     const seederTokenX = getAssociatedTokenAddressSync(
       this.lbPair.tokenXMint,
-      owner,
+      operator,
       false
     );
 
+    const seederTokenY = getAssociatedTokenAddressSync(
+      this.lbPair.tokenYMint,
+      operator,
+      false,
+    );
+
+    const ownerTokenX = getAssociatedTokenAddressSync(
+      this.lbPair.tokenXMint,
+      owner, 
+      false
+    );
+
+    const sendPositionOwnerTokenProveIxs = [];
     const initializeBinArraysAndPositionIxs = [];
     const addLiquidityIxs = [];
     const appendedInitBinArrayIx = new Set();
+
+    if (shouldSeedPositionOwner) {
+      const positionOwnerTokenX =
+        await this.program.provider.connection.getAccountInfo(ownerTokenX);
+
+      let requireTokenProve = false;
+
+      if (positionOwnerTokenX) {
+        const ownerTokenXState = unpackAccount(
+          ownerTokenX,
+          positionOwnerTokenX,
+          TOKEN_PROGRAM_ID,
+        );
+
+        requireTokenProve = ownerTokenXState.amount == 0n;
+      } else {
+        requireTokenProve = true;
+      }
+
+      if (requireTokenProve) {
+        const initPositionOwnerTokenX =
+          createAssociatedTokenAccountIdempotentInstruction(
+            payer,
+            ownerTokenX,
+            owner,
+            this.lbPair.tokenXMint,
+            TOKEN_PROGRAM_ID
+          );
+
+        sendPositionOwnerTokenProveIxs.push(initPositionOwnerTokenX);
+        sendPositionOwnerTokenProveIxs.push(
+          createTransferInstruction(
+            seederTokenX,
+            ownerTokenX,
+            operator,
+            1n
+          )
+        );
+      }
+    }
 
     for (let i = 0; i < positionCount.toNumber(); i++) {
       const lowerBinId = minBinId.add(MAX_BIN_PER_POSITION.mul(new BN(i)));
@@ -4315,7 +4380,7 @@ export class DLMM {
             .accounts({
               lbPair: this.pubkey,
               binArray: lowerBinArray,
-              funder: owner,
+              funder: payer,
             })
             .instruction()
         );
@@ -4334,7 +4399,7 @@ export class DLMM {
             .accounts({
               lbPair: this.pubkey,
               binArray: upperBinArray,
-              funder: owner,
+              funder: payer,
             })
             .instruction()
         );
@@ -4346,16 +4411,22 @@ export class DLMM {
       if (!positionAccount) {
         instructions.push(
           await this.program.methods
-            .initializePositionPda(
+            .initializePositionByOperator(
               lowerBinId.toNumber(),
-              MAX_BIN_PER_POSITION.toNumber()
+              MAX_BIN_PER_POSITION.toNumber(),
+              feeOwner,
+              lockReleasePoint
             )
             .accounts({
               lbPair: this.pubkey,
               position: positionPda,
               base,
               owner,
-              payer: owner,
+              payer,
+              operator,
+              operatorTokenX: seederTokenX,
+              ownerTokenX,
+              systemProgram: SystemProgram.programId,
             })
             .instruction()
         );
@@ -4367,7 +4438,7 @@ export class DLMM {
           await getEstimatedComputeUnitIxWithBuffer(
             this.program.provider.connection,
             instructions,
-            owner
+            payer
           )
         );
         initializeBinArraysAndPositionIxs.push(instructions);
@@ -4413,7 +4484,7 @@ export class DLMM {
               tokenMint: this.lbPair.tokenXMint,
               binArrayLower: lowerBinArray,
               binArrayUpper: upperBinArray,
-              sender: owner,
+              sender: operator,
             })
             .instruction()
         );
@@ -4444,7 +4515,7 @@ export class DLMM {
                 tokenMint: this.lbPair.tokenXMint,
                 binArrayLower: lowerBinArray,
                 binArrayUpper: upperBinArray,
-                sender: owner,
+                sender: operator,
               })
               .instruction()
           );
@@ -4460,6 +4531,7 @@ export class DLMM {
     }
 
     return {
+      sendPositionOwnerTokenProveIxs,
       initializeBinArraysAndPositionIxs,
       addLiquidityIxs,
     };
