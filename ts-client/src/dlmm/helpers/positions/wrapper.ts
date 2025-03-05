@@ -10,6 +10,8 @@ import { AccountInfo, PublicKey } from "@solana/web3.js";
 import { Program } from "@coral-xyz/anchor";
 import { LbClmm } from "../../idl";
 import { getBinArrayKeysCoverage } from ".";
+import { binIdToBinArrayIndex } from "../binArray";
+import { deriveBinArray } from "../derive";
 
 export interface IPosition {
   address(): PublicKey;
@@ -27,6 +29,7 @@ export interface IPosition {
   lockReleasePoint(): BN;
   feeOwner(): PublicKey;
   owner(): PublicKey;
+  getBinArrayIndexesCoverage(): BN[];
   getBinArrayKeysCoverage(programId: PublicKey): PublicKey[];
   version(): PositionVersion;
 }
@@ -110,8 +113,17 @@ export class PositionV2Wrapper implements IPosition {
     return this.inner.lastUpdatedAt;
   }
 
+  getBinArrayIndexesCoverage(): BN[] {
+    const lowerBinArrayIndex = binIdToBinArrayIndex(this.lowerBinId());
+    const upperBinArrayIndex = lowerBinArrayIndex.add(new BN(1));
+
+    return [lowerBinArrayIndex, upperBinArrayIndex];
+  }
+
   getBinArrayKeysCoverage(programId: PublicKey): PublicKey[] {
-    return getBinArrayKeysCoverage(this.lowerBinId(), this.lbPair(), programId);
+    return this.getBinArrayIndexesCoverage().map(
+      (index) => deriveBinArray(this.lbPair(), index, programId)[0]
+    );
   }
 
   version(): PositionVersion {
