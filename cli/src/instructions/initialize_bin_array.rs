@@ -1,46 +1,48 @@
-use std::ops::Deref;
+use crate::*;
 
-use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
-use anchor_client::{solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, Program};
-
-use anyhow::*;
-use lb_clmm::accounts;
-use lb_clmm::instruction;
-use lb_clmm::utils::pda::*;
-
-#[derive(Debug)]
-pub struct InitBinArrayParameters {
-    pub lb_pair: Pubkey,
+#[derive(Debug, Parser)]
+pub struct InitBinArrayParams {
+    /// Index of the bin array.
+    #[clap(long, allow_negative_numbers = true)]
     pub bin_array_index: i64,
+    /// Address of the liquidity pair.
+    pub lb_pair: Pubkey,
 }
 
-pub async fn initialize_bin_array<C: Deref<Target = impl Signer> + Clone>(
-    params: InitBinArrayParameters,
+pub async fn execute_initialize_bin_array<C: Deref<Target = impl Signer> + Clone>(
+    params: InitBinArrayParams,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
 ) -> Result<Pubkey> {
-    let InitBinArrayParameters {
+    let InitBinArrayParams {
         lb_pair,
         bin_array_index,
     } = params;
 
     let (bin_array, _bump) = derive_bin_array_pda(lb_pair, bin_array_index);
 
-    let accounts = accounts::InitializeBinArray {
+    let accounts: [AccountMeta; INITIALIZE_BIN_ARRAY_IX_ACCOUNTS_LEN] = InitializeBinArrayKeys {
         bin_array,
         funder: program.payer(),
         lb_pair,
-        system_program: anchor_client::solana_sdk::system_program::ID,
-    };
+        system_program: solana_sdk::system_program::ID,
+    }
+    .into();
 
-    let ix = instruction::InitializeBinArray {
+    let data = InitializeBinArrayIxData(InitializeBinArrayIxArgs {
         index: bin_array_index,
+    })
+    .try_to_vec()?;
+
+    let init_bin_array_ix = Instruction {
+        program_id: dlmm_interface::ID,
+        accounts: accounts.to_vec(),
+        data,
     };
 
     let request_builder = program.request();
     let signature = request_builder
-        .accounts(accounts)
-        .args(ix)
+        .instruction(init_bin_array_ix)
         .send_with_spinner_and_config(transaction_config)
         .await;
 

@@ -2,6 +2,8 @@ import { AnchorProvider, Program } from "@coral-xyz/anchor";
 import { Cluster, Connection, PublicKey } from "@solana/web3.js";
 import { IDL } from "../idl";
 import { LBCLMM_PROGRAM_IDS } from "../constants";
+import { LbPair } from "../types";
+import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
 /**
  * It fetches the pool account from the AMM program, and returns the mint addresses for the two tokens
@@ -14,6 +16,7 @@ export async function getTokensMintFromPoolAddress(
   poolAddress: string,
   opt?: {
     cluster?: Cluster;
+    programId?: PublicKey;
   }
 ) {
   const provider = new AnchorProvider(
@@ -23,7 +26,7 @@ export async function getTokensMintFromPoolAddress(
   );
   const program = new Program(
     IDL,
-    LBCLMM_PROGRAM_IDS[opt?.cluster ?? "mainnet-beta"],
+    opt.programId ?? LBCLMM_PROGRAM_IDS[opt?.cluster ?? "mainnet-beta"],
     provider
   );
 
@@ -36,5 +39,15 @@ export async function getTokensMintFromPoolAddress(
   return {
     tokenXMint: poolAccount.tokenXMint,
     tokenYMint: poolAccount.tokenYMint,
+  };
+}
+
+export function getTokenProgramId(lbPairState: LbPair) {
+  const getTokenProgramIdByFlag = (flag: number) => {
+    return flag == 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
+  };
+  return {
+    tokenXProgram: getTokenProgramIdByFlag(lbPairState.tokenMintXProgramFlag),
+    tokenYProgram: getTokenProgramIdByFlag(lbPairState.tokenMintYProgramFlag),
   };
 }

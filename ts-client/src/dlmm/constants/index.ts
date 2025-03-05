@@ -63,3 +63,4 @@ export const ILM_BASE = new PublicKey(
 );
 
 export const MAX_EXTRA_BIN_ARRAYS = 3;
+export const U64_MAX = new BN("18446744073709551615");
