@@ -384,6 +384,7 @@ export enum BitmapType {
 }
 
 export interface SeedLiquidityResponse {
+  sendPositionOwnerTokenProveIxs: TransactionInstruction[];
   initializeBinArraysAndPositionIxs: TransactionInstruction[][];
   addLiquidityIxs: TransactionInstruction[][];
 }
