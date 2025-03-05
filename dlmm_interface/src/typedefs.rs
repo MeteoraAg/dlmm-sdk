@@ -142,6 +142,19 @@ pub struct InitPermissionPairIx {
 }
 #[derive(Clone, Debug, BorshDeserialize, BorshSerialize, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct AddLiquiditySingleSidePreciseParameter2 {
+    pub bins: Vec<CompressedBinDepositAmount>,
+    pub decompress_multiplier: u64,
+    pub max_amount: u64,
+}
+#[derive(Clone, Debug, BorshDeserialize, BorshSerialize, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct CompressedBinDepositAmount2 {
+    pub bin_id: i32,
+    pub amount: u32,
+}
+#[derive(Clone, Debug, BorshDeserialize, BorshSerialize, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct InitializeLbPair2Params {
     pub active_id: i32,
     pub padding: [u8; 96],

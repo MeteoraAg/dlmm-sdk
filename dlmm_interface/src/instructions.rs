@@ -68,9 +68,11 @@ pub enum LbClmmProgramIx {
     ClaimReward2(ClaimReward2IxArgs),
     AddLiquidity2(AddLiquidity2IxArgs),
     AddLiquidityByStrategy2(AddLiquidityByStrategy2IxArgs),
+    AddLiquidityOneSidePrecise2(AddLiquidityOneSidePrecise2IxArgs),
     RemoveLiquidity2(RemoveLiquidity2IxArgs),
     RemoveLiquidityByRange2(RemoveLiquidityByRange2IxArgs),
     Swap2(Swap2IxArgs),
+    SwapExactOut2(SwapExactOut2IxArgs),
     SwapWithPriceImpact2(SwapWithPriceImpact2IxArgs),
     ClosePosition2,
     UpdateFeesAndReward2(UpdateFeesAndReward2IxArgs),
@@ -363,6 +365,13 @@ impl LbClmmProgramIx {
                     ),
                 )
             }
+            ADD_LIQUIDITY_ONE_SIDE_PRECISE2_IX_DISCM => {
+                Ok(
+                    Self::AddLiquidityOneSidePrecise2(
+                        AddLiquidityOneSidePrecise2IxArgs::deserialize(&mut reader)?,
+                    ),
+                )
+            }
             REMOVE_LIQUIDITY2_IX_DISCM => {
                 Ok(
                     Self::RemoveLiquidity2(
@@ -378,6 +387,9 @@ impl LbClmmProgramIx {
                 )
             }
             SWAP2_IX_DISCM => Ok(Self::Swap2(Swap2IxArgs::deserialize(&mut reader)?)),
+            SWAP_EXACT_OUT2_IX_DISCM => {
+                Ok(Self::SwapExactOut2(SwapExactOut2IxArgs::deserialize(&mut reader)?))
+            }
             SWAP_WITH_PRICE_IMPACT2_IX_DISCM => {
                 Ok(
                     Self::SwapWithPriceImpact2(
@@ -610,6 +622,10 @@ impl LbClmmProgramIx {
                 writer.write_all(&ADD_LIQUIDITY_BY_STRATEGY2_IX_DISCM)?;
                 args.serialize(&mut writer)
             }
+            Self::AddLiquidityOneSidePrecise2(args) => {
+                writer.write_all(&ADD_LIQUIDITY_ONE_SIDE_PRECISE2_IX_DISCM)?;
+                args.serialize(&mut writer)
+            }
             Self::RemoveLiquidity2(args) => {
                 writer.write_all(&REMOVE_LIQUIDITY2_IX_DISCM)?;
                 args.serialize(&mut writer)
@@ -620,6 +636,10 @@ impl LbClmmProgramIx {
             }
             Self::Swap2(args) => {
                 writer.write_all(&SWAP2_IX_DISCM)?;
+                args.serialize(&mut writer)
+            }
+            Self::SwapExactOut2(args) => {
+                writer.write_all(&SWAP_EXACT_OUT2_IX_DISCM)?;
                 args.serialize(&mut writer)
             }
             Self::SwapWithPriceImpact2(args) => {
@@ -16021,7 +16041,7 @@ pub fn claim_reward2_verify_account_privileges<'me, 'info>(
     claim_reward2_verify_signer_privileges(accounts)?;
     Ok(())
 }
-pub const ADD_LIQUIDITY2_IX_ACCOUNTS_LEN: usize = 15;
+pub const ADD_LIQUIDITY2_IX_ACCOUNTS_LEN: usize = 14;
 #[derive(Copy, Clone, Debug)]
 pub struct AddLiquidity2Accounts<'me, 'info> {
     pub position: &'me AccountInfo<'info>,
@@ -16036,7 +16056,6 @@ pub struct AddLiquidity2Accounts<'me, 'info> {
     pub sender: &'me AccountInfo<'info>,
     pub token_x_program: &'me AccountInfo<'info>,
     pub token_y_program: &'me AccountInfo<'info>,
-    pub memo_program: &'me AccountInfo<'info>,
     pub event_authority: &'me AccountInfo<'info>,
     pub program: &'me AccountInfo<'info>,
 }
@@ -16054,7 +16073,6 @@ pub struct AddLiquidity2Keys {
     pub sender: Pubkey,
     pub token_x_program: Pubkey,
     pub token_y_program: Pubkey,
-    pub memo_program: Pubkey,
     pub event_authority: Pubkey,
     pub program: Pubkey,
 }
@@ -16073,7 +16091,6 @@ impl From<AddLiquidity2Accounts<'_, '_>> for AddLiquidity2Keys {
             sender: *accounts.sender.key,
             token_x_program: *accounts.token_x_program.key,
             token_y_program: *accounts.token_y_program.key,
-            memo_program: *accounts.memo_program.key,
             event_authority: *accounts.event_authority.key,
             program: *accounts.program.key,
         }
@@ -16143,11 +16160,6 @@ impl From<AddLiquidity2Keys> for [AccountMeta; ADD_LIQUIDITY2_IX_ACCOUNTS_LEN] {
                 is_writable: false,
             },
             AccountMeta {
-                pubkey: keys.memo_program,
-                is_signer: false,
-                is_writable: false,
-            },
-            AccountMeta {
                 pubkey: keys.event_authority,
                 is_signer: false,
                 is_writable: false,
@@ -16175,9 +16187,8 @@ impl From<[Pubkey; ADD_LIQUIDITY2_IX_ACCOUNTS_LEN]> for AddLiquidity2Keys {
             sender: pubkeys[9],
             token_x_program: pubkeys[10],
             token_y_program: pubkeys[11],
-            memo_program: pubkeys[12],
-            event_authority: pubkeys[13],
-            program: pubkeys[14],
+            event_authority: pubkeys[12],
+            program: pubkeys[13],
         }
     }
 }
@@ -16197,7 +16208,6 @@ for [AccountInfo<'info>; ADD_LIQUIDITY2_IX_ACCOUNTS_LEN] {
             accounts.sender.clone(),
             accounts.token_x_program.clone(),
             accounts.token_y_program.clone(),
-            accounts.memo_program.clone(),
             accounts.event_authority.clone(),
             accounts.program.clone(),
         ]
@@ -16219,9 +16229,8 @@ for AddLiquidity2Accounts<'me, 'info> {
             sender: &arr[9],
             token_x_program: &arr[10],
             token_y_program: &arr[11],
-            memo_program: &arr[12],
-            event_authority: &arr[13],
-            program: &arr[14],
+            event_authority: &arr[12],
+            program: &arr[13],
         }
     }
 }
@@ -16335,7 +16344,6 @@ pub fn add_liquidity2_verify_account_keys(
         (*accounts.sender.key, keys.sender),
         (*accounts.token_x_program.key, keys.token_x_program),
         (*accounts.token_y_program.key, keys.token_y_program),
-        (*accounts.memo_program.key, keys.memo_program),
         (*accounts.event_authority.key, keys.event_authority),
         (*accounts.program.key, keys.program),
     ] {
@@ -16380,7 +16388,7 @@ pub fn add_liquidity2_verify_account_privileges<'me, 'info>(
     add_liquidity2_verify_signer_privileges(accounts)?;
     Ok(())
 }
-pub const ADD_LIQUIDITY_BY_STRATEGY2_IX_ACCOUNTS_LEN: usize = 15;
+pub const ADD_LIQUIDITY_BY_STRATEGY2_IX_ACCOUNTS_LEN: usize = 14;
 #[derive(Copy, Clone, Debug)]
 pub struct AddLiquidityByStrategy2Accounts<'me, 'info> {
     pub position: &'me AccountInfo<'info>,
@@ -16395,7 +16403,6 @@ pub struct AddLiquidityByStrategy2Accounts<'me, 'info> {
     pub sender: &'me AccountInfo<'info>,
     pub token_x_program: &'me AccountInfo<'info>,
     pub token_y_program: &'me AccountInfo<'info>,
-    pub memo_program: &'me AccountInfo<'info>,
     pub event_authority: &'me AccountInfo<'info>,
     pub program: &'me AccountInfo<'info>,
 }
@@ -16413,7 +16420,6 @@ pub struct AddLiquidityByStrategy2Keys {
     pub sender: Pubkey,
     pub token_x_program: Pubkey,
     pub token_y_program: Pubkey,
-    pub memo_program: Pubkey,
     pub event_authority: Pubkey,
     pub program: Pubkey,
 }
@@ -16432,7 +16438,6 @@ impl From<AddLiquidityByStrategy2Accounts<'_, '_>> for AddLiquidityByStrategy2Ke
             sender: *accounts.sender.key,
             token_x_program: *accounts.token_x_program.key,
             token_y_program: *accounts.token_y_program.key,
-            memo_program: *accounts.memo_program.key,
             event_authority: *accounts.event_authority.key,
             program: *accounts.program.key,
         }
@@ -16503,11 +16508,6 @@ for [AccountMeta; ADD_LIQUIDITY_BY_STRATEGY2_IX_ACCOUNTS_LEN] {
                 is_writable: false,
             },
             AccountMeta {
-                pubkey: keys.memo_program,
-                is_signer: false,
-                is_writable: false,
-            },
-            AccountMeta {
                 pubkey: keys.event_authority,
                 is_signer: false,
                 is_writable: false,
@@ -16536,9 +16536,8 @@ for AddLiquidityByStrategy2Keys {
             sender: pubkeys[9],
             token_x_program: pubkeys[10],
             token_y_program: pubkeys[11],
-            memo_program: pubkeys[12],
-            event_authority: pubkeys[13],
-            program: pubkeys[14],
+            event_authority: pubkeys[12],
+            program: pubkeys[13],
         }
     }
 }
@@ -16558,7 +16557,6 @@ for [AccountInfo<'info>; ADD_LIQUIDITY_BY_STRATEGY2_IX_ACCOUNTS_LEN] {
             accounts.sender.clone(),
             accounts.token_x_program.clone(),
             accounts.token_y_program.clone(),
-            accounts.memo_program.clone(),
             accounts.event_authority.clone(),
             accounts.program.clone(),
         ]
@@ -16585,9 +16583,8 @@ for AddLiquidityByStrategy2Accounts<'me, 'info> {
             sender: &arr[9],
             token_x_program: &arr[10],
             token_y_program: &arr[11],
-            memo_program: &arr[12],
-            event_authority: &arr[13],
-            program: &arr[14],
+            event_authority: &arr[12],
+            program: &arr[13],
         }
     }
 }
@@ -16715,7 +16712,6 @@ pub fn add_liquidity_by_strategy2_verify_account_keys(
         (*accounts.sender.key, keys.sender),
         (*accounts.token_x_program.key, keys.token_x_program),
         (*accounts.token_y_program.key, keys.token_y_program),
-        (*accounts.memo_program.key, keys.memo_program),
         (*accounts.event_authority.key, keys.event_authority),
         (*accounts.program.key, keys.program),
     ] {
@@ -16758,6 +16754,326 @@ pub fn add_liquidity_by_strategy2_verify_account_privileges<'me, 'info>(
 ) -> Result<(), (&'me AccountInfo<'info>, ProgramError)> {
     add_liquidity_by_strategy2_verify_writable_privileges(accounts)?;
     add_liquidity_by_strategy2_verify_signer_privileges(accounts)?;
+    Ok(())
+}
+pub const ADD_LIQUIDITY_ONE_SIDE_PRECISE2_IX_ACCOUNTS_LEN: usize = 10;
+#[derive(Copy, Clone, Debug)]
+pub struct AddLiquidityOneSidePrecise2Accounts<'me, 'info> {
+    pub position: &'me AccountInfo<'info>,
+    pub lb_pair: &'me AccountInfo<'info>,
+    pub bin_array_bitmap_extension: &'me AccountInfo<'info>,
+    pub user_token: &'me AccountInfo<'info>,
+    pub reserve: &'me AccountInfo<'info>,
+    pub token_mint: &'me AccountInfo<'info>,
+    pub sender: &'me AccountInfo<'info>,
+    pub token_program: &'me AccountInfo<'info>,
+    pub event_authority: &'me AccountInfo<'info>,
+    pub program: &'me AccountInfo<'info>,
+}
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct AddLiquidityOneSidePrecise2Keys {
+    pub position: Pubkey,
+    pub lb_pair: Pubkey,
+    pub bin_array_bitmap_extension: Pubkey,
+    pub user_token: Pubkey,
+    pub reserve: Pubkey,
+    pub token_mint: Pubkey,
+    pub sender: Pubkey,
+    pub token_program: Pubkey,
+    pub event_authority: Pubkey,
+    pub program: Pubkey,
+}
+impl From<AddLiquidityOneSidePrecise2Accounts<'_, '_>>
+for AddLiquidityOneSidePrecise2Keys {
+    fn from(accounts: AddLiquidityOneSidePrecise2Accounts) -> Self {
+        Self {
+            position: *accounts.position.key,
+            lb_pair: *accounts.lb_pair.key,
+            bin_array_bitmap_extension: *accounts.bin_array_bitmap_extension.key,
+            user_token: *accounts.user_token.key,
+            reserve: *accounts.reserve.key,
+            token_mint: *accounts.token_mint.key,
+            sender: *accounts.sender.key,
+            token_program: *accounts.token_program.key,
+            event_authority: *accounts.event_authority.key,
+            program: *accounts.program.key,
+        }
+    }
+}
+impl From<AddLiquidityOneSidePrecise2Keys>
+for [AccountMeta; ADD_LIQUIDITY_ONE_SIDE_PRECISE2_IX_ACCOUNTS_LEN] {
+    fn from(keys: AddLiquidityOneSidePrecise2Keys) -> Self {
+        [
+            AccountMeta {
+                pubkey: keys.position,
+                is_signer: false,
+                is_writable: true,
+            },
+            AccountMeta {
+                pubkey: keys.lb_pair,
+                is_signer: false,
+                is_writable: true,
+            },
+            AccountMeta {
+                pubkey: keys.bin_array_bitmap_extension,
+                is_signer: false,
+                is_writable: true,
+            },
+            AccountMeta {
+                pubkey: keys.user_token,
+                is_signer: false,
+                is_writable: true,
+            },
+            AccountMeta {
+                pubkey: keys.reserve,
+                is_signer: false,
+                is_writable: true,
+            },
+            AccountMeta {
+                pubkey: keys.token_mint,
+                is_signer: false,
+                is_writable: false,
+            },
+            AccountMeta {
+                pubkey: keys.sender,
+                is_signer: true,
+                is_writable: false,
+            },
+            AccountMeta {
+                pubkey: keys.token_program,
+                is_signer: false,
+                is_writable: false,
+            },
+            AccountMeta {
+                pubkey: keys.event_authority,
+                is_signer: false,
+                is_writable: false,
+            },
+            AccountMeta {
+                pubkey: keys.program,
+                is_signer: false,
+                is_writable: false,
+            },
+        ]
+    }
+}
+impl From<[Pubkey; ADD_LIQUIDITY_ONE_SIDE_PRECISE2_IX_ACCOUNTS_LEN]>
+for AddLiquidityOneSidePrecise2Keys {
+    fn from(pubkeys: [Pubkey; ADD_LIQUIDITY_ONE_SIDE_PRECISE2_IX_ACCOUNTS_LEN]) -> Self {
+        Self {
+            position: pubkeys[0],
+            lb_pair: pubkeys[1],
+            bin_array_bitmap_extension: pubkeys[2],
+            user_token: pubkeys[3],
+            reserve: pubkeys[4],
+            token_mint: pubkeys[5],
+            sender: pubkeys[6],
+            token_program: pubkeys[7],
+            event_authority: pubkeys[8],
+            program: pubkeys[9],
+        }
+    }
+}
+impl<'info> From<AddLiquidityOneSidePrecise2Accounts<'_, 'info>>
+for [AccountInfo<'info>; ADD_LIQUIDITY_ONE_SIDE_PRECISE2_IX_ACCOUNTS_LEN] {
+    fn from(accounts: AddLiquidityOneSidePrecise2Accounts<'_, 'info>) -> Self {
+        [
+            accounts.position.clone(),
+            accounts.lb_pair.clone(),
+            accounts.bin_array_bitmap_extension.clone(),
+            accounts.user_token.clone(),
+            accounts.reserve.clone(),
+            accounts.token_mint.clone(),
+            accounts.sender.clone(),
+            accounts.token_program.clone(),
+            accounts.event_authority.clone(),
+            accounts.program.clone(),
+        ]
+    }
+}
+impl<
+    'me,
+    'info,
+> From<&'me [AccountInfo<'info>; ADD_LIQUIDITY_ONE_SIDE_PRECISE2_IX_ACCOUNTS_LEN]>
+for AddLiquidityOneSidePrecise2Accounts<'me, 'info> {
+    fn from(
+        arr: &'me [AccountInfo<'info>; ADD_LIQUIDITY_ONE_SIDE_PRECISE2_IX_ACCOUNTS_LEN],
+    ) -> Self {
+        Self {
+            position: &arr[0],
+            lb_pair: &arr[1],
+            bin_array_bitmap_extension: &arr[2],
+            user_token: &arr[3],
+            reserve: &arr[4],
+            token_mint: &arr[5],
+            sender: &arr[6],
+            token_program: &arr[7],
+            event_authority: &arr[8],
+            program: &arr[9],
+        }
+    }
+}
+pub const ADD_LIQUIDITY_ONE_SIDE_PRECISE2_IX_DISCM: [u8; 8] = [
+    33,
+    51,
+    163,
+    201,
+    117,
+    98,
+    125,
+    231,
+];
+#[derive(BorshDeserialize, BorshSerialize, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct AddLiquidityOneSidePrecise2IxArgs {
+    pub liquidity_parameter: AddLiquiditySingleSidePreciseParameter2,
+    pub remaining_accounts_info: RemainingAccountsInfo,
+}
+#[derive(Clone, Debug, PartialEq)]
+pub struct AddLiquidityOneSidePrecise2IxData(pub AddLiquidityOneSidePrecise2IxArgs);
+impl From<AddLiquidityOneSidePrecise2IxArgs> for AddLiquidityOneSidePrecise2IxData {
+    fn from(args: AddLiquidityOneSidePrecise2IxArgs) -> Self {
+        Self(args)
+    }
+}
+impl AddLiquidityOneSidePrecise2IxData {
+    pub fn deserialize(buf: &[u8]) -> std::io::Result<Self> {
+        let mut reader = buf;
+        let mut maybe_discm = [0u8; 8];
+        reader.read_exact(&mut maybe_discm)?;
+        if maybe_discm != ADD_LIQUIDITY_ONE_SIDE_PRECISE2_IX_DISCM {
+            return Err(
+                std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!(
+                        "discm does not match. Expected: {:?}. Received: {:?}",
+                        ADD_LIQUIDITY_ONE_SIDE_PRECISE2_IX_DISCM, maybe_discm
+                    ),
+                ),
+            );
+        }
+        Ok(Self(AddLiquidityOneSidePrecise2IxArgs::deserialize(&mut reader)?))
+    }
+    pub fn serialize<W: std::io::Write>(&self, mut writer: W) -> std::io::Result<()> {
+        writer.write_all(&ADD_LIQUIDITY_ONE_SIDE_PRECISE2_IX_DISCM)?;
+        self.0.serialize(&mut writer)
+    }
+    pub fn try_to_vec(&self) -> std::io::Result<Vec<u8>> {
+        let mut data = Vec::new();
+        self.serialize(&mut data)?;
+        Ok(data)
+    }
+}
+pub fn add_liquidity_one_side_precise2_ix_with_program_id(
+    program_id: Pubkey,
+    keys: AddLiquidityOneSidePrecise2Keys,
+    args: AddLiquidityOneSidePrecise2IxArgs,
+) -> std::io::Result<Instruction> {
+    let metas: [AccountMeta; ADD_LIQUIDITY_ONE_SIDE_PRECISE2_IX_ACCOUNTS_LEN] = keys
+        .into();
+    let data: AddLiquidityOneSidePrecise2IxData = args.into();
+    Ok(Instruction {
+        program_id,
+        accounts: Vec::from(metas),
+        data: data.try_to_vec()?,
+    })
+}
+pub fn add_liquidity_one_side_precise2_ix(
+    keys: AddLiquidityOneSidePrecise2Keys,
+    args: AddLiquidityOneSidePrecise2IxArgs,
+) -> std::io::Result<Instruction> {
+    add_liquidity_one_side_precise2_ix_with_program_id(crate::ID, keys, args)
+}
+pub fn add_liquidity_one_side_precise2_invoke_with_program_id(
+    program_id: Pubkey,
+    accounts: AddLiquidityOneSidePrecise2Accounts<'_, '_>,
+    args: AddLiquidityOneSidePrecise2IxArgs,
+) -> ProgramResult {
+    let keys: AddLiquidityOneSidePrecise2Keys = accounts.into();
+    let ix = add_liquidity_one_side_precise2_ix_with_program_id(program_id, keys, args)?;
+    invoke_instruction(&ix, accounts)
+}
+pub fn add_liquidity_one_side_precise2_invoke(
+    accounts: AddLiquidityOneSidePrecise2Accounts<'_, '_>,
+    args: AddLiquidityOneSidePrecise2IxArgs,
+) -> ProgramResult {
+    add_liquidity_one_side_precise2_invoke_with_program_id(crate::ID, accounts, args)
+}
+pub fn add_liquidity_one_side_precise2_invoke_signed_with_program_id(
+    program_id: Pubkey,
+    accounts: AddLiquidityOneSidePrecise2Accounts<'_, '_>,
+    args: AddLiquidityOneSidePrecise2IxArgs,
+    seeds: &[&[&[u8]]],
+) -> ProgramResult {
+    let keys: AddLiquidityOneSidePrecise2Keys = accounts.into();
+    let ix = add_liquidity_one_side_precise2_ix_with_program_id(program_id, keys, args)?;
+    invoke_instruction_signed(&ix, accounts, seeds)
+}
+pub fn add_liquidity_one_side_precise2_invoke_signed(
+    accounts: AddLiquidityOneSidePrecise2Accounts<'_, '_>,
+    args: AddLiquidityOneSidePrecise2IxArgs,
+    seeds: &[&[&[u8]]],
+) -> ProgramResult {
+    add_liquidity_one_side_precise2_invoke_signed_with_program_id(
+        crate::ID,
+        accounts,
+        args,
+        seeds,
+    )
+}
+pub fn add_liquidity_one_side_precise2_verify_account_keys(
+    accounts: AddLiquidityOneSidePrecise2Accounts<'_, '_>,
+    keys: AddLiquidityOneSidePrecise2Keys,
+) -> Result<(), (Pubkey, Pubkey)> {
+    for (actual, expected) in [
+        (*accounts.position.key, keys.position),
+        (*accounts.lb_pair.key, keys.lb_pair),
+        (*accounts.bin_array_bitmap_extension.key, keys.bin_array_bitmap_extension),
+        (*accounts.user_token.key, keys.user_token),
+        (*accounts.reserve.key, keys.reserve),
+        (*accounts.token_mint.key, keys.token_mint),
+        (*accounts.sender.key, keys.sender),
+        (*accounts.token_program.key, keys.token_program),
+        (*accounts.event_authority.key, keys.event_authority),
+        (*accounts.program.key, keys.program),
+    ] {
+        if actual != expected {
+            return Err((actual, expected));
+        }
+    }
+    Ok(())
+}
+pub fn add_liquidity_one_side_precise2_verify_writable_privileges<'me, 'info>(
+    accounts: AddLiquidityOneSidePrecise2Accounts<'me, 'info>,
+) -> Result<(), (&'me AccountInfo<'info>, ProgramError)> {
+    for should_be_writable in [
+        accounts.position,
+        accounts.lb_pair,
+        accounts.bin_array_bitmap_extension,
+        accounts.user_token,
+        accounts.reserve,
+    ] {
+        if !should_be_writable.is_writable {
+            return Err((should_be_writable, ProgramError::InvalidAccountData));
+        }
+    }
+    Ok(())
+}
+pub fn add_liquidity_one_side_precise2_verify_signer_privileges<'me, 'info>(
+    accounts: AddLiquidityOneSidePrecise2Accounts<'me, 'info>,
+) -> Result<(), (&'me AccountInfo<'info>, ProgramError)> {
+    for should_be_signer in [accounts.sender] {
+        if !should_be_signer.is_signer {
+            return Err((should_be_signer, ProgramError::MissingRequiredSignature));
+        }
+    }
+    Ok(())
+}
+pub fn add_liquidity_one_side_precise2_verify_account_privileges<'me, 'info>(
+    accounts: AddLiquidityOneSidePrecise2Accounts<'me, 'info>,
+) -> Result<(), (&'me AccountInfo<'info>, ProgramError)> {
+    add_liquidity_one_side_precise2_verify_writable_privileges(accounts)?;
+    add_liquidity_one_side_precise2_verify_signer_privileges(accounts)?;
     Ok(())
 }
 pub const REMOVE_LIQUIDITY2_IX_ACCOUNTS_LEN: usize = 15;
@@ -17868,6 +18184,378 @@ pub fn swap2_verify_account_privileges<'me, 'info>(
 ) -> Result<(), (&'me AccountInfo<'info>, ProgramError)> {
     swap2_verify_writable_privileges(accounts)?;
     swap2_verify_signer_privileges(accounts)?;
+    Ok(())
+}
+pub const SWAP_EXACT_OUT2_IX_ACCOUNTS_LEN: usize = 16;
+#[derive(Copy, Clone, Debug)]
+pub struct SwapExactOut2Accounts<'me, 'info> {
+    pub lb_pair: &'me AccountInfo<'info>,
+    pub bin_array_bitmap_extension: &'me AccountInfo<'info>,
+    pub reserve_x: &'me AccountInfo<'info>,
+    pub reserve_y: &'me AccountInfo<'info>,
+    pub user_token_in: &'me AccountInfo<'info>,
+    pub user_token_out: &'me AccountInfo<'info>,
+    pub token_x_mint: &'me AccountInfo<'info>,
+    pub token_y_mint: &'me AccountInfo<'info>,
+    pub oracle: &'me AccountInfo<'info>,
+    pub host_fee_in: &'me AccountInfo<'info>,
+    pub user: &'me AccountInfo<'info>,
+    pub token_x_program: &'me AccountInfo<'info>,
+    pub token_y_program: &'me AccountInfo<'info>,
+    pub memo_program: &'me AccountInfo<'info>,
+    pub event_authority: &'me AccountInfo<'info>,
+    pub program: &'me AccountInfo<'info>,
+}
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct SwapExactOut2Keys {
+    pub lb_pair: Pubkey,
+    pub bin_array_bitmap_extension: Pubkey,
+    pub reserve_x: Pubkey,
+    pub reserve_y: Pubkey,
+    pub user_token_in: Pubkey,
+    pub user_token_out: Pubkey,
+    pub token_x_mint: Pubkey,
+    pub token_y_mint: Pubkey,
+    pub oracle: Pubkey,
+    pub host_fee_in: Pubkey,
+    pub user: Pubkey,
+    pub token_x_program: Pubkey,
+    pub token_y_program: Pubkey,
+    pub memo_program: Pubkey,
+    pub event_authority: Pubkey,
+    pub program: Pubkey,
+}
+impl From<SwapExactOut2Accounts<'_, '_>> for SwapExactOut2Keys {
+    fn from(accounts: SwapExactOut2Accounts) -> Self {
+        Self {
+            lb_pair: *accounts.lb_pair.key,
+            bin_array_bitmap_extension: *accounts.bin_array_bitmap_extension.key,
+            reserve_x: *accounts.reserve_x.key,
+            reserve_y: *accounts.reserve_y.key,
+            user_token_in: *accounts.user_token_in.key,
+            user_token_out: *accounts.user_token_out.key,
+            token_x_mint: *accounts.token_x_mint.key,
+            token_y_mint: *accounts.token_y_mint.key,
+            oracle: *accounts.oracle.key,
+            host_fee_in: *accounts.host_fee_in.key,
+            user: *accounts.user.key,
+            token_x_program: *accounts.token_x_program.key,
+            token_y_program: *accounts.token_y_program.key,
+            memo_program: *accounts.memo_program.key,
+            event_authority: *accounts.event_authority.key,
+            program: *accounts.program.key,
+        }
+    }
+}
+impl From<SwapExactOut2Keys> for [AccountMeta; SWAP_EXACT_OUT2_IX_ACCOUNTS_LEN] {
+    fn from(keys: SwapExactOut2Keys) -> Self {
+        [
+            AccountMeta {
+                pubkey: keys.lb_pair,
+                is_signer: false,
+                is_writable: true,
+            },
+            AccountMeta {
+                pubkey: keys.bin_array_bitmap_extension,
+                is_signer: false,
+                is_writable: false,
+            },
+            AccountMeta {
+                pubkey: keys.reserve_x,
+                is_signer: false,
+                is_writable: true,
+            },
+            AccountMeta {
+                pubkey: keys.reserve_y,
+                is_signer: false,
+                is_writable: true,
+            },
+            AccountMeta {
+                pubkey: keys.user_token_in,
+                is_signer: false,
+                is_writable: true,
+            },
+            AccountMeta {
+                pubkey: keys.user_token_out,
+                is_signer: false,
+                is_writable: true,
+            },
+            AccountMeta {
+                pubkey: keys.token_x_mint,
+                is_signer: false,
+                is_writable: false,
+            },
+            AccountMeta {
+                pubkey: keys.token_y_mint,
+                is_signer: false,
+                is_writable: false,
+            },
+            AccountMeta {
+                pubkey: keys.oracle,
+                is_signer: false,
+                is_writable: true,
+            },
+            AccountMeta {
+                pubkey: keys.host_fee_in,
+                is_signer: false,
+                is_writable: true,
+            },
+            AccountMeta {
+                pubkey: keys.user,
+                is_signer: true,
+                is_writable: false,
+            },
+            AccountMeta {
+                pubkey: keys.token_x_program,
+                is_signer: false,
+                is_writable: false,
+            },
+            AccountMeta {
+                pubkey: keys.token_y_program,
+                is_signer: false,
+                is_writable: false,
+            },
+            AccountMeta {
+                pubkey: keys.memo_program,
+                is_signer: false,
+                is_writable: false,
+            },
+            AccountMeta {
+                pubkey: keys.event_authority,
+                is_signer: false,
+                is_writable: false,
+            },
+            AccountMeta {
+                pubkey: keys.program,
+                is_signer: false,
+                is_writable: false,
+            },
+        ]
+    }
+}
+impl From<[Pubkey; SWAP_EXACT_OUT2_IX_ACCOUNTS_LEN]> for SwapExactOut2Keys {
+    fn from(pubkeys: [Pubkey; SWAP_EXACT_OUT2_IX_ACCOUNTS_LEN]) -> Self {
+        Self {
+            lb_pair: pubkeys[0],
+            bin_array_bitmap_extension: pubkeys[1],
+            reserve_x: pubkeys[2],
+            reserve_y: pubkeys[3],
+            user_token_in: pubkeys[4],
+            user_token_out: pubkeys[5],
+            token_x_mint: pubkeys[6],
+            token_y_mint: pubkeys[7],
+            oracle: pubkeys[8],
+            host_fee_in: pubkeys[9],
+            user: pubkeys[10],
+            token_x_program: pubkeys[11],
+            token_y_program: pubkeys[12],
+            memo_program: pubkeys[13],
+            event_authority: pubkeys[14],
+            program: pubkeys[15],
+        }
+    }
+}
+impl<'info> From<SwapExactOut2Accounts<'_, 'info>>
+for [AccountInfo<'info>; SWAP_EXACT_OUT2_IX_ACCOUNTS_LEN] {
+    fn from(accounts: SwapExactOut2Accounts<'_, 'info>) -> Self {
+        [
+            accounts.lb_pair.clone(),
+            accounts.bin_array_bitmap_extension.clone(),
+            accounts.reserve_x.clone(),
+            accounts.reserve_y.clone(),
+            accounts.user_token_in.clone(),
+            accounts.user_token_out.clone(),
+            accounts.token_x_mint.clone(),
+            accounts.token_y_mint.clone(),
+            accounts.oracle.clone(),
+            accounts.host_fee_in.clone(),
+            accounts.user.clone(),
+            accounts.token_x_program.clone(),
+            accounts.token_y_program.clone(),
+            accounts.memo_program.clone(),
+            accounts.event_authority.clone(),
+            accounts.program.clone(),
+        ]
+    }
+}
+impl<'me, 'info> From<&'me [AccountInfo<'info>; SWAP_EXACT_OUT2_IX_ACCOUNTS_LEN]>
+for SwapExactOut2Accounts<'me, 'info> {
+    fn from(arr: &'me [AccountInfo<'info>; SWAP_EXACT_OUT2_IX_ACCOUNTS_LEN]) -> Self {
+        Self {
+            lb_pair: &arr[0],
+            bin_array_bitmap_extension: &arr[1],
+            reserve_x: &arr[2],
+            reserve_y: &arr[3],
+            user_token_in: &arr[4],
+            user_token_out: &arr[5],
+            token_x_mint: &arr[6],
+            token_y_mint: &arr[7],
+            oracle: &arr[8],
+            host_fee_in: &arr[9],
+            user: &arr[10],
+            token_x_program: &arr[11],
+            token_y_program: &arr[12],
+            memo_program: &arr[13],
+            event_authority: &arr[14],
+            program: &arr[15],
+        }
+    }
+}
+pub const SWAP_EXACT_OUT2_IX_DISCM: [u8; 8] = [43, 215, 247, 132, 137, 60, 243, 81];
+#[derive(BorshDeserialize, BorshSerialize, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct SwapExactOut2IxArgs {
+    pub max_in_amount: u64,
+    pub out_amount: u64,
+    pub remaining_accounts_info: RemainingAccountsInfo,
+}
+#[derive(Clone, Debug, PartialEq)]
+pub struct SwapExactOut2IxData(pub SwapExactOut2IxArgs);
+impl From<SwapExactOut2IxArgs> for SwapExactOut2IxData {
+    fn from(args: SwapExactOut2IxArgs) -> Self {
+        Self(args)
+    }
+}
+impl SwapExactOut2IxData {
+    pub fn deserialize(buf: &[u8]) -> std::io::Result<Self> {
+        let mut reader = buf;
+        let mut maybe_discm = [0u8; 8];
+        reader.read_exact(&mut maybe_discm)?;
+        if maybe_discm != SWAP_EXACT_OUT2_IX_DISCM {
+            return Err(
+                std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!(
+                        "discm does not match. Expected: {:?}. Received: {:?}",
+                        SWAP_EXACT_OUT2_IX_DISCM, maybe_discm
+                    ),
+                ),
+            );
+        }
+        Ok(Self(SwapExactOut2IxArgs::deserialize(&mut reader)?))
+    }
+    pub fn serialize<W: std::io::Write>(&self, mut writer: W) -> std::io::Result<()> {
+        writer.write_all(&SWAP_EXACT_OUT2_IX_DISCM)?;
+        self.0.serialize(&mut writer)
+    }
+    pub fn try_to_vec(&self) -> std::io::Result<Vec<u8>> {
+        let mut data = Vec::new();
+        self.serialize(&mut data)?;
+        Ok(data)
+    }
+}
+pub fn swap_exact_out2_ix_with_program_id(
+    program_id: Pubkey,
+    keys: SwapExactOut2Keys,
+    args: SwapExactOut2IxArgs,
+) -> std::io::Result<Instruction> {
+    let metas: [AccountMeta; SWAP_EXACT_OUT2_IX_ACCOUNTS_LEN] = keys.into();
+    let data: SwapExactOut2IxData = args.into();
+    Ok(Instruction {
+        program_id,
+        accounts: Vec::from(metas),
+        data: data.try_to_vec()?,
+    })
+}
+pub fn swap_exact_out2_ix(
+    keys: SwapExactOut2Keys,
+    args: SwapExactOut2IxArgs,
+) -> std::io::Result<Instruction> {
+    swap_exact_out2_ix_with_program_id(crate::ID, keys, args)
+}
+pub fn swap_exact_out2_invoke_with_program_id(
+    program_id: Pubkey,
+    accounts: SwapExactOut2Accounts<'_, '_>,
+    args: SwapExactOut2IxArgs,
+) -> ProgramResult {
+    let keys: SwapExactOut2Keys = accounts.into();
+    let ix = swap_exact_out2_ix_with_program_id(program_id, keys, args)?;
+    invoke_instruction(&ix, accounts)
+}
+pub fn swap_exact_out2_invoke(
+    accounts: SwapExactOut2Accounts<'_, '_>,
+    args: SwapExactOut2IxArgs,
+) -> ProgramResult {
+    swap_exact_out2_invoke_with_program_id(crate::ID, accounts, args)
+}
+pub fn swap_exact_out2_invoke_signed_with_program_id(
+    program_id: Pubkey,
+    accounts: SwapExactOut2Accounts<'_, '_>,
+    args: SwapExactOut2IxArgs,
+    seeds: &[&[&[u8]]],
+) -> ProgramResult {
+    let keys: SwapExactOut2Keys = accounts.into();
+    let ix = swap_exact_out2_ix_with_program_id(program_id, keys, args)?;
+    invoke_instruction_signed(&ix, accounts, seeds)
+}
+pub fn swap_exact_out2_invoke_signed(
+    accounts: SwapExactOut2Accounts<'_, '_>,
+    args: SwapExactOut2IxArgs,
+    seeds: &[&[&[u8]]],
+) -> ProgramResult {
+    swap_exact_out2_invoke_signed_with_program_id(crate::ID, accounts, args, seeds)
+}
+pub fn swap_exact_out2_verify_account_keys(
+    accounts: SwapExactOut2Accounts<'_, '_>,
+    keys: SwapExactOut2Keys,
+) -> Result<(), (Pubkey, Pubkey)> {
+    for (actual, expected) in [
+        (*accounts.lb_pair.key, keys.lb_pair),
+        (*accounts.bin_array_bitmap_extension.key, keys.bin_array_bitmap_extension),
+        (*accounts.reserve_x.key, keys.reserve_x),
+        (*accounts.reserve_y.key, keys.reserve_y),
+        (*accounts.user_token_in.key, keys.user_token_in),
+        (*accounts.user_token_out.key, keys.user_token_out),
+        (*accounts.token_x_mint.key, keys.token_x_mint),
+        (*accounts.token_y_mint.key, keys.token_y_mint),
+        (*accounts.oracle.key, keys.oracle),
+        (*accounts.host_fee_in.key, keys.host_fee_in),
+        (*accounts.user.key, keys.user),
+        (*accounts.token_x_program.key, keys.token_x_program),
+        (*accounts.token_y_program.key, keys.token_y_program),
+        (*accounts.memo_program.key, keys.memo_program),
+        (*accounts.event_authority.key, keys.event_authority),
+        (*accounts.program.key, keys.program),
+    ] {
+        if actual != expected {
+            return Err((actual, expected));
+        }
+    }
+    Ok(())
+}
+pub fn swap_exact_out2_verify_writable_privileges<'me, 'info>(
+    accounts: SwapExactOut2Accounts<'me, 'info>,
+) -> Result<(), (&'me AccountInfo<'info>, ProgramError)> {
+    for should_be_writable in [
+        accounts.lb_pair,
+        accounts.reserve_x,
+        accounts.reserve_y,
+        accounts.user_token_in,
+        accounts.user_token_out,
+        accounts.oracle,
+        accounts.host_fee_in,
+    ] {
+        if !should_be_writable.is_writable {
+            return Err((should_be_writable, ProgramError::InvalidAccountData));
+        }
+    }
+    Ok(())
+}
+pub fn swap_exact_out2_verify_signer_privileges<'me, 'info>(
+    accounts: SwapExactOut2Accounts<'me, 'info>,
+) -> Result<(), (&'me AccountInfo<'info>, ProgramError)> {
+    for should_be_signer in [accounts.user] {
+        if !should_be_signer.is_signer {
+            return Err((should_be_signer, ProgramError::MissingRequiredSignature));
+        }
+    }
+    Ok(())
+}
+pub fn swap_exact_out2_verify_account_privileges<'me, 'info>(
+    accounts: SwapExactOut2Accounts<'me, 'info>,
+) -> Result<(), (&'me AccountInfo<'info>, ProgramError)> {
+    swap_exact_out2_verify_writable_privileges(accounts)?;
+    swap_exact_out2_verify_signer_privileges(accounts)?;
     Ok(())
 }
 pub const SWAP_WITH_PRICE_IMPACT2_IX_ACCOUNTS_LEN: usize = 16;

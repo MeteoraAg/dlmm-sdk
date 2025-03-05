@@ -5213,7 +5213,6 @@ export class DLMM {
                 tokenXProgram: this.tokenX.owner,
                 tokenYProgram: this.tokenY.owner,
                 sender: operator,
-                memoProgram: MEMO_PROGRAM_ID,
               })
               .remainingAccounts([
                 ...transferHookAccountMetas,
@@ -5503,7 +5502,6 @@ export class DLMM {
         sender: operator,
         tokenXProgram: TOKEN_PROGRAM_ID,
         tokenYProgram: TOKEN_PROGRAM_ID,
-        memoProgram: MEMO_PROGRAM_ID,
       })
       .remainingAccounts([
         ...transferHookAccountMetas,
