@@ -228,7 +228,7 @@ pub fn calculate_pre_fee_amount(transfer_fee: &TransferFee, post_fee_amount: u64
         let numerator = (post_fee_amount as u128).checked_mul(ONE_IN_BASIS_POINTS)?;
         let denominator = ONE_IN_BASIS_POINTS.checked_sub(transfer_fee_basis_points)?;
         let raw_pre_fee_amount = numerator
-            .checked_add(ONE_IN_BASIS_POINTS)?
+            .checked_add(denominator)?
             .checked_sub(1)?
             .checked_div(denominator)?;
 

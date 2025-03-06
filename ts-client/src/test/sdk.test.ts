@@ -1296,9 +1296,7 @@ describe("SDK test", () => {
 
       it("quote matches actual swap result (X -> Y)", () => {
         expect(actualOutAmount.toString()).toBe(outAmount.toString());
-        expect(actualInAmount.toString()).toBe(
-          quotedInAmount.add(quotedInFee).toString()
-        );
+        expect(actualInAmount.toString()).toBe(quotedInAmount.toString());
       });
 
       it("quote Y -> X", async () => {
@@ -1382,9 +1380,7 @@ describe("SDK test", () => {
 
       it("quote matches actual swap result (Y -> X)", () => {
         expect(actualOutAmount.toString()).toBe(outAmount.toString());
-        expect(actualInAmount.toString()).toBe(
-          quotedInAmount.add(quotedInFee).toString()
-        );
+        expect(actualInAmount.toString()).toBe(quotedInAmount.toString());
       });
     });
   });
@@ -1644,9 +1640,7 @@ describe("SDK test", () => {
 
       it("quote matches actual swap result (X -> Y)", () => {
         expect(actualOutAmount.toString()).toBe(outAmount.toString());
-        expect(actualInAmount.toString()).toBe(
-          quotedInAmount.add(quotedInFee).toString()
-        );
+        expect(actualInAmount.toString()).toBe(quotedInAmount.toString());
       });
 
       it("quote Y -> X", async () => {
@@ -1731,9 +1725,7 @@ describe("SDK test", () => {
 
       it("quote matches actual swap result (Y -> X)", () => {
         expect(actualOutAmount.toString()).toBe(outAmount.toString());
-        expect(actualInAmount.toString()).toBe(
-          quotedInAmount.add(quotedInFee).toString()
-        );
+        expect(actualInAmount.toString()).toBe(quotedInAmount.toString());
       });
     });
   });
