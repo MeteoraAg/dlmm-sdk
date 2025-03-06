@@ -8,7 +8,6 @@ import {
   createInitializeTransferFeeConfigInstruction,
   createInitializeTransferHookInstruction,
   createMint,
-  getAssociatedTokenAddressSync,
   getMintLen,
   getOrCreateAssociatedTokenAccount,
   mintTo,
@@ -660,7 +659,7 @@ describe("ILM test", () => {
     });
   });
 
-  describe.only("Token 2022", () => {
+  describe("Token 2022", () => {
     const baseKeypair = Keypair.generate();
     const dummyDecimal = 6;
     const usdcDecimal = 6;
@@ -694,7 +693,7 @@ describe("ILM test", () => {
     beforeAll(async () => {
       const extensions = [
         ExtensionType.TransferFeeConfig,
-        // ExtensionType.TransferHook,
+        ExtensionType.TransferHook,
       ];
 
       const mintLen = getMintLen(extensions);
@@ -721,14 +720,14 @@ describe("ILM test", () => {
             TOKEN_2022_PROGRAM_ID
           )
         )
-        // .add(
-        //   createInitializeTransferHookInstruction(
-        //     DUMMY,
-        //     operator.publicKey,
-        //     TRANSFER_HOOK_COUNTER_PROGRAM_ID,
-        //     TOKEN_2022_PROGRAM_ID
-        //   )
-        // )
+        .add(
+          createInitializeTransferHookInstruction(
+            DUMMY,
+            operator.publicKey,
+            TRANSFER_HOOK_COUNTER_PROGRAM_ID,
+            TOKEN_2022_PROGRAM_ID
+          )
+        )
         .add(
           createInitializeMintInstruction(
             DUMMY,
@@ -746,16 +745,16 @@ describe("ILM test", () => {
         { commitment: "confirmed" }
       );
 
-      // const transferHookCounterProgram = createTransferHookCounterProgram(
-      //   new Wallet(operator),
-      //   TRANSFER_HOOK_COUNTER_PROGRAM_ID,
-      //   connection
-      // );
+      const transferHookCounterProgram = createTransferHookCounterProgram(
+        new Wallet(operator),
+        TRANSFER_HOOK_COUNTER_PROGRAM_ID,
+        connection
+      );
 
-      // await createExtraAccountMetaListAndCounter(
-      //   transferHookCounterProgram,
-      //   DUMMY
-      // );
+      await createExtraAccountMetaListAndCounter(
+        transferHookCounterProgram,
+        DUMMY
+      );
 
       USDC = await createMint(
         connection,

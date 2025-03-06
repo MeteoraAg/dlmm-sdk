@@ -21,7 +21,7 @@ address = "LbVRzDTvBDEcrthxfZ4RL6yiq3uZw8bS6MwtdY6UhFQ"
 program = "./artifacts/lb_clmm.so"
 
 [[test.genesis]]
-address = "EBZDYx7599krFc4m2govwBdZcicr4GgepqC78m71nsHS"
+address = "abcSyangMHdGzUGKhBhKoQzSFdJKUdkPGf5cbXVHpEw"
 program = "./artifacts/transfer_hook_counter.so"
 
 [scripts]
