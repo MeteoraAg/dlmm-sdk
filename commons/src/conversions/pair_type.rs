@@ -19,6 +19,7 @@ impl TryFrom<u8> for PairTypeWrapper {
             0 => Ok(PairTypeWrapper(PairType::Permissionless)),
             1 => Ok(PairTypeWrapper(PairType::Permission)),
             2 => Ok(PairTypeWrapper(PairType::CustomizablePermissionless)),
+            3 => Ok(PairTypeWrapper(PairType::PermissionlessV2)),
             _ => Err(anyhow::anyhow!("Invalid PairType value: {}", value)),
         }
     }

@@ -3780,16 +3780,18 @@ export class DLMM {
     binArrays: BinArrayAccount[],
     maxExtraBinArrays: number = 0
   ): SwapQuoteExactOut {
-    const haveToken2022 = [this.tokenX.owner, this.tokenY.owner].includes(
-      TOKEN_2022_PROGRAM_ID
-    );
-
-    if (haveToken2022) {
-      throw "Swap exact out for token 2022 is not supported";
-    }
-
     const currentTimestamp = Date.now() / 1000;
-    let outAmountLeft = outAmount;
+
+    const [inMint, outMint] = swapForY
+      ? [this.tokenX.mint, this.tokenY.mint]
+      : [this.tokenY.mint, this.tokenX.mint];
+
+    let outAmountLeft = calculateTransferFeeIncludedAmount(
+      outAmount,
+      outMint,
+      this.clock.epoch.toNumber()
+    ).amount;
+
     if (maxExtraBinArrays < 0 || maxExtraBinArrays > MAX_EXTRA_BIN_ARRAYS) {
       throw new DlmmSdkError(
         "INVALID_MAX_EXTRA_BIN_ARRAYS",
@@ -3888,6 +3890,12 @@ export class DLMM {
       .abs()
       .div(startPrice)
       .mul(new Decimal(100));
+
+    actualInAmount = calculateTransferFeeIncludedAmount(
+      actualInAmount.add(feeAmount),
+      inMint,
+      this.clock.epoch.toNumber()
+    ).amount;
 
     const maxInAmount = actualInAmount
       .mul(new BN(BASIS_POINT_MAX).add(allowedSlippage))
@@ -4208,11 +4216,14 @@ export class DLMM {
     user,
     binArraysPubkey,
   }: SwapExactOutParams): Promise<Transaction> {
-    const { tokenXMint, tokenYMint, reserveX, reserveY, activeId, oracle } =
-      await this.program.account.lbPair.fetch(lbPair);
-
     const preInstructions: TransactionInstruction[] = [];
     const postInstructions: Array<TransactionInstruction> = [];
+
+    const [inTokenProgram, outTokenProgram] = inToken.equals(
+      this.lbPair.tokenXMint
+    )
+      ? [this.tokenX.owner, this.tokenY.owner]
+      : [this.tokenY.owner, this.tokenX.owner];
 
     const [
       { ataPubKey: userTokenIn, ix: createInTokenAccountIx },
@@ -4222,13 +4233,13 @@ export class DLMM {
         this.program.provider.connection,
         inToken,
         user,
-        this.tokenX.owner
+        inTokenProgram
       ),
       getOrCreateATAInstruction(
         this.program.provider.connection,
         outToken,
         user,
-        this.tokenY.owner
+        outTokenProgram
       ),
     ]);
     createInTokenAccountIx && preInstructions.push(createInTokenAccountIx);
@@ -4251,8 +4262,8 @@ export class DLMM {
       closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
     }
 
-    let swapForY = true;
-    if (outToken.equals(tokenXMint)) swapForY = false;
+    const { slices, accounts: transferHookAccounts } =
+      this.getPotentialToken2022IxDataAndAccounts(ActionType.Liquidity);
 
     const binArrays: AccountMeta[] = binArraysPubkey.map((pubkey) => {
       return {
@@ -4263,36 +4274,44 @@ export class DLMM {
     });
 
     const swapIx = await this.program.methods
-      .swapExactOut(maxInAmount, outAmount)
+      .swapExactOut2(maxInAmount, outAmount, { slices })
       .accounts({
         lbPair,
-        reserveX,
-        reserveY,
-        tokenXMint,
-        tokenYMint,
-        tokenXProgram: TOKEN_PROGRAM_ID,
-        tokenYProgram: TOKEN_PROGRAM_ID,
+        reserveX: this.lbPair.reserveX,
+        reserveY: this.lbPair.reserveY,
+        tokenXMint: this.lbPair.tokenXMint,
+        tokenYMint: this.lbPair.tokenYMint,
+        tokenXProgram: this.tokenX.owner,
+        tokenYProgram: this.tokenY.owner,
         user,
         userTokenIn,
         userTokenOut,
         binArrayBitmapExtension: this.binArrayBitmapExtension
           ? this.binArrayBitmapExtension.publicKey
           : null,
-        oracle,
+        oracle: this.lbPair.oracle,
         hostFeeIn: null,
+        memoProgram: MEMO_PROGRAM_ID,
       })
+      .remainingAccounts(transferHookAccounts)
       .remainingAccounts(binArrays)
       .instruction();
 
     const instructions = [...preInstructions, swapIx, ...postInstructions];
 
-    const setCUIx = await getEstimatedComputeUnitIxWithBuffer(
-      this.program.provider.connection,
-      instructions,
-      user
-    );
+    // const setCUIx = await getEstimatedComputeUnitIxWithBuffer(
+    //   this.program.provider.connection,
+    //   instructions,
+    //   user
+    // );
 
-    instructions.unshift(setCUIx);
+    // instructions.unshift(setCUIx);
+
+    instructions.push(
+      ComputeBudgetProgram.setComputeUnitLimit({
+        units: 1_400_000,
+      })
+    );
 
     const { blockhash, lastValidBlockHeight } =
       await this.program.provider.connection.getLatestBlockhash("confirmed");

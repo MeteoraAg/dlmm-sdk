@@ -51,9 +51,14 @@ pub fn quote_exact_out(
     swap_for_y: bool,
     bin_arrays: HashMap<Pubkey, BinArray>,
     bitmap_extension: Option<&BinArrayBitmapExtension>,
-    current_timestamp: u64,
-    current_slot: u64,
+    clock: &Clock,
+    mint_x_account: &Account,
+    mint_y_account: &Account,
 ) -> Result<SwapExactOutQuote> {
+    let current_timestamp = clock.unix_timestamp as u64;
+    let current_slot = clock.slot;
+    let epoch = clock.epoch;
+
     validate_swap_activation(lb_pair, current_timestamp, current_slot)?;
 
     let mut lb_pair = *lb_pair;
@@ -61,6 +66,15 @@ pub fn quote_exact_out(
 
     let mut total_amount_in: u64 = 0;
     let mut total_fee: u64 = 0;
+
+    let (in_mint_account, out_mint_account) = if swap_for_y {
+        (mint_x_account, mint_y_account)
+    } else {
+        (mint_y_account, mint_x_account)
+    };
+
+    amount_out =
+        calculate_transfer_fee_included_amount(out_mint_account, amount_out, epoch)?.amount;
 
     while amount_out > 0 {
         let active_bin_array_pubkey = get_bin_array_pubkeys_for_swap(
@@ -123,6 +137,13 @@ pub fn quote_exact_out(
         }
     }
 
+    total_amount_in = total_amount_in
+        .checked_add(total_fee)
+        .context("MathOverflow")?;
+
+    total_amount_in =
+        calculate_transfer_fee_included_amount(in_mint_account, total_amount_in, epoch)?.amount;
+
     Ok(SwapExactOutQuote {
         amount_in: total_amount_in,
         fee: total_fee,
@@ -154,9 +175,9 @@ pub fn quote_exact_in(
     let mut total_fee: u64 = 0;
 
     let (in_mint_account, out_mint_account) = if swap_for_y {
-        (mint_y_account, mint_x_account)
-    } else {
         (mint_x_account, mint_y_account)
+    } else {
+        (mint_y_account, mint_x_account)
     };
 
     let transfer_fee_excluded_amount_in =
@@ -365,8 +386,9 @@ mod tests {
             false,
             bin_arrays.clone(),
             None,
-            clock.unix_timestamp as u64,
-            clock.slot,
+            &clock,
+            &mint_x_account,
+            &mint_y_account,
         )
         .unwrap();
 
@@ -405,8 +427,9 @@ mod tests {
             true,
             bin_arrays.clone(),
             None,
-            clock.unix_timestamp as u64,
-            clock.slot,
+            &clock,
+            &mint_x_account,
+            &mint_y_account,
         )
         .unwrap();
 

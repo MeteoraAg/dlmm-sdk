@@ -879,7 +879,7 @@ describe("SDK token2022 test", () => {
   });
 
   describe("Swap", () => {
-    it("Swap quote X into Y and execute swap", async () => {
+    it("SwapExactIn quote X into Y and execute swap", async () => {
       const dlmm = await DLMM.create(connection, pairKey, opt);
       const inAmount = new BN(100_000).mul(new BN(10 ** btcDecimal));
       const swapForY = true;
@@ -974,7 +974,201 @@ describe("SDK token2022 test", () => {
       expect(receivedYAmount.toString()).toBe(quoteResult.outAmount.toString());
     });
 
-    it("Swap quote Y into X and execute swap", async () => {
+    it("SwapExactOut quote Y into X and execute swap", async () => {
+      const dlmm = await DLMM.create(connection, pairKey, opt);
+      const outAmount = new BN(100_000).mul(new BN(10 ** btcDecimal));
+      const swapForY = false;
+
+      const askBinArrays = await dlmm.getBinArrayForSwap(swapForY, 3);
+      const quoteResult = dlmm.swapQuoteExactOut(
+        outAmount,
+        swapForY,
+        new BN(0),
+        askBinArrays
+      );
+
+      console.log(
+        quoteResult.inAmount.toString(),
+        quoteResult.outAmount.toString()
+      );
+
+      const swapTx = await dlmm.swapExactOut({
+        outAmount,
+        inToken: dlmm.tokenY.publicKey,
+        outToken: dlmm.tokenX.publicKey,
+        maxInAmount: quoteResult.maxInAmount,
+        lbPair: pairKey,
+        user: keypair.publicKey,
+        binArraysPubkey: askBinArrays.map((b) => b.publicKey),
+      });
+
+      const [beforeUserXAccount, beforeUserYAccount] =
+        await connection.getMultipleAccountsInfo([
+          getAssociatedTokenAddressSync(
+            dlmm.tokenX.publicKey,
+            keypair.publicKey,
+            true,
+            dlmm.tokenX.owner
+          ),
+          getAssociatedTokenAddressSync(
+            dlmm.tokenY.publicKey,
+            keypair.publicKey,
+            true,
+            dlmm.tokenY.owner
+          ),
+        ]);
+
+      await sendAndConfirmTransaction(connection, swapTx, [keypair]);
+
+      const [afterUserXAccount, afterUserYAccount] =
+        await connection.getMultipleAccountsInfo([
+          getAssociatedTokenAddressSync(
+            dlmm.tokenX.publicKey,
+            keypair.publicKey,
+            true,
+            dlmm.tokenX.owner
+          ),
+          getAssociatedTokenAddressSync(
+            dlmm.tokenY.publicKey,
+            keypair.publicKey,
+            true,
+            dlmm.tokenY.owner
+          ),
+        ]);
+
+      const beforeUserX = unpackAccount(
+        dlmm.tokenX.publicKey,
+        beforeUserXAccount,
+        beforeUserXAccount.owner
+      );
+
+      const beforeUserY = unpackAccount(
+        dlmm.tokenY.publicKey,
+        beforeUserYAccount,
+        beforeUserYAccount.owner
+      );
+
+      const afterUserX = unpackAccount(
+        dlmm.tokenX.publicKey,
+        afterUserXAccount,
+        afterUserXAccount.owner
+      );
+
+      const afterUserY = unpackAccount(
+        dlmm.tokenY.publicKey,
+        afterUserYAccount,
+        afterUserYAccount.owner
+      );
+
+      const consumedYAmount = new BN(
+        (beforeUserY.amount - afterUserY.amount).toString()
+      );
+      const receivedXAmount = new BN(
+        (afterUserX.amount - beforeUserX.amount).toString()
+      );
+
+      expect(consumedYAmount.toString()).toBe(quoteResult.inAmount.toString());
+      expect(receivedXAmount.toString()).toBe(quoteResult.outAmount.toString());
+    });
+
+    it("SwapExactOut quote X into Y and execute swap", async () => {
+      const dlmm = await DLMM.create(connection, pairKey, opt);
+      const outAmount = new BN(100_000).mul(new BN(10 ** usdcDecimal));
+      const swapForY = true;
+
+      const bidBinArrays = await dlmm.getBinArrayForSwap(swapForY, 3);
+      const quoteResult = dlmm.swapQuoteExactOut(
+        outAmount,
+        swapForY,
+        new BN(0),
+        bidBinArrays
+      );
+
+      console.log(
+        quoteResult.inAmount.toString(),
+        quoteResult.outAmount.toString()
+      );
+
+      const swapTx = await dlmm.swapExactOut({
+        outAmount,
+        inToken: dlmm.tokenX.publicKey,
+        outToken: dlmm.tokenY.publicKey,
+        maxInAmount: quoteResult.maxInAmount,
+        lbPair: pairKey,
+        user: keypair.publicKey,
+        binArraysPubkey: bidBinArrays.map((b) => b.publicKey),
+      });
+
+      const [beforeUserXAccount, beforeUserYAccount] =
+        await connection.getMultipleAccountsInfo([
+          getAssociatedTokenAddressSync(
+            dlmm.tokenX.publicKey,
+            keypair.publicKey,
+            true,
+            dlmm.tokenX.owner
+          ),
+          getAssociatedTokenAddressSync(
+            dlmm.tokenY.publicKey,
+            keypair.publicKey,
+            true,
+            dlmm.tokenY.owner
+          ),
+        ]);
+
+      await sendAndConfirmTransaction(connection, swapTx, [keypair]);
+
+      const [afterUserXAccount, afterUserYAccount] =
+        await connection.getMultipleAccountsInfo([
+          getAssociatedTokenAddressSync(
+            dlmm.tokenX.publicKey,
+            keypair.publicKey,
+            true,
+            dlmm.tokenX.owner
+          ),
+          getAssociatedTokenAddressSync(
+            dlmm.tokenY.publicKey,
+            keypair.publicKey,
+            true,
+            dlmm.tokenY.owner
+          ),
+        ]);
+
+      const beforeUserX = unpackAccount(
+        dlmm.tokenX.publicKey,
+        beforeUserXAccount,
+        beforeUserXAccount.owner
+      );
+
+      const beforeUserY = unpackAccount(
+        dlmm.tokenY.publicKey,
+        beforeUserYAccount,
+        beforeUserYAccount.owner
+      );
+
+      const afterUserX = unpackAccount(
+        dlmm.tokenX.publicKey,
+        afterUserXAccount,
+        afterUserXAccount.owner
+      );
+
+      const afterUserY = unpackAccount(
+        dlmm.tokenY.publicKey,
+        afterUserYAccount,
+        afterUserYAccount.owner
+      );
+
+      const consumedXAmount = new BN(
+        (beforeUserX.amount - afterUserX.amount).toString()
+      );
+      const receivedYAmount = new BN(
+        (afterUserY.amount - beforeUserY.amount).toString()
+      );
+
+      expect(consumedXAmount.toString()).toBe(quoteResult.inAmount.toString());
+      expect(receivedYAmount.toString()).toBe(quoteResult.outAmount.toString());
+    });
+
+    it("SwapExactIn quote Y into X and execute swap", async () => {
       const dlmm = await DLMM.create(connection, pairKey, opt);
       const inAmount = new BN(100_000).mul(new BN(10 ** usdcDecimal));
       const swapForY = false;

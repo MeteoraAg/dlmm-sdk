@@ -127,7 +127,7 @@ function calculatePreFeeAmount(transferFee: TransferFee, postFeeAmount: BN) {
   );
 
   const rawPreFeeAmount = numerator
-    .add(ONE_IN_BASIS_POINTS)
+    .add(denominator)
     .sub(new BN(1))
     .div(denominator);
 

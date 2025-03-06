@@ -83,6 +83,17 @@ pub async fn execute_swap_exact_out<C: Deref<Target = impl Signer> + Clone>(
         Ok(clock)
     })??;
 
+    let mut mint_accounts = rpc_client
+        .get_multiple_accounts(&[lb_pair_state.token_x_mint, lb_pair_state.token_y_mint])
+        .await?;
+
+    let mint_x_account = mint_accounts[0]
+        .take()
+        .context("Failed to fetch mint account")?;
+    let mint_y_account = mint_accounts[1]
+        .take()
+        .context("Failed to fetch mint account")?;
+
     let quote = quote_exact_out(
         lb_pair,
         &lb_pair_state,
@@ -90,13 +101,14 @@ pub async fn execute_swap_exact_out<C: Deref<Target = impl Signer> + Clone>(
         swap_for_y,
         bin_arrays,
         bitmap_extension.as_ref(),
-        clock.unix_timestamp as u64,
-        clock.slot,
+        &clock,
+        &mint_x_account,
+        &mint_y_account,
     )?;
 
     let (event_authority, _bump) = derive_event_authority_pda();
 
-    let main_accounts: [AccountMeta; SWAP_EXACT_OUT_IX_ACCOUNTS_LEN] = SwapExactOutKeys {
+    let main_accounts: [AccountMeta; SWAP_EXACT_OUT2_IX_ACCOUNTS_LEN] = SwapExactOut2Keys {
         lb_pair,
         bin_array_bitmap_extension: bitmap_extension
             .map(|_| bitmap_extension_key)
@@ -114,6 +126,7 @@ pub async fn execute_swap_exact_out<C: Deref<Target = impl Signer> + Clone>(
         host_fee_in: dlmm_interface::ID,
         event_authority,
         program: dlmm_interface::ID,
+        memo_program: spl_memo::ID,
     }
     .into();
 

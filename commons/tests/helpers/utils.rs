@@ -26,7 +26,11 @@ pub async fn process_and_assert_ok(
         recent_blockhash,
     );
 
-    assert_matches!(banks_client.process_transaction(tx).await, Ok(()));
+    let result = banks_client.process_transaction(tx).await.inspect_err(|e| {
+        println!("Transaction error: {}", e);
+    });
+
+    assert_matches!(result, Ok(()));
 }
 
 pub async fn get_or_create_ata(
@@ -46,7 +50,14 @@ pub async fn get_or_create_ata(
         get_associated_token_address_with_program_id(authority, token_mint, &token_mint_owner);
     let ata_account = banks_client.get_account(ata_address).await.unwrap();
     if ata_account.is_none() {
-        create_associated_token_account(payer, token_mint, authority, banks_client).await;
+        create_associated_token_account(
+            payer,
+            token_mint,
+            authority,
+            &token_mint_owner,
+            banks_client,
+        )
+        .await;
     }
     ata_address
 }
@@ -55,14 +66,16 @@ pub async fn create_associated_token_account(
     payer: &Keypair,
     token_mint: &Pubkey,
     authority: &Pubkey,
+    program_id: &Pubkey,
     banks_client: &mut BanksClient,
 ) {
+    println!("{}", program_id);
     let ins = vec![
         spl_associated_token_account::instruction::create_associated_token_account(
             &payer.pubkey(),
             authority,
             token_mint,
-            &spl_token::id(),
+            program_id,
         ),
     ];
 
