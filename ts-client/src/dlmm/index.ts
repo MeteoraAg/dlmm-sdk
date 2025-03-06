@@ -1420,11 +1420,15 @@ export class DLMM {
       {} as any,
       AnchorProvider.defaultOptions()
     );
+
     const program = new Program(
       IDL,
       opt?.programId ?? DLMM_PROGRAM_IDS[opt.cluster],
       provider
     );
+
+    const [mintXAccount, mintYAccount] =
+      await connection.getMultipleAccountsInfo([tokenX, tokenY]);
 
     const [lbPair] = deriveCustomizablePermissionlessLbPair(
       tokenX,
@@ -1478,7 +1482,7 @@ export class DLMM {
         binArrayBitmapExtension,
         tokenMintX: tokenX,
         tokenMintY: tokenY,
-        tokenProgram: TOKEN_PROGRAM_ID,
+
         oracle,
         systemProgram: SystemProgram.programId,
         userTokenX,
@@ -4983,6 +4987,7 @@ export class DLMM {
       }
 
       if (requireTokenProve) {
+        // TODO: Handle transfer hook
         const initPositionOwnerTokenX =
           createAssociatedTokenAccountIdempotentInstruction(
             payer,
@@ -4992,6 +4997,12 @@ export class DLMM {
             this.tokenX.owner
           );
 
+        const proveAmount = calculateTransferFeeIncludedAmount(
+          new BN(1),
+          this.tokenX.mint,
+          this.clock.epoch.toNumber()
+        ).amount;
+
         sendPositionOwnerTokenProveIxs.push(initPositionOwnerTokenX);
         sendPositionOwnerTokenProveIxs.push(
           createTransferCheckedInstruction(
@@ -4999,7 +5010,7 @@ export class DLMM {
             this.lbPair.tokenXMint,
             ownerTokenX,
             operator,
-            1n,
+            BigInt(proveAmount.toString()),
             this.tokenX.mint.decimals,
             [],
             this.tokenX.owner
@@ -5367,6 +5378,13 @@ export class DLMM {
         await this.program.provider.connection.getAccountInfo(
           positionOwnerTokenX
         );
+
+      const proveAmount = calculateTransferFeeIncludedAmount(
+        new BN(1),
+        this.tokenX.mint,
+        this.clock.epoch.toNumber()
+      ).amount;
+
       if (positionOwnerTokenXAccount) {
         const account = unpackAccount(
           positionOwnerTokenX,
@@ -5381,7 +5399,7 @@ export class DLMM {
             this.lbPair.tokenXMint,
             positionOwnerTokenX,
             operator,
-            1,
+            BigInt(proveAmount.toString()),
             this.tokenX.mint.decimals,
             [],
             this.tokenX.owner
@@ -5406,7 +5424,7 @@ export class DLMM {
           this.lbPair.tokenXMint,
           positionOwnerTokenX,
           operator,
-          1,
+          BigInt(proveAmount.toString()),
           this.tokenX.mint.decimals,
           [],
           this.tokenX.owner
