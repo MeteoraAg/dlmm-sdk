@@ -52,8 +52,8 @@ const activeBinPricePerToken = dlmmPool.fromPricePerLamport(
 
 ```ts
 const TOTAL_RANGE_INTERVAL = 10; // 10 bins on each side of the active bin
-const minBinId = activeBin.bin_id - TOTAL_RANGE_INTERVAL;
-const maxBinId = activeBin.bin_id + TOTAL_RANGE_INTERVAL;
+const minBinId = activeBin.binId - TOTAL_RANGE_INTERVAL;
+const maxBinId = activeBin.binId + TOTAL_RANGE_INTERVAL;
 
 const activeBinPricePerToken = dlmmPool.fromPricePerLamport(
   Number(activeBin.price)
