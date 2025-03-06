@@ -4987,7 +4987,6 @@ export class DLMM {
       }
 
       if (requireTokenProve) {
-        // TODO: Handle transfer hook
         const initPositionOwnerTokenX =
           createAssociatedTokenAccountIdempotentInstruction(
             payer,
@@ -5004,18 +5003,19 @@ export class DLMM {
         ).amount;
 
         sendPositionOwnerTokenProveIxs.push(initPositionOwnerTokenX);
-        sendPositionOwnerTokenProveIxs.push(
-          createTransferCheckedInstruction(
-            seederTokenX,
-            this.lbPair.tokenXMint,
-            ownerTokenX,
-            operator,
-            BigInt(proveAmount.toString()),
-            this.tokenX.mint.decimals,
-            [],
-            this.tokenX.owner
-          )
+
+        const transferIx = createTransferCheckedInstruction(
+          seederTokenX,
+          this.lbPair.tokenXMint,
+          ownerTokenX,
+          operator,
+          BigInt(proveAmount.toString()),
+          this.tokenX.mint.decimals,
+          [],
+          this.tokenX.owner
         );
+        transferIx.keys.push(...this.tokenX.transferHookAccountMetas);
+        sendPositionOwnerTokenProveIxs.push(transferIx);
       }
     }
 
@@ -5404,6 +5404,7 @@ export class DLMM {
             [],
             this.tokenX.owner
           );
+          transferIx.keys.push(...this.tokenX.transferHookAccountMetas);
           preInstructions.push(transferIx);
         }
       } else {
@@ -5429,6 +5430,7 @@ export class DLMM {
           [],
           this.tokenX.owner
         );
+        transferIx.keys.push(...this.tokenX.transferHookAccountMetas);
         preInstructions.push(transferIx);
       }
     }

@@ -6,7 +6,7 @@ import {
 import { Connection } from "@solana/web3.js";
 
 export const TRANSFER_HOOK_COUNTER_PROGRAM_ID = new web3.PublicKey(
-  "EBZDYx7599krFc4m2govwBdZcicr4GgepqC78m71nsHS"
+  "abcSyangMHdGzUGKhBhKoQzSFdJKUdkPGf5cbXVHpEw"
 );
 
 export function createTransferHookCounterProgram(
