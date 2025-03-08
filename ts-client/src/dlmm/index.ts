@@ -3,10 +3,8 @@ import {
   AccountLayout,
   Mint,
   NATIVE_MINT,
-  TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
   createAssociatedTokenAccountIdempotentInstruction,
-  createAssociatedTokenAccountIdempotentInstructionWithDerivation,
   createTransferCheckedInstruction,
   getAssociatedTokenAddressSync,
   unpackAccount,
@@ -5434,11 +5432,10 @@ export class DLMM {
         }
       } else {
         const createPositionOwnerTokenXIx =
-          createAssociatedTokenAccountIdempotentInstructionWithDerivation(
+          createAssociatedTokenAccountIdempotentInstruction(
             payer,
             positionOwner,
             this.lbPair.tokenXMint,
-            false,
             this.tokenX.owner,
             positionOwnerTokenX
           );
