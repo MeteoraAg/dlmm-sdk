@@ -161,25 +161,6 @@ async fn main() -> Result<()> {
             )
             .await?;
         }
-        DLMMCommand::SeedLiquidity(params) => {
-            let mut retry_count = 0;
-            while let Err(err) = execute_seed_liquidity(
-                params.clone(),
-                &program,
-                transaction_config,
-                compute_unit_price_ix.clone(),
-            )
-            .await
-            {
-                println!("Error: {}", err);
-                retry_count += 1;
-                if retry_count >= params.max_retries {
-                    println!("Exceeded max retries {}", params.max_retries);
-                    break;
-                }
-                tokio::time::sleep(Duration::from_secs(16)).await;
-            }
-        }
         DLMMCommand::SeedLiquidityByOperator(params) => {
             let mut retry_count = 0;
             while let Err(err) = execute_seed_liquidity_by_operator(
@@ -198,15 +179,6 @@ async fn main() -> Result<()> {
                 }
                 tokio::time::sleep(Duration::from_secs(16)).await;
             }
-        }
-        DLMMCommand::SeedLiquiditySingleBin(params) => {
-            execute_seed_liquidity_single_bin(
-                params,
-                &program,
-                transaction_config,
-                compute_unit_price_ix,
-            )
-            .await?;
         }
         DLMMCommand::SeedLiquiditySingleBinByOperator(params) => {
             execute_seed_liquidity_single_bin_by_operator(

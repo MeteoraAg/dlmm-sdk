@@ -113,8 +113,8 @@ pub async fn get_extra_account_metas_for_transfer_hook(
         .await
         .map_err(|e| anyhow!(e))?;
 
-        // Skip 0 -> 4, source, mint, destination, authority
-        let transfer_hook_required_accounts = transfer_ix.accounts[5..].to_vec();
+        // Skip 4, source, mint, destination, authority
+        let transfer_hook_required_accounts = transfer_ix.accounts[4..].to_vec();
         return Ok(transfer_hook_required_accounts);
     }
 

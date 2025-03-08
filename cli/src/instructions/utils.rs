@@ -8,7 +8,7 @@ use anchor_spl::{
 };
 use num_integer::Integer;
 use solana_sdk::program_pack::Pack;
-use spl_associated_token_account::instruction::create_associated_token_account;
+use spl_associated_token_account::instruction::create_associated_token_account_idempotent;
 use spl_transfer_hook_interface::offchain::add_extra_account_metas_for_execute;
 
 pub fn position_bin_range_chunks(lower_bin_id: i32, upper_bin_id: i32) -> Vec<(i32, i32)> {
@@ -31,6 +31,7 @@ pub fn position_bin_range_chunks(lower_bin_id: i32, upper_bin_id: i32) -> Vec<(i
     chunked_bin_range
 }
 
+#[allow(dead_code)]
 pub async fn get_transfer_instruction(
     from: Pubkey,
     to: Pubkey,
@@ -128,7 +129,7 @@ pub async fn get_or_create_ata<C: Deref<Target = impl Signer> + Clone>(
             builder = builder.instruction(compute_unit_price);
         }
 
-        builder = builder.instruction(create_associated_token_account(
+        builder = builder.instruction(create_associated_token_account_idempotent(
             &program.payer(),
             &wallet_address,
             &token_mint,
