@@ -1,5 +1,4 @@
 import {
-  clusterApiUrl,
   Connection,
   Keypair,
   PublicKey,
@@ -213,11 +212,13 @@ async function removePositionLiquidity(dlmmPool: DLMM) {
   const removeLiquidityTxs = (
     await Promise.all(
       userPositions.map(({ publicKey, positionData }) => {
+        const binIdsToRemove = positionData.positionBinData.map(
+          (bin) => bin.binId
+        );
         return dlmmPool.removeLiquidity({
           position: publicKey,
           user: user.publicKey,
-          fromBinId: positionData.lowerBinId,
-          toBinId: positionData.upperBinId,
+          binIds: binIdsToRemove,
           bps: new BN(100 * 100),
           shouldClaimAndClose: true, // should claim swap fee and close position together
         });
@@ -283,6 +284,7 @@ async function main() {
   const dlmmPool = await DLMM.create(connection, poolAddress, {
     cluster: "devnet",
   });
+
   await getActiveBin(dlmmPool);
   await createBalancePosition(dlmmPool);
   await createImbalancePosition(dlmmPool);

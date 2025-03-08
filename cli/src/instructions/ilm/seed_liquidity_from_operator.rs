@@ -1,160 +1,116 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::Index, u64};
 
 use crate::*;
-use anchor_lang::AccountDeserialize;
+use anchor_lang::{prelude::Clock, AccountDeserialize};
 use anchor_spl::{
-    associated_token::get_associated_token_address_with_program_id, token_interface::Mint,
+    associated_token::get_associated_token_address_with_program_id,
+    token_interface::{spl_token_2022::instruction::transfer_checked, Mint, TokenAccount},
 };
-use instructions::*;
-use seed_liquidity::{
-    convert_min_max_ui_price_to_min_max_bin_id, create_position_bin_array_if_not_exists, deposit,
-    deposit_amount_to_deposit_parameter, generate_amount_for_bins,
-    generate_redistribute_amount_to_position_based_on_ratio,
-    get_number_of_position_required_to_cover_range, get_on_chain_bins_amount_x,
-    get_ui_price_from_id, read_dust_deposit_state, to_wei_amount, write_dust_deposit_state,
-};
-use solana_sdk::{account_info::IntoAccountInfo, system_program};
-use spl_associated_token_account::instruction::create_associated_token_account;
 
-#[allow(clippy::too_many_arguments)]
-async fn get_or_create_position<C: Deref<Target = impl Signer> + Clone>(
-    program: &Program<C>,
-    lb_pair: Pubkey,
-    base_keypair: &Keypair,
-    lower_bin_id: i32,
-    upper_bin_id: i32,
-    width: i32,
-    owner: Pubkey,
-    fee_owner: Pubkey,
-    lock_release_point: u64,
-    transaction_config: RpcSendTransactionConfig,
-    compute_unit_price_ix: Option<Instruction>,
-) -> Result<PositionV2> {
-    let (event_authority, _bump) = derive_event_authority_pda();
-    let base = base_keypair.pubkey();
+use futures_util::future::try_join_all;
+use spl_associated_token_account::instruction::create_associated_token_account_idempotent;
 
-    let rpc_client = program.async_rpc();
+pub fn to_wei_amount(amount: u64, decimal: u8) -> Result<u64> {
+    let wei_amount = amount
+        .checked_mul(10u64.pow(decimal.into()))
+        .context("to_wei_amount overflow")?;
 
-    let (position, _bump) = derive_position_pda(lb_pair, base, lower_bin_id, width);
+    Ok(wei_amount)
+}
 
-    let lb_pair_state = rpc_client
-        .get_account_and_deserialize(&lb_pair, |account| {
-            Ok(LbPairAccount::deserialize(&account.data)?.0)
-        })
-        .await?;
+pub fn convert_min_max_ui_price_to_min_max_bin_id(
+    bin_step: u16,
+    min_price: f64,
+    max_price: f64,
+    base_token_decimal: u8,
+    quote_token_decimal: u8,
+) -> Result<(i32, i32)> {
+    let min_price_per_lamport =
+        price_per_token_to_per_lamport(min_price, base_token_decimal, quote_token_decimal)
+            .context("price_per_token_to_per_lamport overflow")?;
 
-    let [token_x_program, _token_y_program] = lb_pair_state.get_token_programs()?;
+    let min_active_id = get_id_from_price(bin_step, &min_price_per_lamport, Rounding::Up)
+        .context("get_id_from_price overflow")?;
 
-    if rpc_client.get_account_data(&position).await.is_err() {
-        let mut builder = program.request();
+    let max_price_per_lamport =
+        price_per_token_to_per_lamport(max_price, base_token_decimal, quote_token_decimal)
+            .context("price_per_token_to_per_lamport overflow")?;
 
-        if let Some(compute_unit_price_ix) = compute_unit_price_ix {
-            builder = builder.instruction(compute_unit_price_ix);
-        }
+    let max_active_id = get_id_from_price(bin_step, &max_price_per_lamport, Rounding::Up)
+        .context("get_id_from_price overflow")?;
 
-        let operator_token_x = get_associated_token_address_with_program_id(
-            &program.payer(),
-            &lb_pair_state.token_x_mint,
-            &token_x_program,
-        );
+    Ok((min_active_id, max_active_id))
+}
 
-        let owner_token_x = get_associated_token_address_with_program_id(
-            &owner,
-            &lb_pair_state.token_x_mint,
-            &token_x_program,
-        );
+fn get_base(bin_step: u16) -> f64 {
+    1.0 + bin_step as f64 / 10_000.0
+}
 
-        match rpc_client.get_account(&owner_token_x).await {
-            std::result::Result::Ok(account) => {
-                let mut key_with_account = (owner_token_x, account);
-                let account_info = key_with_account.into_account_info();
-                let amount = anchor_spl::token::accessor::amount(&account_info)?;
-                if amount == 0 {
-                    let transfer_ix = get_transfer_instruction(
-                        operator_token_x,
-                        owner_token_x,
-                        lb_pair_state.token_x_mint,
-                        program.payer(),
-                        program.async_rpc(),
-                        1, // send 1 lamport to prove ownership
-                    )
-                    .await?;
-                    builder = builder.instruction(transfer_ix);
-                }
-            }
-            Err(_) => {
-                let create_ata_ix = create_associated_token_account(
-                    &program.payer(),
-                    &owner,
-                    &lb_pair_state.token_x_mint,
-                    &token_x_program,
-                );
+pub fn get_ui_price_from_id(
+    bin_step: u16,
+    bin_id: i32,
+    base_token_decimal: i32,
+    quote_token_decimal: i32,
+) -> f64 {
+    let base = get_base(bin_step);
+    base.powi(bin_id) * 10.0f64.powi(base_token_decimal - quote_token_decimal)
+}
 
-                let transfer_ix = get_transfer_instruction(
-                    operator_token_x,
-                    owner_token_x,
-                    lb_pair_state.token_x_mint,
-                    program.payer(),
-                    program.async_rpc(),
-                    1, // send 1 lamport to prove ownership
-                )
-                .await?;
+pub fn get_number_of_position_required_to_cover_range(
+    min_bin_id: i32,
+    max_bin_id: i32,
+) -> Result<i32> {
+    let bin_delta = max_bin_id
+        .checked_sub(min_bin_id)
+        .context("bin_delta overflow")?;
+    let mut position_required = bin_delta
+        .checked_div(DEFAULT_BIN_PER_POSITION as i32)
+        .context("position_required overflow")?;
+    let rem = bin_delta % DEFAULT_BIN_PER_POSITION as i32;
 
-                builder = builder.instruction(create_ata_ix).instruction(transfer_ix);
-            }
-        }
-
-        let accounts: [AccountMeta; INITIALIZE_POSITION_BY_OPERATOR_IX_ACCOUNTS_LEN] =
-            InitializePositionByOperatorKeys {
-                lb_pair,
-                base,
-                owner,
-                operator: program.payer(),
-                payer: program.payer(),
-                position,
-                system_program: system_program::ID,
-                operator_token_x,
-                owner_token_x,
-                event_authority,
-                program: dlmm_interface::ID,
-            }
-            .into();
-
-        let data = InitializePositionByOperatorIxData(InitializePositionByOperatorIxArgs {
-            lower_bin_id,
-            width,
-            fee_owner,
-            lock_release_point,
-        })
-        .try_to_vec()?;
-
-        let init_position_ix = Instruction {
-            program_id: dlmm_interface::ID,
-            accounts: accounts.to_vec(),
-            data,
-        };
-
-        builder = builder.instruction(init_position_ix);
-        builder = builder.signer(base_keypair);
-
-        let signature = builder
-            .send_with_spinner_and_config(transaction_config)
-            .await;
-
-        println!(
-            "Create position: lower bin id {lower_bin_id} upper bin id {upper_bin_id} position {position}. signature {:#?}",
-            signature
-        );
-        signature?;
+    if rem > 0 {
+        position_required += 1;
     }
 
-    let position_state = rpc_client
-        .get_account_and_deserialize(&position, |account| {
-            Ok(PositionV2Account::deserialize(&account.data)?.0)
-        })
-        .await?;
+    Ok(position_required)
+}
 
-    Ok(position_state)
+struct CompressionResult {
+    compressed_bin_amount: HashMap<i32, u32>,
+    compression_loss: u64,
+}
+
+fn compress_bin_amount(
+    bins_amount: HashMap<i32, u64>,
+    multiplier: u64,
+) -> Result<CompressionResult> {
+    let mut compressed_bin_amount = HashMap::new();
+
+    let mut compression_loss = 0u64;
+
+    for (bin_id, amount) in bins_amount.into_iter() {
+        let compressed_amount: u32 = amount
+            .checked_div(multiplier)
+            .context("overflow")?
+            .try_into()
+            .context("compressed fail")?;
+        compressed_bin_amount.insert(bin_id, compressed_amount);
+
+        let loss = amount
+            .checked_sub(
+                u64::from(compressed_amount)
+                    .checked_mul(multiplier)
+                    .context("overflow")?,
+            )
+            .context("overflow")?;
+
+        compression_loss = compression_loss.checked_add(loss).context("overflow")?;
+    }
+
+    Ok(CompressionResult {
+        compressed_bin_amount,
+        compression_loss,
+    })
 }
 
 #[derive(Debug, Parser, Clone)]
@@ -217,25 +173,14 @@ pub async fn execute_seed_liquidity_by_operator<C: Deref<Target = impl Signer> +
     let position_base_kp = read_keypair_file(base_position_path.clone())
         .expect("position base keypair file not found");
 
-    let rpc_client = program.async_rpc();
-    let progress_file_path = format!("{}_progress.json", lb_pair);
+    assert!(
+        position_base_kp.pubkey() == base_pubkey,
+        "base_pubkey mismatch"
+    );
 
-    let mut dust_deposit_state = read_dust_deposit_state(&progress_file_path)?;
-    if dust_deposit_state.lb_pair != Pubkey::default() {
-        assert_eq!(
-            dust_deposit_state.lb_pair, lb_pair,
-            "Invalid dust deposit tracking file"
-        );
-    }
+    let rpc_client = program.async_rpc();
 
     let k = 1.0 / curvature;
-
-    // For easier validation during jup launch through .env
-    assert_eq!(
-        position_base_kp.pubkey(),
-        base_pubkey,
-        "Invalid position base key"
-    );
 
     let lb_pair_state = rpc_client
         .get_account_and_deserialize(&lb_pair, |account| {
@@ -245,15 +190,25 @@ pub async fn execute_seed_liquidity_by_operator<C: Deref<Target = impl Signer> +
 
     let bin_step = lb_pair_state.bin_step;
 
+    let (mut bitmap_extension, _bump) = derive_bin_array_bitmap_extension(lb_pair);
+
     let mut accounts = rpc_client
-        .get_multiple_accounts(&[lb_pair_state.token_x_mint, lb_pair_state.token_y_mint])
+        .get_multiple_accounts(&[
+            lb_pair_state.token_x_mint,
+            lb_pair_state.token_y_mint,
+            solana_sdk::sysvar::clock::ID,
+            bitmap_extension,
+        ])
         .await?;
 
     let token_mint_base_account = accounts[0].take().context("token_mint_base not found")?;
     let token_mint_quote_account = accounts[1].take().context("token_mint_quote not found")?;
+    let clock_account = accounts[2].take().context("clock not found")?;
+    let bitmap_extension_account = accounts[3].take();
 
     let token_mint_base = Mint::try_deserialize(&mut token_mint_base_account.data.as_ref())?;
     let token_mint_quote = Mint::try_deserialize(&mut token_mint_quote_account.data.as_ref())?;
+    let clock = bincode::deserialize::<Clock>(&clock_account.data)?;
 
     let fund_amount = to_wei_amount(amount, token_mint_base.decimals)?;
 
@@ -284,24 +239,6 @@ pub async fn execute_seed_liquidity_by_operator<C: Deref<Target = impl Signer> +
 
     assert!(min_bin_id < max_bin_id, "Invalid price range");
 
-    let user_token_x = get_or_create_ata(
-        program,
-        transaction_config,
-        lb_pair_state.token_x_mint,
-        program.payer(),
-        compute_unit_price.clone(),
-    )
-    .await?;
-
-    let user_token_y = get_or_create_ata(
-        program,
-        transaction_config,
-        lb_pair_state.token_y_mint,
-        program.payer(),
-        compute_unit_price.clone(),
-    )
-    .await?;
-
     let bins_amount = generate_amount_for_bins(
         bin_step,
         min_bin_id,
@@ -319,258 +256,563 @@ pub async fn execute_seed_liquidity_by_operator<C: Deref<Target = impl Signer> +
         .map(|(bin_id, amount_x)| (*bin_id, *amount_x))
         .collect();
 
+    let decompress_multiplier = 10u64.pow(token_mint_base.decimals.into());
+
+    let CompressionResult {
+        compressed_bin_amount,
+        compression_loss,
+    } = compress_bin_amount(bins_amount_map, decompress_multiplier)?;
+
     let width = DEFAULT_BIN_PER_POSITION as i32;
+
+    let mut token_account_and_bitmap_ext_and_token_prove_setup_ixs = vec![];
+    let mut position_and_bin_array_setup_ixs = vec![];
+    let mut liquidity_setup_ixs = vec![];
+
+    let (event_authority, _bump) = derive_event_authority_pda();
+    let seeder = program.payer();
+
+    let token_mint_base_owner = token_mint_base_account.owner;
+    let token_mint_quote_owner = token_mint_quote_account.owner;
+
+    let seeder_token_x = get_associated_token_address_with_program_id(
+        &seeder,
+        &lb_pair_state.token_x_mint,
+        &token_mint_base_owner,
+    );
+
+    let seeder_token_y = get_associated_token_address_with_program_id(
+        &seeder,
+        &lb_pair_state.token_y_mint,
+        &token_mint_quote_owner,
+    );
+
+    let owner_token_x = get_associated_token_address_with_program_id(
+        &position_owner,
+        &lb_pair_state.token_x_mint,
+        &token_mint_base_owner,
+    );
+
+    let transfer_hook_x_account =
+        get_extra_account_metas_for_transfer_hook(lb_pair_state.token_x_mint, program.async_rpc())
+            .await?;
+
+    let transfer_hook_y_account =
+        get_extra_account_metas_for_transfer_hook(lb_pair_state.token_y_mint, program.async_rpc())
+            .await?;
+
+    let accounts = rpc_client
+        .get_multiple_accounts(&[seeder_token_x, seeder_token_y, owner_token_x])
+        .await?;
+
+    let seeder_token_x_account = accounts.index(0);
+    if seeder_token_x_account.is_none() {
+        token_account_and_bitmap_ext_and_token_prove_setup_ixs.push(
+            create_associated_token_account_idempotent(
+                &seeder,
+                &seeder,
+                &lb_pair_state.token_x_mint,
+                &token_mint_base_owner,
+            ),
+        );
+    }
+
+    let seeder_token_y_account = accounts.index(1);
+    if seeder_token_y_account.is_none() {
+        token_account_and_bitmap_ext_and_token_prove_setup_ixs.push(
+            create_associated_token_account_idempotent(
+                &seeder,
+                &seeder,
+                &lb_pair_state.token_y_mint,
+                &token_mint_quote_owner,
+            ),
+        );
+    }
+
+    let owner_token_x_account = accounts.index(2);
+    let mut require_token_prove = false;
+
+    if owner_token_x_account.is_none() {
+        require_token_prove = true;
+    } else if let Some(account) = owner_token_x_account.to_owned() {
+        let owner_token_x_state = TokenAccount::try_deserialize(&mut account.data.as_slice())?;
+        require_token_prove = owner_token_x_state.amount == 0;
+    }
+
+    if require_token_prove {
+        token_account_and_bitmap_ext_and_token_prove_setup_ixs.push(
+            create_associated_token_account_idempotent(
+                &seeder,
+                &position_owner,
+                &lb_pair_state.token_x_mint,
+                &token_mint_base_owner,
+            ),
+        );
+
+        let prove_amount =
+            calculate_transfer_fee_included_amount(&token_mint_base_account, 1, clock.epoch)?
+                .amount;
+
+        let mut transfer_ix = transfer_checked(
+            &token_mint_base_owner,
+            &seeder_token_x,
+            &lb_pair_state.token_x_mint,
+            &owner_token_x,
+            &seeder,
+            &[],
+            prove_amount,
+            token_mint_base.decimals,
+        )?;
+
+        transfer_ix
+            .accounts
+            .extend_from_slice(&transfer_hook_x_account);
+
+        token_account_and_bitmap_ext_and_token_prove_setup_ixs.push(transfer_ix);
+    }
+
+    let (min_bitmap_id, max_bitmap_id) = LbPair::bitmap_range();
+    let lower_bin_array_index = BinArray::bin_id_to_bin_array_index(min_bin_id)?;
+    let upper_bin_array_index = BinArray::bin_id_to_bin_array_index(max_bin_id - 1)?;
+
+    let overflow_internal_bitmap_range =
+        upper_bin_array_index > max_bitmap_id || lower_bin_array_index < min_bitmap_id;
+
+    if overflow_internal_bitmap_range && bitmap_extension_account.is_none() {
+        let accounts: [AccountMeta; INITIALIZE_BIN_ARRAY_BITMAP_EXTENSION_IX_ACCOUNTS_LEN] =
+            InitializeBinArrayBitmapExtensionKeys {
+                lb_pair,
+                bin_array_bitmap_extension: bitmap_extension,
+                funder: seeder,
+                system_program: solana_sdk::system_program::ID,
+                rent: solana_sdk::sysvar::rent::ID,
+            }
+            .into();
+
+        let ix_data = InitializeBinArrayBitmapExtensionIxData.try_to_vec()?;
+
+        let init_bitmap_ext_ix = Instruction {
+            program_id: dlmm_interface::ID,
+            accounts: accounts.to_vec(),
+            data: ix_data,
+        };
+
+        token_account_and_bitmap_ext_and_token_prove_setup_ixs.push(init_bitmap_ext_ix);
+    } else {
+        bitmap_extension = dlmm_interface::ID;
+    }
 
     for i in 0..position_number {
         let lower_bin_id = min_bin_id + (DEFAULT_BIN_PER_POSITION as i32 * i);
         let upper_bin_id = lower_bin_id + DEFAULT_BIN_PER_POSITION as i32 - 1;
-
-        create_position_bin_array_if_not_exists(
-            program,
-            lb_pair,
-            lower_bin_id,
-            transaction_config,
-            compute_unit_price.clone(),
-        )
-        .await?;
-
-        let (position, _bump) =
-            derive_position_pda(lb_pair, position_base_kp.pubkey(), lower_bin_id, width);
-
-        let position_state = get_or_create_position(
-            program,
-            lb_pair,
-            &position_base_kp,
-            lower_bin_id,
-            upper_bin_id,
-            width,
-            position_owner,
-            fee_owner,
-            lock_release_point,
-            transaction_config,
-            compute_unit_price.clone(),
-        )
-        .await?;
-
-        // Position filled
-        if !position_state.is_empty() {
-            continue;
-        }
-
-        assert_eq!(
-            position_state.lower_bin_id, lower_bin_id,
-            "Position lower bin id not equals"
-        );
-        assert_eq!(
-            position_state.upper_bin_id, upper_bin_id,
-            "Position upper bin id not equals"
-        );
-
-        // Don't deposit to the last bin because c(last_bin + 1) - c(last_bin) will > amount
         let upper_bin_id = std::cmp::min(upper_bin_id, max_bin_id - 1);
 
-        assert!(
-            upper_bin_id < max_bin_id,
-            "Position upper bin id causes deposit > fund amount"
-        );
-
-        let (position_liquidity_distribution, deposit_amount_x) =
-            deposit_amount_to_deposit_parameter(&bins_amount_map, lower_bin_id, upper_bin_id)?;
-
-        deposit(
-            program,
-            position,
-            &position_state,
-            &lb_pair_state,
-            user_token_x,
-            user_token_y,
-            deposit_amount_x,
-            position_liquidity_distribution,
-            transaction_config,
-            compute_unit_price.clone(),
-        )
-        .await?;
-    }
-
-    // States after principal deposit
-    let (leftover, bins_amount_x, total_amount_in_bins_onchain, position_share) =
-        if dust_deposit_state.lb_pair.eq(&Pubkey::default()) {
-            dust_deposit_state.lb_pair = lb_pair;
-            let (bins_amount_x, total_amount_in_bins_onchain) =
-                get_on_chain_bins_amount_x(lb_pair, min_bin_id, max_bin_id, program).await?;
-
-            let leftover = fund_amount
-                .checked_sub(total_amount_in_bins_onchain)
-                .context("leftover overflow")?;
-
-            dust_deposit_state.bins_amount_x = bins_amount_x.clone();
-            dust_deposit_state.total_amount_in_bins_onchain = total_amount_in_bins_onchain;
-            dust_deposit_state.dust_amount = leftover;
-
-            for i in 0..position_number {
-                let lower_bin_id = min_bin_id + (DEFAULT_BIN_PER_POSITION as i32 * i);
-
-                let (position, _bump) =
-                    derive_position_pda(lb_pair, position_base_kp.pubkey(), lower_bin_id, width);
-
-                let position_state = rpc_client
-                    .get_account_and_deserialize(&position, |account| {
-                        Ok(PositionV2Account::deserialize(&account.data)?.0)
-                    })
-                    .await?;
-
-                let position_liquidity_shares = position_state.liquidity_shares.to_vec();
-
-                dust_deposit_state
-                    .position_shares
-                    .insert(position, position_liquidity_shares);
-            }
-
-            write_dust_deposit_state(&progress_file_path, &dust_deposit_state)?;
-
-            (
-                leftover,
-                bins_amount_x,
-                total_amount_in_bins_onchain,
-                dust_deposit_state.position_shares.clone(),
-            )
-        } else {
-            (
-                dust_deposit_state.dust_amount,
-                dust_deposit_state.bins_amount_x.clone(),
-                dust_deposit_state.total_amount_in_bins_onchain,
-                dust_deposit_state.position_shares.clone(),
-            )
-        };
-
-    // Redistribute leftover amount a.k.a precision loss back into bins based on bin amount with fund amount ratio
-    if leftover > 0 {
-        println!(
-            "=============== Redistribute leftover amount {} ===============",
-            leftover
-        );
-
-        for i in 0..position_number {
-            let lower_bin_id = min_bin_id + (DEFAULT_BIN_PER_POSITION as i32 * i);
-
-            let (position, _bump) =
-                derive_position_pda(lb_pair, position_base_kp.pubkey(), lower_bin_id, width);
-
-            let position_state = rpc_client
-                .get_account_and_deserialize(&position, |account| {
-                    Ok(PositionV2Account::deserialize(&account.data)?.0)
-                })
-                .await?;
-
-            let position_share_snapshot =
-                position_share.get(&position).context("Missing snapshot")?;
-
-            let mut dust_deposited = false;
-            for (i, share) in position_state.liquidity_shares.iter().enumerate() {
-                let snapshot_share = position_share_snapshot[i];
-                if snapshot_share != *share {
-                    dust_deposited = true;
-                    break;
-                }
-            }
-
-            if dust_deposited {
-                continue;
-            }
-
-            // Don't deposit to the last bin because c(last_bin + 1) - c(last_bin) will > amount
-            let upper_bin_id = std::cmp::min(position_state.upper_bin_id, max_bin_id - 1);
-
-            assert!(
-                upper_bin_id < max_bin_id,
-                "Position upper bin id causes deposit > fund amount"
-            );
-
-            let (position_liquidity_distribution, position_redistributed_amount) =
-                generate_redistribute_amount_to_position_based_on_ratio(
-                    &bins_amount_x,
-                    total_amount_in_bins_onchain.into(),
-                    leftover.into(),
-                    lower_bin_id,
-                    upper_bin_id,
-                )?;
-
-            deposit(
-                program,
-                position,
-                &position_state,
-                &lb_pair_state,
-                user_token_x,
-                user_token_y,
-                position_redistributed_amount,
-                position_liquidity_distribution,
-                transaction_config,
-                compute_unit_price.clone(),
-            )
-            .await?;
-        }
-    }
-
-    let (_, total_amount_in_bin_onchain) =
-        get_on_chain_bins_amount_x(lb_pair, min_bin_id, max_bin_id, program).await?;
-
-    let leftover = fund_amount
-        .checked_sub(total_amount_in_bin_onchain)
-        .context("leftover overflow")?;
-
-    // Shall be dust after redistribute
-    if leftover > 0 {
-        println!("Deposit dust {} to last semi bin", leftover);
-        let lower_bin_id = min_bin_id + (DEFAULT_BIN_PER_POSITION as i32 * (position_number - 1));
+        let mut instructions = vec![];
 
         let (position, _bump) =
             derive_position_pda(lb_pair, position_base_kp.pubkey(), lower_bin_id, width);
 
-        let position_state = rpc_client
-            .get_account_and_deserialize(&position, |account| {
-                Ok(PositionV2Account::deserialize(&account.data)?.0)
+        let bin_array_account_metas =
+            BinArray::get_bin_array_account_metas_coverage(lower_bin_id, upper_bin_id, lb_pair)?;
+
+        let bin_array_indexes =
+            BinArray::get_bin_array_indexes_coverage(lower_bin_id, upper_bin_id)?;
+
+        let keys: Vec<_> = [position]
+            .into_iter()
+            .chain(
+                bin_array_indexes
+                    .iter()
+                    .map(|&index| derive_bin_array_pda(lb_pair, index.into()).0),
+            )
+            .collect();
+
+        let accounts = rpc_client.get_multiple_accounts(&keys).await?;
+
+        let position_account = accounts.index(0).to_owned();
+        if position_account.is_none() {
+            let account: [AccountMeta; INITIALIZE_POSITION_BY_OPERATOR_IX_ACCOUNTS_LEN] =
+                InitializePositionByOperatorKeys {
+                    position,
+                    payer: seeder,
+                    base: position_base_kp.pubkey(),
+                    lb_pair,
+                    owner: position_owner,
+                    operator: seeder,
+                    operator_token_x: seeder_token_x,
+                    owner_token_x,
+                    system_program: solana_sdk::system_program::ID,
+                    event_authority,
+                    program: dlmm_interface::ID,
+                }
+                .into();
+
+            let ix_data = InitializePositionByOperatorIxData(InitializePositionByOperatorIxArgs {
+                lower_bin_id,
+                width,
+                fee_owner,
+                lock_release_point,
             })
-            .await?;
+            .try_to_vec()?;
 
-        // Don't deposit to the last bin because c(last_bin + 1) - c(last_bin) will > amount
-        let upper_bin_id = std::cmp::min(position_state.upper_bin_id, max_bin_id - 1);
+            let init_position_ix = Instruction {
+                program_id: dlmm_interface::ID,
+                accounts: account.to_vec(),
+                data: ix_data,
+            };
 
-        assert!(upper_bin_id < max_bin_id, "Funding to last bin id");
+            instructions.push(init_position_ix);
+        }
 
-        deposit(
-            program,
-            position,
-            &position_state,
-            &lb_pair_state,
-            user_token_x,
-            user_token_y,
-            leftover,
-            vec![BinLiquidityDistribution {
-                bin_id: upper_bin_id,
-                distribution_x: 10000,
-                distribution_y: 0,
-            }],
-            transaction_config,
-            compute_unit_price,
-        )
-        .await?;
+        let bin_array_account = &accounts[1..];
+
+        for (account, index) in bin_array_account.iter().zip(bin_array_indexes) {
+            if account.is_none() {
+                let bin_array = derive_bin_array_pda(lb_pair, index.into()).0;
+                let account: [AccountMeta; INITIALIZE_BIN_ARRAY_IX_ACCOUNTS_LEN] =
+                    InitializeBinArrayKeys {
+                        bin_array,
+                        lb_pair,
+                        funder: seeder,
+                        system_program: solana_sdk::system_program::ID,
+                    }
+                    .into();
+
+                let ix_data = InitializeBinArrayIxData(InitializeBinArrayIxArgs {
+                    index: index.into(),
+                });
+
+                let init_bin_array_ix = Instruction {
+                    program_id: dlmm_interface::ID,
+                    accounts: account.to_vec(),
+                    data: ix_data.try_to_vec()?,
+                };
+
+                instructions.push(init_bin_array_ix);
+            }
+        }
+
+        if !instructions.is_empty() {
+            if let Some(cu_price_ix) = compute_unit_price.clone() {
+                instructions.push(cu_price_ix);
+            }
+
+            position_and_bin_array_setup_ixs.push(instructions.clone());
+        }
+
+        instructions.clear();
+
+        let position_deposited = position_account
+            .map(|account| {
+                let state = PositionV2Account::deserialize(&account.data).unwrap().0;
+                state.liquidity_shares.iter().any(|share| *share > 0)
+            })
+            .unwrap_or(false);
+
+        if !position_deposited {
+            let mut bins = vec![];
+
+            for bin_id in lower_bin_id..=upper_bin_id {
+                bins.push(CompressedBinDepositAmount {
+                    bin_id,
+                    amount: *compressed_bin_amount
+                        .get(&bin_id)
+                        .context("Missing bin amount to deposit")?,
+                });
+            }
+
+            let ix_data = AddLiquidityOneSidePrecise2IxData(AddLiquidityOneSidePrecise2IxArgs {
+                liquidity_parameter: AddLiquiditySingleSidePreciseParameter2 {
+                    bins,
+                    decompress_multiplier,
+                    max_amount: u64::MAX,
+                },
+                remaining_accounts_info: RemainingAccountsInfo {
+                    slices: vec![RemainingAccountsSlice {
+                        accounts_type: AccountsType::TransferHookX,
+                        length: transfer_hook_x_account.len() as u8,
+                    }],
+                },
+            })
+            .try_to_vec()?;
+
+            let accounts: [AccountMeta; ADD_LIQUIDITY_ONE_SIDE_PRECISE2_IX_ACCOUNTS_LEN] =
+                AddLiquidityOneSidePrecise2Keys {
+                    position,
+                    lb_pair,
+                    bin_array_bitmap_extension: bitmap_extension,
+                    user_token: seeder_token_x,
+                    reserve: lb_pair_state.reserve_x,
+                    token_mint: lb_pair_state.token_x_mint,
+                    sender: program.payer(),
+                    token_program: token_mint_base_owner,
+                    event_authority,
+                    program: dlmm_interface::ID,
+                }
+                .into();
+
+            let mut accounts = accounts.to_vec();
+            accounts.extend_from_slice(&transfer_hook_x_account);
+            accounts.extend_from_slice(&bin_array_account_metas);
+
+            let add_liquidity_ix = Instruction {
+                program_id: dlmm_interface::ID,
+                accounts,
+                data: ix_data,
+            };
+
+            if instructions.is_empty() {
+                if let Some(cu_price_ix) = compute_unit_price.clone() {
+                    instructions.push(cu_price_ix);
+                }
+                instructions.push(ComputeBudgetInstruction::set_compute_unit_limit(800_000));
+            }
+
+            instructions.push(add_liquidity_ix);
+
+            // Last position
+            if i + 1 == position_number && compression_loss > 0 {
+                let loss_includes_transfer_fee = calculate_transfer_fee_included_amount(
+                    &token_mint_base_account,
+                    compression_loss,
+                    clock.epoch,
+                )?
+                .amount;
+
+                let bin_array_account_metas = BinArray::get_bin_array_account_metas_coverage(
+                    upper_bin_id,
+                    upper_bin_id,
+                    lb_pair,
+                )?;
+
+                let ix_data = AddLiquidity2IxData(AddLiquidity2IxArgs {
+                    liquidity_parameter: LiquidityParameter {
+                        amount_x: loss_includes_transfer_fee,
+                        amount_y: 0,
+                        bin_liquidity_dist: vec![BinLiquidityDistribution {
+                            bin_id: upper_bin_id,
+                            distribution_x: BASIS_POINT_MAX as u16,
+                            distribution_y: BASIS_POINT_MAX as u16,
+                        }],
+                    },
+                    remaining_accounts_info: RemainingAccountsInfo {
+                        slices: vec![
+                            RemainingAccountsSlice {
+                                accounts_type: AccountsType::TransferHookX,
+                                length: transfer_hook_x_account.len() as u8,
+                            },
+                            RemainingAccountsSlice {
+                                accounts_type: AccountsType::TransferHookY,
+                                length: transfer_hook_y_account.len() as u8,
+                            },
+                        ],
+                    },
+                })
+                .try_to_vec()?;
+
+                let accounts: [AccountMeta; ADD_LIQUIDITY2_IX_ACCOUNTS_LEN] = AddLiquidity2Keys {
+                    position,
+                    lb_pair,
+                    bin_array_bitmap_extension: bitmap_extension,
+                    user_token_x: seeder_token_x,
+                    user_token_y: seeder_token_y,
+                    reserve_x: lb_pair_state.reserve_x,
+                    reserve_y: lb_pair_state.reserve_y,
+                    token_x_mint: lb_pair_state.token_x_mint,
+                    token_y_mint: lb_pair_state.token_y_mint,
+                    token_x_program: token_mint_base_owner,
+                    token_y_program: token_mint_quote_owner,
+                    sender: program.payer(),
+                    event_authority,
+                    program: dlmm_interface::ID,
+                }
+                .into();
+
+                let mut accounts = accounts.to_vec();
+                accounts.extend_from_slice(&transfer_hook_x_account);
+                accounts.extend_from_slice(&transfer_hook_y_account);
+                accounts.extend_from_slice(&bin_array_account_metas);
+
+                let add_liquidity_ix = Instruction {
+                    program_id: dlmm_interface::ID,
+                    accounts,
+                    data: ix_data,
+                };
+
+                if instructions.is_empty() {
+                    if let Some(cu_price_ix) = compute_unit_price.clone() {
+                        instructions.push(cu_price_ix);
+                    }
+
+                    instructions.push(ComputeBudgetInstruction::set_compute_unit_limit(800_000));
+                }
+
+                instructions.push(add_liquidity_ix);
+            }
+
+            if !instructions.is_empty() {
+                liquidity_setup_ixs.push(instructions);
+            }
+        }
     }
 
-    let (bins_amount_x, total_amount_in_bins_onchain) =
-        get_on_chain_bins_amount_x(lb_pair, min_bin_id, max_bin_id, program).await?;
+    println!("Init token account, bitmap extension and transfer token prove if necessary");
+    if !token_account_and_bitmap_ext_and_token_prove_setup_ixs.is_empty() {
+        let mut builder = program.request();
 
-    let leftover = fund_amount
-        .checked_sub(total_amount_in_bins_onchain)
-        .context("leftover overflow")?;
+        for ix in token_account_and_bitmap_ext_and_token_prove_setup_ixs {
+            builder = builder.instruction(ix);
+        }
 
-    assert_eq!(leftover, 0, "Still have leftover");
+        let signature = builder
+            .send_with_spinner_and_config(transaction_config)
+            .await;
 
-    let mut bin_amount_sorted_by_id = bins_amount_x
-        .iter()
-        .map(|(bin_id, amount)| (*bin_id, *amount))
-        .collect::<Vec<(i32, u64)>>();
+        println!("{:#?}", signature);
+        signature?;
+    }
+    println!("Init token account, bitmap extension and transfer token prove if necessary - DONE");
 
-    bin_amount_sorted_by_id.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+    println!("Setup position and bin arrays if necessary");
+    if !position_and_bin_array_setup_ixs.is_empty() {
+        let mut futures = vec![];
+
+        for ixs in position_and_bin_array_setup_ixs {
+            let mut builder = program.request();
+
+            for ix in ixs {
+                builder = builder.instruction(ix);
+            }
+
+            futures.push(builder.send_with_spinner_and_config(transaction_config));
+        }
+
+        let result = try_join_all(futures).await;
+        println!("{:#?}", result);
+        result?;
+    }
+    println!("Setup position and bin arrays if necessary - DONE");
+
+    println!("Seed liquidity");
+    if !liquidity_setup_ixs.is_empty() {
+        let mut futures = vec![];
+        for ixs in liquidity_setup_ixs {
+            let mut builder = program.request();
+
+            for ix in ixs {
+                builder = builder.instruction(ix);
+            }
+
+            futures.push(builder.send_with_spinner_and_config(transaction_config));
+        }
+
+        let result = try_join_all(futures).await;
+        println!("{:#?}", result);
+        result?;
+    }
+    println!("Seed liquidity - DONE");
 
     Ok(())
+}
+
+fn get_bin_deposit_amount(
+    amount: u64,
+    bin_step: u16,
+    bin_id: i32,
+    base_token_decimal: u8,
+    quote_token_decimal: u8,
+    min_price: f64,
+    max_price: f64,
+    k: f64,
+) -> u64 {
+    let c1 = get_c(
+        amount,
+        bin_step,
+        bin_id + 1,
+        base_token_decimal,
+        quote_token_decimal,
+        min_price,
+        max_price,
+        k,
+    );
+
+    let c0 = get_c(
+        amount,
+        bin_step,
+        bin_id,
+        base_token_decimal,
+        quote_token_decimal,
+        min_price,
+        max_price,
+        k,
+    );
+
+    assert!(c1 > c0);
+
+    let amount_into_bin = c1 - c0;
+    amount_into_bin
+}
+
+// c(p) = 5 * 10^8 ((p - 0.1)/0.7) ^ 1.25, where P = ui price
+// c(p) = 5 * 10^8 ((p - min_price)/(max_price - min_price)) ^ 1.25
+fn get_c(
+    amount: u64,
+    bin_step: u16,
+    bin_id: i32,
+    base_token_decimal: u8,
+    quote_token_decimal: u8,
+    min_price: f64,
+    max_price: f64,
+    k: f64,
+) -> u64 {
+    let price_per_lamport = (1.0 + bin_step as f64 / 10000.0).powi(bin_id);
+
+    let current_price =
+        price_per_lamport * 10.0f64.powi(base_token_decimal as i32 - quote_token_decimal as i32);
+
+    let price_range = max_price - min_price;
+    let current_price_delta_from_min = current_price - min_price;
+
+    let c = amount as f64 * ((current_price_delta_from_min / price_range).powf(k));
+    c as u64
+}
+
+pub fn generate_amount_for_bins(
+    bin_step: u16,
+    min_bin_id: i32,
+    max_bin_id: i32,
+    min_price: f64,
+    max_price: f64,
+    base_token_decimal: u8,
+    quote_token_decimal: u8,
+    amount: u64,
+    k: f64,
+) -> Vec<(i32, u64)> {
+    let mut total_amount = 0;
+    let mut bin_amounts = vec![];
+
+    // Last bin is purposely no included because for the last bin, c(last_bin +1) - c(last_bin) will > fund amount
+    for bin_id in min_bin_id..max_bin_id {
+        let bin_amount = get_bin_deposit_amount(
+            amount,
+            bin_step,
+            bin_id,
+            base_token_decimal,
+            quote_token_decimal,
+            min_price,
+            max_price,
+            k,
+        );
+
+        bin_amounts.push((bin_id, bin_amount));
+
+        total_amount += bin_amount;
+    }
+
+    assert_eq!(
+        total_amount, amount,
+        "Amount distributed to bins not equals to funding amount"
+    );
+
+    bin_amounts
 }

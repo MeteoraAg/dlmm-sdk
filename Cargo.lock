@@ -1173,6 +1173,7 @@ dependencies = [
  "clap 4.4.7",
  "commons",
  "dlmm_interface",
+ "futures-util",
  "num-integer",
  "rand 0.8.5",
  "rust_decimal",

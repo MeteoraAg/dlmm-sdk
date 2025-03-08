@@ -110,11 +110,8 @@ pub enum DLMMCommand {
     ListAllBinStep,
     InitializeCustomizablePermissionlessLbPair(InitCustomizablePermissionlessLbPairParam),
     InitializeCustomizablePermissionlessLbPair2(InitCustomizablePermissionlessLbPair2Param),
-    /// Seed liquidity
-    SeedLiquidity(SeedLiquidityParameters),
     /// Seed liquidity by operator
     SeedLiquidityByOperator(SeedLiquidityByOperatorParameters),
-    SeedLiquiditySingleBin(SeedLiquiditySingleBinParameters),
     SeedLiquiditySingleBinByOperator(SeedLiquiditySingleBinByOperatorParameters),
     SetPairStatusPermissionless(SetPairStatusPermissionlessParams),
     GetAllPositionsForAnOwner(GetAllPositionsParams),

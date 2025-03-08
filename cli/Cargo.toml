@@ -26,6 +26,7 @@ spl-transfer-hook-interface = { workspace = true }
 solana-account-decoder = { workspace = true }
 num-integer = { workspace = true }
 bytemuck = { workspace = true }
+futures-util = { workspace = true }
 
 bigdecimal = "0.4.2"
 serde = "1.0.167"
