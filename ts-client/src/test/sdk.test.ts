@@ -848,7 +848,12 @@ describe("SDK test", () => {
           curvature,
           minPrice.toNumber(),
           maxPrice.toNumber(),
-          baseKeypair.publicKey
+          baseKeypair.publicKey,
+          keypair.publicKey,
+          keypair.publicKey,
+          keypair.publicKey,
+          new BN(0),
+          false
         );
 
       {
@@ -928,7 +933,12 @@ describe("SDK test", () => {
         curvature,
         minPrice.toNumber(),
         maxPrice.toNumber(),
-        baseKeypair.publicKey
+        baseKeypair.publicKey,
+        keypair.publicKey,
+        keypair.publicKey,
+        keypair.publicKey,
+        new BN(0),
+        false
       );
 
       expect(
@@ -1018,7 +1028,12 @@ describe("SDK test", () => {
           curvature,
           minPrice.toNumber(),
           maxPrice.toNumber(),
-          baseKeypair.publicKey
+          baseKeypair.publicKey,
+          keypair.publicKey,
+          keypair.publicKey,
+          keypair.publicKey,
+          new BN(0),
+          false
         );
 
       {
@@ -1098,7 +1113,12 @@ describe("SDK test", () => {
         curvature,
         minPrice.toNumber(),
         maxPrice.toNumber(),
-        baseKeypair.publicKey
+        baseKeypair.publicKey,
+        keypair.publicKey,
+        keypair.publicKey,
+        keypair.publicKey,
+        new BN(0),
+        false
       );
 
       expect(
@@ -1187,7 +1207,12 @@ describe("SDK test", () => {
           curvature,
           minPrice.toNumber(),
           maxPrice.toNumber(),
-          baseKeypair.publicKey
+          baseKeypair.publicKey,
+          keypair.publicKey,
+          keypair.publicKey,
+          keypair.publicKey,
+          new BN(0),
+          false
         );
 
       {
@@ -1267,7 +1292,12 @@ describe("SDK test", () => {
         curvature,
         minPrice.toNumber(),
         maxPrice.toNumber(),
-        baseKeypair.publicKey
+        baseKeypair.publicKey,
+        keypair.publicKey,
+        keypair.publicKey,
+        keypair.publicKey,
+        new BN(0),
+        false
       );
 
       expect(
@@ -1351,8 +1381,8 @@ describe("SDK test", () => {
 
       const maxPrice = getPriceOfBinByBinId(
         pair.lbPair.activeId +
-        1 +
-        MAX_BIN_PER_POSITION.toNumber() * positionNeeded,
+          1 +
+          MAX_BIN_PER_POSITION.toNumber() * positionNeeded,
         pair.lbPair.binStep
       ).mul(priceMultiplier);
 
@@ -1369,7 +1399,12 @@ describe("SDK test", () => {
           curvature,
           minPrice.toNumber(),
           maxPrice.toNumber(),
-          baseKeypair.publicKey
+          baseKeypair.publicKey,
+          keypair.publicKey,
+          keypair.publicKey,
+          keypair.publicKey,
+          new BN(0),
+          false
         );
 
       const beforeTokenXBalance = await connection
@@ -1746,7 +1781,7 @@ describe("SDK test", () => {
 
         const btcAmountToSwapHalfUsdcOfActiveBin = new BN(
           activeBin.yAmount.div(new BN(2)).toNumber() /
-          Number.parseFloat(activeBin.price)
+            Number.parseFloat(activeBin.price)
         );
 
         btcInAmount = btcAmountToSwapHalfUsdcOfActiveBin;
@@ -1819,7 +1854,7 @@ describe("SDK test", () => {
 
         const usdcAmountToSwapHalfBtcOfActiveBin = new BN(
           activeBin.xAmount.div(new BN(2)).toNumber() *
-          Number.parseFloat(activeBin.price)
+            Number.parseFloat(activeBin.price)
         );
 
         usdcInAmount = usdcAmountToSwapHalfBtcOfActiveBin;
@@ -2091,7 +2126,7 @@ describe("SDK test", () => {
         const btcAmountToCrossBin =
           activeBin.yAmount.toNumber() / Number.parseFloat(activeBin.price) +
           beforeActiveBin.yAmount.div(new BN(2)).toNumber() /
-          Number.parseFloat(activeBin.price);
+            Number.parseFloat(activeBin.price);
 
         btcInAmount = new BN(btcAmountToCrossBin + 1);
 
@@ -2165,7 +2200,7 @@ describe("SDK test", () => {
         const usdcAmountToCrossBin =
           activeBin.xAmount.toNumber() * Number.parseFloat(activeBin.price) +
           afterActiveBin.xAmount.div(new BN(2)).toNumber() *
-          Number.parseFloat(afterActiveBin.price);
+            Number.parseFloat(afterActiveBin.price);
         usdcInAmount = new BN(usdcAmountToCrossBin + 1);
 
         const binArrays = await lbClmm.getBinArrays();
@@ -2418,7 +2453,8 @@ describe("SDK test", () => {
 });
 
 describe("SDK Test with Mainnet RPC", () => {
-  let mainnetRpc: string = process.env.RPC || "https://api.mainnet-beta.solana.com";
+  let mainnetRpc: string =
+    process.env.RPC || "https://api.mainnet-beta.solana.com";
   let connection: Connection;
 
   beforeAll(async () => {
@@ -2435,12 +2471,27 @@ describe("SDK Test with Mainnet RPC", () => {
 
     const binArrays = await lbPair.getBinArrayForSwap(swapForY);
     expect(binArrays.length).toBeGreaterThan(1);
-    let quote = lbPair.swapQuote(inAmount, swapForY, allowedSlippage, binArrays, isPartialFill, 0);
+    let quote = lbPair.swapQuote(
+      inAmount,
+      swapForY,
+      allowedSlippage,
+      binArrays,
+      isPartialFill,
+      0
+    );
     expect(quote.binArraysPubkey.length).toEqual(1);
     const binArrayToSwapPubkey = quote.binArraysPubkey[0];
-    const binArrayToSwap = await lbPair.program.account.binArray.fetch(binArrayToSwapPubkey);
+    const binArrayToSwap =
+      await lbPair.program.account.binArray.fetch(binArrayToSwapPubkey);
 
-    quote = lbPair.swapQuote(inAmount, swapForY, allowedSlippage, binArrays, isPartialFill, 3);
+    quote = lbPair.swapQuote(
+      inAmount,
+      swapForY,
+      allowedSlippage,
+      binArrays,
+      isPartialFill,
+      3
+    );
     expect(quote.binArraysPubkey.length).toEqual(4);
 
     // expect binArrays are in correct order
@@ -2450,7 +2501,8 @@ describe("SDK Test with Mainnet RPC", () => {
     for (let i = 1; i < binArrays.length; i++) {
       let assertBinArrayPubkey = quote.binArraysPubkey[i];
 
-      const assertBinArray = await lbPair.program.account.binArray.fetch(assertBinArrayPubkey);
+      const assertBinArray =
+        await lbPair.program.account.binArray.fetch(assertBinArrayPubkey);
       console.log(assertBinArray.index);
       if (swapForY) {
         expect(assertBinArray.index).toEqual(lastBinArrayIdx.sub(new BN(1)));
@@ -2472,13 +2524,28 @@ describe("SDK Test with Mainnet RPC", () => {
 
     const binArrays = await lbPair.getBinArrayForSwap(swapForY);
     expect(binArrays.length).toBeGreaterThan(1);
-    let quote = lbPair.swapQuote(inAmount, swapForY, allowedSlippage, binArrays, isPartialFill, 0);
+    let quote = lbPair.swapQuote(
+      inAmount,
+      swapForY,
+      allowedSlippage,
+      binArrays,
+      isPartialFill,
+      0
+    );
     expect(quote.binArraysPubkey.length).toEqual(1);
 
     const binArrayToSwapPubkey = quote.binArraysPubkey[0];
-    const binArrayToSwap = await lbPair.program.account.binArray.fetch(binArrayToSwapPubkey);
+    const binArrayToSwap =
+      await lbPair.program.account.binArray.fetch(binArrayToSwapPubkey);
 
-    quote = lbPair.swapQuote(inAmount, swapForY, allowedSlippage, binArrays, isPartialFill, 3);
+    quote = lbPair.swapQuote(
+      inAmount,
+      swapForY,
+      allowedSlippage,
+      binArrays,
+      isPartialFill,
+      3
+    );
     expect(quote.binArraysPubkey.length).toEqual(4);
 
     // expect binArrays are in correct order
@@ -2488,7 +2555,8 @@ describe("SDK Test with Mainnet RPC", () => {
     for (let i = 1; i < binArrays.length; i++) {
       let assertBinArrayPubkey = quote.binArraysPubkey[i];
 
-      const assertBinArray = await lbPair.program.account.binArray.fetch(assertBinArrayPubkey);
+      const assertBinArray =
+        await lbPair.program.account.binArray.fetch(assertBinArrayPubkey);
       console.log(assertBinArray.index);
       if (swapForY) {
         expect(assertBinArray.index).toEqual(lastBinArrayIdx.sub(new BN(1)));

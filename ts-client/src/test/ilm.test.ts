@@ -30,9 +30,15 @@ const keypairBuffer = fs.readFileSync(
   "utf-8"
 );
 const connection = new Connection("http://127.0.0.1:8899", "confirmed");
-const keypair = Keypair.fromSecretKey(
+
+const operator = Keypair.fromSecretKey(
   new Uint8Array(JSON.parse(keypairBuffer))
 );
+
+const positionOwner = Keypair.generate();
+const feeOwner = Keypair.generate();
+const lockDuration = new BN(86400 * 31);
+
 const programId = new PublicKey(LBCLMM_PROGRAM_IDS["localhost"]);
 
 describe("ILM test", () => {
@@ -41,7 +47,6 @@ describe("ILM test", () => {
     const wenDecimal = 5;
     const usdcDecimal = 6;
     const feeBps = new BN(500);
-    const lockDuration = new BN(0);
 
     let WEN: web3.PublicKey;
     let USDC: web3.PublicKey;
@@ -67,8 +72,8 @@ describe("ILM test", () => {
     beforeAll(async () => {
       WEN = await createMint(
         connection,
-        keypair,
-        keypair.publicKey,
+        operator,
+        operator.publicKey,
         null,
         wenDecimal,
         Keypair.generate(),
@@ -78,8 +83,8 @@ describe("ILM test", () => {
 
       USDC = await createMint(
         connection,
-        keypair,
-        keypair.publicKey,
+        operator,
+        operator.publicKey,
         null,
         usdcDecimal,
         Keypair.generate(),
@@ -89,9 +94,9 @@ describe("ILM test", () => {
 
       const userWenInfo = await getOrCreateAssociatedTokenAccount(
         connection,
-        keypair,
+        operator,
         WEN,
-        keypair.publicKey,
+        operator.publicKey,
         false,
         "confirmed",
         {
@@ -104,9 +109,9 @@ describe("ILM test", () => {
 
       const userUsdcInfo = await getOrCreateAssociatedTokenAccount(
         connection,
-        keypair,
+        operator,
         USDC,
-        keypair.publicKey,
+        operator.publicKey,
         false,
         "confirmed",
         {
@@ -119,10 +124,10 @@ describe("ILM test", () => {
 
       await mintTo(
         connection,
-        keypair,
+        operator,
         WEN,
         userWEN,
-        keypair.publicKey,
+        operator.publicKey,
         200_000_000_000 * 10 ** wenDecimal,
         [],
         {
@@ -133,10 +138,10 @@ describe("ILM test", () => {
 
       await mintTo(
         connection,
-        keypair,
+        operator,
         USDC,
         userUSDC,
-        keypair.publicKey,
+        operator.publicKey,
         1_000_000_000 * 10 ** usdcDecimal,
         [],
         {
@@ -157,7 +162,7 @@ describe("ILM test", () => {
         feeBps,
         ActivationType.Slot,
         false, // No alpha vault. Set to true the program will deterministically whitelist the alpha vault to swap before the pool start trading. Check: https://github.com/MeteoraAg/alpha-vault-sdk initialize{Prorata|Fcfs}Vault method to create the alpha vault.
-        keypair.publicKey,
+        operator.publicKey,
         activationPoint,
         false,
         {
@@ -166,7 +171,7 @@ describe("ILM test", () => {
       );
 
       let txHash = await sendAndConfirmTransaction(connection, rawTx, [
-        keypair,
+        operator,
       ]).catch((e) => {
         console.error(e);
         throw e;
@@ -181,15 +186,41 @@ describe("ILM test", () => {
     });
 
     it("seed liquidity", async () => {
-      const { initializeBinArraysAndPositionIxs, addLiquidityIxs } =
-        await pair.seedLiquidity(
-          keypair.publicKey,
-          seedAmount,
-          curvature,
-          minPrice,
-          maxPrice,
-          baseKeypair.publicKey
-        );
+      const currentSlot = await connection.getSlot();
+
+      const lockReleaseSlot = lockDuration.add(new BN(currentSlot));
+
+      const {
+        sendPositionOwnerTokenProveIxs,
+        initializeBinArraysAndPositionIxs,
+        addLiquidityIxs,
+      } = await pair.seedLiquidity(
+        positionOwner.publicKey,
+        seedAmount,
+        curvature,
+        minPrice,
+        maxPrice,
+        baseKeypair.publicKey,
+        operator.publicKey,
+        feeOwner.publicKey,
+        operator.publicKey,
+        lockReleaseSlot,
+        true
+      );
+
+      // Send token prove
+      {
+        const { blockhash, lastValidBlockHeight } =
+          await connection.getLatestBlockhash("confirmed");
+
+        const transaction = new Transaction({
+          feePayer: operator.publicKey,
+          blockhash,
+          lastValidBlockHeight,
+        }).add(...sendPositionOwnerTokenProveIxs);
+
+        await sendAndConfirmTransaction(connection, transaction, [operator]);
+      }
 
       // Initialize all bin array and position, transaction order can be in sequence or not
       {
@@ -199,12 +230,12 @@ describe("ILM test", () => {
 
         for (const groupIx of initializeBinArraysAndPositionIxs) {
           const tx = new Transaction({
-            feePayer: keypair.publicKey,
+            feePayer: operator.publicKey,
             blockhash,
             lastValidBlockHeight,
           }).add(...groupIx);
 
-          const signers = [keypair, baseKeypair];
+          const signers = [operator, baseKeypair];
 
           transactions.push(sendAndConfirmTransaction(connection, tx, signers));
         }
@@ -232,12 +263,12 @@ describe("ILM test", () => {
         // Deposit to positions created in above step. The add liquidity order can be in sequence or not.
         for (const groupIx of addLiquidityIxs) {
           const tx = new Transaction({
-            feePayer: keypair.publicKey,
+            feePayer: operator.publicKey,
             blockhash,
             lastValidBlockHeight,
           }).add(...groupIx);
 
-          const signers = [keypair];
+          const signers = [operator];
 
           transactions.push(sendAndConfirmTransaction(connection, tx, signers));
         }
@@ -258,6 +289,22 @@ describe("ILM test", () => {
 
       const actualDepositedAmount = beforeTokenXBalance.sub(afterTokenXBalance);
       expect(actualDepositedAmount.toString()).toEqual(seedAmount.toString());
+
+      const positions = await pair.getPositionsByUserAndLbPair(
+        positionOwner.publicKey
+      );
+
+      const positionKeys = positions.userPositions.map((p) => p.publicKey);
+      const positionStates =
+        await pair.program.account.positionV2.fetchMultiple(positionKeys);
+
+      for (const state of positionStates) {
+        expect(state.feeOwner.toBase58()).toBe(feeOwner.publicKey.toBase58());
+        expect(state.owner.toBase58()).toBe(positionOwner.publicKey.toBase58());
+        expect(state.lockReleasePoint.toString()).toBe(
+          lockReleaseSlot.toString()
+        );
+      }
 
       let binArrays = await pair.getBinArrays();
       binArrays = binArrays.sort((a, b) =>
@@ -322,8 +369,8 @@ describe("ILM test", () => {
     beforeAll(async () => {
       SHARKY = await createMint(
         connection,
-        keypair,
-        keypair.publicKey,
+        operator,
+        operator.publicKey,
         null,
         sharkyDecimal,
         Keypair.generate(),
@@ -333,8 +380,8 @@ describe("ILM test", () => {
 
       USDC = await createMint(
         connection,
-        keypair,
-        keypair.publicKey,
+        operator,
+        operator.publicKey,
         null,
         usdcDecimal,
         Keypair.generate(),
@@ -344,9 +391,9 @@ describe("ILM test", () => {
 
       const userShakyInfo = await getOrCreateAssociatedTokenAccount(
         connection,
-        keypair,
+        operator,
         SHARKY,
-        keypair.publicKey,
+        operator.publicKey,
         false,
         "confirmed",
         {
@@ -359,9 +406,9 @@ describe("ILM test", () => {
 
       const userUsdcInfo = await getOrCreateAssociatedTokenAccount(
         connection,
-        keypair,
+        operator,
         USDC,
-        keypair.publicKey,
+        operator.publicKey,
         false,
         "confirmed",
         {
@@ -374,10 +421,10 @@ describe("ILM test", () => {
 
       await mintTo(
         connection,
-        keypair,
+        operator,
         SHARKY,
         userSHAKY,
-        keypair.publicKey,
+        operator.publicKey,
         200_000_000_000 * 10 ** sharkyDecimal,
         [],
         {
@@ -388,10 +435,10 @@ describe("ILM test", () => {
 
       await mintTo(
         connection,
-        keypair,
+        operator,
         USDC,
         userUSDC,
-        keypair.publicKey,
+        operator.publicKey,
         1_000_000_000 * 10 ** usdcDecimal,
         [],
         {
@@ -412,7 +459,7 @@ describe("ILM test", () => {
         feeBps,
         ActivationType.Slot,
         false, // No alpha vault. Set to true the program will deterministically whitelist the alpha vault to swap before the pool start trading. Check: https://github.com/MeteoraAg/alpha-vault-sdk initialize{Prorata|Fcfs}Vault method to create the alpha vault.
-        keypair.publicKey,
+        operator.publicKey,
         activationPoint,
         false,
         {
@@ -421,7 +468,7 @@ describe("ILM test", () => {
       );
 
       let txHash = await sendAndConfirmTransaction(connection, rawTx, [
-        keypair,
+        operator,
       ]).catch((e) => {
         console.error(e);
         throw e;
@@ -440,15 +487,41 @@ describe("ILM test", () => {
     });
 
     it("seed liquidity", async () => {
-      const { initializeBinArraysAndPositionIxs, addLiquidityIxs } =
-        await pair.seedLiquidity(
-          keypair.publicKey,
-          seedAmount,
-          curvature,
-          minPrice,
-          maxPrice,
-          baseKeypair.publicKey
-        );
+      const currentSlot = await connection.getSlot();
+
+      const lockReleaseSlot = new BN(currentSlot).add(lockDuration);
+
+      const {
+        sendPositionOwnerTokenProveIxs,
+        initializeBinArraysAndPositionIxs,
+        addLiquidityIxs,
+      } = await pair.seedLiquidity(
+        positionOwner.publicKey,
+        seedAmount,
+        curvature,
+        minPrice,
+        maxPrice,
+        baseKeypair.publicKey,
+        operator.publicKey,
+        feeOwner.publicKey,
+        operator.publicKey,
+        lockReleaseSlot,
+        true
+      );
+
+      // Send token prove
+      {
+        const { blockhash, lastValidBlockHeight } =
+          await connection.getLatestBlockhash("confirmed");
+
+        const transaction = new Transaction({
+          feePayer: operator.publicKey,
+          blockhash,
+          lastValidBlockHeight,
+        }).add(...sendPositionOwnerTokenProveIxs);
+
+        await sendAndConfirmTransaction(connection, transaction, [operator]);
+      }
 
       // Initialize all bin array and position, transaction order can be in sequence or not
       {
@@ -458,12 +531,12 @@ describe("ILM test", () => {
 
         for (const groupIx of initializeBinArraysAndPositionIxs) {
           const tx = new Transaction({
-            feePayer: keypair.publicKey,
+            feePayer: operator.publicKey,
             blockhash,
             lastValidBlockHeight,
           }).add(...groupIx);
 
-          const signers = [keypair, baseKeypair];
+          const signers = [operator, baseKeypair];
 
           transactions.push(sendAndConfirmTransaction(connection, tx, signers));
         }
@@ -491,12 +564,12 @@ describe("ILM test", () => {
         // Deposit to positions created in above step. The add liquidity order can be in sequence or not.
         for (const groupIx of addLiquidityIxs) {
           const tx = new Transaction({
-            feePayer: keypair.publicKey,
+            feePayer: operator.publicKey,
             blockhash,
             lastValidBlockHeight,
           }).add(...groupIx);
 
-          const signers = [keypair];
+          const signers = [operator];
 
           transactions.push(sendAndConfirmTransaction(connection, tx, signers));
         }
@@ -517,6 +590,22 @@ describe("ILM test", () => {
 
       const actualDepositedAmount = beforeTokenXBalance.sub(afterTokenXBalance);
       expect(actualDepositedAmount.toString()).toEqual(seedAmount.toString());
+
+      const positions = await pair.getPositionsByUserAndLbPair(
+        positionOwner.publicKey
+      );
+
+      const positionKeys = positions.userPositions.map((p) => p.publicKey);
+      const positionStates =
+        await pair.program.account.positionV2.fetchMultiple(positionKeys);
+
+      for (const state of positionStates) {
+        expect(state.feeOwner.toBase58()).toBe(feeOwner.publicKey.toBase58());
+        expect(state.owner.toBase58()).toBe(positionOwner.publicKey.toBase58());
+        expect(state.lockReleasePoint.toString()).toBe(
+          lockReleaseSlot.toString()
+        );
+      }
 
       let binArrays = await pair.getBinArrays();
       binArrays = binArrays.sort((a, b) =>
