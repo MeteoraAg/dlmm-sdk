@@ -132,12 +132,9 @@ export const Strategy = {
 };
 
 export enum StrategyType {
-  SpotImBalanced,
-  CurveImBalanced,
-  BidAskImBalanced,
-  SpotBalanced,
-  CurveBalanced,
-  BidAskBalanced,
+  Spot,
+  Curve,
+  BidAsk,
 }
 
 export enum ActivationType {

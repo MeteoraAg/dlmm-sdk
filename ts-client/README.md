@@ -1,7 +1,7 @@
 # DLMM SDK
 
 <p align="center">
-<img align="center" src="https://vaults.mercurial.finance/icons/logo.svg" width="180" height="180" />
+<img align="center" src="https://app.meteora.ag/icons/logo.svg" width="180" height="180" />
 </p>
 <br>
 
@@ -48,32 +48,39 @@ const activeBinPricePerToken = dlmmPool.fromPricePerLamport(
 );
 ```
 
-- Create Position
+- Create Balance Position
 
 ```ts
 const TOTAL_RANGE_INTERVAL = 10; // 10 bins on each side of the active bin
-const minBinId = activeBin.bin_id - TOTAL_RANGE_INTERVAL;
-const maxBinId = activeBin.bin_id + TOTAL_RANGE_INTERVAL;
+  const minBinId = activeBin.binId - TOTAL_RANGE_INTERVAL;
+  const maxBinId = activeBin.binId + TOTAL_RANGE_INTERVAL;
 
-const activeBinPricePerToken = dlmmPool.fromPricePerLamport(
-  Number(activeBin.price)
-);
-const totalXAmount = new BN(100);
-const totalYAmount = totalXAmount.mul(new BN(Number(activeBinPricePerToken)));
-
-// Create Position (Spot Balance deposit, Please refer ``example.ts` for more example)
-const createPositionTx =
-  await dlmmPool.initializePositionAndAddLiquidityByStrategy({
-    positionPubKey: newBalancePosition.publicKey,
-    user: user.publicKey,
+  const totalXAmount = new BN(100 * 10 ** baseMint.decimals);
+  const totalYAmount = autoFillYByStrategy(
+    activeBin.binId,
+    dlmmPool.lbPair.binStep,
     totalXAmount,
-    totalYAmount,
-    strategy: {
-      maxBinId,
-      minBinId,
-      strategyType: StrategyType.SpotBalanced,
-    },
-  });
+    activeBin.xAmount,
+    activeBin.yAmount,
+    minBinId,
+    maxBinId,
+    StrategyType.Spot // can be StrategyType.Spot, StrategyType.BidAsk, StrategyType.Curve
+  );
+  const newBalancePosition = new Keypair();
+
+  // Create Position
+  const createPositionTx =
+    await dlmmPool.initializePositionAndAddLiquidityByStrategy({
+      positionPubKey: newBalancePosition.publicKey,
+      user: user.publicKey,
+      totalXAmount,
+      totalYAmount,
+      strategy: {
+        maxBinId,
+        minBinId,
+        strategyType: StrategyType.Spot, // can be StrategyType.Spot, StrategyType.BidAsk, StrategyType.Curve
+      },
+    });
 
 try {
   const createBalancePositionTxHash = await sendAndConfirmTransaction(
@@ -82,6 +89,73 @@ try {
     [user, newBalancePosition]
   );
 } catch (error) {}
+```
+
+- Create Imbalance Position
+```ts
+const TOTAL_RANGE_INTERVAL = 10; // 10 bins on each side of the active bin
+  const minBinId = activeBin.binId - TOTAL_RANGE_INTERVAL;
+  const maxBinId = activeBin.binId + TOTAL_RANGE_INTERVAL;
+
+  const totalXAmount = new BN(100 * 10 ** baseMint.decimals);
+  const totalYAmount = new BN(0.5 * 10 ** 9); // SOL
+  const newImbalancePosition = new Keypair();
+
+  // Create Position
+  const createPositionTx =
+    await dlmmPool.initializePositionAndAddLiquidityByStrategy({
+      positionPubKey: newImbalancePosition.publicKey,
+      user: user.publicKey,
+      totalXAmount,
+      totalYAmount,
+      strategy: {
+        maxBinId,
+        minBinId,
+        strategyType: StrategyType.Spot, // can be StrategyType.Spot, StrategyType.BidAsk, StrategyType.Curve
+      },
+    });
+
+    try {
+  const createBalancePositionTxHash = await sendAndConfirmTransaction(
+    connection,
+    createPositionTx,
+    [user, newImbalancePosition]
+  );
+} catch (error) {}
+```
+
+- Create One Side Position
+
+```ts
+const TOTAL_RANGE_INTERVAL = 10; // 10 bins on each side of the active bin
+  const minBinId = activeBin.binId;
+  const maxBinId = activeBin.binId + TOTAL_RANGE_INTERVAL * 2;
+
+  const totalXAmount = new BN(100 * 10 ** baseMint.decimals);
+  const totalYAmount = new BN(0);
+  const newOneSidePosition = new Keypair();
+
+  // Create Position
+  const createPositionTx =
+    await dlmmPool.initializePositionAndAddLiquidityByStrategy({
+      positionPubKey: newOneSidePosition.publicKey,
+      user: user.publicKey,
+      totalXAmount,
+      totalYAmount,
+      strategy: {
+        maxBinId,
+        minBinId,
+        strategyType: StrategyType.Spot, // can be StrategyType.Spot, StrategyType.BidAsk, StrategyType.Curve
+      },
+    });
+
+  try {
+    const createOneSidePositionTxHash = await sendAndConfirmTransaction(
+      connection,
+      createPositionTx,
+      [user, newOneSidePosition]
+    );
+  } catch (error) {}
 ```
 
 - Get list of positions
@@ -97,27 +171,33 @@ const binData = userPositions[0].positionData.positionBinData;
 
 ```ts
 const TOTAL_RANGE_INTERVAL = 10; // 10 bins on each side of the active bin
-const minBinId = activeBin.bin_id - TOTAL_RANGE_INTERVAL;
-const maxBinId = activeBin.bin_id + TOTAL_RANGE_INTERVAL;
+  const minBinId = activeBin.binId - TOTAL_RANGE_INTERVAL;
+  const maxBinId = activeBin.binId + TOTAL_RANGE_INTERVAL;
 
-const activeBinPricePerToken = dlmmPool.fromPricePerLamport(
-  Number(activeBin.price)
-);
-const totalXAmount = new BN(100);
-const totalYAmount = totalXAmount.mul(new BN(Number(activeBinPricePerToken)));
-
-// Add Liquidity to existing position
-const addLiquidityTx = await dlmmPool.addLiquidityByStrategy({
-  positionPubKey: newBalancePosition.publicKey,
-  user: user.publicKey,
-  totalXAmount,
-  totalYAmount,
-  strategy: {
-    maxBinId,
+  const totalXAmount = new BN(100 * 10 ** baseMint.decimals);
+  const totalYAmount = autoFillYByStrategy(
+    activeBin.binId,
+    dlmmPool.lbPair.binStep,
+    totalXAmount,
+    activeBin.xAmount,
+    activeBin.yAmount,
     minBinId,
-    strategyType: StrategyType.SpotBalanced,
-  },
-});
+    maxBinId,
+    StrategyType.Spot, // can be StrategyType.Spot, StrategyType.BidAsk, StrategyType.Curve
+  );
+
+  // Add Liquidity to existing position
+  const addLiquidityTx = await dlmmPool.addLiquidityByStrategy({
+    positionPubKey: newBalancePosition.publicKey,
+    user: user.publicKey,
+    totalXAmount,
+    totalYAmount,
+    strategy: {
+      maxBinId,
+      minBinId,
+      strategyType: StrategyType.Spot, // can be StrategyType.Spot, StrategyType.BidAsk, StrategyType.Curve
+    },
+  });
 
 try {
   const addLiquidityTxHash = await sendAndConfirmTransaction(
@@ -162,30 +242,44 @@ try {
 } catch (error) {}
 ```
 
+- Close Position
+
+```ts
+const closePositionTx = await dlmmPool.closePosition({
+  owner: user.publicKey,
+  position: newBalancePosition.publicKey,
+});
+
+try {
+    const closePositionTxHash = await sendAndConfirmTransaction(
+      connection,
+      closePositionTx,
+      [user],
+      { skipPreflight: false, preflightCommitment: "singleGossip" }
+    );
+} catch (error) {}
+```
+
 - Swap
 
 ```ts
-const swapAmount = new BN(100);
-// Swap quote
-const swapYtoX = true;
-const binArrays = await dlmmPool.getBinArrayForSwap(swapYtoX);
-const swapQuote = await dlmmPool.swapQuote(
-  swapAmount,
-  swapYtoX,
-  new BN(10),
-  binArrays
-);
+const swapAmount = new BN(0.1 * 10 ** 9);
+  // Swap quote
+  const swapYtoX = true;
+  const binArrays = await dlmmPool.getBinArrayForSwap(swapYtoX);
+
+  const swapQuote = await dlmmPool.swapQuote(swapAmount, swapYtoX, new BN(1), binArrays);
 
 // Swap
 const swapTx = await dlmmPool.swap({
-  inToken: dlmmPool.tokenX.publicKey,
-  binArraysPubkey: swapQuote.binArraysPubkey,
-  inAmount: swapAmount,
-  lbPair: dlmmPool.pubkey,
-  user: user.publicKey,
-  minOutAmount: swapQuote.minOutAmount,
-  outToken: dlmmPool.tokenY.publicKey,
-});
+    inToken: dlmmPool.tokenX.publicKey,
+    binArraysPubkey: swapQuote.binArraysPubkey,
+    inAmount: swapAmount,
+    lbPair: dlmmPool.pubkey,
+    user: user.publicKey,
+    minOutAmount: swapQuote.minOutAmount,
+    outToken: dlmmPool.tokenY.publicKey,
+  });
 
 try {
   const swapTxHash = await sendAndConfirmTransaction(connection, swapTx, [
@@ -200,7 +294,11 @@ try {
 | ----------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------ |
 | `create`                      | Given the DLMM address, create an instance to access the state and functions       | `Promise<DLMM>`                      |
 | `createMultiple`              | Given a list of DLMM addresses, create instances to access the state and functions | `Promise<Array<DLMM>>`               |
-| `getAllLbPairPositionsByUser` | Given a list of DLMM addresses, create instances to access the state and functions | `Promise<Map<string, PositionInfo>>` |
+| `getAllPresetParameters`      | Get all the preset params (use to create DLMM pool)                                | `Promise<PresetParams>`              |
+| `createPermissionLbPair`      | Create DLMM Pool                                                                   | `Promise<Transcation>`               |
+| `getClaimableLMReward`        | Get Claimable LM reward for a position                                             | `Promise<LMRewards>`                 |
+| `getClaimableSwapFee`         | Get Claimable Swap Fee for a position                                              | `Promise<SwapFee>`                   |
+| `getAllLbPairPositionsByUser` | Get user's all positions for all DLMM pools                                        | `Promise<Map<string, PositionInfo>>` |
 
 ## DLMM instance functions
 
