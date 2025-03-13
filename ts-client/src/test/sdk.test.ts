@@ -467,7 +467,7 @@ describe("SDK test", () => {
         totalXAmount: btcInAmount,
         totalYAmount: new BN(0),
         strategy: {
-          strategyType: StrategyType.SpotImBalanced,
+          strategyType: StrategyType.Spot,
           minBinId: pair.lbPair.activeId,
           maxBinId: position.upperBinId,
         },

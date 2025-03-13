@@ -68,7 +68,7 @@ async function createBalancePosition(dlmmPool: DLMM) {
       strategy: {
         maxBinId,
         minBinId,
-        strategyType: StrategyType.SpotBalanced,
+        strategyType: StrategyType.Spot,
       },
     });
 
@@ -105,7 +105,7 @@ async function createImbalancePosition(dlmmPool: DLMM) {
       strategy: {
         maxBinId,
         minBinId,
-        strategyType: StrategyType.SpotImBalanced,
+        strategyType: StrategyType.Spot,
       },
     });
 
@@ -142,7 +142,7 @@ async function createOneSidePosition(dlmmPool: DLMM) {
       strategy: {
         maxBinId,
         minBinId,
-        strategyType: StrategyType.SpotImBalanced,
+        strategyType: StrategyType.Spot,
       },
     });
 
@@ -191,7 +191,7 @@ async function addLiquidityToExistingPosition(dlmmPool: DLMM) {
     strategy: {
       maxBinId,
       minBinId,
-      strategyType: StrategyType.SpotBalanced,
+      strategyType: StrategyType.Spot,
     },
   });
 
@@ -218,7 +218,8 @@ async function removePositionLiquidity(dlmmPool: DLMM) {
         return dlmmPool.removeLiquidity({
           position: publicKey,
           user: user.publicKey,
-          binIds: binIdsToRemove,
+          fromBinId: binIdsToRemove[0],
+          toBinId: binIdsToRemove[binIdsToRemove.length - 1],
           bps: new BN(100 * 100),
           shouldClaimAndClose: true, // should claim swap fee and close position together
         });
