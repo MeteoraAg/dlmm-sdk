@@ -19,39 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-## @meteora-ag/dlmm [1.4.2] - PR #183
-
-### Added
-
-- Add `getCustomizablePermissionlessLbPairIfExists` function to fetch existing customizable permissionless LB pair
-
-### Changed
-
-- remove CU estimation for `seedLiquidity`
-
-### Fixed
-
-- Fix incorrect enable/disable mapping in `setPairStatusPermissionless`
-
-## @meteora-ag/dlmm [1.4.1] - PR #182
-
-### Changed
-
-- Update readme to include `claimFee`
-
-## @meteora-ag/dlmm [1.4.0] - PR #181
-
-### Changed
-
-- Revamp StrategyType, now only have `StrategyType.Spot`, `StrategyType.BidAsk` & `StrategyType.Curve`
-
-## @meteora-ag/dlmm [1.3.16] - PR #179
-
-### Changed
-
-- Add `feeOwner`, `operator`, `lockReleasePoint`, `shouldSeedPositionOwner`, `txPayer` parameters for `seedLiquidity` function
-
-## @meteora-ag/dlmm [1.3.11] - PR #140
+## @meteora-ag/dlmm [1.4.3] - PR #162
 
 ### Changed
 
@@ -134,6 +102,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added token 2022 supportive functions.
 - Added position account supportive functions.
+
+## @meteora-ag/dlmm [1.4.2] - PR #183
+
+### Added
+
+- Add `getCustomizablePermissionlessLbPairIfExists` function to fetch existing customizable permissionless LB pair
+
+### Changed
+
+- remove CU estimation for `seedLiquidity`
+
+### Fixed
+
+- Fix incorrect enable/disable mapping in `setPairStatusPermissionless`
+
+## @meteora-ag/dlmm [1.4.1] - PR #182
+
+### Changed
+
+- Update readme to include `claimFee`
+
+## @meteora-ag/dlmm [1.4.0] - PR #181
+
+### Changed
+
+- Revamp StrategyType, now only have `StrategyType.Spot`, `StrategyType.BidAsk` & `StrategyType.Curve`
+
+## @meteora-ag/dlmm [1.3.16] - PR #179
+
+### Changed
+
+- Add `feeOwner`, `operator`, `lockReleasePoint`, `shouldSeedPositionOwner`, `txPayer` parameters for `seedLiquidity` function
 
 ## @meteora-ag/dlmm [1.3.16] - PR #179
 
