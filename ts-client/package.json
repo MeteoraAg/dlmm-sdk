@@ -1,6 +1,6 @@
 {
   "name": "@meteora-ag/dlmm",
-  "version": "1.3.16",
+  "version": "1.4.0",
   "description": "",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -14,7 +14,7 @@
     "start": "npm run build -- --watch",
     "test": "jest 'src/test/(ilm|sdk|position_managed_by_operator|decode|single_bin).test.ts'",
     "unit-test": "jest src/test/calculate_distribution.test.ts",
-    "example": "dotenv -e .env npx ts-node src/example.ts",
+    "example": "dotenv -e .env npx ts-node src/examples/example.ts",
     "start-server": "npx tsc && node dist/src/server/index.js"
   },
   "devDependencies": {

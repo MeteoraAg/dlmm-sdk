@@ -279,7 +279,7 @@ describe("Position by operator", () => {
         totalXAmount: new BN(1000 * 10 ** wenDecimal),
         totalYAmount: new BN(0),
         strategy: {
-          strategyType: StrategyType.SpotImBalanced,
+          strategyType: StrategyType.Spot,
           maxBinId: positionState.upperBinId,
           minBinId,
         },
@@ -299,7 +299,7 @@ describe("Position by operator", () => {
         totalXAmount: new BN(0),
         totalYAmount: new BN(1000 * 10 ** usdcDecimal),
         strategy: {
-          strategyType: StrategyType.SpotImBalanced,
+          strategyType: StrategyType.Spot,
           maxBinId: minBinId - 1,
           minBinId: positionState.lowerBinId,
         },

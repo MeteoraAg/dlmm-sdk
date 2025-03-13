@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.4.0] - PR #181
+
+### Changed
+
+- Revamp StrategyType, now only have `StrategyType.Spot`, `StrategyType.BidAsk` & `StrategyType.Curve`
+
 ## @meteora-ag/dlmm [1.3.16] - PR #179
 
 ### Changed

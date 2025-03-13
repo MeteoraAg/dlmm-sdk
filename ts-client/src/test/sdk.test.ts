@@ -523,7 +523,7 @@ describe("SDK test", () => {
           totalXAmount: btcInAmount,
           totalYAmount: usdcInAmount,
           strategy: {
-            strategyType: StrategyType.SpotBalanced,
+            strategyType: StrategyType.Spot,
             maxBinId:
               xYAmountDistribution[xYAmountDistribution.length - 1].binId,
             minBinId: xYAmountDistribution[0].binId,
@@ -2481,8 +2481,9 @@ describe("SDK Test with Mainnet RPC", () => {
     );
     expect(quote.binArraysPubkey.length).toEqual(1);
     const binArrayToSwapPubkey = quote.binArraysPubkey[0];
-    const binArrayToSwap =
-      await lbPair.program.account.binArray.fetch(binArrayToSwapPubkey);
+    const binArrayToSwap = await lbPair.program.account.binArray.fetch(
+      binArrayToSwapPubkey
+    );
 
     quote = lbPair.swapQuote(
       inAmount,
@@ -2501,8 +2502,9 @@ describe("SDK Test with Mainnet RPC", () => {
     for (let i = 1; i < binArrays.length; i++) {
       let assertBinArrayPubkey = quote.binArraysPubkey[i];
 
-      const assertBinArray =
-        await lbPair.program.account.binArray.fetch(assertBinArrayPubkey);
+      const assertBinArray = await lbPair.program.account.binArray.fetch(
+        assertBinArrayPubkey
+      );
       console.log(assertBinArray.index);
       if (swapForY) {
         expect(assertBinArray.index).toEqual(lastBinArrayIdx.sub(new BN(1)));
@@ -2535,8 +2537,9 @@ describe("SDK Test with Mainnet RPC", () => {
     expect(quote.binArraysPubkey.length).toEqual(1);
 
     const binArrayToSwapPubkey = quote.binArraysPubkey[0];
-    const binArrayToSwap =
-      await lbPair.program.account.binArray.fetch(binArrayToSwapPubkey);
+    const binArrayToSwap = await lbPair.program.account.binArray.fetch(
+      binArrayToSwapPubkey
+    );
 
     quote = lbPair.swapQuote(
       inAmount,
@@ -2555,8 +2558,9 @@ describe("SDK Test with Mainnet RPC", () => {
     for (let i = 1; i < binArrays.length; i++) {
       let assertBinArrayPubkey = quote.binArraysPubkey[i];
 
-      const assertBinArray =
-        await lbPair.program.account.binArray.fetch(assertBinArrayPubkey);
+      const assertBinArray = await lbPair.program.account.binArray.fetch(
+        assertBinArrayPubkey
+      );
       console.log(assertBinArray.index);
       if (swapForY) {
         expect(assertBinArray.index).toEqual(lastBinArrayIdx.sub(new BN(1)));
