@@ -1,46 +1,52 @@
-use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
-use anchor_client::solana_sdk::compute_budget::ComputeBudgetInstruction;
-use anchor_client::solana_sdk::signer::Signer;
-use anchor_client::Program;
-use anchor_lang::prelude::Pubkey;
-use anyhow::*;
-use lb_clmm::accounts;
-use lb_clmm::instruction;
-use lb_clmm::state::position::PositionV2;
-use lb_clmm::utils::pda::derive_event_authority_pda;
-use std::ops::Deref;
+use crate::*;
 
-use super::utils::get_bin_arrays_for_position;
+#[derive(Debug, Parser)]
+pub struct ClosePositionParams {
+    pub position: Pubkey,
+}
 
-pub async fn close_position<C: Deref<Target = impl Signer> + Clone>(
-    position: Pubkey,
+pub async fn execute_close_position<C: Deref<Target = impl Signer> + Clone>(
+    params: ClosePositionParams,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
 ) -> Result<()> {
-    let position_state: PositionV2 = program.account(position).await?;
-    let [bin_array_lower, bin_array_upper] = get_bin_arrays_for_position(program, position).await?;
+    let ClosePositionParams { position } = params;
+
+    let rpc_client = program.async_rpc();
+    let position_state = rpc_client
+        .get_account_and_deserialize(&position, |account| {
+            Ok(PositionV2Account::deserialize(&account.data)?.0)
+        })
+        .await?;
+
+    let bin_arrays_account_meta = position_state.get_bin_array_accounts_meta_coverage()?;
 
     let (event_authority, _bump) = derive_event_authority_pda();
 
-    let accounts = accounts::ClosePosition {
-        bin_array_lower,
-        bin_array_upper,
-        lb_pair: position_state.lb_pair,
+    let main_accounts: [AccountMeta; CLOSE_POSITION2_IX_ACCOUNTS_LEN] = ClosePosition2Keys {
         sender: position_state.owner,
         rent_receiver: position_state.owner,
         position,
         event_authority,
-        program: lb_clmm::ID,
-    };
+        program: dlmm_interface::ID,
+    }
+    .into();
 
-    let ix = instruction::ClosePosition {};
+    let data = ClosePosition2IxData.try_to_vec()?;
     let compute_budget_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
+
+    let accounts = [main_accounts.to_vec(), bin_arrays_account_meta].concat();
+
+    let close_position_ix = Instruction {
+        program_id: dlmm_interface::ID,
+        accounts,
+        data,
+    };
 
     let request_builder = program.request();
     let signature = request_builder
         .instruction(compute_budget_ix)
-        .accounts(accounts)
-        .args(ix)
+        .instruction(close_position_ix)
         .send_with_spinner_and_config(transaction_config)
         .await;
 

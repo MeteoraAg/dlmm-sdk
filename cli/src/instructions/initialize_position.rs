@@ -1,71 +1,58 @@
-use std::ops::Deref;
+use crate::*;
 
-use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
-use anchor_client::solana_sdk::signature::Keypair;
-use anchor_client::{solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, Program};
-
-use anchor_lang::prelude::AccountMeta;
-use anchor_lang::ToAccountMetas;
-use anyhow::*;
-use lb_clmm::accounts;
-use lb_clmm::instruction;
-use lb_clmm::utils::pda::derive_event_authority_pda;
-use mpl_token_metadata::accounts::Metadata;
-use spl_associated_token_account::get_associated_token_address;
-
-#[derive(Debug)]
-pub struct InitPositionParameters {
+#[derive(Debug, Parser)]
+pub struct InitPositionParams {
+    /// Address of the liquidity pair.
     pub lb_pair: Pubkey,
+    /// Lower bound of the bin range.
+    #[clap(long, allow_negative_numbers = true)]
     pub lower_bin_id: i32,
+    /// Width of the position. Start with 1 until 70.
     pub width: i32,
-    pub nft_mint: Option<Pubkey>,
 }
 
-pub async fn initialize_position<C: Deref<Target = impl Signer> + Clone>(
-    params: InitPositionParameters,
+pub async fn execute_initialize_position<C: Deref<Target = impl Signer> + Clone>(
+    params: InitPositionParams,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
 ) -> Result<Pubkey> {
-    let InitPositionParameters {
+    let InitPositionParams {
         lb_pair,
         lower_bin_id,
         width,
-        nft_mint,
     } = params;
 
     let position_keypair = Keypair::new();
 
     let (event_authority, _bump) = derive_event_authority_pda();
 
-    let mut accounts = accounts::InitializePosition {
+    let accounts: [AccountMeta; INITIALIZE_POSITION_IX_ACCOUNTS_LEN] = InitializePositionKeys {
         lb_pair,
         payer: program.payer(),
         position: position_keypair.pubkey(),
         owner: program.payer(),
-        rent: anchor_client::solana_sdk::sysvar::rent::ID,
-        system_program: anchor_client::solana_sdk::system_program::ID,
+        rent: solana_sdk::sysvar::rent::ID,
+        system_program: solana_sdk::system_program::ID,
         event_authority,
-        program: lb_clmm::ID,
+        program: dlmm_interface::ID,
     }
-    .to_account_metas(None);
+    .into();
 
-    if let Some(nft_mint) = nft_mint {
-        let nft_ata = get_associated_token_address(&program.payer(), &nft_mint);
-        let (nft_metadata, _bump) = Metadata::find_pda(&nft_mint);
-
-        accounts.push(AccountMeta::new_readonly(nft_ata, false));
-        accounts.push(AccountMeta::new_readonly(nft_metadata, false));
-    }
-
-    let ix = instruction::InitializePosition {
+    let data = InitializePositionIxData(InitializePositionIxArgs {
         lower_bin_id,
         width,
+    })
+    .try_to_vec()?;
+
+    let init_position_ix = Instruction {
+        program_id: dlmm_interface::ID,
+        data,
+        accounts: accounts.to_vec(),
     };
 
     let request_builder = program.request();
     let signature = request_builder
-        .accounts(accounts)
-        .args(ix)
+        .instruction(init_position_ix)
         .signer(&position_keypair)
         .send_with_spinner_and_config(transaction_config)
         .await;

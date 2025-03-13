@@ -20,6 +20,10 @@ program = "./artifacts/token_2022.so"
 address = "LbVRzDTvBDEcrthxfZ4RL6yiq3uZw8bS6MwtdY6UhFQ"
 program = "./artifacts/lb_clmm.so"
 
+[[test.genesis]]
+address = "abcSyangMHdGzUGKhBhKoQzSFdJKUdkPGf5cbXVHpEw"
+program = "./artifacts/transfer_hook_counter.so"
+
 [scripts]
 test = "yarn run ts-mocha --sort --type-check --bail -p ./tsconfig.json -t 1000000 tests/*.ts"
 build-local = "anchor build"
@@ -29,4 +33,4 @@ deploy-local = "solana program deploy target/deploy/lb_clmm.so --keypair keys/lo
 startup_wait = 50000
 
 [toolchain]
-anchor_version = "0.28.0"
+anchor_version = "0.29.0"

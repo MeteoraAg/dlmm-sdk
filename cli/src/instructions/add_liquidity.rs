@@ -1,44 +1,51 @@
-use std::ops::Deref;
+use crate::*;
+use instructions::*;
 
-use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
-use anchor_client::solana_sdk::compute_budget::ComputeBudgetInstruction;
-use anchor_client::solana_sdk::instruction::Instruction;
-use anchor_client::{solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, Program};
-
-use anyhow::*;
-use lb_clmm::accounts;
-use lb_clmm::instruction;
-use lb_clmm::instructions::deposit::add_liquidity::{BinLiquidityDistribution, LiquidityParameter};
-
-use crate::instructions::utils::{get_bin_arrays_for_position, get_or_create_ata};
-use lb_clmm::constants::BASIS_POINT_MAX;
-use lb_clmm::state::lb_pair::LbPair;
-use lb_clmm::utils::pda::{derive_bin_array_bitmap_extension, derive_event_authority_pda};
-
-#[derive(Debug)]
-pub struct AddLiquidityParam {
+#[derive(Debug, Parser)]
+pub struct AddLiquidityParams {
+    /// Address of the liquidity pair.
     pub lb_pair: Pubkey,
+    /// Position for the deposit.
     pub position: Pubkey,
+    /// Amount of token X to be deposited.
     pub amount_x: u64,
+    /// Amount of token Y to be deposited.
     pub amount_y: u64,
+    /// Liquidity distribution to the bins. "<DELTA_ID,DIST_X,DIST_Y, DELTA_ID,DIST_X,DIST_Y, ...>" where
+    /// DELTA_ID = Number of bins surrounding the active bin. This decide which bin the token is going to deposit to. For example: if the current active id is 5555, delta_ids is 1, the user will be depositing to bin 5554, 5555, and 5556.
+    /// DIST_X = Percentage of amount_x to be deposited to the bins. Must not > 1.0
+    /// DIST_Y = Percentage of amount_y to be deposited to the bins. Must not > 1.0
+    /// For example: --bin-liquidity-distribution "-1,0.0,0.25 0,0.75,0.75 1,0.25,0.0"
+    #[clap(long, value_parser = parse_bin_liquidity_distribution, value_delimiter = ' ', allow_hyphen_values = true)]
     pub bin_liquidity_distribution: Vec<(i32, f64, f64)>,
 }
 
-pub async fn add_liquidity<C: Deref<Target = impl Signer> + Clone>(
-    params: AddLiquidityParam,
+pub async fn execute_add_liquidity<C: Deref<Target = impl Signer> + Clone>(
+    params: AddLiquidityParams,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
     compute_unit_price: Option<Instruction>,
 ) -> Result<()> {
-    let AddLiquidityParam {
+    let AddLiquidityParams {
         lb_pair,
         position,
         amount_x,
         amount_y,
-        bin_liquidity_distribution,
+        mut bin_liquidity_distribution,
     } = params;
 
-    let lb_pair_state: LbPair = program.account(lb_pair).await?;
+    // Sort by bin id
+    bin_liquidity_distribution.sort_by(|a, b| a.0.cmp(&b.0));
+
+    let rpc_client = program.async_rpc();
+
+    let lb_pair_state = rpc_client
+        .get_account_and_deserialize(&lb_pair, |account| {
+            Ok(LbPairAccount::deserialize(&account.data)?.0)
+        })
+        .await?;
+
+    let [token_x_program, token_y_program] = lb_pair_state.get_token_programs()?;
 
     let bin_liquidity_distribution = bin_liquidity_distribution
         .into_iter()
@@ -49,7 +56,24 @@ pub async fn add_liquidity<C: Deref<Target = impl Signer> + Clone>(
         })
         .collect::<Vec<_>>();
 
-    let [bin_array_lower, bin_array_upper] = get_bin_arrays_for_position(program, position).await?;
+    let position_state = rpc_client
+        .get_account_and_deserialize(&position, |account| {
+            Ok(PositionV2Account::deserialize(&account.data)?.0)
+        })
+        .await?;
+
+    let min_bin_id = bin_liquidity_distribution
+        .first()
+        .map(|bld| bld.bin_id)
+        .context("No bin liquidity distribution provided")?;
+
+    let max_bin_id = bin_liquidity_distribution
+        .last()
+        .map(|bld| bld.bin_id)
+        .context("No bin liquidity distribution provided")?;
+
+    let bin_arrays_account_meta =
+        position_state.get_bin_array_accounts_meta_coverage_by_chunk(min_bin_id, max_bin_id)?;
 
     let user_token_x = get_or_create_ata(
         program,
@@ -69,23 +93,17 @@ pub async fn add_liquidity<C: Deref<Target = impl Signer> + Clone>(
     )
     .await?;
 
-    // TODO: id and price slippage
     let (bin_array_bitmap_extension, _bump) = derive_bin_array_bitmap_extension(lb_pair);
-    let bin_array_bitmap_extension = if program
-        .rpc()
+
+    let bin_array_bitmap_extension = rpc_client
         .get_account(&bin_array_bitmap_extension)
-        .is_err()
-    {
-        None
-    } else {
-        Some(bin_array_bitmap_extension)
-    };
+        .await
+        .map(|_| bin_array_bitmap_extension)
+        .unwrap_or(dlmm_interface::ID);
 
     let (event_authority, _bump) = derive_event_authority_pda();
 
-    let accounts = accounts::ModifyLiquidity {
-        bin_array_lower,
-        bin_array_upper,
+    let main_accounts: [AccountMeta; ADD_LIQUIDITY2_IX_ACCOUNTS_LEN] = AddLiquidity2Keys {
         lb_pair,
         bin_array_bitmap_extension,
         position,
@@ -96,19 +114,46 @@ pub async fn add_liquidity<C: Deref<Target = impl Signer> + Clone>(
         sender: program.payer(),
         user_token_x,
         user_token_y,
-        // TODO: token 2022
-        token_x_program: anchor_spl::token::ID,
-        token_y_program: anchor_spl::token::ID,
+        token_x_program,
+        token_y_program,
         event_authority,
-        program: lb_clmm::ID,
+        program: dlmm_interface::ID,
+    }
+    .into();
+
+    let mut remaining_accounts_info = RemainingAccountsInfo { slices: vec![] };
+    let mut remaining_accounts = vec![];
+
+    if let Some((slices, transfer_hook_remaining_accounts)) =
+        get_potential_token_2022_related_ix_data_and_accounts(
+            &lb_pair_state,
+            program.async_rpc(),
+            ActionType::Liquidity,
+        )
+        .await?
+    {
+        remaining_accounts_info.slices = slices;
+        remaining_accounts.extend(transfer_hook_remaining_accounts);
     };
 
-    let ix = instruction::AddLiquidity {
+    remaining_accounts.extend(bin_arrays_account_meta);
+
+    let data = AddLiquidity2IxData(AddLiquidity2IxArgs {
         liquidity_parameter: LiquidityParameter {
             amount_x,
             amount_y,
             bin_liquidity_dist: bin_liquidity_distribution,
         },
+        remaining_accounts_info,
+    })
+    .try_to_vec()?;
+
+    let accounts = [main_accounts.to_vec(), remaining_accounts].concat();
+
+    let add_liquidity_ix = Instruction {
+        program_id: dlmm_interface::ID,
+        accounts,
+        data,
     };
 
     let compute_budget_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
@@ -116,8 +161,7 @@ pub async fn add_liquidity<C: Deref<Target = impl Signer> + Clone>(
     let request_builder = program.request();
     let signature = request_builder
         .instruction(compute_budget_ix)
-        .accounts(accounts)
-        .args(ix)
+        .instruction(add_liquidity_ix)
         .send_with_spinner_and_config(transaction_config)
         .await;
 
