@@ -3,6 +3,9 @@ name = "dlmm_interface"
 version = "0.9.0"
 edition = "2021"
 
+[features]
+staging = []
+
 [dependencies.borsh]
 version = "^1.5"
 

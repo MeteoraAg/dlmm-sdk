@@ -99,9 +99,8 @@ describe("calculate_distribution", () => {
     const mintLen = getMintLen(extensions);
     const feeBasisPoint = 5000;
     const maxFee = BigInt(100_000 * 10 ** decimal);
-    const minLamports = await connection.getMinimumBalanceForRentExemption(
-      mintLen
-    );
+    const minLamports =
+      await connection.getMinimumBalanceForRentExemption(mintLen);
     const transaction = new Transaction()
       .add(
         SystemProgram.createAccount({
@@ -770,7 +769,7 @@ describe("calculate_distribution", () => {
         amount,
         new BN(0),
         new BN(0),
-        StrategyType.SpotImBalanced,
+        StrategyType.Spot,
         mintAccount,
         mintAccount,
         clock
@@ -801,7 +800,7 @@ describe("calculate_distribution", () => {
         amount,
         new BN(0),
         new BN(0),
-        StrategyType.SpotImBalanced,
+        StrategyType.Spot,
         mintWithTransferFeeAccount,
         mintAccount,
         clock
