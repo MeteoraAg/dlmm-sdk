@@ -74,7 +74,7 @@ export async function getExtraAccountMetasForTransferHook(
 
   const transferHook = getTransferHook(mintState);
 
-  if (!transferHook) {
+  if (!transferHook || transferHook.programId.equals(PublicKey.default)) {
     return [];
   } else {
     // We just need the instruction, therefore we do not need source and destination key
