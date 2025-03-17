@@ -52,35 +52,35 @@ const activeBinPricePerToken = dlmmPool.fromPricePerLamport(
 
 ```ts
 const TOTAL_RANGE_INTERVAL = 10; // 10 bins on each side of the active bin
-  const minBinId = activeBin.binId - TOTAL_RANGE_INTERVAL;
-  const maxBinId = activeBin.binId + TOTAL_RANGE_INTERVAL;
+const minBinId = activeBin.binId - TOTAL_RANGE_INTERVAL;
+const maxBinId = activeBin.binId + TOTAL_RANGE_INTERVAL;
 
-  const totalXAmount = new BN(100 * 10 ** baseMint.decimals);
-  const totalYAmount = autoFillYByStrategy(
-    activeBin.binId,
-    dlmmPool.lbPair.binStep,
+const totalXAmount = new BN(100 * 10 ** baseMint.decimals);
+const totalYAmount = autoFillYByStrategy(
+  activeBin.binId,
+  dlmmPool.lbPair.binStep,
+  totalXAmount,
+  activeBin.xAmount,
+  activeBin.yAmount,
+  minBinId,
+  maxBinId,
+  StrategyType.Spot // can be StrategyType.Spot, StrategyType.BidAsk, StrategyType.Curve
+);
+const newBalancePosition = new Keypair();
+
+// Create Position
+const createPositionTx =
+  await dlmmPool.initializePositionAndAddLiquidityByStrategy({
+    positionPubKey: newBalancePosition.publicKey,
+    user: user.publicKey,
     totalXAmount,
-    activeBin.xAmount,
-    activeBin.yAmount,
-    minBinId,
-    maxBinId,
-    StrategyType.Spot // can be StrategyType.Spot, StrategyType.BidAsk, StrategyType.Curve
-  );
-  const newBalancePosition = new Keypair();
-
-  // Create Position
-  const createPositionTx =
-    await dlmmPool.initializePositionAndAddLiquidityByStrategy({
-      positionPubKey: newBalancePosition.publicKey,
-      user: user.publicKey,
-      totalXAmount,
-      totalYAmount,
-      strategy: {
-        maxBinId,
-        minBinId,
-        strategyType: StrategyType.Spot, // can be StrategyType.Spot, StrategyType.BidAsk, StrategyType.Curve
-      },
-    });
+    totalYAmount,
+    strategy: {
+      maxBinId,
+      minBinId,
+      strategyType: StrategyType.Spot, // can be StrategyType.Spot, StrategyType.BidAsk, StrategyType.Curve
+    },
+  });
 
 try {
   const createBalancePositionTxHash = await sendAndConfirmTransaction(
@@ -92,30 +92,31 @@ try {
 ```
 
 - Create Imbalance Position
+
 ```ts
 const TOTAL_RANGE_INTERVAL = 10; // 10 bins on each side of the active bin
-  const minBinId = activeBin.binId - TOTAL_RANGE_INTERVAL;
-  const maxBinId = activeBin.binId + TOTAL_RANGE_INTERVAL;
+const minBinId = activeBin.binId - TOTAL_RANGE_INTERVAL;
+const maxBinId = activeBin.binId + TOTAL_RANGE_INTERVAL;
 
-  const totalXAmount = new BN(100 * 10 ** baseMint.decimals);
-  const totalYAmount = new BN(0.5 * 10 ** 9); // SOL
-  const newImbalancePosition = new Keypair();
+const totalXAmount = new BN(100 * 10 ** baseMint.decimals);
+const totalYAmount = new BN(0.5 * 10 ** 9); // SOL
+const newImbalancePosition = new Keypair();
 
-  // Create Position
-  const createPositionTx =
-    await dlmmPool.initializePositionAndAddLiquidityByStrategy({
-      positionPubKey: newImbalancePosition.publicKey,
-      user: user.publicKey,
-      totalXAmount,
-      totalYAmount,
-      strategy: {
-        maxBinId,
-        minBinId,
-        strategyType: StrategyType.Spot, // can be StrategyType.Spot, StrategyType.BidAsk, StrategyType.Curve
-      },
-    });
+// Create Position
+const createPositionTx =
+  await dlmmPool.initializePositionAndAddLiquidityByStrategy({
+    positionPubKey: newImbalancePosition.publicKey,
+    user: user.publicKey,
+    totalXAmount,
+    totalYAmount,
+    strategy: {
+      maxBinId,
+      minBinId,
+      strategyType: StrategyType.Spot, // can be StrategyType.Spot, StrategyType.BidAsk, StrategyType.Curve
+    },
+  });
 
-    try {
+try {
   const createBalancePositionTxHash = await sendAndConfirmTransaction(
     connection,
     createPositionTx,
@@ -128,34 +129,34 @@ const TOTAL_RANGE_INTERVAL = 10; // 10 bins on each side of the active bin
 
 ```ts
 const TOTAL_RANGE_INTERVAL = 10; // 10 bins on each side of the active bin
-  const minBinId = activeBin.binId;
-  const maxBinId = activeBin.binId + TOTAL_RANGE_INTERVAL * 2;
+const minBinId = activeBin.binId;
+const maxBinId = activeBin.binId + TOTAL_RANGE_INTERVAL * 2;
 
-  const totalXAmount = new BN(100 * 10 ** baseMint.decimals);
-  const totalYAmount = new BN(0);
-  const newOneSidePosition = new Keypair();
+const totalXAmount = new BN(100 * 10 ** baseMint.decimals);
+const totalYAmount = new BN(0);
+const newOneSidePosition = new Keypair();
 
-  // Create Position
-  const createPositionTx =
-    await dlmmPool.initializePositionAndAddLiquidityByStrategy({
-      positionPubKey: newOneSidePosition.publicKey,
-      user: user.publicKey,
-      totalXAmount,
-      totalYAmount,
-      strategy: {
-        maxBinId,
-        minBinId,
-        strategyType: StrategyType.Spot, // can be StrategyType.Spot, StrategyType.BidAsk, StrategyType.Curve
-      },
-    });
+// Create Position
+const createPositionTx =
+  await dlmmPool.initializePositionAndAddLiquidityByStrategy({
+    positionPubKey: newOneSidePosition.publicKey,
+    user: user.publicKey,
+    totalXAmount,
+    totalYAmount,
+    strategy: {
+      maxBinId,
+      minBinId,
+      strategyType: StrategyType.Spot, // can be StrategyType.Spot, StrategyType.BidAsk, StrategyType.Curve
+    },
+  });
 
-  try {
-    const createOneSidePositionTxHash = await sendAndConfirmTransaction(
-      connection,
-      createPositionTx,
-      [user, newOneSidePosition]
-    );
-  } catch (error) {}
+try {
+  const createOneSidePositionTxHash = await sendAndConfirmTransaction(
+    connection,
+    createPositionTx,
+    [user, newOneSidePosition]
+  );
+} catch (error) {}
 ```
 
 - Get list of positions
@@ -171,33 +172,33 @@ const binData = userPositions[0].positionData.positionBinData;
 
 ```ts
 const TOTAL_RANGE_INTERVAL = 10; // 10 bins on each side of the active bin
-  const minBinId = activeBin.binId - TOTAL_RANGE_INTERVAL;
-  const maxBinId = activeBin.binId + TOTAL_RANGE_INTERVAL;
+const minBinId = activeBin.binId - TOTAL_RANGE_INTERVAL;
+const maxBinId = activeBin.binId + TOTAL_RANGE_INTERVAL;
 
-  const totalXAmount = new BN(100 * 10 ** baseMint.decimals);
-  const totalYAmount = autoFillYByStrategy(
-    activeBin.binId,
-    dlmmPool.lbPair.binStep,
-    totalXAmount,
-    activeBin.xAmount,
-    activeBin.yAmount,
-    minBinId,
+const totalXAmount = new BN(100 * 10 ** baseMint.decimals);
+const totalYAmount = autoFillYByStrategy(
+  activeBin.binId,
+  dlmmPool.lbPair.binStep,
+  totalXAmount,
+  activeBin.xAmount,
+  activeBin.yAmount,
+  minBinId,
+  maxBinId,
+  StrategyType.Spot // can be StrategyType.Spot, StrategyType.BidAsk, StrategyType.Curve
+);
+
+// Add Liquidity to existing position
+const addLiquidityTx = await dlmmPool.addLiquidityByStrategy({
+  positionPubKey: newBalancePosition.publicKey,
+  user: user.publicKey,
+  totalXAmount,
+  totalYAmount,
+  strategy: {
     maxBinId,
-    StrategyType.Spot, // can be StrategyType.Spot, StrategyType.BidAsk, StrategyType.Curve
-  );
-
-  // Add Liquidity to existing position
-  const addLiquidityTx = await dlmmPool.addLiquidityByStrategy({
-    positionPubKey: newBalancePosition.publicKey,
-    user: user.publicKey,
-    totalXAmount,
-    totalYAmount,
-    strategy: {
-      maxBinId,
-      minBinId,
-      strategyType: StrategyType.Spot, // can be StrategyType.Spot, StrategyType.BidAsk, StrategyType.Curve
-    },
-  });
+    minBinId,
+    strategyType: StrategyType.Spot, // can be StrategyType.Spot, StrategyType.BidAsk, StrategyType.Curve
+  },
+});
 
 try {
   const addLiquidityTxHash = await sendAndConfirmTransaction(
@@ -242,6 +243,27 @@ try {
 } catch (error) {}
 ```
 
+- Claim Fee
+
+```ts
+async function claimFee(dlmmPool: DLMM) {
+  const claimFeeTxs = await dlmmPool.claimAllSwapFee({
+    owner: user.publicKey,
+    positions: userPositions,
+  });
+
+  try {
+    for (const claimFeeTx of claimFeeTxs) {
+      const claimFeeTxHash = await sendAndConfirmTransaction(
+        connection,
+        claimFeeTx,
+        [user]
+      );
+    }
+  } catch (error) {}
+}
+```
+
 - Close Position
 
 ```ts
@@ -251,12 +273,12 @@ const closePositionTx = await dlmmPool.closePosition({
 });
 
 try {
-    const closePositionTxHash = await sendAndConfirmTransaction(
-      connection,
-      closePositionTx,
-      [user],
-      { skipPreflight: false, preflightCommitment: "singleGossip" }
-    );
+  const closePositionTxHash = await sendAndConfirmTransaction(
+    connection,
+    closePositionTx,
+    [user],
+    { skipPreflight: false, preflightCommitment: "singleGossip" }
+  );
 } catch (error) {}
 ```
 
@@ -264,22 +286,27 @@ try {
 
 ```ts
 const swapAmount = new BN(0.1 * 10 ** 9);
-  // Swap quote
-  const swapYtoX = true;
-  const binArrays = await dlmmPool.getBinArrayForSwap(swapYtoX);
+// Swap quote
+const swapYtoX = true;
+const binArrays = await dlmmPool.getBinArrayForSwap(swapYtoX);
 
-  const swapQuote = await dlmmPool.swapQuote(swapAmount, swapYtoX, new BN(1), binArrays);
+const swapQuote = await dlmmPool.swapQuote(
+  swapAmount,
+  swapYtoX,
+  new BN(1),
+  binArrays
+);
 
 // Swap
 const swapTx = await dlmmPool.swap({
-    inToken: dlmmPool.tokenX.publicKey,
-    binArraysPubkey: swapQuote.binArraysPubkey,
-    inAmount: swapAmount,
-    lbPair: dlmmPool.pubkey,
-    user: user.publicKey,
-    minOutAmount: swapQuote.minOutAmount,
-    outToken: dlmmPool.tokenY.publicKey,
-  });
+  inToken: dlmmPool.tokenX.publicKey,
+  binArraysPubkey: swapQuote.binArraysPubkey,
+  inAmount: swapAmount,
+  lbPair: dlmmPool.pubkey,
+  user: user.publicKey,
+  minOutAmount: swapQuote.minOutAmount,
+  outToken: dlmmPool.tokenY.publicKey,
+});
 
 try {
   const swapTxHash = await sendAndConfirmTransaction(connection, swapTx, [
