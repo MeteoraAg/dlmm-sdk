@@ -19,6 +19,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.4.2] - PR #183
+
+### Added
+
+- Add `getCustomizablePermissionlessLbPairIfExists` function to fetch existing customizable permissionless LB pair
+
+### Changed
+
+- remove CU estimation for `seedLiquidity`
+
+### Fixed
+
+- Fix incorrect enable/disable mapping in `setPairStatusPermissionless`
+
 ## @meteora-ag/dlmm [1.4.1] - PR #182
 
 ### Changed
