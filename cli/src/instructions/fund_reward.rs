@@ -25,7 +25,7 @@ pub async fn execute_fund_reward<C: Deref<Target = impl Signer> + Clone>(
     let (reward_vault, _bump) = derive_reward_vault_pda(lb_pair, reward_index);
 
     let lb_pair_state = rpc_client
-        .get_account_and_deserialize(&reward_vault, |account| {
+        .get_account_and_deserialize(&lb_pair, |account| {
             Ok(LbPairAccount::deserialize(&account.data)?.0)
         })
         .await?;
