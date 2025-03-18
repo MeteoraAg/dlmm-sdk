@@ -4470,13 +4470,6 @@ export class DLMM {
 
       // Initialize bin arrays and initialize position account in 1 tx
       if (instructions.length > 1) {
-        // instructions.push(
-        //   await getEstimatedComputeUnitIxWithBuffer(
-        //     this.program.provider.connection,
-        //     instructions,
-        //     payer
-        //   )
-        // );
         initializeBinArraysAndPositionIxs.push(instructions);
         instructions = [];
       }
