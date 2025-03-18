@@ -241,6 +241,40 @@ export class DLMM {
     }
   }
 
+  public static async getCustomizablePermissionlessLbPairIfExists(
+    connection: Connection,
+    tokenX: PublicKey,
+    tokenY: PublicKey,
+    opt?: Opt
+  ): Promise<PublicKey | null> {
+    const cluster = opt?.cluster || "mainnet-beta";
+
+    const provider = new AnchorProvider(
+      connection,
+      {} as any,
+      AnchorProvider.defaultOptions()
+    );
+    const program = new Program(
+      IDL,
+      opt?.programId ?? LBCLMM_PROGRAM_IDS[cluster],
+      provider
+    );
+
+    try {
+      const [lpPair] = deriveCustomizablePermissionlessLbPair(
+        tokenX,
+        tokenY,
+        program.programId
+      );
+      const account = await program.account.lbPair.fetchNullable(lpPair);
+      if (account) return lpPair;
+
+      return null;
+    } catch (error) {
+      return null;
+    }
+  }
+
   /**
    * The `create` function is a static method that creates a new instance of the `DLMM` class
    * @param {Connection} connection - The `connection` parameter is an instance of the `Connection`
@@ -1258,7 +1292,9 @@ export class DLMM {
    * @returns a Promise that resolves to the transaction.
    */
   public async setPairStatusPermissionless(enable: boolean, creator: PublicKey) {
-    const tx = await this.program.methods.setPairStatusPermissionless(Number(enable))
+    const status: PairStatus = enable ? 0 : 1; // 0 = enable, 1 = disable
+
+    const tx = await this.program.methods.setPairStatusPermissionless(status)
       .accounts({
         lbPair: this.pubkey,
         creator
@@ -4434,13 +4470,13 @@ export class DLMM {
 
       // Initialize bin arrays and initialize position account in 1 tx
       if (instructions.length > 1) {
-        instructions.push(
-          await getEstimatedComputeUnitIxWithBuffer(
-            this.program.provider.connection,
-            instructions,
-            payer
-          )
-        );
+        // instructions.push(
+        //   await getEstimatedComputeUnitIxWithBuffer(
+        //     this.program.provider.connection,
+        //     instructions,
+        //     payer
+        //   )
+        // );
         initializeBinArraysAndPositionIxs.push(instructions);
         instructions = [];
       }

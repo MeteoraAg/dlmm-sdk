@@ -142,7 +142,7 @@ export function derivePosition(
       lbPair.toBuffer(),
       base.toBuffer(),
       lowerBinIdBytes,
-      new Uint8Array(width.toBuffer("le", 4)),
+      new Uint8Array(width.toArrayLike(Buffer, "le", 4)),
     ],
     programId
   );
