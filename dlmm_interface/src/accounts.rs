@@ -140,6 +140,57 @@ impl ClaimFeeOperatorAccount {
         Ok(data)
     }
 }
+pub const POSITION_V3_ACCOUNT_DISCM: [u8; 8] = [194, 247, 171, 54, 106, 219, 96, 51];
+#[repr(C)]
+#[derive(Clone, Debug, BorshDeserialize, BorshSerialize, PartialEq, Pod, Copy, Zeroable)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct PositionV3 {
+    pub lb_pair: Pubkey,
+    pub owner: Pubkey,
+    pub lower_bin_id: i32,
+    pub upper_bin_id: i32,
+    pub last_updated_at: i64,
+    pub total_claimed_fee_x_amount: u64,
+    pub total_claimed_fee_y_amount: u64,
+    pub total_claimed_rewards: [u64; 2],
+    pub operator: Pubkey,
+    pub lock_release_point: u64,
+    pub padding0: u64,
+    pub fee_owner: Pubkey,
+    pub length: u64,
+    pub reserved: [u8; 128],
+}
+#[derive(Clone, Debug, PartialEq)]
+pub struct PositionV3Account(pub PositionV3);
+impl PositionV3Account {
+    pub fn deserialize(buf: &[u8]) -> std::io::Result<Self> {
+        use std::io::Read;
+        let mut reader = buf;
+        let mut maybe_discm = [0u8; 8];
+        reader.read_exact(&mut maybe_discm)?;
+        if maybe_discm != POSITION_V3_ACCOUNT_DISCM {
+            return Err(
+                std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!(
+                        "discm does not match. Expected: {:?}. Received: {:?}",
+                        POSITION_V3_ACCOUNT_DISCM, maybe_discm
+                    ),
+                ),
+            );
+        }
+        Ok(Self(PositionV3::deserialize(&mut reader)?))
+    }
+    pub fn serialize<W: std::io::Write>(&self, mut writer: W) -> std::io::Result<()> {
+        writer.write_all(&POSITION_V3_ACCOUNT_DISCM)?;
+        self.0.serialize(&mut writer)
+    }
+    pub fn try_to_vec(&self) -> std::io::Result<Vec<u8>> {
+        let mut data = Vec::new();
+        self.serialize(&mut data)?;
+        Ok(data)
+    }
+}
 pub const LB_PAIR_ACCOUNT_DISCM: [u8; 8] = [33, 11, 49, 98, 181, 101, 177, 13];
 #[repr(C)]
 #[derive(Clone, Debug, BorshDeserialize, BorshSerialize, PartialEq, Pod, Copy, Zeroable)]

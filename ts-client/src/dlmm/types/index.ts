@@ -49,6 +49,7 @@ export type BinArrayAccount = ProgramAccount<IdlAccounts<LbClmm>["binArray"]>;
 
 export type Position = IdlAccounts<LbClmm>["position"];
 export type PositionV2 = IdlAccounts<LbClmm>["positionV2"];
+export type PositionV3 = IdlAccounts<LbClmm>["positionV3"];
 
 export type PresetParameter = IdlAccounts<LbClmm>["presetParameter"];
 export type PresetParameter2 = IdlAccounts<LbClmm>["presetParameter2"];
@@ -58,6 +59,8 @@ export type sParameters = IdlAccounts<LbClmm>["lbPair"]["parameters"];
 
 export type UserRewardInfo = IdlTypes<LbClmm>["UserRewardInfo"];
 export type UserFeeInfo = IdlTypes<LbClmm>["FeeInfo"];
+
+export type PositionBinRawData = IdlTypes<LbClmm>["PositionBinData"];
 
 export type InitPermissionPairIx = IdlTypes<LbClmm>["InitPermissionPairIx"];
 export type InitCustomizablePermissionlessPairIx =
@@ -95,8 +98,14 @@ export type CompressedBinDepositAmount =
   IdlTypes<LbClmm>["CompressedBinDepositAmount"];
 export type CompressedBinDepositAmounts = CompressedBinDepositAmount[];
 
+export const POSITION_V1_DISC =
+  BorshAccountsCoder.accountDiscriminator("position");
+
 export const POSITION_V2_DISC =
   BorshAccountsCoder.accountDiscriminator("positionV2");
+
+export const POSITION_V3_DISC =
+  BorshAccountsCoder.accountDiscriminator("positionV3");
 
 export interface LbPosition {
   publicKey: PublicKey;
@@ -462,3 +471,13 @@ export enum ActionType {
 export const MEMO_PROGRAM_ID = new PublicKey(
   "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"
 );
+
+export enum ResizeSide {
+  Lower,
+  Upper,
+}
+
+export interface BinRange {
+  minBinId: BN;
+  maxBinId: BN;
+}

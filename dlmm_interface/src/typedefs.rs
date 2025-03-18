@@ -182,6 +182,14 @@ pub struct Bin {
 #[repr(C)]
 #[derive(Clone, Debug, BorshDeserialize, BorshSerialize, PartialEq, Pod, Copy, Zeroable)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct PositionBinData {
+    pub liquidity_share: u128,
+    pub reward_info: UserRewardInfo,
+    pub fee_info: FeeInfo,
+}
+#[repr(C)]
+#[derive(Clone, Debug, BorshDeserialize, BorshSerialize, PartialEq, Pod, Copy, Zeroable)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ProtocolFee {
     pub amount_x: u64,
     pub amount_y: u64,
@@ -291,6 +299,12 @@ pub enum ActivationType {
 pub enum LayoutVersion {
     V0,
     V1,
+}
+#[derive(Clone, Debug, BorshDeserialize, BorshSerialize, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum ResizeSide {
+    Lower,
+    Upper,
 }
 #[derive(Clone, Debug, BorshDeserialize, BorshSerialize, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
