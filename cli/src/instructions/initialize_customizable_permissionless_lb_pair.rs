@@ -1,45 +1,51 @@
-use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
-use anchor_client::solana_sdk::instruction::Instruction;
-use anchor_client::{solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, Program};
-use anchor_spl::token::Mint;
-use anyhow::*;
-use lb_clmm::accounts;
-use lb_clmm::instruction;
-use lb_clmm::instructions::initialize_pool::CustomizableParams;
-use lb_clmm::math::u128x128_math::Rounding;
-use lb_clmm::utils::pda::*;
-use std::ops::Deref;
+use crate::*;
+use anchor_lang::AccountDeserialize;
+use anchor_spl::token_interface::Mint;
+use instructions::*;
 
-use crate::instructions::utils::get_or_create_ata;
-use crate::math::{
-    compute_base_factor_from_fee_bps, get_id_from_price, get_precise_id_from_price,
-    price_per_token_to_per_lamport,
-};
-use crate::SelectiveRounding;
-
-#[derive(Debug)]
-pub struct InitCustomizablePermissionlessLbPairParameters {
+#[derive(Debug, Parser)]
+pub struct InitCustomizablePermissionlessLbPairParam {
+    /// Token X address
+    #[clap(long)]
     pub token_mint_x: Pubkey,
+    /// Token Y address
+    #[clap(long)]
     pub token_mint_y: Pubkey,
+    /// Bin step
+    #[clap(long)]
     pub bin_step: u16,
+    /// Pool starting price
+    #[clap(long)]
     pub initial_price: f64,
+    /// Base fee rate
+    #[clap(long)]
     pub base_fee_bps: u16,
+    /// Pool activation (start trading) type. 0 = Slot based, 1 = Timestamp based
+    #[clap(long)]
     pub activation_type: u8,
+    /// Indicate whether the launch pool have alpha vault
+    #[clap(long)]
     pub has_alpha_vault: bool,
-    pub activation_point: Option<u64>,
+    /// Initial price rounding
+    #[clap(long)]
     pub selective_rounding: SelectiveRounding,
+    /// Indicate whether the launch pool creator can enable/disable pool
+    #[clap(long)]
     pub creator_pool_on_off_control: bool,
+    /// Pool activation point. None = Now
+    #[clap(long)]
+    pub activation_point: Option<u64>,
 }
 
-pub async fn initialize_customizable_permissionless_lb_pair<
+pub async fn execute_initialize_customizable_permissionless_lb_pair<
     C: Deref<Target = impl Signer> + Clone,
 >(
-    params: InitCustomizablePermissionlessLbPairParameters,
+    params: InitCustomizablePermissionlessLbPairParam,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
     compute_unit_price: Option<Instruction>,
 ) -> Result<Pubkey> {
-    let InitCustomizablePermissionlessLbPairParameters {
+    let InitCustomizablePermissionlessLbPairParam {
         bin_step,
         token_mint_x,
         token_mint_y,
@@ -52,8 +58,16 @@ pub async fn initialize_customizable_permissionless_lb_pair<
         creator_pool_on_off_control,
     } = params;
 
-    let token_mint_base: Mint = program.account(token_mint_x).await?;
-    let token_mint_quote: Mint = program.account(token_mint_y).await?;
+    let rpc_client = program.async_rpc();
+    let mut accounts = rpc_client
+        .get_multiple_accounts(&[token_mint_x, token_mint_y])
+        .await?;
+
+    let token_mint_base_account = accounts[0].take().context("token_mint_base not found")?;
+    let token_mint_quote_account = accounts[1].take().context("token_mint_quote not found")?;
+
+    let token_mint_base = Mint::try_deserialize(&mut token_mint_base_account.data.as_ref())?;
+    let token_mint_quote = Mint::try_deserialize(&mut token_mint_quote_account.data.as_ref())?;
 
     let price_per_lamport = price_per_token_to_per_lamport(
         initial_price,
@@ -82,6 +96,7 @@ pub async fn initialize_customizable_permissionless_lb_pair<
     let (oracle, _bump) = derive_oracle_pda(lb_pair);
 
     let (event_authority, _bump) = derive_event_authority_pda();
+
     let user_token_x = get_or_create_ata(
         program,
         transaction_config,
@@ -90,6 +105,7 @@ pub async fn initialize_customizable_permissionless_lb_pair<
         compute_unit_price.clone(),
     )
     .await?;
+
     let user_token_y = get_or_create_ata(
         program,
         transaction_config,
@@ -99,40 +115,54 @@ pub async fn initialize_customizable_permissionless_lb_pair<
     )
     .await?;
 
-    let accounts = accounts::InitializeCustomizablePermissionlessLbPair {
-        lb_pair,
-        bin_array_bitmap_extension: None,
-        reserve_x,
-        reserve_y,
-        token_mint_x,
-        token_mint_y,
-        oracle,
-        funder: program.payer(),
-        system_program: anchor_client::solana_sdk::system_program::ID,
-        token_program: anchor_spl::token::ID,
-        event_authority,
-        user_token_x,
-        user_token_y,
-        program: lb_clmm::ID,
-    };
+    let accounts: [AccountMeta; INITIALIZE_CUSTOMIZABLE_PERMISSIONLESS_LB_PAIR_IX_ACCOUNTS_LEN] =
+        InitializeCustomizablePermissionlessLbPairKeys {
+            lb_pair,
+            bin_array_bitmap_extension: dlmm_interface::ID,
+            reserve_x,
+            reserve_y,
+            token_mint_x,
+            token_mint_y,
+            oracle,
+            funder: program.payer(),
+            system_program: solana_sdk::system_program::ID,
+            token_program: token_mint_base_account.owner,
+            event_authority,
+            user_token_x,
+            user_token_y,
+            program: dlmm_interface::ID,
+        }
+        .into();
 
-    let ix = instruction::InitializeCustomizablePermissionlessLbPair {
-        params: CustomizableParams {
-            active_id: computed_active_id,
-            bin_step,
-            base_factor: compute_base_factor_from_fee_bps(bin_step, base_fee_bps)?,
-            activation_type,
-            activation_point,
-            has_alpha_vault,
-            creator_pool_on_off_control,
-            padding: [0u8; 63],
+    let (base_factor, base_fee_power_factor) =
+        compute_base_factor_from_fee_bps(bin_step, base_fee_bps)?;
+
+    let data = InitializeCustomizablePermissionlessLbPairIxData(
+        InitializeCustomizablePermissionlessLbPairIxArgs {
+            params: CustomizableParams {
+                active_id: computed_active_id,
+                bin_step,
+                base_factor,
+                activation_type,
+                activation_point,
+                has_alpha_vault,
+                base_fee_power_factor,
+                creator_pool_on_off_control,
+                padding: [0u8; 62],
+            },
         },
+    )
+    .try_to_vec()?;
+
+    let init_pair_ix = Instruction {
+        program_id: dlmm_interface::ID,
+        accounts: accounts.to_vec(),
+        data,
     };
 
     let request_builder = program.request();
     let signature = request_builder
-        .accounts(accounts)
-        .args(ix)
+        .instruction(init_pair_ix)
         .send_with_spinner_and_config(transaction_config)
         .await;
 

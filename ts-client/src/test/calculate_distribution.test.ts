@@ -1,22 +1,34 @@
 import { BN } from "@coral-xyz/anchor";
 import {
+  createInitializeMintInstruction,
+  createInitializeTransferFeeConfigInstruction,
+  createMint,
+  ExtensionType,
+  getMintLen,
+  Mint,
+  TOKEN_2022_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
+  unpackMint,
+} from "@solana/spl-token";
+import {
+  Connection,
+  Keypair,
+  LAMPORTS_PER_SOL,
+  sendAndConfirmTransaction,
+  SystemProgram,
+  SYSVAR_CLOCK_PUBKEY,
+  Transaction,
+} from "@solana/web3.js";
+import babar from "babar";
+import fs from "fs";
+import {
   calculateBidAskDistribution,
   calculateNormalDistribution,
   calculateSpotDistribution,
-  toWeightDistribution,
-  getPriceOfBinByBinId,
   toAmountsBothSideByStrategy,
+  toWeightDistribution,
 } from "../dlmm/helpers";
-import { StrategyType } from "../dlmm/types";
-import babar from "babar";
-import Decimal from "decimal.js";
-import {
-  compressBinAmount,
-  distributeAmountToCompressedBinsByRatio,
-  generateAmountForBinRange,
-  getC,
-  getPositionCount,
-} from "../dlmm/helpers/math";
+import { Clock, ClockLayout, StrategyType } from "../dlmm/types";
 
 interface Distribution {
   binId: number;
@@ -47,7 +59,103 @@ function debugDistributionChart(distributions: Distribution[]) {
   console.log(babar(bars));
 }
 
+const connection = new Connection("http://127.0.0.1:8899", "confirmed");
+
+const keypairBuffer = fs.readFileSync(
+  "../keys/localnet/admin-bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1.json",
+  "utf-8"
+);
+const keypair = Keypair.fromSecretKey(
+  new Uint8Array(JSON.parse(keypairBuffer))
+);
+
 describe("calculate_distribution", () => {
+  const mint = Keypair.generate();
+  const mintWithTransferFee = Keypair.generate();
+
+  let mintAccount: Mint = null;
+  let mintWithTransferFeeAccount: Mint = null;
+  let clock: Clock;
+
+  beforeAll(async () => {
+    const decimal = 6;
+    await connection.requestAirdrop(keypair.publicKey, 10 * LAMPORTS_PER_SOL);
+    // 1. Create mint
+    await createMint(
+      connection,
+      keypair,
+      keypair.publicKey,
+      null,
+      decimal,
+      mint,
+      {
+        commitment: "confirmed",
+      },
+      TOKEN_PROGRAM_ID
+    );
+
+    // 2. Create mint with transfer fee
+    const extensions = [ExtensionType.TransferFeeConfig];
+    const mintLen = getMintLen(extensions);
+    const feeBasisPoint = 5000;
+    const maxFee = BigInt(100_000 * 10 ** decimal);
+    const minLamports =
+      await connection.getMinimumBalanceForRentExemption(mintLen);
+    const transaction = new Transaction()
+      .add(
+        SystemProgram.createAccount({
+          fromPubkey: keypair.publicKey,
+          newAccountPubkey: mintWithTransferFee.publicKey,
+          space: mintLen,
+          lamports: minLamports,
+          programId: TOKEN_2022_PROGRAM_ID,
+        })
+      )
+      .add(
+        createInitializeTransferFeeConfigInstruction(
+          mintWithTransferFee.publicKey,
+          keypair.publicKey,
+          keypair.publicKey,
+          feeBasisPoint,
+          maxFee,
+          TOKEN_2022_PROGRAM_ID
+        )
+      )
+      .add(
+        createInitializeMintInstruction(
+          mintWithTransferFee.publicKey,
+          decimal,
+          keypair.publicKey,
+          null,
+          TOKEN_2022_PROGRAM_ID
+        )
+      );
+
+    await sendAndConfirmTransaction(
+      connection,
+      transaction,
+      [keypair, mintWithTransferFee],
+      {
+        commitment: "confirmed",
+      }
+    );
+
+    const accounts = await connection.getMultipleAccountsInfo(
+      [mint.publicKey, mintWithTransferFee.publicKey, SYSVAR_CLOCK_PUBKEY],
+      {
+        commitment: "confirmed",
+      }
+    );
+
+    mintAccount = unpackMint(mint.publicKey, accounts[0], TOKEN_PROGRAM_ID);
+    mintWithTransferFeeAccount = unpackMint(
+      mintWithTransferFee.publicKey,
+      accounts[1],
+      TOKEN_2022_PROGRAM_ID
+    );
+    clock = ClockLayout.decode(accounts[2].data) as Clock;
+  });
+
   describe("consists of only 1 bin id", () => {
     describe("when the deposit bin at the left of the active bin", () => {
       const binIds = [-10000];
@@ -643,166 +751,73 @@ describe("calculate_distribution", () => {
       }
       console.log(babar(bars));
     });
-  });
 
-  describe("seed liquidity", () => {
-    const amount = new BN(100_000);
-    const binStep = 10;
-    const baseTokenDecimal = 9;
-    const quoteTokenDecimal = 6;
-    const priceMultiplier = new Decimal(
-      10 ** (baseTokenDecimal - quoteTokenDecimal)
-    );
-    const minBinId = 0;
-    const maxBinId = 100;
-    const minPrice = getPriceOfBinByBinId(0, binStep).mul(priceMultiplier);
-    const maxPrice = getPriceOfBinByBinId(100, binStep).mul(priceMultiplier);
-    const k = 1.25;
+    test("to amount both side by strategy", () => {
+      let activeId = 45;
+      let minBinId = 20;
+      let maxBinId = 70;
+      let binStep = 10;
+      let amount = new BN(10000);
 
-    it("getPositionCount return number of position required correctly", () => {
-      expect(getPositionCount(new BN(0), new BN(0)).toNumber()).toBe(1);
-      expect(getPositionCount(new BN(0), new BN(69)).toNumber()).toBe(1);
-      expect(getPositionCount(new BN(0), new BN(70)).toNumber()).toBe(2);
-      expect(getPositionCount(new BN(0), new BN(85)).toNumber()).toBe(2);
-      expect(getPositionCount(new BN(0), new BN(209)).toNumber()).toBe(3);
-      expect(getPositionCount(new BN(0), new BN(210)).toNumber()).toBe(4);
-    });
-
-    it("distribute amount to compressed bin with remaining cap returned as loss", () => {
-      const multiplier = new BN(1000);
-      const binsAmount = new Map<number, BN>();
-
-      binsAmount.set(0, new BN(1_294_967_295_999));
-      binsAmount.set(1, new BN(2_294_967_295_999));
-      binsAmount.set(2, new BN(3_294_967_295_999));
-      binsAmount.set(3, new BN(4_294_967_295_999));
-
-      const { compressedBinAmount, compressionLoss } = compressBinAmount(
-        binsAmount,
-        multiplier
-      );
-
-      expect(compressionLoss.toString()).toBe((999 * 4).toString());
-      expect(compressedBinAmount.get(0).toString()).toBe("1294967295");
-      expect(compressedBinAmount.get(1).toString()).toBe("2294967295");
-      expect(compressedBinAmount.get(2).toString()).toBe("3294967295");
-      expect(compressedBinAmount.get(3).toString()).toBe("4294967295");
-
-      const { newCompressedBinAmount, loss } =
-        distributeAmountToCompressedBinsByRatio(
-          compressedBinAmount,
-          compressionLoss,
-          multiplier,
-          new BN(2 ** 32 - 1)
-        );
-
-      // (4294967295 + 3294967296 + 2294967295 + 1294967295) - (4294967295 + 3294967295 + 2294967295 + 1294967295) * multiplier = 1000 (deposited uncompressed 1000, 1 if compressed)
-      // loss = 999 * 4 - 1000 = 2996
-
-      expect(loss.toString()).toBe("2996");
-      expect(newCompressedBinAmount.get(0).toString()).toBe("1294967295");
-      expect(newCompressedBinAmount.get(1).toString()).toBe("2294967295");
-      expect(newCompressedBinAmount.get(2).toString()).toBe("3294967296");
-      expect(newCompressedBinAmount.get(3).toString()).toBe("4294967295");
-    });
-
-    it("distribute amount to compressed bin correctly", () => {
-      const multiplier = new BN(1000);
-      const binsAmount = new Map<number, BN>();
-
-      binsAmount.set(0, new BN(1_999));
-      binsAmount.set(1, new BN(2_999));
-      binsAmount.set(2, new BN(3_999));
-      binsAmount.set(3, new BN(4_999));
-
-      const { compressedBinAmount, compressionLoss } = compressBinAmount(
-        binsAmount,
-        multiplier
-      );
-
-      expect(compressionLoss.toString()).toBe((999 * 4).toString());
-      expect(compressedBinAmount.get(0).toString()).toBe("1");
-      expect(compressedBinAmount.get(1).toString()).toBe("2");
-      expect(compressedBinAmount.get(2).toString()).toBe("3");
-      expect(compressedBinAmount.get(3).toString()).toBe("4");
-
-      const { newCompressedBinAmount, loss } =
-        distributeAmountToCompressedBinsByRatio(
-          compressedBinAmount,
-          compressionLoss,
-          multiplier,
-          new BN(2 ** 32 - 1)
-        );
-
-      // ((5+4+2+1) - (4+3+2+1)) * multiplier = 2000 (deposited uncompressed 2000, 2 if compressed)
-      // loss = 999 * 4 - 2000 = 1996
-
-      expect(loss.toString()).toBe("1996");
-      expect(newCompressedBinAmount.get(0).toString()).toBe("1");
-      expect(newCompressedBinAmount.get(1).toString()).toBe("2");
-      expect(newCompressedBinAmount.get(2).toString()).toBe("4");
-      expect(newCompressedBinAmount.get(3).toString()).toBe("5");
-    });
-
-    it("compress bin amount correctly", () => {
-      const multiplier = new BN(100);
-      const binsAmount = new Map<number, BN>();
-      binsAmount.set(0, new BN(100_000));
-      binsAmount.set(1, new BN(123_456));
-
-      const { compressedBinAmount, compressionLoss } = compressBinAmount(
-        binsAmount,
-        multiplier
-      );
-
-      expect(compressionLoss.toString()).toBe("56");
-      expect(compressedBinAmount.get(0).toString()).toBe("1000");
-      expect(compressedBinAmount.get(1).toString()).toBe("1234");
-    });
-
-    it("generateAmountForBinRange total amount equals seed amount", () => {
-      const binsAmount = generateAmountForBinRange(
-        amount,
+      // 1. Without transfer fee
+      let amountInBins = toAmountsBothSideByStrategy(
+        activeId,
         binStep,
-        baseTokenDecimal,
-        quoteTokenDecimal,
-        new BN(minBinId),
-        new BN(maxBinId),
-        k
-      );
-
-      let totalAmount = new BN(0);
-      for (const [_binId, amount] of binsAmount) {
-        totalAmount = totalAmount.add(amount);
-      }
-
-      expect(totalAmount.toString()).toBe(amount.toString());
-    });
-
-    it("getC c1 > c0", () => {
-      const c0 = getC(
+        minBinId,
+        maxBinId,
         amount,
-        binStep,
-        new BN(minBinId),
-        baseTokenDecimal,
-        quoteTokenDecimal,
-        minPrice,
-        maxPrice,
-        k
-      );
-
-      const c1 = getC(
         amount,
-        binStep,
-        new BN(minBinId + 1),
-        baseTokenDecimal,
-        quoteTokenDecimal,
-        minPrice,
-        maxPrice,
-        k
+        new BN(0),
+        new BN(0),
+        StrategyType.Spot,
+        mintAccount,
+        mintAccount,
+        clock
       );
 
-      expect(c1.gt(c0)).toBeTruthy();
+      let totalAmountX = amountInBins.reduce((total, { amountX }) => {
+        return total.add(amountX);
+      }, new BN(0));
+
+      let totalAmountY = amountInBins.reduce((total, { amountY }) => {
+        return total.add(amountY);
+      }, new BN(0));
+
+      // Precision loss
+      let diff = amount.sub(totalAmountX);
+      expect(diff.lt(new BN(30))).toBeTruthy();
+
+      diff = amount.sub(totalAmountY);
+      expect(diff.lt(new BN(30))).toBeTruthy();
+
+      // 2. With transfer fee
+      amountInBins = toAmountsBothSideByStrategy(
+        activeId,
+        binStep,
+        minBinId,
+        maxBinId,
+        amount,
+        amount,
+        new BN(0),
+        new BN(0),
+        StrategyType.Spot,
+        mintWithTransferFeeAccount,
+        mintAccount,
+        clock
+      );
+
+      totalAmountX = amountInBins.reduce((total, { amountX }) => {
+        return total.add(amountX);
+      }, new BN(0));
+
+      totalAmountY = amountInBins.reduce((total, { amountY }) => {
+        return total.add(amountY);
+      }, new BN(0));
+
+      expect(totalAmountX.lt(amount.div(new BN(2)))).toBeTruthy();
+
+      diff = amount.sub(totalAmountY);
+      expect(diff.lt(new BN(30))).toBeTruthy();
     });
   });
 });

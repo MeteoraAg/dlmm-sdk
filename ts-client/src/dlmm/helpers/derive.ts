@@ -13,6 +13,32 @@ function sortTokenMints(tokenX: PublicKey, tokenY: PublicKey) {
 }
 /** private */
 
+export function derivePresetParameterWithIndex(
+  index: BN,
+  programId: PublicKey
+) {
+  return PublicKey.findProgramAddressSync(
+    [
+      Buffer.from("preset_parameter2"),
+      new Uint8Array(index.toArrayLike(Buffer, "le", 2)),
+    ],
+    programId
+  );
+}
+
+export function deriveLbPairWithPresetParamWithIndexKey(
+  presetParameterKey: PublicKey,
+  tokenX: PublicKey,
+  tokenY: PublicKey,
+  programId: PublicKey
+) {
+  const [minKey, maxKey] = sortTokenMints(tokenX, tokenY);
+  return PublicKey.findProgramAddressSync(
+    [presetParameterKey.toBuffer(), minKey.toBuffer(), maxKey.toBuffer()],
+    programId
+  );
+}
+
 /**
  *
  * @deprecated Use derivePresetParameter2
@@ -174,6 +200,31 @@ export function deriveReserve(
 ) {
   return PublicKey.findProgramAddressSync(
     [lbPair.toBuffer(), token.toBuffer()],
+    programId
+  );
+}
+
+export function deriveTokenBadge(mint: PublicKey, programId: PublicKey) {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("token_badge"), mint.toBuffer()],
+    programId
+  );
+}
+
+export function deriveEventAuthority(programId: PublicKey) {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("__event_authority")],
+    programId
+  );
+}
+
+export function deriveRewardVault(
+  lbPair: PublicKey,
+  rewardIndex: BN,
+  programId: PublicKey
+) {
+  return PublicKey.findProgramAddressSync(
+    [lbPair.toBuffer(), rewardIndex.toArrayLike(Buffer, "le", 8)],
     programId
   );
 }

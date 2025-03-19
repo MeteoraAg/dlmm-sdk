@@ -1,46 +1,38 @@
 use std::collections::HashMap;
-use std::ops::Deref;
 
-use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
-
-use anchor_client::solana_sdk::clock::Clock;
-use anchor_client::solana_sdk::compute_budget::ComputeBudgetInstruction;
-use anchor_client::solana_sdk::sysvar::SysvarId;
-use anchor_client::{solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, Program};
-use anchor_lang::solana_program::instruction::AccountMeta;
-use anchor_lang::AccountDeserialize;
 use anchor_spl::associated_token::get_associated_token_address;
+use solana_sdk::{clock::Clock, sysvar::SysvarId};
 
-use anyhow::*;
-use commons::quote::{get_bin_array_pubkeys_for_swap, quote_exact_out};
-use lb_clmm::accounts;
-use lb_clmm::constants::BASIS_POINT_MAX;
-use lb_clmm::instruction;
+use crate::*;
 
-use lb_clmm::state::bin::BinArray;
-use lb_clmm::state::bin_array_bitmap_extension::BinArrayBitmapExtension;
-use lb_clmm::state::lb_pair::LbPair;
-use lb_clmm::utils::pda::*;
-
-#[derive(Debug)]
-pub struct SwapExactOutParameters {
+#[derive(Debug, Parser)]
+pub struct SwapExactOutParams {
+    /// Address of the liquidity pair.
     pub lb_pair: Pubkey,
+    /// Amount of token to be buy.
     pub amount_out: u64,
+    /// Buy direction. true = buy token Y, false = buy token X.
+    #[clap(long)]
     pub swap_for_y: bool,
 }
 
-pub async fn swap_exact_out<C: Deref<Target = impl Signer> + Clone>(
-    params: SwapExactOutParameters,
+pub async fn execute_swap_exact_out<C: Deref<Target = impl Signer> + Clone>(
+    params: SwapExactOutParams,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
 ) -> Result<()> {
-    let SwapExactOutParameters {
+    let SwapExactOutParams {
         amount_out,
         lb_pair,
         swap_for_y,
     } = params;
 
-    let lb_pair_state: LbPair = program.account(lb_pair).await?;
+    let rpc_client = program.async_rpc();
+    let lb_pair_state = rpc_client
+        .get_account_and_deserialize(&lb_pair, |account| {
+            Ok(LbPairAccount::deserialize(&account.data)?.0)
+        })
+        .await?;
 
     let (user_token_in, user_token_out) = if swap_for_y {
         (
@@ -56,8 +48,10 @@ pub async fn swap_exact_out<C: Deref<Target = impl Signer> + Clone>(
 
     let (bitmap_extension_key, _bump) = derive_bin_array_bitmap_extension(lb_pair);
 
-    let bitmap_extension = program
-        .account::<BinArrayBitmapExtension>(bitmap_extension_key)
+    let bitmap_extension = rpc_client
+        .get_account_and_deserialize(&bitmap_extension_key, |account| {
+            Ok(BinArrayBitmapExtensionAccount::deserialize(&account.data)?.0)
+        })
         .await
         .ok();
 
@@ -69,8 +63,7 @@ pub async fn swap_exact_out<C: Deref<Target = impl Signer> + Clone>(
         3,
     )?;
 
-    let bin_arrays = program
-        .async_rpc()
+    let bin_arrays = rpc_client
         .get_multiple_accounts(&bin_arrays_for_swap)
         .await?
         .into_iter()
@@ -79,20 +72,27 @@ pub async fn swap_exact_out<C: Deref<Target = impl Signer> + Clone>(
             let account = account?;
             Some((
                 key,
-                BinArray::try_deserialize(&mut account.data.as_ref()).ok()?,
+                BinArrayAccount::deserialize(account.data.as_ref()).ok()?.0,
             ))
         })
         .collect::<Option<HashMap<Pubkey, BinArray>>>()
         .context("Failed to fetch bin arrays")?;
 
-    let clock = program
-        .async_rpc()
-        .get_account(&Clock::id())
-        .await
-        .map(|account| {
-            let clock: Clock = bincode::deserialize(account.data.as_ref())?;
-            Ok(clock)
-        })??;
+    let clock = rpc_client.get_account(&Clock::id()).await.map(|account| {
+        let clock: Clock = bincode::deserialize(account.data.as_ref())?;
+        Ok(clock)
+    })??;
+
+    let mut mint_accounts = rpc_client
+        .get_multiple_accounts(&[lb_pair_state.token_x_mint, lb_pair_state.token_y_mint])
+        .await?;
+
+    let mint_x_account = mint_accounts[0]
+        .take()
+        .context("Failed to fetch mint account")?;
+    let mint_y_account = mint_accounts[1]
+        .take()
+        .context("Failed to fetch mint account")?;
 
     let quote = quote_exact_out(
         lb_pair,
@@ -101,18 +101,18 @@ pub async fn swap_exact_out<C: Deref<Target = impl Signer> + Clone>(
         swap_for_y,
         bin_arrays,
         bitmap_extension.as_ref(),
-        clock.unix_timestamp as u64,
-        clock.slot,
+        &clock,
+        &mint_x_account,
+        &mint_y_account,
     )?;
 
-    let (event_authority, _bump) =
-        Pubkey::find_program_address(&[b"__event_authority"], &lb_clmm::ID);
+    let (event_authority, _bump) = derive_event_authority_pda();
 
-    let accounts = accounts::Swap {
+    let main_accounts: [AccountMeta; SWAP_EXACT_OUT2_IX_ACCOUNTS_LEN] = SwapExactOut2Keys {
         lb_pair,
         bin_array_bitmap_extension: bitmap_extension
             .map(|_| bitmap_extension_key)
-            .or(Some(lb_clmm::ID)),
+            .unwrap_or(dlmm_interface::ID),
         reserve_x: lb_pair_state.reserve_x,
         reserve_y: lb_pair_state.reserve_y,
         token_x_mint: lb_pair_state.token_x_mint,
@@ -123,33 +123,42 @@ pub async fn swap_exact_out<C: Deref<Target = impl Signer> + Clone>(
         user_token_in,
         user_token_out,
         oracle: lb_pair_state.oracle,
-        host_fee_in: Some(lb_clmm::ID),
+        host_fee_in: dlmm_interface::ID,
         event_authority,
-        program: lb_clmm::ID,
-    };
+        program: dlmm_interface::ID,
+        memo_program: spl_memo::ID,
+    }
+    .into();
 
     let in_amount = quote.amount_in + quote.fee;
     // 100 bps slippage
     let max_in_amount = in_amount * 10100 / BASIS_POINT_MAX as u64;
 
-    let ix = instruction::SwapExactOut {
+    let data = SwapExactOutIxData(SwapExactOutIxArgs {
         out_amount: amount_out,
         max_in_amount,
-    };
+    })
+    .try_to_vec()?;
 
     let remaining_accounts = bin_arrays_for_swap
         .into_iter()
         .map(|key| AccountMeta::new(key, false))
         .collect::<Vec<_>>();
 
+    let accounts = [main_accounts.to_vec(), remaining_accounts].concat();
+
+    let swap_ix = Instruction {
+        program_id: dlmm_interface::ID,
+        accounts,
+        data,
+    };
+
     let compute_budget_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
 
     let request_builder = program.request();
     let signature = request_builder
         .instruction(compute_budget_ix)
-        .accounts(accounts)
-        .accounts(remaining_accounts)
-        .args(ix)
+        .instruction(swap_ix)
         .send_with_spinner_and_config(transaction_config)
         .await;
 
