@@ -320,7 +320,7 @@ export class DLMM {
     );
     const program = new Program(
       IDL,
-      opt?.programId ?? LBCLMM_PROGRAM_IDS[cluster],
+      opt?.programId ?? DLMM_PROGRAM_IDS[cluster],
       provider
     );
 
@@ -1195,10 +1195,9 @@ export class DLMM {
     ]);
 
     // filter positions has lock_release_point > currentTimestamp + lockDurationSecs
-    const clockAccInfo =
-      await this.program.provider.connection.getAccountInfo(
-        SYSVAR_CLOCK_PUBKEY
-      );
+    const clockAccInfo = await this.program.provider.connection.getAccountInfo(
+      SYSVAR_CLOCK_PUBKEY
+    );
     const clock = ClockLayout.decode(clockAccInfo.data) as Clock;
 
     const currentPoint =
@@ -1658,8 +1657,9 @@ export class DLMM {
       tokenBadgeY,
     ]);
 
-    const presetParameterState =
-      await program.account.presetParameter2.fetch(presetParameter);
+    const presetParameterState = await program.account.presetParameter2.fetch(
+      presetParameter
+    );
 
     const existsPool = await this.getPairPubkeyIfExists(
       connection,
@@ -1882,10 +1882,14 @@ export class DLMM {
    * @param creator The public key of the pool creator.
    * @returns a Promise that resolves to the transaction.
    */
-  public async setPairStatusPermissionless(enable: boolean, creator: PublicKey) {
+  public async setPairStatusPermissionless(
+    enable: boolean,
+    creator: PublicKey
+  ) {
     const status: PairStatus = enable ? 0 : 1; // 0 = enable, 1 = disable
 
-    const tx = await this.program.methods.setPairStatusPermissionless(status)
+    const tx = await this.program.methods
+      .setPairStatusPermissionless(status)
       .accounts({
         lbPair: this.pubkey,
         creator,
@@ -3177,8 +3181,9 @@ export class DLMM {
       ? Math.ceil(slippage / (this.lbPair.binStep / 100))
       : MAX_ACTIVE_BIN_SLIPPAGE;
 
-    const positionAccount =
-      await this.program.account.positionV2.fetch(positionPubKey);
+    const positionAccount = await this.program.account.positionV2.fetch(
+      positionPubKey
+    );
     const { lowerBinId, upperBinId, binIds } =
       this.processXYAmountDistribution(xYAmountDistribution);
 
