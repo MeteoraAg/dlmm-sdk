@@ -1,11 +1,14 @@
 [package]
 name = "cli"
-version = "0.4.2"
+version = "0.5.0"
 edition = "2021"
 description = "cli"
 authors = ["tian <tian@racoons.dev>"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+staging = ["dlmm_interface/staging"]
 
 [dependencies]
 commons = { workspace = true }
@@ -16,16 +19,19 @@ clap = { workspace = true, features = ["derive"] }
 anyhow = { workspace = true }
 shellexpand = { workspace = true }
 rust_decimal = { workspace = true, features = ["maths"] }
-lb_clmm = { path = "../programs/lb_clmm", features = ["cpi"] }
+dlmm_interface = { path = "../dlmm_interface" }
 spl-associated-token-account = { workspace = true }
-mpl-token-metadata = { workspace = true }
 rand = { workspace = true }
 tokio = { workspace = true, features = ["full", "parking_lot"] }
 bincode = { workspace = true }
+spl-memo = { workspace = true, features = ["no-entrypoint"] }
+spl-transfer-hook-interface = { workspace = true }
+solana-account-decoder = { workspace = true }
+num-integer = { workspace = true }
+bytemuck = { workspace = true }
+futures-util = { workspace = true }
+
 bigdecimal = "0.4.2"
 serde = "1.0.167"
 serde_json = "1.0.100"
 serde_json_any_key = "2.0.0"
-
-[dev-dependencies]
-proptest = "1.2.0"

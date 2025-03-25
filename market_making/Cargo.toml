@@ -6,23 +6,27 @@ edition = "2021"
 authors = ["andrew <andrew@racoons.dev>"]
 
 [dependencies]
-tokio = {workspace=true, features = ["full"] }
-hyper = { workspace=true, features = ["full"] }
-routerify = {workspace=true}
-ureq = { workspace=true, features = ["json"]}
-anchor-client={workspace=true, features=["async"]}
-anchor-spl={workspace=true}
-anchor-lang={workspace=true}
-env_logger={workspace=true}
-log={workspace=true}
-clap = { workspace=true, features = ["derive"] }
-shellexpand = {workspace=true}
-anyhow = {workspace=true}
-lb_clmm =  { path = "../programs/lb_clmm", features = ["cpi"] }
-serde_json = {workspace=true}
-serde = { workspace=true, features = ["derive"] }
-spl-associated-token-account = {workspace=true}
-solana-transaction-status={workspace=true}
-bs58 = {workspace=true}
-chrono={workspace=true}
-
+tokio = { workspace = true, features = ["full"] }
+hyper = { workspace = true, features = ["full"] }
+routerify = { workspace = true }
+ureq = { workspace = true, features = ["json"] }
+anchor-client = { workspace = true, features = ["async"] }
+anchor-spl = { workspace = true }
+anchor-lang = { workspace = true }
+env_logger = { workspace = true }
+log = { workspace = true }
+clap = { workspace = true, features = ["derive"] }
+shellexpand = { workspace = true }
+anyhow = { workspace = true }
+dlmm_interface = { path = "../dlmm_interface" }
+serde_json = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+spl-associated-token-account = { workspace = true }
+solana-transaction-status = { workspace = true }
+bs58 = { workspace = true }
+chrono = { workspace = true }
+commons = { workspace = true }
+solana-account-decoder = { workspace = true }
+itertools = { workspace = true }
+rust_decimal = { workspace = true, features = ["maths"] }
+spl-memo = { workspace = true, features = ["no-entrypoint"] }

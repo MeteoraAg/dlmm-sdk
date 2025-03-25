@@ -1,4 +1,4 @@
-name: Lb Clmm SDK
+name: DLMM SDK
 
 on:
   pull_request:
@@ -52,8 +52,6 @@ jobs:
         with:
           path: ./ts-client/node_modules
           key: ${{ runner.os }}-${{ hashFiles('./pnpm-lock.yaml') }}
-      - run: anchor build -- --features localnet
-        shell: bash
       - run: anchor localnet -- --features localnet & sleep 2
         shell: bash
       - run: cd ts-client && pnpm install && pnpm run test
