@@ -1,23 +1,46 @@
-use anchor_client::solana_client::rpc_filter::{Memcmp, RpcFilterType};
-use anchor_client::{solana_sdk::signer::Signer, Program};
-use anchor_lang::prelude::Pubkey;
-use anyhow::*;
-use lb_clmm::state::position::PositionV2;
-use std::ops::Deref;
+use solana_client::rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig};
 
-pub async fn get_all_positions<C: Deref<Target = impl Signer> + Clone>(
-    program: &Program<C>,
+use crate::*;
+
+#[derive(Debug, Parser)]
+pub struct GetAllPositionsParams {
+    /// Address of the pair
+    #[clap(long)]
     lb_pair: Pubkey,
+    /// Owner of position
+    #[clap(long)]
     owner: Pubkey,
+}
+
+pub async fn execute_get_all_positions<C: Deref<Target = impl Signer> + Clone>(
+    program: &Program<C>,
+    params: GetAllPositionsParams,
 ) -> Result<()> {
-    let positions: Vec<(Pubkey, PositionV2)> = program
-        .accounts(vec![
-            RpcFilterType::Memcmp(Memcmp::new_base58_encoded(8, &lb_pair.to_bytes())),
-            RpcFilterType::Memcmp(Memcmp::new_base58_encoded(8 + 32, &owner.to_bytes())),
-        ])
+    let GetAllPositionsParams { lb_pair, owner } = params;
+
+    let rpc_client = program.async_rpc();
+
+    let account_config = RpcAccountInfoConfig {
+        encoding: Some(UiAccountEncoding::Base64),
+        ..Default::default()
+    };
+    let config = RpcProgramAccountsConfig {
+        filters: Some(position_filter_by_wallet_and_pair(owner, lb_pair)),
+        account_config,
+        ..Default::default()
+    };
+
+    let accounts = rpc_client
+        .get_program_accounts_with_config(&dlmm_interface::ID, config)
         .await?;
-    for (key, val) in positions {
-        println!("position {} fee owner {}", key, val.fee_owner);
+
+    for (position_key, position_raw_account) in accounts {
+        let position_state = PositionV2Account::deserialize(&position_raw_account.data)?.0;
+        println!(
+            "Position {} fee owner {}",
+            position_key, position_state.fee_owner
+        );
     }
+
     Ok(())
 }

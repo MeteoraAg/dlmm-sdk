@@ -1,163 +1,164 @@
-use crate::pair_config::get_pair_config;
-use crate::pair_config::PairConfig;
-use crate::state::get_decimals;
-use crate::state::AllPosition;
-use crate::state::PositionInfo;
-use crate::state::SinglePosition;
-use crate::utils::parse_swap_event;
-use crate::utils::send_tx;
-use crate::utils::simulate_transaction;
-use crate::utils::{create_program, get_epoch_sec, get_or_create_ata};
 use crate::MarketMakingMode;
-use anchor_client::anchor_lang::Space;
-use anchor_client::solana_client::rpc_filter::{Memcmp, RpcFilterType};
-use anchor_client::solana_sdk::compute_budget::ComputeBudgetInstruction;
-use anchor_client::solana_sdk::instruction::Instruction;
-use anchor_client::solana_sdk::signature::Signer;
-use anchor_client::solana_sdk::signature::{read_keypair_file, Keypair};
-use anchor_client::{solana_sdk::pubkey::Pubkey, Cluster, Program};
-use anchor_lang::prelude::AccountMeta;
+use crate::*;
 use anchor_lang::AccountDeserialize;
-use anchor_lang::InstructionData;
-use anchor_lang::ToAccountMetas;
-use anchor_spl::associated_token::get_associated_token_address;
-use anchor_spl::token::spl_token;
-use anchor_spl::token::Mint;
-use anchor_spl::token::TokenAccount;
-use anyhow::Ok;
-use anyhow::*;
-use lb_clmm::accounts;
-use lb_clmm::constants::MAX_BIN_PER_ARRAY;
-use lb_clmm::constants::MAX_BIN_PER_POSITION;
-use lb_clmm::events::Swap as SwapEvent;
-use lb_clmm::instruction;
-use lb_clmm::instructions::deposit::*;
-use lb_clmm::math::safe_math::SafeMath;
-use lb_clmm::state::{bin::BinArray, lb_pair::LbPair, position::PositionV2};
-use lb_clmm::utils::pda;
-use lb_clmm::utils::pda::*;
+use anchor_spl::associated_token::get_associated_token_address_with_program_id;
+use anchor_spl::token_interface::Mint;
+use anchor_spl::token_interface::TokenAccount;
+use compute_budget::ComputeBudgetInstruction;
+use instruction::AccountMeta;
+use instruction::Instruction;
+use itertools::Itertools;
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::Mutex;
+
 pub struct Core {
     pub provider: Cluster,
-    pub wallet: Option<String>,
+    pub wallet: Option<Arc<Keypair>>,
     pub owner: Pubkey,
     pub config: Vec<PairConfig>,
     pub state: Arc<Mutex<AllPosition>>,
 }
 
 impl Core {
+    fn rpc_client(&self) -> RpcClient {
+        RpcClient::new(self.provider.url().to_owned())
+    }
+
     pub async fn refresh_state(&self) -> Result<()> {
-        let program: Program<Arc<Keypair>> = create_program(
-            self.provider.to_string(),
-            self.provider.to_string(),
-            lb_clmm::ID,
-            Arc::new(Keypair::new()),
-        )?;
+        let rpc_client = self.rpc_client();
 
         for pair in self.config.iter() {
-            let pair_address = Pubkey::from_str(&pair.pair_address).unwrap();
-            let lb_pair_state: LbPair = program.account(pair_address).await?;
-            // let token_x: Mint = program.account(lb_pair_state.token_x_mint).await?;
-            // let token_y: Mint = program.account(lb_pair_state.token_y_mint).await?;
-            // get all position with an user
-            let mut position_states = program
-                .accounts::<PositionV2>(vec![
-                    RpcFilterType::DataSize((8 + PositionV2::INIT_SPACE) as u64),
-                    RpcFilterType::Memcmp(Memcmp::new_raw_bytes(
-                        8 + 32,
-                        self.owner.to_bytes().to_vec(),
-                    )),
-                    RpcFilterType::Memcmp(Memcmp::new_raw_bytes(
-                        8,
-                        pair_address.to_bytes().to_vec(),
-                    )),
-                ])
+            let pair_address =
+                Pubkey::from_str(&pair.pair_address).context("Invalid pair address")?;
+
+            let lb_pair_state = rpc_client
+                .get_account_and_deserialize(&pair_address, |account| {
+                    Ok(LbPairAccount::deserialize(&account.data)?.0)
+                })
                 .await?;
+
+            // get all position with an user
+            let position_accounts = rpc_client
+                .get_program_accounts_with_config(
+                    &dlmm_interface::ID,
+                    RpcProgramAccountsConfig {
+                        filters: Some(position_filter_by_wallet_and_pair(self.owner, pair_address)),
+                        account_config: RpcAccountInfoConfig {
+                            encoding: Some(UiAccountEncoding::Base64),
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    },
+                )
+                .await?;
+
+            let mut position_key_with_state = position_accounts
+                .into_iter()
+                .filter_map(|(key, account)| {
+                    let position = PositionV2Account::deserialize(&account.data).ok()?.0;
+                    Some((key, position))
+                })
+                .collect::<Vec<_>>();
+
             let mut position_pks = vec![];
             let mut positions = vec![];
             let mut min_bin_id = 0;
             let mut max_bin_id = 0;
             let mut bin_arrays = HashMap::new();
-            if position_states.len() > 0 {
+
+            if position_key_with_state.len() > 0 {
                 // sort position by bin id
-                position_states
-                    .sort_by(|a, b| a.1.lower_bin_id.partial_cmp(&b.1.lower_bin_id).unwrap());
+                position_key_with_state
+                    .sort_by(|(_, a), (_, b)| a.lower_bin_id.cmp(&b.lower_bin_id));
 
-                min_bin_id = position_states[0].1.lower_bin_id;
-                max_bin_id = position_states[position_states.len() - 1].1.upper_bin_id;
-                for position in position_states.iter() {
-                    position_pks.push(position.0);
-                    positions.push(position.1);
+                min_bin_id = position_key_with_state
+                    .first()
+                    .map(|(_key, state)| state.lower_bin_id)
+                    .context("Missing min bin id")?;
+
+                max_bin_id = position_key_with_state
+                    .last()
+                    .map(|(_key, state)| state.upper_bin_id)
+                    .context("Missing max bin id")?;
+
+                for (key, state) in position_key_with_state.iter() {
+                    position_pks.push(*key);
+                    positions.push(state.to_owned());
                 }
-                let mut bin_arrays_indexes = vec![];
-                for (_pk, position) in position_states.iter() {
-                    for i in position.lower_bin_id..=position.upper_bin_id {
-                        let bin_array_index = BinArray::bin_id_to_bin_array_index(i)?;
-                        if bin_arrays_indexes.contains(&bin_array_index) {
-                            continue;
-                        }
-                        bin_arrays_indexes.push(bin_array_index);
 
-                        let (bin_array_pk, _bump) =
-                            pda::derive_bin_array_pda(pair_address, bin_array_index.into());
+                let bin_array_keys = position_key_with_state
+                    .iter()
+                    .filter_map(|(_key, state)| state.get_bin_array_keys_coverage().ok())
+                    .flatten()
+                    .unique()
+                    .collect::<Vec<_>>();
 
-                        let bin_array_state: BinArray = program.account(bin_array_pk).await?;
+                let bin_array_accounts = rpc_client.get_multiple_accounts(&bin_array_keys).await?;
 
-                        bin_arrays.insert(bin_array_pk, bin_array_state);
+                for (key, account) in bin_array_keys.iter().zip(bin_array_accounts) {
+                    if let Some(account) = account {
+                        let bin_array_state = BinArrayAccount::deserialize(&account.data)?.0;
+                        bin_arrays.insert(*key, bin_array_state);
                     }
                 }
             }
 
             let mut all_state = self.state.lock().unwrap();
             let state = all_state.all_positions.get_mut(&pair_address).unwrap();
-            state.lb_pair_state = lb_pair_state;
+
+            state.lb_pair_state = Some(lb_pair_state);
             state.bin_arrays = bin_arrays;
             state.position_pks = position_pks;
             state.positions = positions;
             state.min_bin_id = min_bin_id;
             state.max_bin_id = max_bin_id;
-            // state.token_x = token_x;
-            // state.token_y = token_y;
             state.last_update_timestamp = get_epoch_sec();
         }
 
         Ok(())
     }
 
-    pub fn fetch_token_info(&self) -> Result<()> {
-        let token_mints = self.get_all_token_mints();
-        let program: Program<Arc<Keypair>> = create_program(
-            self.provider.to_string(),
-            self.provider.to_string(),
-            lb_clmm::ID,
-            Arc::new(Keypair::new()),
-        )?;
-        let accounts = program.rpc().get_multiple_accounts(&token_mints)?;
+    pub async fn fetch_token_info(&self) -> Result<()> {
+        let token_mints_with_program = self.get_all_token_mints_with_program_id()?;
 
+        let token_mint_keys = token_mints_with_program
+            .iter()
+            .map(|(key, _program_id)| *key)
+            .collect::<Vec<_>>();
+
+        let rpc_client = self.rpc_client();
+
+        let accounts = rpc_client.get_multiple_accounts(&token_mint_keys).await?;
         let mut tokens = HashMap::new();
-        for (i, &token_pk) in token_mints.iter().enumerate() {
-            let account =
-                Mint::try_deserialize(&mut accounts[i].clone().unwrap().data.as_ref()).unwrap();
-            tokens.insert(token_pk, account);
+
+        for ((key, program_id), account) in token_mints_with_program.iter().zip(accounts) {
+            if let Some(account) = account {
+                let mint = Mint::try_deserialize(&mut account.data.as_ref())?;
+                tokens.insert(*key, (mint, *program_id));
+            }
         }
         let mut state = self.state.lock().unwrap();
         state.tokens = tokens;
 
         Ok(())
     }
-    pub fn get_all_token_mints(&self) -> Vec<Pubkey> {
+
+    fn get_all_token_mints_with_program_id(&self) -> Result<Vec<(Pubkey, Pubkey)>> {
         let state = self.state.lock().unwrap();
-        let mut token_mints = vec![];
+        let mut token_mints_with_program = vec![];
+
         for (_, position) in state.all_positions.iter() {
-            token_mints.push(position.lb_pair_state.token_x_mint);
-            token_mints.push(position.lb_pair_state.token_y_mint);
+            let lb_pair = &position.lb_pair_state.context("Missing lb pair state")?;
+            let [token_x_program, token_y_program] = lb_pair.get_token_programs()?;
+            token_mints_with_program.push((lb_pair.token_x_mint, token_x_program));
+            token_mints_with_program.push((lb_pair.token_y_mint, token_y_program));
         }
-        token_mints.sort_unstable();
-        token_mints.dedup();
-        token_mints
+
+        token_mints_with_program.sort_unstable();
+        token_mints_with_program.dedup();
+        Ok(token_mints_with_program)
     }
 
     pub fn get_position_state(&self, lp_pair: Pubkey) -> SinglePosition {
@@ -167,129 +168,186 @@ impl Core {
     }
 
     pub async fn init_user_ata(&self) -> Result<()> {
-        let payer = read_keypair_file(self.wallet.clone().unwrap())
-            .map_err(|_| Error::msg("Requires a keypair file"))?;
-        let program: Program<Arc<Keypair>> = create_program(
-            self.provider.to_string(),
-            self.provider.to_string(),
-            spl_token::ID,
-            Arc::new(Keypair::new()),
-        )?;
-        let token_mints = self.get_all_token_mints();
-        for &token_mint_pk in token_mints.iter() {
-            get_or_create_ata(&program, token_mint_pk, payer.pubkey(), &payer).await?;
+        if let Some(wallet) = self.wallet.as_ref() {
+            let rpc_client = self.rpc_client();
+            for (token_mint, program_id) in self.get_all_token_mints_with_program_id()?.iter() {
+                get_or_create_ata(
+                    &rpc_client,
+                    *token_mint,
+                    *program_id,
+                    wallet.pubkey(),
+                    wallet,
+                )
+                .await?;
+            }
         }
+
         Ok(())
     }
 
     // withdraw all positions
     pub async fn withdraw(&self, state: &SinglePosition, is_simulation: bool) -> Result<()> {
-        // let state = self.get_state();
         if state.position_pks.len() == 0 {
             return Ok(());
         }
+
+        let rpc_client = self.rpc_client();
+
+        let payer = self.wallet.clone().context("Requires keypair")?;
+
         let (event_authority, _bump) = derive_event_authority_pda();
+
         let lb_pair = state.lb_pair;
-        let payer = read_keypair_file(self.wallet.clone().unwrap())
-            .map_err(|_| Error::msg("Requires a keypair file"))?;
-        let program: Program<Arc<Keypair>> = create_program(
-            self.provider.to_string(),
-            self.provider.to_string(),
-            lb_clmm::ID,
-            Arc::new(Keypair::new()),
-        )?;
-        let lb_pair_state = state.lb_pair_state;
+        let lb_pair_state = state.lb_pair_state.context("Missing lb pair state")?;
+
+        let [token_x_program, token_y_program] = lb_pair_state.get_token_programs()?;
+
+        let mut remaining_account_info = RemainingAccountsInfo { slices: vec![] };
+        let mut transfer_hook_remaining_accounts = vec![];
+
+        if let Some((slices, remaining_accounts)) =
+            get_potential_token_2022_related_ix_data_and_accounts(
+                &lb_pair_state,
+                RpcClient::new(self.provider.url().to_owned()),
+                ActionType::Liquidity,
+            )
+            .await?
+        {
+            remaining_account_info.slices = slices;
+            transfer_hook_remaining_accounts = remaining_accounts;
+        }
+
         for (i, &position) in state.position_pks.iter().enumerate() {
-            let position_state = state.positions[i];
-            let lower_bin_array_idx =
-                BinArray::bin_id_to_bin_array_index(position_state.lower_bin_id)?;
-            let upper_bin_array_idx = lower_bin_array_idx.checked_add(1).context("MathOverflow")?;
+            let position_state = &state.positions[i];
 
-            let (bin_array_lower, _bump) =
-                derive_bin_array_pda(lb_pair, lower_bin_array_idx.into());
-            let (bin_array_upper, _bump) =
-                derive_bin_array_pda(lb_pair, upper_bin_array_idx.into());
+            let bin_arrays_account_meta = position_state.get_bin_array_accounts_meta_coverage()?;
 
-            let user_token_x =
-                get_associated_token_address(&payer.pubkey(), &lb_pair_state.token_x_mint);
-            let user_token_y =
-                get_associated_token_address(&payer.pubkey(), &lb_pair_state.token_y_mint);
+            let user_token_x = get_associated_token_address_with_program_id(
+                &payer.pubkey(),
+                &lb_pair_state.token_x_mint,
+                &token_x_program,
+            );
 
-            let instructions = vec![
-                ComputeBudgetInstruction::set_compute_unit_limit(1_400_000),
-                Instruction {
-                    program_id: lb_clmm::ID,
-                    accounts: accounts::ModifyLiquidity {
-                        bin_array_lower,
-                        bin_array_upper,
-                        lb_pair,
-                        bin_array_bitmap_extension: None,
-                        position,
-                        reserve_x: lb_pair_state.reserve_x,
-                        reserve_y: lb_pair_state.reserve_y,
-                        token_x_mint: lb_pair_state.token_x_mint,
-                        token_y_mint: lb_pair_state.token_y_mint,
-                        sender: payer.pubkey(),
-                        user_token_x,
-                        user_token_y,
-                        token_x_program: anchor_spl::token::ID,
-                        token_y_program: anchor_spl::token::ID,
-                        event_authority,
-                        program: lb_clmm::ID,
-                    }
-                    .to_account_metas(None),
-                    data: instruction::RemoveAllLiquidity {}.data(),
-                },
-                Instruction {
-                    program_id: lb_clmm::ID,
-                    accounts: accounts::ClaimFee {
-                        bin_array_lower,
-                        bin_array_upper,
-                        lb_pair,
-                        sender: payer.pubkey(),
-                        position,
-                        reserve_x: lb_pair_state.reserve_x,
-                        reserve_y: lb_pair_state.reserve_y,
-                        token_program: anchor_spl::token::ID,
-                        token_x_mint: lb_pair_state.token_x_mint,
-                        token_y_mint: lb_pair_state.token_y_mint,
-                        user_token_x,
-                        user_token_y,
-                        event_authority,
-                        program: lb_clmm::ID,
-                    }
-                    .to_account_metas(None),
-                    data: instruction::ClaimFee {}.data(),
-                },
-                Instruction {
-                    program_id: lb_clmm::ID,
-                    accounts: accounts::ClosePosition {
-                        lb_pair,
-                        position,
-                        bin_array_lower,
-                        bin_array_upper,
-                        rent_receiver: payer.pubkey(),
-                        sender: payer.pubkey(),
-                        event_authority,
-                        program: lb_clmm::ID,
-                    }
-                    .to_account_metas(None),
-                    data: instruction::ClosePosition {}.data(),
-                },
-            ];
+            let user_token_y = get_associated_token_address_with_program_id(
+                &payer.pubkey(),
+                &lb_pair_state.token_y_mint,
+                &token_y_program,
+            );
 
-            let builder = program.request();
-            let builder = instructions
-                .into_iter()
-                .fold(builder, |bld, ix| bld.instruction(ix));
+            let mut instructions =
+                vec![ComputeBudgetInstruction::set_compute_unit_limit(1_400_000)];
+
+            let main_accounts: [AccountMeta; REMOVE_LIQUIDITY2_IX_ACCOUNTS_LEN] =
+                RemoveLiquidityByRange2Keys {
+                    position,
+                    lb_pair,
+                    bin_array_bitmap_extension: dlmm_interface::ID,
+                    user_token_x,
+                    user_token_y,
+                    reserve_x: lb_pair_state.reserve_x,
+                    reserve_y: lb_pair_state.reserve_y,
+                    token_x_mint: lb_pair_state.token_x_mint,
+                    token_y_mint: lb_pair_state.token_y_mint,
+                    sender: payer.pubkey(),
+                    token_x_program,
+                    token_y_program,
+                    memo_program: spl_memo::ID,
+                    event_authority,
+                    program: dlmm_interface::ID,
+                }
+                .into();
+
+            let remaining_accounts = [
+                transfer_hook_remaining_accounts.clone(),
+                bin_arrays_account_meta.clone(),
+            ]
+            .concat();
+
+            let data = RemoveLiquidityByRange2IxData(RemoveLiquidityByRange2IxArgs {
+                from_bin_id: position_state.lower_bin_id,
+                to_bin_id: position_state.upper_bin_id,
+                bps_to_remove: BASIS_POINT_MAX as u16,
+                remaining_accounts_info: remaining_account_info.clone(),
+            })
+            .try_to_vec()?;
+
+            let accounts = [main_accounts.to_vec(), remaining_accounts].concat();
+
+            let remove_all_ix = Instruction {
+                program_id: dlmm_interface::ID,
+                accounts,
+                data,
+            };
+
+            instructions.push(remove_all_ix);
+
+            let main_accounts: [AccountMeta; CLAIM_FEE2_IX_ACCOUNTS_LEN] = ClaimFee2Keys {
+                lb_pair,
+                position,
+                sender: payer.pubkey(),
+                event_authority,
+                program: dlmm_interface::ID,
+                reserve_x: lb_pair_state.reserve_x,
+                reserve_y: lb_pair_state.reserve_y,
+                token_x_mint: lb_pair_state.token_x_mint,
+                token_y_mint: lb_pair_state.token_y_mint,
+                token_program_x: token_x_program,
+                token_program_y: token_y_program,
+                memo_program: spl_memo::ID,
+                user_token_x,
+                user_token_y,
+            }
+            .into();
+
+            let remaining_accounts = [
+                transfer_hook_remaining_accounts.clone(),
+                bin_arrays_account_meta.clone(),
+            ]
+            .concat();
+
+            let data = ClaimFee2IxData(ClaimFee2IxArgs {
+                min_bin_id: position_state.lower_bin_id,
+                max_bin_id: position_state.upper_bin_id,
+                remaining_accounts_info: remaining_account_info.clone(),
+            })
+            .try_to_vec()?;
+
+            let accounts = [main_accounts.to_vec(), remaining_accounts].concat();
+
+            let claim_fee_ix = Instruction {
+                program_id: dlmm_interface::ID,
+                accounts,
+                data,
+            };
+
+            instructions.push(claim_fee_ix);
+
+            let accounts: [AccountMeta; CLOSE_POSITION2_IX_ACCOUNTS_LEN] = ClosePosition2Keys {
+                position,
+                sender: payer.pubkey(),
+                rent_receiver: payer.pubkey(),
+                event_authority,
+                program: dlmm_interface::ID,
+            }
+            .into();
+
+            let data = ClosePosition2IxData.try_to_vec()?;
+
+            let close_position_ix = Instruction {
+                program_id: dlmm_interface::ID,
+                accounts: accounts.to_vec(),
+                data,
+            };
+
+            instructions.push(close_position_ix);
 
             if is_simulation {
                 let response =
-                    simulate_transaction(vec![&payer], payer.pubkey(), &program, &builder)?;
+                    simulate_transaction(&instructions, &rpc_client, &[], payer.pubkey()).await?;
                 println!("{:?}", response);
             } else {
-                let signature = send_tx(vec![&payer], payer.pubkey(), &program, &builder)?;
-                info!("close popsition {position} {signature}");
+                let signature = send_tx(&instructions, &rpc_client, &[], &payer).await?;
+                info!("Close position {position} {signature}");
             }
         }
 
@@ -303,127 +361,141 @@ impl Core {
         amount_in: u64,
         swap_for_y: bool,
         is_simulation: bool,
-    ) -> Result<SwapEvent> {
-        // let state = self.get_state();
-        let lb_pair_state = state.lb_pair_state;
+    ) -> Result<Option<SwapEvent>> {
+        let rpc_client = self.rpc_client();
+
+        let lb_pair_state = state.lb_pair_state.context("Missing lb pair state")?;
+        let [token_x_program, token_y_program] = lb_pair_state.get_token_programs()?;
         let lb_pair = state.lb_pair;
-        let active_bin_array_idx = BinArray::bin_id_to_bin_array_index(lb_pair_state.active_id)?;
 
-        let payer = read_keypair_file(self.wallet.clone().unwrap())
-            .map_err(|_| Error::msg("Requires a keypair file"))?;
-        let program: Program<Arc<Keypair>> = create_program(
-            self.provider.to_string(),
-            self.provider.to_string(),
-            lb_clmm::ID,
-            Arc::new(Keypair::new()),
-        )?;
-        let (bin_array_0, _bump) = derive_bin_array_pda(lb_pair, active_bin_array_idx as i64);
+        let payer = self.wallet.clone().context("Requires keypair")?;
 
-        let (user_token_in, user_token_out, bin_array_1, bin_array_2) = if swap_for_y {
-            (
-                get_associated_token_address(&payer.pubkey(), &lb_pair_state.token_x_mint),
-                get_associated_token_address(&payer.pubkey(), &lb_pair_state.token_y_mint),
-                derive_bin_array_pda(lb_pair, (active_bin_array_idx - 1) as i64).0,
-                derive_bin_array_pda(lb_pair, (active_bin_array_idx - 2) as i64).0,
-            )
-        } else {
-            (
-                get_associated_token_address(&payer.pubkey(), &lb_pair_state.token_y_mint),
-                get_associated_token_address(&payer.pubkey(), &lb_pair_state.token_x_mint),
-                derive_bin_array_pda(lb_pair, (active_bin_array_idx + 1) as i64).0,
-                derive_bin_array_pda(lb_pair, (active_bin_array_idx + 2) as i64).0,
-            )
-        };
-
+        let (event_authority, _bump) = derive_event_authority_pda();
         let (bin_array_bitmap_extension, _bump) = derive_bin_array_bitmap_extension(lb_pair);
-        let bin_array_bitmap_extension = if program
-            .rpc()
-            .get_account(&bin_array_bitmap_extension)
-            .is_err()
-        {
-            None
+
+        let account = rpc_client.get_account(&bin_array_bitmap_extension).await;
+
+        let (bin_array_bitmap_extension, bin_array_bitmap_extension_state) =
+            if let std::result::Result::Ok(account) = account {
+                let bin_array_bitmap_extension_state =
+                    BinArrayBitmapExtensionAccount::deserialize(&account.data)?.0;
+                (
+                    bin_array_bitmap_extension,
+                    Some(bin_array_bitmap_extension_state),
+                )
+            } else {
+                (dlmm_interface::ID, None)
+            };
+
+        let bin_arrays_account_meta = get_bin_array_pubkeys_for_swap(
+            lb_pair,
+            &lb_pair_state,
+            bin_array_bitmap_extension_state.as_ref(),
+            swap_for_y,
+            3,
+        )?
+        .into_iter()
+        .map(|key| AccountMeta::new(key, false))
+        .collect::<Vec<_>>();
+
+        let (user_token_in, user_token_out) = if swap_for_y {
+            (
+                get_associated_token_address_with_program_id(
+                    &payer.pubkey(),
+                    &lb_pair_state.token_x_mint,
+                    &token_x_program,
+                ),
+                get_associated_token_address_with_program_id(
+                    &payer.pubkey(),
+                    &lb_pair_state.token_y_mint,
+                    &token_y_program,
+                ),
+            )
         } else {
-            Some(bin_array_bitmap_extension)
+            (
+                get_associated_token_address_with_program_id(
+                    &payer.pubkey(),
+                    &lb_pair_state.token_y_mint,
+                    &token_y_program,
+                ),
+                get_associated_token_address_with_program_id(
+                    &payer.pubkey(),
+                    &lb_pair_state.token_x_mint,
+                    &token_x_program,
+                ),
+            )
         };
 
-        let (event_authority, _bump) =
-            Pubkey::find_program_address(&[b"__event_authority"], &lb_clmm::ID);
+        let mut remaining_accounts_info = RemainingAccountsInfo { slices: vec![] };
+        let mut remaining_accounts = vec![];
 
-        let accounts = accounts::Swap {
+        if let Some((slices, transfer_hook_remaining_accounts)) =
+            get_potential_token_2022_related_ix_data_and_accounts(
+                &lb_pair_state,
+                RpcClient::new(self.provider.url().to_owned()),
+                ActionType::Liquidity,
+            )
+            .await?
+        {
+            remaining_accounts_info.slices = slices;
+            remaining_accounts.extend(transfer_hook_remaining_accounts);
+        }
+
+        remaining_accounts.extend(bin_arrays_account_meta);
+
+        let main_accounts: [AccountMeta; SWAP2_IX_ACCOUNTS_LEN] = Swap2Keys {
             lb_pair,
             bin_array_bitmap_extension,
             reserve_x: lb_pair_state.reserve_x,
             reserve_y: lb_pair_state.reserve_y,
             token_x_mint: lb_pair_state.token_x_mint,
             token_y_mint: lb_pair_state.token_y_mint,
-            token_x_program: anchor_spl::token::ID,
-            token_y_program: anchor_spl::token::ID,
+            token_x_program,
+            token_y_program,
             user: payer.pubkey(),
             user_token_in,
             user_token_out,
             oracle: lb_pair_state.oracle,
-            host_fee_in: Some(lb_clmm::ID),
+            host_fee_in: dlmm_interface::ID,
             event_authority,
-            program: lb_clmm::ID,
-        };
+            program: dlmm_interface::ID,
+            memo_program: spl_memo::ID,
+        }
+        .into();
 
-        let ix = instruction::Swap {
+        let data = Swap2IxData(Swap2IxArgs {
             amount_in,
             min_amount_out: state.get_min_out_amount_with_slippage_rate(amount_in, swap_for_y)?,
-        };
+            remaining_accounts_info,
+        })
+        .try_to_vec()?;
 
-        let remaining_accounts = vec![
-            AccountMeta {
-                is_signer: false,
-                is_writable: true,
-                pubkey: bin_array_0,
-            },
-            AccountMeta {
-                is_signer: false,
-                is_writable: true,
-                pubkey: bin_array_1,
-            },
-            AccountMeta {
-                is_signer: false,
-                is_writable: true,
-                pubkey: bin_array_2,
-            },
-        ];
+        let accounts = [main_accounts.to_vec(), remaining_accounts].concat();
+
+        let swap_ix = Instruction {
+            program_id: dlmm_interface::ID,
+            accounts,
+            data,
+        };
 
         let compute_budget_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
 
-        let builder = program.request();
-        let builder = builder
-            .instruction(compute_budget_ix)
-            .accounts(accounts)
-            .accounts(remaining_accounts)
-            .args(ix);
+        let instructions = [compute_budget_ix, swap_ix];
 
         if is_simulation {
-            let response = simulate_transaction(vec![&payer], payer.pubkey(), &program, &builder)?;
+            let response =
+                simulate_transaction(&instructions, &rpc_client, &[], payer.pubkey()).await?;
             println!("{:?}", response);
-            return Ok(SwapEvent {
-                lb_pair: Pubkey::default(),
-                from: Pubkey::default(),
-                start_bin_id: 0,
-                end_bin_id: 0,
-                amount_in: 0,
-                amount_out: 0,
-                swap_for_y,
-                fee: 0,
-                protocol_fee: 0,
-                fee_bps: 0,
-                host_fee: 0,
-            });
+            return Ok(None);
         }
 
-        let signature = send_tx(vec![&payer], payer.pubkey(), &program, &builder)?;
-        info!("swap {amount_in} {swap_for_y} {signature}");
+        let signature = send_tx(&instructions, &rpc_client, &[], &payer).await?;
+        info!("Swap {amount_in} {swap_for_y} {signature}");
 
         // TODO should handle if cannot get swap eevent
-        let swap_event = parse_swap_event(&program, signature)?;
+        let swap_event = parse_swap_event(&rpc_client, signature).await?;
 
-        Ok(swap_event)
+        Ok(Some(swap_event))
     }
 
     pub async fn deposit(
@@ -434,148 +506,189 @@ impl Core {
         active_id: i32,
         is_simulation: bool,
     ) -> Result<()> {
-        // let state = self.get_state();
-        let payer = read_keypair_file(self.wallet.clone().unwrap())
-            .map_err(|_| Error::msg("Requires a keypair file"))?;
-        let program: Program<Arc<Keypair>> = create_program(
-            self.provider.to_string(),
-            self.provider.to_string(),
-            lb_clmm::ID,
-            Arc::new(Keypair::new()),
-        )?;
+        let payer = self.wallet.clone().context("Require keypair")?;
+
+        let rpc_client = self.rpc_client();
         let lower_bin_id = active_id - (MAX_BIN_PER_ARRAY as i32).checked_div(2).unwrap();
+
         let upper_bin_id = lower_bin_id
             .checked_add(MAX_BIN_PER_ARRAY as i32)
-            .unwrap()
+            .context("math is overflow")?
             .checked_sub(1)
-            .unwrap();
+            .context("math is overflow")?;
+
         let lower_bin_array_idx = BinArray::bin_id_to_bin_array_index(lower_bin_id)?;
-        let upper_bin_array_idx = lower_bin_array_idx.checked_add(1).unwrap();
+        let upper_bin_array_idx = lower_bin_array_idx
+            .checked_add(1)
+            .context("math is overflow")?;
 
         let lb_pair = state.lb_pair;
 
+        let (event_authority, _bump) = derive_event_authority_pda();
+
         let mut instructions = vec![ComputeBudgetInstruction::set_compute_unit_limit(1_400_000)];
+
         for idx in lower_bin_array_idx..=upper_bin_array_idx {
             // Initialize bin array if not exists
             let (bin_array, _bump) = derive_bin_array_pda(lb_pair, idx.into());
 
-            if program.rpc().get_account_data(&bin_array).is_err() {
-                instructions.push(Instruction {
-                    program_id: lb_clmm::ID,
-                    accounts: accounts::InitializeBinArray {
+            if rpc_client.get_account_data(&bin_array).await.is_err() {
+                let accounts: [AccountMeta; INITIALIZE_BIN_ARRAY_IX_ACCOUNTS_LEN] =
+                    InitializeBinArrayKeys {
                         bin_array,
                         funder: payer.pubkey(),
                         lb_pair,
-                        system_program: anchor_client::solana_sdk::system_program::ID,
+                        system_program: system_program::ID,
                     }
-                    .to_account_metas(None),
-                    data: instruction::InitializeBinArray { index: idx.into() }.data(),
-                })
+                    .into();
+
+                let data = InitializeBinArrayIxData(InitializeBinArrayIxArgs { index: idx.into() })
+                    .try_to_vec()?;
+
+                let instruction = Instruction {
+                    program_id: dlmm_interface::ID,
+                    accounts: accounts.to_vec(),
+                    data,
+                };
+
+                instructions.push(instruction)
             }
         }
 
         let position_kp = Keypair::new();
         let position = position_kp.pubkey();
-        let (event_authority, _bump) =
-            Pubkey::find_program_address(&[b"__event_authority"], &lb_clmm::ID);
 
-        instructions.push(Instruction {
-            program_id: lb_clmm::ID,
-            accounts: accounts::InitializePosition {
-                lb_pair,
-                payer: payer.pubkey(),
-                position,
-                owner: payer.pubkey(),
-                rent: anchor_client::solana_sdk::sysvar::rent::ID,
-                system_program: anchor_client::solana_sdk::system_program::ID,
-                event_authority,
-                program: lb_clmm::ID,
-            }
-            .to_account_metas(None),
-            data: instruction::InitializePosition {
-                lower_bin_id,
-                width: MAX_BIN_PER_POSITION as i32,
-            }
-            .data(),
-        });
+        let accounts: [AccountMeta; INITIALIZE_POSITION_IX_ACCOUNTS_LEN] = InitializePositionKeys {
+            lb_pair,
+            payer: payer.pubkey(),
+            position,
+            owner: payer.pubkey(),
+            rent: sysvar::rent::ID,
+            system_program: system_program::ID,
+            event_authority,
+            program: dlmm_interface::ID,
+        }
+        .into();
+
+        let data = InitializePositionIxData(InitializePositionIxArgs {
+            lower_bin_id,
+            width: DEFAULT_BIN_PER_POSITION as i32,
+        })
+        .try_to_vec()?;
+
+        let instruction = Instruction {
+            program_id: dlmm_interface::ID,
+            accounts: accounts.to_vec(),
+            data,
+        };
+
+        instructions.push(instruction);
 
         // TODO implement add liquidity by strategy imbalance
         let (bin_array_bitmap_extension, _bump) = derive_bin_array_bitmap_extension(lb_pair);
-        let bin_array_bitmap_extension = if program
-            .rpc()
+        let bin_array_bitmap_extension = rpc_client
             .get_account(&bin_array_bitmap_extension)
-            .is_err()
-        {
-            None
-        } else {
-            Some(bin_array_bitmap_extension)
-        };
+            .await
+            .map(|_| bin_array_bitmap_extension)
+            .unwrap_or(dlmm_interface::ID);
+
         let (bin_array_lower, _bump) = derive_bin_array_pda(lb_pair, lower_bin_array_idx.into());
         let (bin_array_upper, _bump) = derive_bin_array_pda(lb_pair, upper_bin_array_idx.into());
-        let lb_pair_state = state.lb_pair_state;
-        let user_token_x =
-            get_associated_token_address(&payer.pubkey(), &lb_pair_state.token_x_mint);
-        let user_token_y =
-            get_associated_token_address(&payer.pubkey(), &lb_pair_state.token_y_mint);
 
-        instructions.push(Instruction {
-            program_id: lb_clmm::ID,
-            accounts: accounts::ModifyLiquidity {
+        let lb_pair_state = state.lb_pair_state.context("Missing lb pair state")?;
+        let [token_x_program, token_y_program] = lb_pair_state.get_token_programs()?;
+
+        let user_token_x = get_associated_token_address_with_program_id(
+            &payer.pubkey(),
+            &lb_pair_state.token_x_mint,
+            &token_x_program,
+        );
+
+        let user_token_y = get_associated_token_address_with_program_id(
+            &payer.pubkey(),
+            &lb_pair_state.token_y_mint,
+            &token_y_program,
+        );
+
+        let mut remaining_accounts_info = RemainingAccountsInfo { slices: vec![] };
+        let mut remaining_accounts = vec![];
+
+        if let Some((slices, transfer_hook_remaining_accounts)) =
+            get_potential_token_2022_related_ix_data_and_accounts(
+                &lb_pair_state,
+                RpcClient::new(self.provider.url().to_owned()),
+                ActionType::Liquidity,
+            )
+            .await?
+        {
+            remaining_accounts_info.slices = slices;
+            remaining_accounts.extend(transfer_hook_remaining_accounts);
+        }
+
+        remaining_accounts.extend(
+            [bin_array_lower, bin_array_upper]
+                .into_iter()
+                .map(|k| AccountMeta::new(k, false)),
+        );
+
+        let main_accounts: [AccountMeta; ADD_LIQUIDITY_BY_STRATEGY2_IX_ACCOUNTS_LEN] =
+            AddLiquidityByStrategy2Keys {
                 lb_pair,
                 position,
                 bin_array_bitmap_extension,
-                bin_array_lower,
-                bin_array_upper,
                 sender: payer.pubkey(),
                 event_authority,
-                program: lb_clmm::ID,
+                program: dlmm_interface::ID,
                 reserve_x: lb_pair_state.reserve_x,
                 reserve_y: lb_pair_state.reserve_y,
                 token_x_mint: lb_pair_state.token_x_mint,
                 token_y_mint: lb_pair_state.token_y_mint,
                 user_token_x,
                 user_token_y,
-                token_x_program: anchor_spl::token::ID,
-                token_y_program: anchor_spl::token::ID,
+                token_x_program,
+                token_y_program,
             }
-            .to_account_metas(None),
-            data: instruction::AddLiquidityByStrategy {
-                liquidity_parameter: LiquidityParameterByStrategy {
-                    amount_x,
-                    amount_y,
-                    active_id: lb_pair_state.active_id,
-                    max_active_bin_slippage: 3,
-                    strategy_parameters: StrategyParameters {
-                        min_bin_id: lower_bin_id,
-                        max_bin_id: upper_bin_id,
-                        strategy_type: StrategyType::SpotBalanced,
-                        parameteres: [0u8; 64],
-                    },
+            .into();
+
+        let data = AddLiquidityByStrategy2IxData(AddLiquidityByStrategy2IxArgs {
+            liquidity_parameter: LiquidityParameterByStrategy {
+                amount_x,
+                amount_y,
+                active_id: lb_pair_state.active_id,
+                max_active_bin_slippage: 3,
+                strategy_parameters: StrategyParameters {
+                    min_bin_id: lower_bin_id,
+                    max_bin_id: upper_bin_id,
+                    strategy_type: StrategyType::SpotBalanced,
+                    parameteres: [0u8; 64],
                 },
-            }
-            .data(),
-        });
-        let builder = program.request();
-        let builder = instructions
-            .into_iter()
-            .fold(builder, |bld, ix| bld.instruction(ix));
+            },
+            remaining_accounts_info,
+        })
+        .try_to_vec()?;
+
+        let accounts = [main_accounts.to_vec(), remaining_accounts].concat();
+
+        let instruction = Instruction {
+            program_id: dlmm_interface::ID,
+            accounts,
+            data,
+        };
+
+        instructions.push(instruction);
 
         if is_simulation {
             let simulate_tx = simulate_transaction(
-                vec![&payer, &position_kp],
+                &instructions,
+                &rpc_client,
+                &[&position_kp, &payer],
                 payer.pubkey(),
-                &program,
-                &builder,
             )
-            .map_err(|_| Error::msg("Cannot simulate tx"))?;
-            info!("deposit {amount_x} {amount_y} {position} {:?}", simulate_tx);
+            .await?;
+
+            info!("Deposit {amount_x} {amount_y} {position} {:?}", simulate_tx);
         } else {
-            let signature = send_tx(
-                vec![&payer, &position_kp],
-                payer.pubkey(),
-                &program,
-                &builder,
-            )?;
+            let signature = send_tx(&instructions, &rpc_client, &[&position_kp], &payer).await?;
             info!("deposit {amount_x} {amount_y} {position} {signature}");
         }
 
@@ -588,25 +701,36 @@ impl Core {
         amount_x: u64,
         amount_y: u64,
     ) -> Result<(u64, u64)> {
-        // let state = self.get_state();
-        let lb_pair_state = position.lb_pair_state;
+        let lb_pair_state = position.lb_pair_state.context("Missing lb pair state")?;
 
-        let payer = read_keypair_file(self.wallet.clone().unwrap())
-            .map_err(|_| Error::msg("Requires a keypair file"))?;
+        let rpc_client = self.rpc_client();
+        let payer = self.wallet.clone().context("Require keypair")?;
 
-        let program: Program<Arc<Keypair>> = create_program(
-            self.provider.to_string(),
-            self.provider.to_string(),
-            lb_clmm::ID,
-            Arc::new(Keypair::new()),
-        )?;
-        let user_token_x =
-            get_associated_token_address(&payer.pubkey(), &lb_pair_state.token_x_mint);
-        let user_token_y =
-            get_associated_token_address(&payer.pubkey(), &lb_pair_state.token_y_mint);
+        let [token_x_program, token_y_program] = lb_pair_state.get_token_programs()?;
 
-        let user_token_x_state: TokenAccount = program.account(user_token_x).await?;
-        let user_token_y_state: TokenAccount = program.account(user_token_y).await?;
+        let user_token_x = get_associated_token_address_with_program_id(
+            &payer.pubkey(),
+            &lb_pair_state.token_x_mint,
+            &token_x_program,
+        );
+
+        let user_token_y = get_associated_token_address_with_program_id(
+            &payer.pubkey(),
+            &lb_pair_state.token_y_mint,
+            &token_y_program,
+        );
+
+        let mut accounts = rpc_client
+            .get_multiple_accounts(&[user_token_x, user_token_y])
+            .await?;
+
+        let user_token_x_account = accounts[0].take().context("user_token_x not found")?;
+        let user_token_y_account = accounts[1].take().context("user_token_y not found")?;
+
+        let user_token_x_state =
+            TokenAccount::try_deserialize(&mut user_token_x_account.data.as_ref())?;
+        let user_token_y_state =
+            TokenAccount::try_deserialize(&mut user_token_y_account.data.as_ref())?;
 
         // compare with current balance
         let amount_x = if amount_x > user_token_x_state.amount {
@@ -633,34 +757,36 @@ impl Core {
         positions
     }
 
-    pub fn get_all_tokens(&self) -> HashMap<Pubkey, Mint> {
+    pub fn get_all_tokens(&self) -> HashMap<Pubkey, MintWithProgramId> {
         let state = self.state.lock().unwrap();
         state.tokens.clone()
     }
+
     pub async fn check_shift_price_range(&self) -> Result<()> {
         let all_positions = self.get_all_positions();
         for position in all_positions.iter() {
             let pair_config = get_pair_config(&self.config, position.lb_pair);
             // check whether out of price range
-            // let state = self.get_state();
+            let lb_pair_state = &position.lb_pair_state.context("Missing lb pair state")?;
             if pair_config.mode == MarketMakingMode::ModeRight
-                && position.lb_pair_state.active_id > position.max_bin_id
+                && lb_pair_state.active_id > position.max_bin_id
             {
                 self.shift_right(&position).await?;
                 self.inc_rebalance_time(position.lb_pair);
             }
 
             if pair_config.mode == MarketMakingMode::ModeLeft
-                && position.lb_pair_state.active_id < position.min_bin_id
+                && lb_pair_state.active_id < position.min_bin_id
             {
                 self.shift_left(&position).await?;
                 self.inc_rebalance_time(position.lb_pair);
             }
+
             if pair_config.mode == MarketMakingMode::ModeBoth {
-                if position.lb_pair_state.active_id < position.min_bin_id {
+                if lb_pair_state.active_id < position.min_bin_id {
                     self.shift_left(&position).await?;
                     self.inc_rebalance_time(position.lb_pair);
-                } else if position.lb_pair_state.active_id > position.max_bin_id {
+                } else if lb_pair_state.active_id > position.max_bin_id {
                     self.shift_right(&position).await?;
                     self.inc_rebalance_time(position.lb_pair);
                 }
@@ -686,12 +812,18 @@ impl Core {
         // buy base
         let amount_y_for_buy = position
             .amount_y
-            .safe_div(2)
-            .map_err(|_| Error::msg("Math is overflow"))?;
+            .checked_div(2)
+            .context("math is overflow")?;
+
+        let lb_pair_state = &state.lb_pair_state.context("Missing lb pair state")?;
+
         let (amount_x, amount_y) = if amount_y_for_buy != 0 {
             info!("swap {}", state.lb_pair);
             let swap_event = self.swap(state, amount_y_for_buy, false, false).await?;
-            (swap_event.amount_out, position.amount_y - amount_y_for_buy)
+            (
+                swap_event.map(|e| e.0.amount_out).unwrap_or_default(),
+                position.amount_y - amount_y_for_buy,
+            )
         } else {
             (pair_config.x_amount, pair_config.y_amount)
         };
@@ -699,24 +831,12 @@ impl Core {
         // deposit again, just test with 1 position only
         info!("deposit {}", state.lb_pair);
         match self
-            .deposit(
-                state,
-                amount_x,
-                amount_y,
-                state.lb_pair_state.active_id,
-                false,
-            )
+            .deposit(state, amount_x, amount_y, lb_pair_state.active_id, false)
             .await
         {
             Err(_) => {
-                self.deposit(
-                    state,
-                    amount_x,
-                    amount_y,
-                    state.lb_pair_state.active_id,
-                    true,
-                )
-                .await?;
+                self.deposit(state, amount_x, amount_y, lb_pair_state.active_id, true)
+                    .await?;
             }
             _ => {}
         }
@@ -725,6 +845,7 @@ impl Core {
         self.refresh_state().await?;
         Ok(())
     }
+
     async fn shift_left(&self, state: &SinglePosition) -> Result<()> {
         let pair_config = get_pair_config(&self.config, state.lb_pair);
         info!("shift left {}", state.lb_pair);
@@ -740,12 +861,18 @@ impl Core {
         // sell base
         let amount_x_for_sell = position
             .amount_x
-            .safe_div(2)
-            .map_err(|_| Error::msg("Math is overflow"))?;
+            .checked_div(2)
+            .context("math is overflow")?;
+
+        let lb_pair_state = &state.lb_pair_state.context("Missing lb pair state")?;
+
         let (amount_x, amount_y) = if amount_x_for_sell != 0 {
             info!("swap {}", state.lb_pair);
             let swap_event = self.swap(state, amount_x_for_sell, true, false).await?;
-            (position.amount_x - amount_x_for_sell, swap_event.amount_out)
+            (
+                position.amount_x - amount_x_for_sell,
+                swap_event.map(|e| e.0.amount_out).unwrap_or_default(),
+            )
         } else {
             (pair_config.x_amount, pair_config.y_amount)
         };
@@ -754,24 +881,12 @@ impl Core {
         let (amount_x, amount_y) = self.get_deposit_amount(state, amount_x, amount_y).await?;
         info!("deposit {}", state.lb_pair);
         match self
-            .deposit(
-                state,
-                amount_x,
-                amount_y,
-                state.lb_pair_state.active_id,
-                false,
-            )
+            .deposit(state, amount_x, amount_y, lb_pair_state.active_id, false)
             .await
         {
             Err(_) => {
-                self.deposit(
-                    state,
-                    amount_x,
-                    amount_y,
-                    state.lb_pair_state.active_id,
-                    true,
-                )
-                .await?;
+                self.deposit(state, amount_x, amount_y, lb_pair_state.active_id, true)
+                    .await?;
             }
             _ => {}
         }
@@ -794,8 +909,9 @@ impl Core {
 
         let mut position_infos = vec![];
         for position in all_positions.iter() {
-            let x_decimals = get_decimals(position.lb_pair_state.token_x_mint, &tokens);
-            let y_decimals = get_decimals(position.lb_pair_state.token_y_mint, &tokens);
+            let lb_pair_state = &position.lb_pair_state.context("Missing lb pair state")?;
+            let x_decimals = get_decimals(lb_pair_state.token_x_mint, &tokens);
+            let y_decimals = get_decimals(lb_pair_state.token_y_mint, &tokens);
             let position_raw = position.get_positions()?;
             position_infos.push(position_raw.to_position_info(x_decimals, y_decimals)?);
         }
@@ -807,7 +923,8 @@ impl Core {
 mod core_test {
     use super::*;
     use std::env;
-    #[tokio::test(flavor = "multi_thread")]
+
+    #[tokio::test]
     async fn test_withdraw() {
         let wallet = env::var("MM_WALLET").unwrap();
         let cluster = env::var("MM_CLUSTER").unwrap();
@@ -824,8 +941,8 @@ mod core_test {
 
         let core = &Core {
             provider: Cluster::from_str(&cluster).unwrap(),
-            wallet: Some(wallet),
             owner: payer.pubkey(),
+            wallet: Some(Arc::new(payer)),
             config: config.clone(),
             state: Arc::new(Mutex::new(AllPosition::new(&config))),
         };
@@ -838,7 +955,7 @@ mod core_test {
         core.withdraw(&state, true).await.unwrap();
     }
 
-    #[tokio::test(flavor = "multi_thread")]
+    #[tokio::test]
     async fn test_swap() {
         let wallet = env::var("MM_WALLET").unwrap();
         let cluster = env::var("MM_CLUSTER").unwrap();
@@ -855,8 +972,8 @@ mod core_test {
 
         let core = &Core {
             provider: Cluster::from_str(&cluster).unwrap(),
-            wallet: Some(wallet),
             owner: payer.pubkey(),
+            wallet: Some(Arc::new(payer)),
             config: config.clone(),
             state: Arc::new(Mutex::new(AllPosition::new(&config))),
         };

@@ -4,18 +4,33 @@ pub mod pair_config;
 pub mod router;
 pub mod state;
 pub mod utils;
-use anchor_client::solana_sdk::pubkey::Pubkey;
-use anchor_client::solana_sdk::signature::read_keypair_file;
-use anchor_client::solana_sdk::signer::Signer;
-use anchor_client::Cluster;
+
+use crate::pair_config::*;
+use crate::state::*;
+use crate::utils::*;
+
+use anchor_client::solana_client::nonblocking::rpc_client::*;
+use anchor_client::solana_sdk::pubkey::*;
+use anchor_client::solana_sdk::signature::*;
+use anchor_client::solana_sdk::*;
+use anchor_client::*;
+use solana_account_decoder::*;
+
+use anyhow::*;
+use commons::extensions::*;
+use commons::pda::*;
+use commons::rpc_client_extension::*;
+use commons::*;
+use dlmm_interface::*;
+
+use serde::*;
+use solana_client::rpc_config::*;
+
 use clap::Parser;
 use core::Core;
 use hyper::Server;
-use pair_config::{get_config_from_file, should_market_making};
 use router::router;
 use routerify::RouterService;
-use serde::{Deserialize, Serialize};
-use state::AllPosition;
 use std::convert::Into;
 use std::fmt::Debug;
 use std::str::FromStr;
@@ -41,11 +56,6 @@ impl Default for MarketMakingMode {
         MarketMakingMode::ModeView
     }
 }
-// impl fmt::Display for MarketMakingMode {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         write!(f, "{}", MarketMakingMode::ModeRight)
-//     }
-// }
 
 impl FromStr for MarketMakingMode {
     type Err = anyhow::Error;
@@ -75,21 +85,10 @@ pub struct Args {
     /// config path
     #[clap(long)]
     config_file: String,
-    // /// public key pair address,
-    // #[clap(long)]
-    // pair_address: Pubkey,
-    // /// market making mode, Ex: mr: mode right
-    // #[clap(long)]
-    // mode: MarketMakingMode,
-    // // min amount for mm
-    // #[clap(long)]
-    // min_x_amount: u64,
-    // #[clap(long)]
-    // min_y_amount: u64,
 }
 
-#[tokio::main(worker_threads = 20)] // TODO figure out why it is blocking in linux
-async fn main() {
+#[tokio::main]
+async fn main() -> Result<()> {
     env_logger::init();
 
     let Args {
@@ -99,21 +98,18 @@ async fn main() {
         config_file,
     } = Args::parse();
 
-    let config = get_config_from_file(&config_file).unwrap();
-
-    // info!("{:?}", mode);
+    let config = get_config_from_file(&config_file)?;
+    let wallet = wallet.and_then(|path| read_keypair_file(path).ok());
 
     let user_wallet = if should_market_making(&config) {
-        let wallet =
-            read_keypair_file(wallet.clone().unwrap()).expect("Wallet keypair file not found");
-        wallet.pubkey()
+        wallet.as_ref().context("Require keypair")?.pubkey()
     } else {
         user_public_key.unwrap()
     };
 
     let core = Core {
         provider,
-        wallet,
+        wallet: wallet.map(Arc::new),
         owner: user_wallet,
         config: config.clone(),
         state: Arc::new(Mutex::new(AllPosition::new(&config))),
@@ -121,8 +117,10 @@ async fn main() {
 
     // init some state
     core.refresh_state().await.unwrap();
-    core.fetch_token_info().unwrap();
+    core.fetch_token_info().await.unwrap();
+
     let core = Arc::new(core);
+
     let mut handles = vec![];
     {
         // crawl epoch down
@@ -133,10 +131,9 @@ async fn main() {
             loop {
                 interval.tick().await;
                 info!("refresh state");
-                match core.refresh_state().await {
-                    Ok(_) => {}
-                    Err(err) => error!("refresh_state err {}", err),
-                }
+                if let Err(err) = core.refresh_state().await {
+                    error!("refresh_state err {}", err)
+                };
             }
         });
         handles.push(handle);
@@ -156,17 +153,14 @@ async fn main() {
                 loop {
                     interval.tick().await;
                     info!("check shift price range");
-                    match core.check_shift_price_range().await {
-                        Ok(_) => {}
-                        Err(err) => error!("check shift price err {}", err),
+                    if let Err(err) = core.check_shift_price_range().await {
+                        error!("check shift price err {}", err)
                     }
                 }
             });
             handles.push(handle);
         }
     }
-
-    // let mut handles = vec![];
 
     let router = router(core);
 
@@ -181,4 +175,6 @@ async fn main() {
     for handle in handles {
         handle.await.unwrap();
     }
+
+    Ok(())
 }
