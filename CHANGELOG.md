@@ -65,8 +65,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
-- `seedLiquiditySingleBin`. Checkout [meteora-pool-setup](https://github.com/MeteoraAg/meteora-pool-setup/blob/main/src/seed_liquidity_single_bin.ts) repository
-- `seedLiquidity`. Checkout [meteora-pool-setup](https://github.com/MeteoraAg/meteora-pool-setup/blob/main/src/seed_liquidity_lfg.ts) repository
 - `getWithdrawSingleSideAmount`. Unused.
 - `createPermissionLbPair`. Admin-only function.
 - `findSwappableMinMaxBinId`. Unused anymore.
