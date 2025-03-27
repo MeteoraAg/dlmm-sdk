@@ -23,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Add `getCustomizablePermissionlessLbPairIfExists` function to fetch existing customizable permissionless LB pair
+- Add `getCustomizablePermissionlessLbPairIfExists` function to fetch existing customizable permissionless LB pair.
 
 ### Changed
 
