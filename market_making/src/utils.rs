@@ -1,14 +1,42 @@
-use crate::*;
-use anchor_spl::associated_token::get_associated_token_address_with_program_id;
-use commitment_config::CommitmentConfig;
-use dlmm_interface::events::SwapEvent;
-use solana_client::rpc_response::{Response, RpcSimulateTransactionResult};
-use solana_sdk::instruction::Instruction;
+use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
+use anchor_client::solana_client::rpc_config::RpcTransactionConfig;
+use anchor_client::solana_client::rpc_response::Response;
+use anchor_client::solana_client::rpc_response::RpcSimulateTransactionResult;
+use anchor_client::solana_sdk::commitment_config::CommitmentConfig;
+use anchor_client::solana_sdk::signature::Signature;
+use anchor_client::solana_sdk::signer::keypair::Keypair;
+use anchor_client::solana_sdk::transaction::Transaction;
+use anchor_client::RequestBuilder;
+use anchor_client::{
+    solana_sdk::{pubkey::Pubkey, signer::Signer},
+    Client, Cluster, Program,
+};
+use anchor_lang::event::EVENT_IX_TAG_LE;
+use anchor_lang::{AnchorDeserialize, AnchorSerialize, Discriminator};
+use anchor_spl::associated_token::get_associated_token_address;
+use anchor_spl::token::spl_token;
+use anyhow::*;
+use lb_clmm::events::Swap as SwapEvent;
 use solana_transaction_status::option_serializer::OptionSerializer;
 use solana_transaction_status::{UiInstruction, UiTransactionEncoding};
 use spl_associated_token_account::instruction::create_associated_token_account;
-use std::time::*;
-use transaction::Transaction;
+use std::ops::Deref;
+use std::result::Result::Ok;
+use std::time::{SystemTime, UNIX_EPOCH};
+
+/// Create an anchor program instance
+pub fn create_program<C: Clone + std::ops::Deref<Target = impl Signer>>(
+    http_provider: String,
+    wss_provider: String,
+    program_id: Pubkey,
+    payer: C,
+) -> Result<Program<C>> {
+    let cluster = Cluster::Custom(http_provider, wss_provider);
+    let client = Client::new(cluster, payer);
+    let program = client.program(program_id)?;
+
+    Ok(program)
+}
 
 pub fn get_epoch_sec() -> u64 {
     SystemTime::now()
@@ -17,36 +45,38 @@ pub fn get_epoch_sec() -> u64 {
         .as_secs()
 }
 
-pub async fn get_or_create_ata(
-    rpc_client: &RpcClient,
+pub async fn get_or_create_ata<C: Deref<Target = impl Signer> + Clone>(
+    program: &Program<C>,
     token_mint: Pubkey,
-    program_id: Pubkey,
     wallet_address: Pubkey,
     payer: &Keypair,
 ) -> Result<Pubkey> {
-    let user_ata =
-        get_associated_token_address_with_program_id(&wallet_address, &token_mint, &program_id);
+    let user_ata = get_associated_token_address(&wallet_address, &token_mint);
 
-    let user_ata_exists = rpc_client.get_account(&user_ata).await.is_ok();
+    let rpc_client = program.rpc();
+    let user_ata_exists = rpc_client.get_account(&user_ata).is_ok();
 
-    if !user_ata_exists {
-        let create_ata_ix = create_associated_token_account(
-            &payer.pubkey(),
-            &wallet_address,
-            &token_mint,
-            &program_id,
-        );
+    match user_ata_exists {
+        true => Ok(user_ata),
+        false => {
+            let builder = program
+                .request()
+                .instruction(create_associated_token_account(
+                    &payer.pubkey(),
+                    &wallet_address,
+                    &token_mint,
+                    &spl_token::ID,
+                ));
 
-        let signature = send_tx(&[create_ata_ix], rpc_client, &[], payer).await?;
-        println!("Create ata {token_mint} {wallet_address} {signature}");
+            let signature = send_tx(vec![payer], payer.pubkey(), program, &builder)?;
+            println!("create ata {token_mint} {wallet_address} {signature}");
+            Ok(user_ata)
+        }
     }
-
-    Ok(user_ata)
 }
 
 pub fn get_transaction_config() -> RpcSendTransactionConfig {
     let commitment_config = CommitmentConfig::confirmed();
-
     RpcSendTransactionConfig {
         skip_preflight: false,
         preflight_commitment: Some(commitment_config.commitment),
@@ -56,53 +86,57 @@ pub fn get_transaction_config() -> RpcSendTransactionConfig {
     }
 }
 
-pub async fn send_tx(
-    instructions: &[Instruction],
-    rpc_client: &RpcClient,
-    keypairs: &[&Keypair],
-    payer: &Keypair,
+pub fn send_tx<C: Clone + std::ops::Deref<Target = impl Signer>>(
+    keypairs: Vec<&Keypair>,
+    payer: Pubkey,
+    program: &Program<C>,
+    builder: &RequestBuilder<C>,
 ) -> Result<Signature> {
-    let latest_blockhash = rpc_client.get_latest_blockhash().await?;
-
-    let mut tx = Transaction::new_signed_with_payer(
-        instructions,
-        Some(&payer.pubkey()),
-        keypairs,
+    let rpc_client = program.rpc();
+    let latest_blockhash = rpc_client.get_latest_blockhash()?;
+    let tx = Transaction::new_signed_with_payer(
+        &builder.instructions()?,
+        Some(&payer),
+        &keypairs,
         latest_blockhash,
     );
-    tx.sign(&[payer], latest_blockhash);
 
-    let signature = rpc_client.send_and_confirm_transaction(&tx).await?;
-
+    let signature = rpc_client.send_and_confirm_transaction(&tx)?;
     Ok(signature)
 }
 
-pub async fn simulate_transaction(
-    instructions: &[Instruction],
-    rpc_client: &RpcClient,
-    keypairs: &[&Keypair],
+pub fn simulate_transaction<C: Clone + std::ops::Deref<Target = impl Signer>>(
+    keypairs: Vec<&Keypair>,
     payer: Pubkey,
+    program: &Program<C>,
+    builder: &RequestBuilder<C>,
 ) -> Result<Response<RpcSimulateTransactionResult>> {
-    let latest_blockhash = rpc_client.get_latest_blockhash().await?;
+    let instructions = builder.instructions()?;
+    let rpc_client = program.rpc();
+    let recent_blockhash = rpc_client.get_latest_blockhash()?;
+    let tx = Transaction::new_signed_with_payer(
+        &instructions,
+        Some(&payer),
+        &keypairs,
+        recent_blockhash,
+    );
 
-    let tx =
-        Transaction::new_signed_with_payer(&instructions, Some(&payer), keypairs, latest_blockhash);
-    let simulation = rpc_client.simulate_transaction(&tx).await?;
-
+    let simulation = rpc_client.simulate_transaction(&tx)?;
     Ok(simulation)
 }
 
-pub async fn parse_swap_event(rpc_client: &RpcClient, signature: Signature) -> Result<SwapEvent> {
-    let tx = rpc_client
-        .get_transaction_with_config(
-            &signature,
-            RpcTransactionConfig {
-                encoding: Some(UiTransactionEncoding::Base64),
-                commitment: Some(CommitmentConfig::finalized()),
-                max_supported_transaction_version: Some(0),
-            },
-        )
-        .await?;
+pub fn parse_swap_event<C: Clone + std::ops::Deref<Target = impl Signer>>(
+    program: &Program<C>,
+    signature: Signature,
+) -> Result<SwapEvent> {
+    let tx = program.rpc().get_transaction_with_config(
+        &signature,
+        RpcTransactionConfig {
+            encoding: Some(UiTransactionEncoding::Base64),
+            commitment: Some(CommitmentConfig::finalized()),
+            max_supported_transaction_version: Some(0),
+        },
+    )?;
 
     if let Some(meta) = &tx.transaction.meta {
         if let OptionSerializer::Some(inner_instructions) = meta.inner_instructions.as_ref() {
@@ -113,10 +147,11 @@ pub async fn parse_swap_event(rpc_client: &RpcClient, signature: Signature) -> R
             for ix in inner_ixs {
                 match ix {
                     UiInstruction::Compiled(compiled_ix) => {
-                        if let std::result::Result::Ok(ix_data) =
-                            bs58::decode(compiled_ix.data.as_str()).into_vec()
-                        {
-                            return Ok(SwapEvent::deserialize(&mut ix_data.as_ref())?);
+                        if let Ok(ix_data) = bs58::decode(compiled_ix.data.as_str()).into_vec() {
+                            match parse_event_cpi::<SwapEvent>(&ix_data) {
+                                Some(event) => return Ok(event),
+                                None => {}
+                            }
                         };
                     }
                     _ => {}
@@ -125,4 +160,19 @@ pub async fn parse_swap_event(rpc_client: &RpcClient, signature: Signature) -> R
         }
     }
     Err(Error::msg("Cannot find swap event"))
+}
+
+pub fn parse_event_cpi<T: AnchorDeserialize + AnchorSerialize + Discriminator>(
+    ix_data: &[u8],
+) -> Option<T> {
+    if &ix_data[..8] == EVENT_IX_TAG_LE {
+        let event_cpi = &ix_data[8..];
+        let event_discriminator = &event_cpi[..8];
+        if event_discriminator.eq(&T::discriminator()) {
+            let event = T::try_from_slice(&event_cpi[8..]);
+            return event.ok();
+        }
+    }
+
+    None
 }

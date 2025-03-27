@@ -1,6 +1,5 @@
 import {
   BN,
-  BorshAccountsCoder,
   IdlAccounts,
   IdlTypes,
   Program,
@@ -8,14 +7,9 @@ import {
 } from "@coral-xyz/anchor";
 import { LbClmm } from "../idl";
 import { getPriceOfBinByBinId } from "../helpers";
-import {
-  AccountMeta,
-  PublicKey,
-  TransactionInstruction,
-} from "@solana/web3.js";
+import { PublicKey, TransactionInstruction } from "@solana/web3.js";
 import Decimal from "decimal.js";
 import { u64, i64, struct } from "@coral-xyz/borsh";
-import { Mint } from "@solana/spl-token";
 
 export interface FeeInfo {
   baseFeeRatePercentage: Decimal;
@@ -32,10 +26,8 @@ export interface BinAndAmount {
 export interface TokenReserve {
   publicKey: PublicKey;
   reserve: PublicKey;
-  mint: Mint;
   amount: bigint;
-  owner: PublicKey;
-  transferHookAccountMetas: AccountMeta[];
+  decimal: number;
 }
 
 export type ClmmProgram = Program<LbClmm>;
@@ -50,14 +42,8 @@ export type BinArrayAccount = ProgramAccount<IdlAccounts<LbClmm>["binArray"]>;
 export type Position = IdlAccounts<LbClmm>["position"];
 export type PositionV2 = IdlAccounts<LbClmm>["positionV2"];
 
-export type PresetParameter = IdlAccounts<LbClmm>["presetParameter"];
-export type PresetParameter2 = IdlAccounts<LbClmm>["presetParameter2"];
-
 export type vParameters = IdlAccounts<LbClmm>["lbPair"]["vParameters"];
 export type sParameters = IdlAccounts<LbClmm>["lbPair"]["parameters"];
-
-export type UserRewardInfo = IdlTypes<LbClmm>["UserRewardInfo"];
-export type UserFeeInfo = IdlTypes<LbClmm>["FeeInfo"];
 
 export type InitPermissionPairIx = IdlTypes<LbClmm>["InitPermissionPairIx"];
 export type InitCustomizablePermissionlessPairIx =
@@ -87,16 +73,9 @@ export type LiquidityParameter = IdlTypes<LbClmm>["LiquidityParameter"];
 export type ProgramStrategyParameter = IdlTypes<LbClmm>["StrategyParameters"];
 export type ProgramStrategyType = IdlTypes<LbClmm>["StrategyType"];
 
-export type RemainingAccountInfo = IdlTypes<LbClmm>["RemainingAccountsInfo"];
-export type RemainingAccountsInfoSlice =
-  IdlTypes<LbClmm>["RemainingAccountsSlice"];
-
 export type CompressedBinDepositAmount =
   IdlTypes<LbClmm>["CompressedBinDepositAmount"];
 export type CompressedBinDepositAmounts = CompressedBinDepositAmount[];
-
-export const POSITION_V2_DISC =
-  BorshAccountsCoder.accountDiscriminator("positionV2");
 
 export interface LbPosition {
   publicKey: PublicKey;
@@ -136,7 +115,6 @@ export interface LMRewards {
 export enum PositionVersion {
   V1,
   V2,
-  V3,
 }
 
 export enum PairType {
@@ -201,9 +179,6 @@ export interface BinLiquidity {
   version: number;
   price: string;
   pricePerToken: string;
-  feeAmountXPerTokenStored: BN;
-  feeAmountYPerTokenStored: BN;
-  rewardPerTokenStored: BN[];
 }
 
 export module BinLiquidity {
@@ -215,7 +190,10 @@ export module BinLiquidity {
     quoteTokenDecimal: number,
     version: number
   ): BinLiquidity {
-    const pricePerLamport = getPriceOfBinByBinId(binId, binStep).toString();
+    const pricePerLamport = getPriceOfBinByBinId(
+      binId,
+      binStep
+    ).toString();
     return {
       binId,
       xAmount: bin.amountX,
@@ -226,9 +204,6 @@ export module BinLiquidity {
       pricePerToken: new Decimal(pricePerLamport)
         .mul(new Decimal(10 ** (baseTokenDecimal - quoteTokenDecimal)))
         .toString(),
-      feeAmountXPerTokenStored: bin.feeAmountXPerTokenStored,
-      feeAmountYPerTokenStored: bin.feeAmountYPerTokenStored,
-      rewardPerTokenStored: bin.rewardPerTokenStored,
     };
   }
 
@@ -239,7 +214,10 @@ export module BinLiquidity {
     quoteTokenDecimal: number,
     version: number
   ): BinLiquidity {
-    const pricePerLamport = getPriceOfBinByBinId(binId, binStep).toString();
+    const pricePerLamport = getPriceOfBinByBinId(
+      binId,
+      binStep
+    ).toString();
     return {
       binId,
       xAmount: new BN(0),
@@ -250,9 +228,6 @@ export module BinLiquidity {
       pricePerToken: new Decimal(pricePerLamport)
         .mul(new Decimal(10 ** (baseTokenDecimal - quoteTokenDecimal)))
         .toString(),
-      feeAmountXPerTokenStored: new BN(0),
-      feeAmountYPerTokenStored: new BN(0),
-      rewardPerTokenStored: [new BN(0), new BN(0)],
     };
   }
 }
@@ -293,9 +268,6 @@ export interface PositionBinData {
   positionLiquidity: string;
   positionXAmount: string;
   positionYAmount: string;
-  positionFeeXAmount: string;
-  positionFeeYAmount: string;
-  positionRewardAmount: string[];
 }
 
 export interface PositionData {
@@ -312,13 +284,6 @@ export interface PositionData {
   feeOwner: PublicKey;
   totalClaimedFeeXAmount: BN;
   totalClaimedFeeYAmount: BN;
-  feeXExcludeTransferFee: BN;
-  feeYExcludeTransferFee: BN;
-  rewardOneExcludeTransferFee: BN;
-  rewardTwoExcludeTransferFee: BN;
-  totalXAmountExcludeTransferFee: BN;
-  totalYAmountExcludeTransferFee: BN;
-  owner: PublicKey;
 }
 
 export interface SwapWithPriceImpactParams {
@@ -447,18 +412,9 @@ export interface PairLockInfo {
 }
 
 export interface PositionLockInfo {
-  positionAddress: PublicKey;
-  owner: PublicKey;
-  tokenXAmount: string;
-  tokenYAmount: string;
-  lockReleasePoint: number;
+  positionAddress: PublicKey,
+  owner: PublicKey,
+  tokenXAmount: string,
+  tokenYAmount: string,
+  lockReleasePoint: number
 }
-
-export enum ActionType {
-  Liquidity,
-  Reward,
-}
-
-export const MEMO_PROGRAM_ID = new PublicKey(
-  "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"
-);

@@ -10,10 +10,7 @@ import { Rounding, mulShr, shlDiv } from "./math";
 import { getOutAmount } from ".";
 
 export function getBaseFee(binStep: number, sParameter: sParameters) {
-  return new BN(sParameter.baseFactor)
-    .mul(new BN(binStep))
-    .mul(new BN(10))
-    .mul(new BN(10).pow(new BN(sParameter.baseFeePowerFactor)));
+  return new BN(sParameter.baseFactor).mul(new BN(binStep)).mul(new BN(10));
 }
 
 export function getVariableFee(

@@ -1,27 +1,11 @@
-# DLMM Cli
+# Liquidity Book CLMM Cli
 
-Command line utility for managing DLMM program.
+Command line utility for managing CLMM program.
 
-### Toolchain
+### Usage
 
-```
-channel = 1.76.0
-```
-
-If you're using M1 chip
+All commands can be shown by running.
 
 ```
-channel = 1.76.0
-target triple = x86_64-apple-darwin
-# Eg: 1.76.0-x86_64-apple-darwin
+cargo run -- --help
 ```
-
-### Build
-
-```
-cargo build
-```
-
-### Run
-
-target/debug/cli --help

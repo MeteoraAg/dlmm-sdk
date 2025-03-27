@@ -1,11 +1,11 @@
 import { BN, EventParser } from "@coral-xyz/anchor";
 import {
-  ASSOCIATED_TOKEN_PROGRAM_ID,
   NATIVE_MINT,
   TOKEN_PROGRAM_ID,
   TokenAccountNotFoundError,
   TokenInvalidAccountOwnerError,
   createAssociatedTokenAccountIdempotentInstruction,
+  createAssociatedTokenAccountInstruction,
   createCloseAccountInstruction,
   getAccount,
   getAssociatedTokenAddressSync,
@@ -37,7 +37,11 @@ export function chunks<T>(array: T[], size: number): T[][] {
   );
 }
 
-export function range<T>(min: number, max: number, mapfn: (i: number) => T) {
+export function range<T>(
+  min: number,
+  max: number,
+  mapfn: (i: number) => T
+) {
   const length = max - min + 1;
   return Array.from({ length }, (_, i) => mapfn(min + i));
 }
@@ -89,21 +93,17 @@ export const getOrCreateATAInstruction = async (
   connection: Connection,
   tokenMint: PublicKey,
   owner: PublicKey,
-  programId?: PublicKey,
   payer: PublicKey = owner,
   allowOwnerOffCurve = true
 ): Promise<GetOrCreateATAResponse> => {
-  programId = programId ?? TOKEN_PROGRAM_ID;
   const toAccount = getAssociatedTokenAddressSync(
     tokenMint,
     owner,
-    allowOwnerOffCurve,
-    programId,
-    ASSOCIATED_TOKEN_PROGRAM_ID
+    allowOwnerOffCurve
   );
 
   try {
-    await getAccount(connection, toAccount, connection.commitment, programId);
+    await getAccount(connection, toAccount);
 
     return { ataPubKey: toAccount, ix: undefined };
   } catch (e) {
@@ -115,9 +115,7 @@ export const getOrCreateATAInstruction = async (
         payer,
         toAccount,
         owner,
-        tokenMint,
-        programId,
-        ASSOCIATED_TOKEN_PROGRAM_ID
+        tokenMint
       );
 
       return { ataPubKey: toAccount, ix };

@@ -1,14 +1,23 @@
-use crate::*;
-use instructions::*;
+use crate::instructions::utils::get_or_create_ata;
+use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
+use anchor_client::solana_sdk::instruction::Instruction;
+use anchor_client::{solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, Program};
+use anyhow::*;
+use lb_clmm::accounts;
+use lb_clmm::instruction;
+use lb_clmm::state::bin::BinArray;
+use lb_clmm::state::lb_pair::LbPair;
+use lb_clmm::utils::pda::*;
+use std::ops::Deref;
 
-#[derive(Debug, Parser)]
+#[derive(Debug)]
 pub struct FundRewardParams {
     pub lb_pair: Pubkey,
     pub reward_index: u64,
     pub funding_amount: u64,
 }
 
-pub async fn execute_fund_reward<C: Deref<Target = impl Signer> + Clone>(
+pub async fn fund_reward<C: Deref<Target = impl Signer> + Clone>(
     params: FundRewardParams,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
@@ -20,20 +29,13 @@ pub async fn execute_fund_reward<C: Deref<Target = impl Signer> + Clone>(
         funding_amount,
     } = params;
 
-    let rpc_client = program.async_rpc();
-
-    let (reward_vault, _bump) = derive_reward_vault_pda(lb_pair, reward_index);
-
-    let lb_pair_state = rpc_client
-        .get_account_and_deserialize(&lb_pair, |account| {
-            Ok(LbPairAccount::deserialize(&account.data)?.0)
-        })
-        .await?;
-
+    let (reward_vault, _bump) = Pubkey::find_program_address(
+        &[lb_pair.as_ref(), reward_index.to_le_bytes().as_ref()],
+        &lb_clmm::ID,
+    );
+    let lb_pair_state: LbPair = program.account(lb_pair).await?;
     let reward_info = lb_pair_state.reward_infos[reward_index as usize];
     let reward_mint = reward_info.mint;
-
-    let reward_mint_program = rpc_client.get_account(&reward_mint).await?.owner;
 
     let funder_token_account = get_or_create_ata(
         program,
@@ -49,48 +51,28 @@ pub async fn execute_fund_reward<C: Deref<Target = impl Signer> + Clone>(
 
     let (event_authority, _bump) = derive_event_authority_pda();
 
-    let reward_transfer_hook_accounts =
-        get_extra_account_metas_for_transfer_hook(reward_mint, program.async_rpc()).await?;
-
-    let remaining_accounts_info = RemainingAccountsInfo {
-        slices: vec![RemainingAccountsSlice {
-            accounts_type: AccountsType::TransferHookReward,
-            length: reward_transfer_hook_accounts.len() as u8,
-        }],
-    };
-
-    let main_accounts: [AccountMeta; FUND_REWARD_IX_ACCOUNTS_LEN] = FundRewardKeys {
+    let accounts = accounts::FundReward {
         lb_pair,
         reward_vault,
         reward_mint,
         funder: program.payer(),
         funder_token_account,
         bin_array,
-        token_program: reward_mint_program,
+        token_program: anchor_spl::token::ID,
         event_authority,
-        program: dlmm_interface::ID,
-    }
-    .into();
+        program: lb_clmm::ID,
+    };
 
-    let data = FundRewardIxData(FundRewardIxArgs {
+    let ix = instruction::FundReward {
         reward_index,
         amount: funding_amount,
         carry_forward: true,
-        remaining_accounts_info,
-    })
-    .try_to_vec()?;
-
-    let accounts = [main_accounts.to_vec(), reward_transfer_hook_accounts].concat();
-
-    let fund_reward_ix = Instruction {
-        program_id: dlmm_interface::ID,
-        accounts,
-        data,
     };
 
     let request_builder = program.request();
     let signature = request_builder
-        .instruction(fund_reward_ix)
+        .accounts(accounts)
+        .args(ix)
         .send_with_spinner_and_config(transaction_config)
         .await;
 

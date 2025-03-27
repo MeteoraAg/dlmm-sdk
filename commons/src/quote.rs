@@ -1,8 +1,15 @@
-use crate::*;
 use anchor_client::solana_sdk::pubkey::Pubkey;
-use core::result::Result::Ok;
-use solana_sdk::{account::Account, clock::Clock};
-use std::{collections::HashMap, ops::Deref};
+use anyhow::{ensure, Context, Result};
+use lb_clmm::{
+    pair_action_access::ActivationType,
+    state::{
+        bin::{Bin, BinArray, SwapResult},
+        bin_array_bitmap_extension::BinArrayBitmapExtension,
+        lb_pair::{LbPair, PairStatus, PairType},
+    },
+    utils::pda::derive_bin_array_pda,
+};
+use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct SwapExactInQuote {
@@ -28,8 +35,8 @@ fn validate_swap_activation(
 
     let pair_type = lb_pair.pair_type()?;
     if pair_type.eq(&PairType::Permission) {
-        let activation_type = lb_pair.activation_type()?;
-        let current_point = match activation_type.deref() {
+        let activation_type = ActivationType::try_from(lb_pair.activation_type)?;
+        let current_point = match activation_type {
             ActivationType::Slot => current_slot,
             ActivationType::Timestamp => current_timestamp,
         };
@@ -43,7 +50,6 @@ fn validate_swap_activation(
     Ok(())
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn quote_exact_out(
     lb_pair_pubkey: Pubkey,
     lb_pair: &LbPair,
@@ -51,14 +57,9 @@ pub fn quote_exact_out(
     swap_for_y: bool,
     bin_arrays: HashMap<Pubkey, BinArray>,
     bitmap_extension: Option<&BinArrayBitmapExtension>,
-    clock: &Clock,
-    mint_x_account: &Account,
-    mint_y_account: &Account,
+    current_timestamp: u64,
+    current_slot: u64,
 ) -> Result<SwapExactOutQuote> {
-    let current_timestamp = clock.unix_timestamp as u64;
-    let current_slot = clock.slot;
-    let epoch = clock.epoch;
-
     validate_swap_activation(lb_pair, current_timestamp, current_slot)?;
 
     let mut lb_pair = *lb_pair;
@@ -66,15 +67,6 @@ pub fn quote_exact_out(
 
     let mut total_amount_in: u64 = 0;
     let mut total_fee: u64 = 0;
-
-    let (in_mint_account, out_mint_account) = if swap_for_y {
-        (mint_x_account, mint_y_account)
-    } else {
-        (mint_y_account, mint_x_account)
-    };
-
-    amount_out =
-        calculate_transfer_fee_included_amount(out_mint_account, amount_out, epoch)?.amount;
 
     while amount_out > 0 {
         let active_bin_array_pubkey = get_bin_array_pubkeys_for_swap(
@@ -93,7 +85,11 @@ pub fn quote_exact_out(
             .context("Active bin array not found")?;
 
         loop {
-            if !active_bin_array.is_bin_id_within_range(lb_pair.active_id)? || amount_out == 0 {
+            if active_bin_array
+                .is_bin_id_within_range(lb_pair.active_id)
+                .is_err()
+                || amount_out == 0
+            {
                 break;
             }
 
@@ -137,35 +133,22 @@ pub fn quote_exact_out(
         }
     }
 
-    total_amount_in = total_amount_in
-        .checked_add(total_fee)
-        .context("MathOverflow")?;
-
-    total_amount_in =
-        calculate_transfer_fee_included_amount(in_mint_account, total_amount_in, epoch)?.amount;
-
     Ok(SwapExactOutQuote {
         amount_in: total_amount_in,
         fee: total_fee,
     })
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn quote_exact_in(
     lb_pair_pubkey: Pubkey,
     lb_pair: &LbPair,
-    amount_in: u64,
+    mut amount_in: u64,
     swap_for_y: bool,
     bin_arrays: HashMap<Pubkey, BinArray>,
     bitmap_extension: Option<&BinArrayBitmapExtension>,
-    clock: &Clock,
-    mint_x_account: &Account,
-    mint_y_account: &Account,
+    current_timestamp: u64,
+    current_slot: u64,
 ) -> Result<SwapExactInQuote> {
-    let current_timestamp = clock.unix_timestamp as u64;
-    let current_slot = clock.slot;
-    let epoch = clock.epoch;
-
     validate_swap_activation(lb_pair, current_timestamp, current_slot)?;
 
     let mut lb_pair = *lb_pair;
@@ -174,18 +157,7 @@ pub fn quote_exact_in(
     let mut total_amount_out: u64 = 0;
     let mut total_fee: u64 = 0;
 
-    let (in_mint_account, out_mint_account) = if swap_for_y {
-        (mint_x_account, mint_y_account)
-    } else {
-        (mint_y_account, mint_x_account)
-    };
-
-    let transfer_fee_excluded_amount_in =
-        calculate_transfer_fee_excluded_amount(in_mint_account, amount_in, epoch)?.amount;
-
-    let mut amount_left = transfer_fee_excluded_amount_in;
-
-    while amount_left > 0 {
+    while amount_in > 0 {
         let active_bin_array_pubkey = get_bin_array_pubkeys_for_swap(
             lb_pair_pubkey,
             &lb_pair,
@@ -202,7 +174,11 @@ pub fn quote_exact_in(
             .context("Active bin array not found")?;
 
         loop {
-            if !active_bin_array.is_bin_id_within_range(lb_pair.active_id)? || amount_in == 0 {
+            if active_bin_array
+                .is_bin_id_within_range(lb_pair.active_id)
+                .is_err()
+                || amount_in == 0
+            {
                 break;
             }
 
@@ -217,9 +193,9 @@ pub fn quote_exact_in(
                     amount_out,
                     fee,
                     ..
-                } = active_bin.swap(amount_left, price, swap_for_y, &lb_pair, None)?;
+                } = active_bin.swap(amount_in, price, swap_for_y, &lb_pair, None)?;
 
-                amount_left = amount_left
+                amount_in = amount_in
                     .checked_sub(amount_in_with_fees)
                     .context("MathOverflow")?;
 
@@ -235,11 +211,8 @@ pub fn quote_exact_in(
         }
     }
 
-    let transfer_fee_excluded_amount_out =
-        calculate_transfer_fee_excluded_amount(out_mint_account, total_amount_out, epoch)?.amount;
-
     Ok(SwapExactInQuote {
-        amount_out: transfer_fee_excluded_amount_out,
+        amount_out: total_amount_out,
         fee: total_fee,
     })
 }
@@ -304,11 +277,14 @@ pub fn get_bin_array_pubkeys_for_swap(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use anchor_client::anchor_lang::AccountDeserialize;
     use anchor_client::solana_sdk::clock::Clock;
     use anchor_client::{
-        solana_client::nonblocking::rpc_client::RpcClient, solana_sdk::pubkey::Pubkey, Cluster,
+        solana_client::nonblocking::rpc_client::RpcClient,
+        solana_sdk::{pubkey::Pubkey, signature::Keypair},
+        Client, Cluster,
     };
-    use std::str::FromStr;
+    use std::{rc::Rc, str::FromStr};
 
     /// Get on chain clock
     async fn get_clock(rpc_client: RpcClient) -> Result<Clock> {
@@ -326,28 +302,25 @@ mod tests {
         // RPC client. No gPA is required.
         let rpc_client = RpcClient::new(Cluster::Mainnet.url().to_string());
 
-        let sol_usdc = Pubkey::from_str("HTvjzsfX3yU6BUodCjZ5vZkUrAxMDTrBs3CJaq43ashR").unwrap();
+        let client = Client::new(
+            Cluster::Custom(rpc_client.url(), rpc_client.url()),
+            Rc::new(Keypair::new()),
+        );
 
-        let lb_pair_account = rpc_client.get_account(&sol_usdc).await.unwrap();
+        let program = client.program(lb_clmm::ID).unwrap();
 
-        let lb_pair = LbPairAccount::deserialize(&lb_pair_account.data).unwrap().0;
+        let SOL_USDC = Pubkey::from_str("HTvjzsfX3yU6BUodCjZ5vZkUrAxMDTrBs3CJaq43ashR").unwrap();
 
-        let mut mint_accounts = rpc_client
-            .get_multiple_accounts(&[lb_pair.token_x_mint, lb_pair.token_y_mint])
-            .await
-            .unwrap();
-
-        let mint_x_account = mint_accounts[0].take().unwrap();
-        let mint_y_account = mint_accounts[1].take().unwrap();
+        let lb_pair = program.account::<LbPair>(SOL_USDC).await.unwrap();
 
         // 3 bin arrays to left, and right is enough to cover most of the swap, and stay under 1.4m CU constraint.
         // Get 3 bin arrays to the left from the active bin
         let left_bin_array_pubkeys =
-            get_bin_array_pubkeys_for_swap(sol_usdc, &lb_pair, None, true, 3).unwrap();
+            get_bin_array_pubkeys_for_swap(SOL_USDC, &lb_pair, None, true, 3).unwrap();
 
         // Get 3 bin arrays to the right the from active bin
         let right_bin_array_pubkeys =
-            get_bin_array_pubkeys_for_swap(sol_usdc, &lb_pair, None, false, 3).unwrap();
+            get_bin_array_pubkeys_for_swap(SOL_USDC, &lb_pair, None, false, 3).unwrap();
 
         // Fetch bin arrays
         let bin_array_pubkeys = left_bin_array_pubkeys
@@ -366,9 +339,7 @@ mod tests {
             .map(|(account, key)| {
                 (
                     key,
-                    BinArrayAccount::deserialize(&account.unwrap().data)
-                        .unwrap()
-                        .0,
+                    BinArray::try_deserialize(&mut account.unwrap().data.as_ref()).unwrap(),
                 )
             })
             .collect::<HashMap<_, _>>();
@@ -380,15 +351,14 @@ mod tests {
         let clock = get_clock(rpc_client).await.unwrap();
 
         let quote_result = quote_exact_out(
-            sol_usdc,
+            SOL_USDC,
             &lb_pair,
             out_sol_amount,
             false,
             bin_arrays.clone(),
             None,
-            &clock,
-            &mint_x_account,
-            &mint_y_account,
+            clock.unix_timestamp as u64,
+            clock.slot,
         )
         .unwrap();
 
@@ -400,15 +370,14 @@ mod tests {
         );
 
         let quote_result = quote_exact_in(
-            sol_usdc,
+            SOL_USDC,
             &lb_pair,
             in_amount,
             false,
             bin_arrays.clone(),
             None,
-            &clock,
-            &mint_x_account,
-            &mint_y_account,
+            clock.unix_timestamp as u64,
+            clock.slot,
         )
         .unwrap();
 
@@ -421,15 +390,14 @@ mod tests {
         let out_usdc_amount = 200_000_000;
 
         let quote_result = quote_exact_out(
-            sol_usdc,
+            SOL_USDC,
             &lb_pair,
             out_usdc_amount,
             true,
             bin_arrays.clone(),
             None,
-            &clock,
-            &mint_x_account,
-            &mint_y_account,
+            clock.unix_timestamp as u64,
+            clock.slot,
         )
         .unwrap();
 
@@ -441,15 +409,14 @@ mod tests {
         );
 
         let quote_result = quote_exact_in(
-            sol_usdc,
+            SOL_USDC,
             &lb_pair,
             in_amount,
             true,
             bin_arrays,
             None,
-            &clock,
-            &mint_x_account,
-            &mint_y_account,
+            clock.unix_timestamp as u64,
+            clock.slot,
         )
         .unwrap();
 
@@ -465,28 +432,25 @@ mod tests {
         // RPC client. No gPA is required.
         let rpc_client = RpcClient::new(Cluster::Mainnet.url().to_string());
 
-        let sol_usdc = Pubkey::from_str("HTvjzsfX3yU6BUodCjZ5vZkUrAxMDTrBs3CJaq43ashR").unwrap();
+        let client = Client::new(
+            Cluster::Custom(rpc_client.url(), rpc_client.url()),
+            Rc::new(Keypair::new()),
+        );
 
-        let lb_pair_account = rpc_client.get_account(&sol_usdc).await.unwrap();
+        let program = client.program(lb_clmm::ID).unwrap();
 
-        let lb_pair = LbPairAccount::deserialize(&lb_pair_account.data).unwrap().0;
+        let SOL_USDC = Pubkey::from_str("HTvjzsfX3yU6BUodCjZ5vZkUrAxMDTrBs3CJaq43ashR").unwrap();
 
-        let mut mint_accounts = rpc_client
-            .get_multiple_accounts(&[lb_pair.token_x_mint, lb_pair.token_y_mint])
-            .await
-            .unwrap();
-
-        let mint_x_account = mint_accounts[0].take().unwrap();
-        let mint_y_account = mint_accounts[1].take().unwrap();
+        let lb_pair = program.account::<LbPair>(SOL_USDC).await.unwrap();
 
         // 3 bin arrays to left, and right is enough to cover most of the swap, and stay under 1.4m CU constraint.
         // Get 3 bin arrays to the left from the active bin
         let left_bin_array_pubkeys =
-            get_bin_array_pubkeys_for_swap(sol_usdc, &lb_pair, None, true, 3).unwrap();
+            get_bin_array_pubkeys_for_swap(SOL_USDC, &lb_pair, None, true, 3).unwrap();
 
         // Get 3 bin arrays to the right the from active bin
         let right_bin_array_pubkeys =
-            get_bin_array_pubkeys_for_swap(sol_usdc, &lb_pair, None, false, 3).unwrap();
+            get_bin_array_pubkeys_for_swap(SOL_USDC, &lb_pair, None, false, 3).unwrap();
 
         // Fetch bin arrays
         let bin_array_pubkeys = left_bin_array_pubkeys
@@ -505,9 +469,7 @@ mod tests {
             .map(|(account, key)| {
                 (
                     key,
-                    BinArrayAccount::deserialize(&account.unwrap().data)
-                        .unwrap()
-                        .0,
+                    BinArray::try_deserialize(&mut account.unwrap().data.as_ref()).unwrap(),
                 )
             })
             .collect::<HashMap<_, _>>();
@@ -518,15 +480,14 @@ mod tests {
         let clock = get_clock(rpc_client).await.unwrap();
 
         let quote_result = quote_exact_in(
-            sol_usdc,
+            SOL_USDC,
             &lb_pair,
             in_sol_amount,
             true,
             bin_arrays.clone(),
             None,
-            &clock,
-            &mint_x_account,
-            &mint_y_account,
+            clock.unix_timestamp as u64,
+            clock.slot,
         )
         .unwrap();
 
@@ -539,15 +500,14 @@ mod tests {
         let in_usdc_amount = 100_000_000;
 
         let quote_result = quote_exact_in(
-            sol_usdc,
+            SOL_USDC,
             &lb_pair,
             in_usdc_amount,
             false,
             bin_arrays.clone(),
             None,
-            &clock,
-            &mint_x_account,
-            &mint_y_account,
+            clock.unix_timestamp as u64,
+            clock.slot,
         )
         .unwrap();
 
