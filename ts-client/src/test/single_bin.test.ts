@@ -193,37 +193,6 @@ describe("Single Bin Seed Liquidity Test", () => {
     });
 
     it("seed liquidity single bin", async () => {
-      try {
-        const positionOwnerTokenXBalance =
-          await connection.getTokenAccountBalance(positionOwnerTokenX);
-
-        if (positionOwnerTokenXBalance.value.amount == "0") {
-          await transfer(
-            connection,
-            owner,
-            userWEN,
-            positionOwnerTokenX,
-            owner,
-            1
-          );
-        }
-      } catch (err) {
-        await createAssociatedTokenAccount(
-          connection,
-          owner,
-          WEN,
-          positionOwnerKeypair.publicKey
-        );
-        await transfer(
-          connection,
-          owner,
-          userWEN,
-          positionOwnerTokenX,
-          owner,
-          1
-        );
-      }
-
       const ixs = await pair.seedLiquiditySingleBin(
         owner.publicKey,
         baseKeypair.publicKey,
@@ -233,7 +202,8 @@ describe("Single Bin Seed Liquidity Test", () => {
         positionOwnerKeypair.publicKey,
         feeOwnerKeypair.publicKey,
         owner.publicKey,
-        new BN(0)
+        new BN(0),
+        true
       );
 
       const { blockhash, lastValidBlockHeight } =
@@ -259,10 +229,10 @@ describe("Single Bin Seed Liquidity Test", () => {
         .getTokenAccountBalance(userWEN)
         .then((i) => new BN(i.value.amount));
 
-      // minus 1 send to positionOwnerTokenX account
       const actualDepositedAmount = beforeTokenXBalance.sub(afterTokenXBalance);
       expect(actualDepositedAmount.toString()).toEqual(
-        wenSeedAmount.toString()
+        // 1 prove token was sent to positionOwnerTokenX
+        wenSeedAmount.addn(1).toString()
       );
     });
   });

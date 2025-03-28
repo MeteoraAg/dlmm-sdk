@@ -5438,11 +5438,11 @@ export class DLMM {
       } else {
         const createPositionOwnerTokenXIx =
           createAssociatedTokenAccountIdempotentInstruction(
-            payer,
-            positionOwner,
-            this.lbPair.tokenXMint,
-            this.tokenX.owner,
-            positionOwnerTokenX
+            payer, 
+            positionOwnerTokenX, 
+            positionOwner, 
+            this.lbPair.tokenXMint, 
+            this.tokenX.owner
           );
         preInstructions.push(createPositionOwnerTokenXIx);
 
