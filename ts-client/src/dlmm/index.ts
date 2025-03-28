@@ -5439,10 +5439,10 @@ export class DLMM {
         const createPositionOwnerTokenXIx =
           createAssociatedTokenAccountIdempotentInstruction(
             payer,
+            positionOwnerTokenX,
             positionOwner,
             this.lbPair.tokenXMint,
-            this.tokenX.owner,
-            positionOwnerTokenX
+            this.tokenX.owner
           );
         preInstructions.push(createPositionOwnerTokenXIx);
 
@@ -5825,12 +5825,18 @@ export class DLMM {
       this.lbPair,
       this.binArrayBitmapExtension?.account ?? null
     );
-    const accountsToFetch = [];
-    const [binArrayBitMapExtensionPubkey] = deriveBinArrayBitmapExtension(
-      this.pubkey,
-      this.program.programId
+    const marketPriceBinArrayIndex = binIdToBinArrayIndex(
+      new BN(marketPriceBinId)
     );
-    accountsToFetch.push(binArrayBitMapExtensionPubkey);
+    const accountsToFetch = [];
+    const binArrayBitMapExtensionPubkey = isOverflowDefaultBinArrayBitmap(
+      new BN(marketPriceBinArrayIndex)
+    )
+      ? deriveBinArrayBitmapExtension(this.pubkey, this.program.programId)[0]
+      : null;
+
+    binArrayBitMapExtensionPubkey &&
+      accountsToFetch.push(binArrayBitMapExtensionPubkey);
     const [fromBinArrayPubkey] = deriveBinArray(
       this.pubkey,
       fromBinArrayIndex,
@@ -5856,11 +5862,23 @@ export class DLMM {
         accountsToFetch
       );
 
+    const preInstructions: TransactionInstruction[] = [];
     let fromBinArray: PublicKey | null = null;
     let toBinArray: PublicKey | null = null;
     let binArrayBitmapExtension: PublicKey | null = null;
-    if (!!binArrayAccounts?.[0]) {
+    if (binArrayBitMapExtensionPubkey) {
       binArrayBitmapExtension = binArrayBitMapExtensionPubkey;
+      if (!binArrayAccounts?.[0]) {
+        const initializeBitmapExtensionIx = await this.program.methods
+          .initializeBinArrayBitmapExtension()
+          .accounts({
+            binArrayBitmapExtension: binArrayBitMapExtensionPubkey,
+            funder: owner,
+            lbPair: this.pubkey,
+          })
+          .instruction();
+        preInstructions.push(initializeBitmapExtensionIx);
+      }
     }
     if (!!binArrayAccounts?.[1]) {
       fromBinArray = fromBinArrayPubkey;
@@ -5880,6 +5898,7 @@ export class DLMM {
         fromBinArray,
         toBinArray,
       })
+      .preInstructions(preInstructions)
       .transaction();
 
     return new Transaction({

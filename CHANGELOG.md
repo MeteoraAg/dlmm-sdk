@@ -19,6 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.4.7] - PR #191
+
+### Fixed
+
+- Fixed `seedLiquiditySingleBin` create token account for position owner token proof.
+- FIxed `syncWithMarketPrice` not initializing bitmap extensions if needed
+
 ## @meteora-ag/dlmm [1.4.6] - PR #190
 
 ### Fixed
