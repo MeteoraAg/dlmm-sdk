@@ -5398,7 +5398,7 @@ export class DLMM {
       this.lbPair.tokenXMint,
       positionOwner,
       true,
-      this.tokenY.owner
+      this.tokenX.owner
     );
 
     if (shouldSeedPositionOwner) {
