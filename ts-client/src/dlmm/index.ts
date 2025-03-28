@@ -5438,10 +5438,10 @@ export class DLMM {
       } else {
         const createPositionOwnerTokenXIx =
           createAssociatedTokenAccountIdempotentInstruction(
-            payer, 
-            positionOwnerTokenX, 
-            positionOwner, 
-            this.lbPair.tokenXMint, 
+            payer,
+            positionOwnerTokenX,
+            positionOwner,
+            this.lbPair.tokenXMint,
             this.tokenX.owner
           );
         preInstructions.push(createPositionOwnerTokenXIx);
@@ -5825,9 +5825,12 @@ export class DLMM {
       this.lbPair,
       this.binArrayBitmapExtension?.account ?? null
     );
+    const marketPriceBinArrayIndex = binIdToBinArrayIndex(
+      new BN(marketPriceBinId)
+    );
     const accountsToFetch = [];
     const binArrayBitMapExtensionPubkey = isOverflowDefaultBinArrayBitmap(
-      new BN(marketPriceBinId)
+      new BN(marketPriceBinArrayIndex)
     )
       ? deriveBinArrayBitmapExtension(this.pubkey, this.program.programId)[0]
       : null;
