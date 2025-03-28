@@ -11,7 +11,7 @@ pub async fn execute_show_preset_parameters<C: Deref<Target = impl Signer> + Clo
 ) -> Result<()> {
     let ShowPresetAccountParams { preset_parameter } = params;
 
-    let rpc_client = program.async_rpc();
+    let rpc_client = program.rpc();
     let account = rpc_client.get_account(&preset_parameter).await?;
 
     let mut disc = [0u8; 8];
@@ -19,11 +19,11 @@ pub async fn execute_show_preset_parameters<C: Deref<Target = impl Signer> + Clo
 
     match disc {
         PRESET_PARAMETER_ACCOUNT_DISCM => {
-            let preset_param_state = PresetParameterAccount::deserialize(&account.data)?.0;
+            let preset_param_state = PresetParameter::try_deserialize(&mut account.data.as_ref())?;
             println!("{:#?}", preset_param_state);
         }
         PRESET_PARAMETER2_ACCOUNT_DISCM => {
-            let preset_param_state = PresetParameter2Account::deserialize(&account.data)?.0;
+            let preset_param_state = PresetParameter2::try_deserialize(&mut account.data.as_ref())?;
             println!("{:#?}", preset_param_state);
         }
         _ => bail!("Not a valid preset parameter account"),

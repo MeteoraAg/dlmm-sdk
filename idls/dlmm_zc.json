@@ -9,16 +9,7 @@
   "instructions": [
     {
       "name": "add_liquidity",
-      "discriminator": [
-        181,
-        157,
-        89,
-        67,
-        143,
-        182,
-        52,
-        72
-      ],
+      "discriminator": [181, 157, 89, 67, 143, 182, 52, 72],
       "accounts": [
         {
           "name": "position",
@@ -93,16 +84,7 @@
     },
     {
       "name": "add_liquidity2",
-      "discriminator": [
-        228,
-        162,
-        78,
-        28,
-        70,
-        219,
-        116,
-        115
-      ],
+      "discriminator": [228, 162, 78, 28, 70, 219, 116, 115],
       "accounts": [
         {
           "name": "position",
@@ -177,16 +159,7 @@
     },
     {
       "name": "add_liquidity_by_strategy",
-      "discriminator": [
-        7,
-        3,
-        150,
-        127,
-        148,
-        40,
-        61,
-        200
-      ],
+      "discriminator": [7, 3, 150, 127, 148, 40, 61, 200],
       "accounts": [
         {
           "name": "position",
@@ -261,16 +234,7 @@
     },
     {
       "name": "add_liquidity_by_strategy2",
-      "discriminator": [
-        3,
-        221,
-        149,
-        218,
-        111,
-        141,
-        118,
-        213
-      ],
+      "discriminator": [3, 221, 149, 218, 111, 141, 118, 213],
       "accounts": [
         {
           "name": "position",
@@ -345,16 +309,7 @@
     },
     {
       "name": "add_liquidity_by_strategy_one_side",
-      "discriminator": [
-        41,
-        5,
-        238,
-        175,
-        100,
-        225,
-        6,
-        205
-      ],
+      "discriminator": [41, 5, 238, 175, 100, 225, 6, 205],
       "accounts": [
         {
           "name": "position",
@@ -415,16 +370,7 @@
     },
     {
       "name": "add_liquidity_by_weight",
-      "discriminator": [
-        28,
-        140,
-        238,
-        99,
-        231,
-        162,
-        21,
-        149
-      ],
+      "discriminator": [28, 140, 238, 99, 231, 162, 21, 149],
       "accounts": [
         {
           "name": "position",
@@ -499,16 +445,7 @@
     },
     {
       "name": "add_liquidity_one_side",
-      "discriminator": [
-        94,
-        155,
-        103,
-        151,
-        70,
-        95,
-        220,
-        165
-      ],
+      "discriminator": [94, 155, 103, 151, 70, 95, 220, 165],
       "accounts": [
         {
           "name": "position",
@@ -569,16 +506,7 @@
     },
     {
       "name": "add_liquidity_one_side_precise",
-      "discriminator": [
-        161,
-        194,
-        103,
-        84,
-        171,
-        71,
-        250,
-        154
-      ],
+      "discriminator": [161, 194, 103, 84, 171, 71, 250, 154],
       "accounts": [
         {
           "name": "position",
@@ -639,16 +567,7 @@
     },
     {
       "name": "add_liquidity_one_side_precise2",
-      "discriminator": [
-        33,
-        51,
-        163,
-        201,
-        117,
-        98,
-        125,
-        231
-      ],
+      "discriminator": [33, 51, 163, 201, 117, 98, 125, 231],
       "accounts": [
         {
           "name": "position",
@@ -709,16 +628,7 @@
     },
     {
       "name": "claim_fee",
-      "discriminator": [
-        169,
-        32,
-        79,
-        137,
-        136,
-        232,
-        70,
-        137
-      ],
+      "discriminator": [169, 32, 79, 137, 136, 232, 70, 137],
       "accounts": [
         {
           "name": "lb_pair",
@@ -776,16 +686,7 @@
     },
     {
       "name": "claim_fee2",
-      "discriminator": [
-        112,
-        191,
-        101,
-        171,
-        28,
-        144,
-        127,
-        187
-      ],
+      "discriminator": [112, 191, 101, 171, 28, 144, 127, 187],
       "accounts": [
         {
           "name": "lb_pair",
@@ -858,16 +759,7 @@
     },
     {
       "name": "claim_reward",
-      "discriminator": [
-        149,
-        95,
-        181,
-        242,
-        94,
-        90,
-        158,
-        162
-      ],
+      "discriminator": [149, 95, 181, 242, 94, 90, 158, 162],
       "accounts": [
         {
           "name": "lb_pair",
@@ -919,16 +811,7 @@
     },
     {
       "name": "claim_reward2",
-      "discriminator": [
-        190,
-        3,
-        127,
-        119,
-        178,
-        87,
-        157,
-        183
-      ],
+      "discriminator": [190, 3, 127, 119, 178, 87, 157, 183],
       "accounts": [
         {
           "name": "lb_pair",
@@ -991,16 +874,7 @@
     },
     {
       "name": "close_claim_protocol_fee_operator",
-      "discriminator": [
-        8,
-        41,
-        87,
-        35,
-        80,
-        48,
-        121,
-        26
-      ],
+      "discriminator": [8, 41, 87, 35, 80, 48, 121, 26],
       "accounts": [
         {
           "name": "claim_fee_operator",
@@ -1019,16 +893,7 @@
     },
     {
       "name": "close_position",
-      "discriminator": [
-        123,
-        134,
-        81,
-        0,
-        49,
-        68,
-        98,
-        98
-      ],
+      "discriminator": [123, 134, 81, 0, 49, 68, 98, 98],
       "accounts": [
         {
           "name": "position",
@@ -1065,16 +930,7 @@
     },
     {
       "name": "close_position2",
-      "discriminator": [
-        174,
-        90,
-        35,
-        115,
-        186,
-        40,
-        147,
-        226
-      ],
+      "discriminator": [174, 90, 35, 115, 186, 40, 147, 226],
       "accounts": [
         {
           "name": "position",
@@ -1099,16 +955,7 @@
     },
     {
       "name": "close_position_if_empty",
-      "discriminator": [
-        59,
-        124,
-        212,
-        118,
-        91,
-        152,
-        110,
-        157
-      ],
+      "discriminator": [59, 124, 212, 118, 91, 152, 110, 157],
       "accounts": [
         {
           "name": "position",
@@ -1133,16 +980,7 @@
     },
     {
       "name": "close_preset_parameter",
-      "discriminator": [
-        4,
-        148,
-        145,
-        100,
-        134,
-        26,
-        181,
-        61
-      ],
+      "discriminator": [4, 148, 145, 100, 134, 26, 181, 61],
       "accounts": [
         {
           "name": "preset_parameter",
@@ -1162,16 +1000,7 @@
     },
     {
       "name": "close_preset_parameter2",
-      "discriminator": [
-        39,
-        25,
-        95,
-        107,
-        116,
-        17,
-        115,
-        28
-      ],
+      "discriminator": [39, 25, 95, 107, 116, 17, 115, 28],
       "accounts": [
         {
           "name": "preset_parameter",
@@ -1191,16 +1020,7 @@
     },
     {
       "name": "create_claim_protocol_fee_operator",
-      "discriminator": [
-        51,
-        19,
-        150,
-        252,
-        105,
-        157,
-        48,
-        91
-      ],
+      "discriminator": [51, 19, 150, 252, 105, 157, 48, 91],
       "accounts": [
         {
           "name": "claim_fee_operator",
@@ -1222,16 +1042,7 @@
     },
     {
       "name": "decrease_position_length",
-      "discriminator": [
-        194,
-        219,
-        136,
-        32,
-        25,
-        96,
-        105,
-        37
-      ],
+      "discriminator": [194, 219, 136, 32, 25, 96, 105, 37],
       "accounts": [
         {
           "name": "rent_receiver",
@@ -1268,16 +1079,7 @@
     },
     {
       "name": "for_idl_type_generation_do_not_call",
-      "discriminator": [
-        180,
-        105,
-        69,
-        80,
-        95,
-        50,
-        73,
-        108
-      ],
+      "discriminator": [180, 105, 69, 80, 95, 50, 73, 108],
       "accounts": [],
       "args": [
         {
@@ -1332,16 +1134,7 @@
     },
     {
       "name": "fund_reward",
-      "discriminator": [
-        188,
-        50,
-        249,
-        165,
-        93,
-        151,
-        38,
-        63
-      ],
+      "discriminator": [188, 50, 249, 165, 93, 151, 38, 63],
       "accounts": [
         {
           "name": "lb_pair",
@@ -1401,16 +1194,7 @@
     },
     {
       "name": "go_to_a_bin",
-      "discriminator": [
-        146,
-        72,
-        174,
-        224,
-        40,
-        253,
-        84,
-        174
-      ],
+      "discriminator": [146, 72, 174, 224, 40, 253, 84, 174],
       "accounts": [
         {
           "name": "lb_pair",
@@ -1444,16 +1228,7 @@
     },
     {
       "name": "increase_oracle_length",
-      "discriminator": [
-        190,
-        61,
-        125,
-        87,
-        103,
-        79,
-        158,
-        173
-      ],
+      "discriminator": [190, 61, 125, 87, 103, 79, 158, 173],
       "accounts": [
         {
           "name": "oracle",
@@ -1483,16 +1258,7 @@
     },
     {
       "name": "increase_position_length",
-      "discriminator": [
-        80,
-        83,
-        117,
-        211,
-        66,
-        13,
-        33,
-        149
-      ],
+      "discriminator": [80, 83, 117, 211, 66, 13, 33, 149],
       "accounts": [
         {
           "name": "funder",
@@ -1533,16 +1299,7 @@
     },
     {
       "name": "initialize_bin_array",
-      "discriminator": [
-        35,
-        86,
-        19,
-        185,
-        78,
-        212,
-        75,
-        211
-      ],
+      "discriminator": [35, 86, 19, 185, 78, 212, 75, 211],
       "accounts": [
         {
           "name": "lb_pair"
@@ -1569,16 +1326,7 @@
     },
     {
       "name": "initialize_bin_array_bitmap_extension",
-      "discriminator": [
-        47,
-        157,
-        226,
-        180,
-        12,
-        240,
-        33,
-        71
-      ],
+      "discriminator": [47, 157, 226, 180, 12, 240, 33, 71],
       "accounts": [
         {
           "name": "lb_pair"
@@ -1606,16 +1354,7 @@
     },
     {
       "name": "initialize_customizable_permissionless_lb_pair",
-      "discriminator": [
-        46,
-        39,
-        41,
-        135,
-        111,
-        183,
-        200,
-        64
-      ],
+      "discriminator": [46, 39, 41, 135, 111, 183, 200, 64],
       "accounts": [
         {
           "name": "lb_pair",
@@ -1681,16 +1420,7 @@
     },
     {
       "name": "initialize_customizable_permissionless_lb_pair2",
-      "discriminator": [
-        243,
-        73,
-        129,
-        126,
-        51,
-        19,
-        241,
-        107
-      ],
+      "discriminator": [243, 73, 129, 126, 51, 19, 241, 107],
       "accounts": [
         {
           "name": "lb_pair",
@@ -1767,16 +1497,7 @@
     },
     {
       "name": "initialize_lb_pair",
-      "discriminator": [
-        45,
-        154,
-        237,
-        210,
-        221,
-        15,
-        166,
-        92
-      ],
+      "discriminator": [45, 154, 237, 210, 221, 15, 166, 92],
       "accounts": [
         {
           "name": "lb_pair",
@@ -1842,16 +1563,7 @@
     },
     {
       "name": "initialize_lb_pair2",
-      "discriminator": [
-        73,
-        59,
-        36,
-        120,
-        237,
-        83,
-        108,
-        198
-      ],
+      "discriminator": [73, 59, 36, 120, 237, 83, 108, 198],
       "accounts": [
         {
           "name": "lb_pair",
@@ -1925,16 +1637,7 @@
     },
     {
       "name": "initialize_permission_lb_pair",
-      "discriminator": [
-        108,
-        102,
-        213,
-        85,
-        251,
-        3,
-        53,
-        21
-      ],
+      "discriminator": [108, 102, 213, 85, 251, 3, 53, 21],
       "accounts": [
         {
           "name": "base",
@@ -2012,16 +1715,7 @@
     },
     {
       "name": "initialize_position",
-      "discriminator": [
-        219,
-        192,
-        234,
-        71,
-        190,
-        191,
-        102,
-        80
-      ],
+      "discriminator": [219, 192, 234, 71, 190, 191, 102, 80],
       "accounts": [
         {
           "name": "payer",
@@ -2066,16 +1760,7 @@
     },
     {
       "name": "initialize_position_by_operator",
-      "discriminator": [
-        251,
-        189,
-        190,
-        244,
-        117,
-        254,
-        35,
-        148
-      ],
+      "discriminator": [251, 189, 190, 244, 117, 254, 35, 148],
       "accounts": [
         {
           "name": "payer",
@@ -2098,9 +1783,7 @@
         },
         {
           "name": "operator",
-          "docs": [
-            "operator"
-          ],
+          "docs": ["operator"],
           "signer": true
         },
         {
@@ -2140,16 +1823,7 @@
     },
     {
       "name": "initialize_position_pda",
-      "discriminator": [
-        46,
-        82,
-        125,
-        146,
-        85,
-        141,
-        228,
-        153
-      ],
+      "discriminator": [46, 82, 125, 146, 85, 141, 228, 153],
       "accounts": [
         {
           "name": "payer",
@@ -2169,9 +1843,7 @@
         },
         {
           "name": "owner",
-          "docs": [
-            "owner"
-          ],
+          "docs": ["owner"],
           "signer": true
         },
         {
@@ -2200,16 +1872,7 @@
     },
     {
       "name": "initialize_preset_parameter",
-      "discriminator": [
-        66,
-        188,
-        71,
-        211,
-        98,
-        109,
-        14,
-        186
-      ],
+      "discriminator": [66, 188, 71, 211, 98, 109, 14, 186],
       "accounts": [
         {
           "name": "preset_parameter",
@@ -2240,16 +1903,7 @@
     },
     {
       "name": "initialize_preset_parameter2",
-      "discriminator": [
-        184,
-        7,
-        240,
-        171,
-        103,
-        47,
-        183,
-        121
-      ],
+      "discriminator": [184, 7, 240, 171, 103, 47, 183, 121],
       "accounts": [
         {
           "name": "preset_parameter",
@@ -2277,16 +1931,7 @@
     },
     {
       "name": "initialize_reward",
-      "discriminator": [
-        95,
-        135,
-        192,
-        196,
-        242,
-        129,
-        230,
-        68
-      ],
+      "discriminator": [95, 135, 192, 196, 242, 129, 230, 68],
       "accounts": [
         {
           "name": "lb_pair",
@@ -2341,16 +1986,7 @@
     },
     {
       "name": "initialize_token_badge",
-      "discriminator": [
-        253,
-        77,
-        205,
-        95,
-        27,
-        224,
-        89,
-        223
-      ],
+      "discriminator": [253, 77, 205, 95, 27, 224, 89, 223],
       "accounts": [
         {
           "name": "token_mint"
@@ -2372,16 +2008,7 @@
     },
     {
       "name": "migrate_bin_array",
-      "discriminator": [
-        17,
-        23,
-        159,
-        211,
-        101,
-        184,
-        41,
-        241
-      ],
+      "discriminator": [17, 23, 159, 211, 101, 184, 41, 241],
       "accounts": [
         {
           "name": "lb_pair"
@@ -2391,16 +2018,7 @@
     },
     {
       "name": "migrate_position",
-      "discriminator": [
-        15,
-        132,
-        59,
-        50,
-        199,
-        6,
-        251,
-        46
-      ],
+      "discriminator": [15, 132, 59, 50, 199, 6, 251, 46],
       "accounts": [
         {
           "name": "position_v2",
@@ -2445,16 +2063,7 @@
     },
     {
       "name": "remove_all_liquidity",
-      "discriminator": [
-        10,
-        51,
-        61,
-        35,
-        112,
-        105,
-        24,
-        85
-      ],
+      "discriminator": [10, 51, 61, 35, 112, 105, 24, 85],
       "accounts": [
         {
           "name": "position",
@@ -2520,16 +2129,7 @@
     },
     {
       "name": "remove_liquidity",
-      "discriminator": [
-        80,
-        85,
-        209,
-        72,
-        24,
-        206,
-        177,
-        108
-      ],
+      "discriminator": [80, 85, 209, 72, 24, 206, 177, 108],
       "accounts": [
         {
           "name": "position",
@@ -2606,16 +2206,7 @@
     },
     {
       "name": "remove_liquidity2",
-      "discriminator": [
-        230,
-        215,
-        82,
-        127,
-        241,
-        101,
-        227,
-        146
-      ],
+      "discriminator": [230, 215, 82, 127, 241, 101, 227, 146],
       "accounts": [
         {
           "name": "position",
@@ -2695,16 +2286,7 @@
     },
     {
       "name": "remove_liquidity_by_range",
-      "discriminator": [
-        26,
-        82,
-        102,
-        152,
-        240,
-        74,
-        105,
-        26
-      ],
+      "discriminator": [26, 82, 102, 152, 240, 74, 105, 26],
       "accounts": [
         {
           "name": "position",
@@ -2783,16 +2365,7 @@
     },
     {
       "name": "remove_liquidity_by_range2",
-      "discriminator": [
-        204,
-        2,
-        195,
-        145,
-        53,
-        145,
-        145,
-        205
-      ],
+      "discriminator": [204, 2, 195, 145, 53, 145, 145, 205],
       "accounts": [
         {
           "name": "position",
@@ -2874,16 +2447,7 @@
     },
     {
       "name": "set_activation_point",
-      "discriminator": [
-        91,
-        249,
-        15,
-        165,
-        26,
-        129,
-        254,
-        125
-      ],
+      "discriminator": [91, 249, 15, 165, 26, 129, 254, 125],
       "accounts": [
         {
           "name": "lb_pair",
@@ -2904,16 +2468,7 @@
     },
     {
       "name": "set_pair_status",
-      "discriminator": [
-        67,
-        248,
-        231,
-        137,
-        154,
-        149,
-        217,
-        174
-      ],
+      "discriminator": [67, 248, 231, 137, 154, 149, 217, 174],
       "accounts": [
         {
           "name": "lb_pair",
@@ -2933,16 +2488,7 @@
     },
     {
       "name": "set_pair_status_permissionless",
-      "discriminator": [
-        78,
-        59,
-        152,
-        211,
-        70,
-        183,
-        46,
-        208
-      ],
+      "discriminator": [78, 59, 152, 211, 70, 183, 46, 208],
       "accounts": [
         {
           "name": "lb_pair",
@@ -2962,16 +2508,7 @@
     },
     {
       "name": "set_pre_activation_duration",
-      "discriminator": [
-        165,
-        61,
-        201,
-        244,
-        130,
-        159,
-        22,
-        100
-      ],
+      "discriminator": [165, 61, 201, 244, 130, 159, 22, 100],
       "accounts": [
         {
           "name": "lb_pair",
@@ -2991,16 +2528,7 @@
     },
     {
       "name": "set_pre_activation_swap_address",
-      "discriminator": [
-        57,
-        139,
-        47,
-        123,
-        216,
-        80,
-        223,
-        10
-      ],
+      "discriminator": [57, 139, 47, 123, 216, 80, 223, 10],
       "accounts": [
         {
           "name": "lb_pair",
@@ -3020,16 +2548,7 @@
     },
     {
       "name": "swap",
-      "discriminator": [
-        248,
-        198,
-        158,
-        145,
-        225,
-        117,
-        135,
-        200
-      ],
+      "discriminator": [248, 198, 158, 145, 225, 117, 135, 200],
       "accounts": [
         {
           "name": "lb_pair",
@@ -3100,16 +2619,7 @@
     },
     {
       "name": "swap2",
-      "discriminator": [
-        65,
-        75,
-        63,
-        76,
-        235,
-        91,
-        91,
-        136
-      ],
+      "discriminator": [65, 75, 63, 76, 235, 91, 91, 136],
       "accounts": [
         {
           "name": "lb_pair",
@@ -3191,16 +2701,7 @@
     },
     {
       "name": "swap_exact_out",
-      "discriminator": [
-        250,
-        73,
-        101,
-        33,
-        38,
-        207,
-        75,
-        184
-      ],
+      "discriminator": [250, 73, 101, 33, 38, 207, 75, 184],
       "accounts": [
         {
           "name": "lb_pair",
@@ -3271,16 +2772,7 @@
     },
     {
       "name": "swap_exact_out2",
-      "discriminator": [
-        43,
-        215,
-        247,
-        132,
-        137,
-        60,
-        243,
-        81
-      ],
+      "discriminator": [43, 215, 247, 132, 137, 60, 243, 81],
       "accounts": [
         {
           "name": "lb_pair",
@@ -3362,16 +2854,7 @@
     },
     {
       "name": "swap_with_price_impact",
-      "discriminator": [
-        56,
-        173,
-        230,
-        208,
-        173,
-        228,
-        156,
-        205
-      ],
+      "discriminator": [56, 173, 230, 208, 173, 228, 156, 205],
       "accounts": [
         {
           "name": "lb_pair",
@@ -3448,16 +2931,7 @@
     },
     {
       "name": "swap_with_price_impact2",
-      "discriminator": [
-        74,
-        98,
-        192,
-        214,
-        177,
-        51,
-        75,
-        51
-      ],
+      "discriminator": [74, 98, 192, 214, 177, 51, 75, 51],
       "accounts": [
         {
           "name": "lb_pair",
@@ -3545,16 +3019,7 @@
     },
     {
       "name": "update_base_fee_parameters",
-      "discriminator": [
-        75,
-        168,
-        223,
-        161,
-        16,
-        195,
-        3,
-        47
-      ],
+      "discriminator": [75, 168, 223, 161, 16, 195, 3, 47],
       "accounts": [
         {
           "name": "lb_pair",
@@ -3584,16 +3049,7 @@
     },
     {
       "name": "update_dynamic_fee_parameters",
-      "discriminator": [
-        92,
-        161,
-        46,
-        246,
-        255,
-        189,
-        22,
-        22
-      ],
+      "discriminator": [92, 161, 46, 246, 255, 189, 22, 22],
       "accounts": [
         {
           "name": "lb_pair",
@@ -3623,16 +3079,7 @@
     },
     {
       "name": "update_fees_and_reward2",
-      "discriminator": [
-        32,
-        142,
-        184,
-        154,
-        103,
-        65,
-        184,
-        88
-      ],
+      "discriminator": [32, 142, 184, 154, 103, 65, 184, 88],
       "accounts": [
         {
           "name": "position",
@@ -3660,16 +3107,7 @@
     },
     {
       "name": "update_fees_and_rewards",
-      "discriminator": [
-        154,
-        230,
-        250,
-        13,
-        236,
-        209,
-        75,
-        223
-      ],
+      "discriminator": [154, 230, 250, 13, 236, 209, 75, 223],
       "accounts": [
         {
           "name": "position",
@@ -3696,16 +3134,7 @@
     },
     {
       "name": "update_position_operator",
-      "discriminator": [
-        202,
-        184,
-        103,
-        143,
-        180,
-        191,
-        116,
-        217
-      ],
+      "discriminator": [202, 184, 103, 143, 180, 191, 116, 217],
       "accounts": [
         {
           "name": "position",
@@ -3731,16 +3160,7 @@
     },
     {
       "name": "update_reward_duration",
-      "discriminator": [
-        138,
-        174,
-        196,
-        169,
-        213,
-        235,
-        254,
-        107
-      ],
+      "discriminator": [138, 174, 196, 169, 213, 235, 254, 107],
       "accounts": [
         {
           "name": "lb_pair",
@@ -3774,16 +3194,7 @@
     },
     {
       "name": "update_reward_funder",
-      "discriminator": [
-        211,
-        28,
-        48,
-        32,
-        215,
-        160,
-        35,
-        23
-      ],
+      "discriminator": [211, 28, 48, 32, 215, 160, 35, 23],
       "accounts": [
         {
           "name": "lb_pair",
@@ -3813,16 +3224,7 @@
     },
     {
       "name": "withdraw_ineligible_reward",
-      "discriminator": [
-        148,
-        206,
-        42,
-        195,
-        247,
-        49,
-        103,
-        8
-      ],
+      "discriminator": [148, 206, 42, 195, 247, 49, 103, 8],
       "accounts": [
         {
           "name": "lb_pair",
@@ -3877,16 +3279,7 @@
     },
     {
       "name": "withdraw_protocol_fee",
-      "discriminator": [
-        158,
-        201,
-        158,
-        189,
-        33,
-        93,
-        162,
-        103
-      ],
+      "discriminator": [158, 201, 158, 189, 33, 93, 162, 103],
       "accounts": [
         {
           "name": "lb_pair",
@@ -3919,9 +3312,7 @@
         },
         {
           "name": "operator",
-          "docs": [
-            "operator"
-          ],
+          "docs": ["operator"],
           "signer": true
         },
         {
@@ -3957,421 +3348,133 @@
   "accounts": [
     {
       "name": "BinArray",
-      "discriminator": [
-        92,
-        142,
-        92,
-        220,
-        5,
-        148,
-        70,
-        181
-      ]
+      "discriminator": [92, 142, 92, 220, 5, 148, 70, 181]
     },
     {
       "name": "BinArrayBitmapExtension",
-      "discriminator": [
-        80,
-        111,
-        124,
-        113,
-        55,
-        237,
-        18,
-        5
-      ]
+      "discriminator": [80, 111, 124, 113, 55, 237, 18, 5]
     },
     {
       "name": "ClaimFeeOperator",
-      "discriminator": [
-        166,
-        48,
-        134,
-        86,
-        34,
-        200,
-        188,
-        150
-      ]
+      "discriminator": [166, 48, 134, 86, 34, 200, 188, 150]
     },
     {
       "name": "LbPair",
-      "discriminator": [
-        33,
-        11,
-        49,
-        98,
-        181,
-        101,
-        177,
-        13
-      ]
+      "discriminator": [33, 11, 49, 98, 181, 101, 177, 13]
     },
     {
       "name": "Oracle",
-      "discriminator": [
-        139,
-        194,
-        131,
-        179,
-        140,
-        179,
-        229,
-        244
-      ]
+      "discriminator": [139, 194, 131, 179, 140, 179, 229, 244]
     },
     {
       "name": "Position",
-      "discriminator": [
-        170,
-        188,
-        143,
-        228,
-        122,
-        64,
-        247,
-        208
-      ]
+      "discriminator": [170, 188, 143, 228, 122, 64, 247, 208]
     },
     {
       "name": "PositionV2",
-      "discriminator": [
-        117,
-        176,
-        212,
-        199,
-        245,
-        180,
-        133,
-        182
-      ]
+      "discriminator": [117, 176, 212, 199, 245, 180, 133, 182]
     },
     {
       "name": "PresetParameter",
-      "discriminator": [
-        242,
-        62,
-        244,
-        34,
-        181,
-        112,
-        58,
-        170
-      ]
+      "discriminator": [242, 62, 244, 34, 181, 112, 58, 170]
     },
     {
       "name": "PresetParameter2",
-      "discriminator": [
-        171,
-        236,
-        148,
-        115,
-        162,
-        113,
-        222,
-        174
-      ]
+      "discriminator": [171, 236, 148, 115, 162, 113, 222, 174]
     },
     {
       "name": "TokenBadge",
-      "discriminator": [
-        116,
-        219,
-        204,
-        229,
-        249,
-        116,
-        255,
-        150
-      ]
+      "discriminator": [116, 219, 204, 229, 249, 116, 255, 150]
     }
   ],
   "events": [
     {
       "name": "AddLiquidity",
-      "discriminator": [
-        31,
-        94,
-        125,
-        90,
-        227,
-        52,
-        61,
-        186
-      ]
+      "discriminator": [31, 94, 125, 90, 227, 52, 61, 186]
     },
     {
       "name": "ClaimFee",
-      "discriminator": [
-        75,
-        122,
-        154,
-        48,
-        140,
-        74,
-        123,
-        163
-      ]
+      "discriminator": [75, 122, 154, 48, 140, 74, 123, 163]
     },
     {
       "name": "ClaimReward",
-      "discriminator": [
-        148,
-        116,
-        134,
-        204,
-        22,
-        171,
-        85,
-        95
-      ]
+      "discriminator": [148, 116, 134, 204, 22, 171, 85, 95]
     },
     {
       "name": "CompositionFee",
-      "discriminator": [
-        128,
-        151,
-        123,
-        106,
-        17,
-        102,
-        113,
-        142
-      ]
+      "discriminator": [128, 151, 123, 106, 17, 102, 113, 142]
     },
     {
       "name": "DecreasePositionLength",
-      "discriminator": [
-        52,
-        118,
-        235,
-        85,
-        172,
-        169,
-        15,
-        128
-      ]
+      "discriminator": [52, 118, 235, 85, 172, 169, 15, 128]
     },
     {
       "name": "DynamicFeeParameterUpdate",
-      "discriminator": [
-        88,
-        88,
-        178,
-        135,
-        194,
-        146,
-        91,
-        243
-      ]
+      "discriminator": [88, 88, 178, 135, 194, 146, 91, 243]
     },
     {
       "name": "FeeParameterUpdate",
-      "discriminator": [
-        48,
-        76,
-        241,
-        117,
-        144,
-        215,
-        242,
-        44
-      ]
+      "discriminator": [48, 76, 241, 117, 144, 215, 242, 44]
     },
     {
       "name": "FundReward",
-      "discriminator": [
-        246,
-        228,
-        58,
-        130,
-        145,
-        170,
-        79,
-        204
-      ]
+      "discriminator": [246, 228, 58, 130, 145, 170, 79, 204]
     },
     {
       "name": "GoToABin",
-      "discriminator": [
-        59,
-        138,
-        76,
-        68,
-        138,
-        131,
-        176,
-        67
-      ]
+      "discriminator": [59, 138, 76, 68, 138, 131, 176, 67]
     },
     {
       "name": "IncreaseObservation",
-      "discriminator": [
-        99,
-        249,
-        17,
-        121,
-        166,
-        156,
-        207,
-        215
-      ]
+      "discriminator": [99, 249, 17, 121, 166, 156, 207, 215]
     },
     {
       "name": "IncreasePositionLength",
-      "discriminator": [
-        157,
-        239,
-        42,
-        204,
-        30,
-        56,
-        223,
-        46
-      ]
+      "discriminator": [157, 239, 42, 204, 30, 56, 223, 46]
     },
     {
       "name": "InitializeReward",
-      "discriminator": [
-        211,
-        153,
-        88,
-        62,
-        149,
-        60,
-        177,
-        70
-      ]
+      "discriminator": [211, 153, 88, 62, 149, 60, 177, 70]
     },
     {
       "name": "LbPairCreate",
-      "discriminator": [
-        185,
-        74,
-        252,
-        125,
-        27,
-        215,
-        188,
-        111
-      ]
+      "discriminator": [185, 74, 252, 125, 27, 215, 188, 111]
     },
     {
       "name": "PositionClose",
-      "discriminator": [
-        255,
-        196,
-        16,
-        107,
-        28,
-        202,
-        53,
-        128
-      ]
+      "discriminator": [255, 196, 16, 107, 28, 202, 53, 128]
     },
     {
       "name": "PositionCreate",
-      "discriminator": [
-        144,
-        142,
-        252,
-        84,
-        157,
-        53,
-        37,
-        121
-      ]
+      "discriminator": [144, 142, 252, 84, 157, 53, 37, 121]
     },
     {
       "name": "RemoveLiquidity",
-      "discriminator": [
-        116,
-        244,
-        97,
-        232,
-        103,
-        31,
-        152,
-        58
-      ]
+      "discriminator": [116, 244, 97, 232, 103, 31, 152, 58]
     },
     {
       "name": "Swap",
-      "discriminator": [
-        81,
-        108,
-        227,
-        190,
-        205,
-        208,
-        10,
-        196
-      ]
+      "discriminator": [81, 108, 227, 190, 205, 208, 10, 196]
     },
     {
       "name": "UpdatePositionLockReleasePoint",
-      "discriminator": [
-        133,
-        214,
-        66,
-        224,
-        64,
-        12,
-        7,
-        191
-      ]
+      "discriminator": [133, 214, 66, 224, 64, 12, 7, 191]
     },
     {
       "name": "UpdatePositionOperator",
-      "discriminator": [
-        39,
-        115,
-        48,
-        204,
-        246,
-        47,
-        66,
-        57
-      ]
+      "discriminator": [39, 115, 48, 204, 246, 47, 66, 57]
     },
     {
       "name": "UpdateRewardDuration",
-      "discriminator": [
-        223,
-        245,
-        224,
-        153,
-        49,
-        29,
-        163,
-        172
-      ]
+      "discriminator": [223, 245, 224, 153, 49, 29, 163, 172]
     },
     {
       "name": "UpdateRewardFunder",
-      "discriminator": [
-        224,
-        178,
-        174,
-        74,
-        252,
-        165,
-        85,
-        180
-      ]
+      "discriminator": [224, 178, 174, 74, 252, 165, 85, 180]
     },
     {
       "name": "WithdrawIneligibleReward",
-      "discriminator": [
-        231,
-        189,
-        65,
-        149,
-        102,
-        215,
-        154,
-        244
-      ]
+      "discriminator": [231, 189, 65, 149, 102, 215, 154, 244]
     }
   ],
   "errors": [
@@ -4811,9 +3914,7 @@
     },
     {
       "name": "ActivationType",
-      "docs": [
-        "Type of the activation"
-      ],
+      "docs": ["Type of the activation"],
       "repr": {
         "kind": "rust"
       },
@@ -4849,10 +3950,7 @@
           {
             "name": "amounts",
             "type": {
-              "array": [
-                "u64",
-                2
-              ]
+              "array": ["u64", 2]
             }
           },
           {
@@ -4924,16 +4022,12 @@
           },
           {
             "name": "base_factor",
-            "docs": [
-              "Base factor for base fee rate"
-            ],
+            "docs": ["Base factor for base fee rate"],
             "type": "u16"
           },
           {
             "name": "base_fee_power_factor",
-            "docs": [
-              "Base fee power factor"
-            ],
+            "docs": ["Base fee power factor"],
             "type": "u8"
           }
         ]
@@ -4964,9 +4058,7 @@
           },
           {
             "name": "price",
-            "docs": [
-              "Bin price"
-            ],
+            "docs": ["Bin price"],
             "type": "u128"
           },
           {
@@ -4978,28 +4070,19 @@
           },
           {
             "name": "reward_per_token_stored",
-            "docs": [
-              "reward_a_per_token_stored"
-            ],
+            "docs": ["reward_a_per_token_stored"],
             "type": {
-              "array": [
-                "u128",
-                2
-              ]
+              "array": ["u128", 2]
             }
           },
           {
             "name": "fee_amount_x_per_token_stored",
-            "docs": [
-              "Swap fee amount of token X per liquidity deposited."
-            ],
+            "docs": ["Swap fee amount of token X per liquidity deposited."],
             "type": "u128"
           },
           {
             "name": "fee_amount_y_per_token_stored",
-            "docs": [
-              "Swap fee amount of token Y per liquidity deposited."
-            ],
+            "docs": ["Swap fee amount of token Y per liquidity deposited."],
             "type": "u128"
           },
           {
@@ -5040,18 +4123,13 @@
           },
           {
             "name": "version",
-            "docs": [
-              "Version of binArray"
-            ],
+            "docs": ["Version of binArray"],
             "type": "u8"
           },
           {
             "name": "_padding",
             "type": {
-              "array": [
-                "u8",
-                7
-              ]
+              "array": ["u8", 7]
             }
           },
           {
@@ -5095,10 +4173,7 @@
             "type": {
               "array": [
                 {
-                  "array": [
-                    "u64",
-                    8
-                  ]
+                  "array": ["u64", 8]
                 },
                 12
               ]
@@ -5112,10 +4187,7 @@
             "type": {
               "array": [
                 {
-                  "array": [
-                    "u64",
-                    8
-                  ]
+                  "array": ["u64", 8]
                 },
                 12
               ]
@@ -5131,9 +4203,7 @@
         "fields": [
           {
             "name": "bin_id",
-            "docs": [
-              "Define the bin ID wish to deposit to."
-            ],
+            "docs": ["Define the bin ID wish to deposit to."],
             "type": "i32"
           },
           {
@@ -5160,16 +4230,12 @@
         "fields": [
           {
             "name": "bin_id",
-            "docs": [
-              "Define the bin ID wish to deposit to."
-            ],
+            "docs": ["Define the bin ID wish to deposit to."],
             "type": "i32"
           },
           {
             "name": "weight",
-            "docs": [
-              "weight of liquidity distributed for this bin id"
-            ],
+            "docs": ["weight of liquidity distributed for this bin id"],
             "type": "u16"
           }
         ]
@@ -5221,9 +4287,7 @@
     },
     {
       "name": "ClaimFeeOperator",
-      "docs": [
-        "Parameter that set by the protocol"
-      ],
+      "docs": ["Parameter that set by the protocol"],
       "serialization": "bytemuck",
       "repr": {
         "kind": "c"
@@ -5233,21 +4297,14 @@
         "fields": [
           {
             "name": "operator",
-            "docs": [
-              "operator"
-            ],
+            "docs": ["operator"],
             "type": "pubkey"
           },
           {
             "name": "_padding",
-            "docs": [
-              "Reserve"
-            ],
+            "docs": ["Reserve"],
             "type": {
-              "array": [
-                "u8",
-                128
-              ]
+              "array": ["u8", 128]
             }
           }
         ]
@@ -5336,23 +4393,17 @@
         "fields": [
           {
             "name": "active_id",
-            "docs": [
-              "Pool price"
-            ],
+            "docs": ["Pool price"],
             "type": "i32"
           },
           {
             "name": "bin_step",
-            "docs": [
-              "Bin step"
-            ],
+            "docs": ["Bin step"],
             "type": "u16"
           },
           {
             "name": "base_factor",
-            "docs": [
-              "Base factor"
-            ],
+            "docs": ["Base factor"],
             "type": "u16"
           },
           {
@@ -5364,16 +4415,12 @@
           },
           {
             "name": "has_alpha_vault",
-            "docs": [
-              "Whether the pool has an alpha vault"
-            ],
+            "docs": ["Whether the pool has an alpha vault"],
             "type": "bool"
           },
           {
             "name": "activation_point",
-            "docs": [
-              "Decide when does the pool start trade. None = Now"
-            ],
+            "docs": ["Decide when does the pool start trade. None = Now"],
             "type": {
               "option": "u64"
             }
@@ -5387,21 +4434,14 @@
           },
           {
             "name": "base_fee_power_factor",
-            "docs": [
-              "Base fee power factor"
-            ],
+            "docs": ["Base fee power factor"],
             "type": "u8"
           },
           {
             "name": "padding",
-            "docs": [
-              "Padding, for future use"
-            ],
+            "docs": ["Padding, for future use"],
             "type": {
-              "array": [
-                "u8",
-                62
-              ]
+              "array": ["u8", 62]
             }
           }
         ]
@@ -5704,9 +4744,7 @@
           },
           {
             "name": "bin_step",
-            "docs": [
-              "Bin step. Represent the price increment / decrement."
-            ],
+            "docs": ["Bin step. Represent the price increment / decrement."],
             "type": "u16"
           },
           {
@@ -5760,9 +4798,7 @@
           },
           {
             "name": "base_fee_power_factor",
-            "docs": [
-              "Base fee power factor"
-            ],
+            "docs": ["Base fee power factor"],
             "type": "u8"
           }
         ]
@@ -5775,9 +4811,7 @@
         "fields": [
           {
             "name": "bin_step",
-            "docs": [
-              "Bin step. Represent the price increment / decrement."
-            ],
+            "docs": ["Bin step. Represent the price increment / decrement."],
             "type": "u16"
           },
           {
@@ -5839,21 +4873,14 @@
         "fields": [
           {
             "name": "active_id",
-            "docs": [
-              "Pool price"
-            ],
+            "docs": ["Pool price"],
             "type": "i32"
           },
           {
             "name": "padding",
-            "docs": [
-              "Padding, for future use"
-            ],
+            "docs": ["Padding, for future use"],
             "type": {
-              "array": [
-                "u8",
-                96
-              ]
+              "array": ["u8", 96]
             }
           }
         ]
@@ -5915,76 +4942,51 @@
           {
             "name": "bump_seed",
             "type": {
-              "array": [
-                "u8",
-                1
-              ]
+              "array": ["u8", 1]
             }
           },
           {
             "name": "bin_step_seed",
-            "docs": [
-              "Bin step signer seed"
-            ],
+            "docs": ["Bin step signer seed"],
             "type": {
-              "array": [
-                "u8",
-                2
-              ]
+              "array": ["u8", 2]
             }
           },
           {
             "name": "pair_type",
-            "docs": [
-              "Type of the pair"
-            ],
+            "docs": ["Type of the pair"],
             "type": "u8"
           },
           {
             "name": "active_id",
-            "docs": [
-              "Active bin id"
-            ],
+            "docs": ["Active bin id"],
             "type": "i32"
           },
           {
             "name": "bin_step",
-            "docs": [
-              "Bin step. Represent the price increment / decrement."
-            ],
+            "docs": ["Bin step. Represent the price increment / decrement."],
             "type": "u16"
           },
           {
             "name": "status",
-            "docs": [
-              "Status of the pair. Check PairStatus enum."
-            ],
+            "docs": ["Status of the pair. Check PairStatus enum."],
             "type": "u8"
           },
           {
             "name": "require_base_factor_seed",
-            "docs": [
-              "Require base factor seed"
-            ],
+            "docs": ["Require base factor seed"],
             "type": "u8"
           },
           {
             "name": "base_factor_seed",
-            "docs": [
-              "Base factor seed"
-            ],
+            "docs": ["Base factor seed"],
             "type": {
-              "array": [
-                "u8",
-                2
-              ]
+              "array": ["u8", 2]
             }
           },
           {
             "name": "activation_type",
-            "docs": [
-              "Activation type"
-            ],
+            "docs": ["Activation type"],
             "type": "u8"
           },
           {
@@ -5996,37 +4998,27 @@
           },
           {
             "name": "token_x_mint",
-            "docs": [
-              "Token X mint"
-            ],
+            "docs": ["Token X mint"],
             "type": "pubkey"
           },
           {
             "name": "token_y_mint",
-            "docs": [
-              "Token Y mint"
-            ],
+            "docs": ["Token Y mint"],
             "type": "pubkey"
           },
           {
             "name": "reserve_x",
-            "docs": [
-              "LB token X vault"
-            ],
+            "docs": ["LB token X vault"],
             "type": "pubkey"
           },
           {
             "name": "reserve_y",
-            "docs": [
-              "LB token Y vault"
-            ],
+            "docs": ["LB token Y vault"],
             "type": "pubkey"
           },
           {
             "name": "protocol_fee",
-            "docs": [
-              "Uncollected protocol fee"
-            ],
+            "docs": ["Uncollected protocol fee"],
             "type": {
               "defined": {
                 "name": "ProtocolFee"
@@ -6039,17 +5031,12 @@
               "_padding_1, previous Fee owner, BE CAREFUL FOR TOMBSTONE WHEN REUSE !!"
             ],
             "type": {
-              "array": [
-                "u8",
-                32
-              ]
+              "array": ["u8", 32]
             }
           },
           {
             "name": "reward_infos",
-            "docs": [
-              "Farming reward information"
-            ],
+            "docs": ["Farming reward information"],
             "type": {
               "array": [
                 {
@@ -6063,28 +5050,19 @@
           },
           {
             "name": "oracle",
-            "docs": [
-              "Oracle pubkey"
-            ],
+            "docs": ["Oracle pubkey"],
             "type": "pubkey"
           },
           {
             "name": "bin_array_bitmap",
-            "docs": [
-              "Packed initialized bin array state"
-            ],
+            "docs": ["Packed initialized bin array state"],
             "type": {
-              "array": [
-                "u64",
-                16
-              ]
+              "array": ["u64", 16]
             }
           },
           {
             "name": "last_updated_at",
-            "docs": [
-              "Last time the pool fee parameter was updated"
-            ],
+            "docs": ["Last time the pool fee parameter was updated"],
             "type": "i64"
           },
           {
@@ -6093,10 +5071,7 @@
               "_padding_2, previous whitelisted_wallet, BE CAREFUL FOR TOMBSTONE WHEN REUSE !!"
             ],
             "type": {
-              "array": [
-                "u8",
-                32
-              ]
+              "array": ["u8", 32]
             }
           },
           {
@@ -6108,9 +5083,7 @@
           },
           {
             "name": "base_key",
-            "docs": [
-              "Base keypair. Only required for permission pair"
-            ],
+            "docs": ["Base keypair. Only required for permission pair"],
             "type": "pubkey"
           },
           {
@@ -6133,10 +5106,7 @@
               "_padding 3 is reclaimed free space from swap_cap_deactivate_point and swap_cap_amount before, BE CAREFUL FOR TOMBSTONE WHEN REUSE !!"
             ],
             "type": {
-              "array": [
-                "u8",
-                8
-              ]
+              "array": ["u8", 8]
             }
           },
           {
@@ -6148,35 +5118,24 @@
           },
           {
             "name": "creator",
-            "docs": [
-              "Pool creator"
-            ],
+            "docs": ["Pool creator"],
             "type": "pubkey"
           },
           {
             "name": "token_mint_x_program_flag",
-            "docs": [
-              "token_mint_x_program_flag"
-            ],
+            "docs": ["token_mint_x_program_flag"],
             "type": "u8"
           },
           {
             "name": "token_mint_y_program_flag",
-            "docs": [
-              "token_mint_y_program_flag"
-            ],
+            "docs": ["token_mint_y_program_flag"],
             "type": "u8"
           },
           {
             "name": "_reserved",
-            "docs": [
-              "Reserved space for future use"
-            ],
+            "docs": ["Reserved space for future use"],
             "type": {
-              "array": [
-                "u8",
-                22
-              ]
+              "array": ["u8", 22]
             }
           }
         ]
@@ -6213,30 +5172,22 @@
         "fields": [
           {
             "name": "amount",
-            "docs": [
-              "Amount of X token or Y token to deposit"
-            ],
+            "docs": ["Amount of X token or Y token to deposit"],
             "type": "u64"
           },
           {
             "name": "active_id",
-            "docs": [
-              "Active bin that integrator observe off-chain"
-            ],
+            "docs": ["Active bin that integrator observe off-chain"],
             "type": "i32"
           },
           {
             "name": "max_active_bin_slippage",
-            "docs": [
-              "max active bin slippage allowed"
-            ],
+            "docs": ["max active bin slippage allowed"],
             "type": "i32"
           },
           {
             "name": "bin_liquidity_dist",
-            "docs": [
-              "Liquidity distribution to each bins"
-            ],
+            "docs": ["Liquidity distribution to each bins"],
             "type": {
               "vec": {
                 "defined": {
@@ -6255,23 +5206,17 @@
         "fields": [
           {
             "name": "amount_x",
-            "docs": [
-              "Amount of X token to deposit"
-            ],
+            "docs": ["Amount of X token to deposit"],
             "type": "u64"
           },
           {
             "name": "amount_y",
-            "docs": [
-              "Amount of Y token to deposit"
-            ],
+            "docs": ["Amount of Y token to deposit"],
             "type": "u64"
           },
           {
             "name": "bin_liquidity_dist",
-            "docs": [
-              "Liquidity distribution to each bins"
-            ],
+            "docs": ["Liquidity distribution to each bins"],
             "type": {
               "vec": {
                 "defined": {
@@ -6290,37 +5235,27 @@
         "fields": [
           {
             "name": "amount_x",
-            "docs": [
-              "Amount of X token to deposit"
-            ],
+            "docs": ["Amount of X token to deposit"],
             "type": "u64"
           },
           {
             "name": "amount_y",
-            "docs": [
-              "Amount of Y token to deposit"
-            ],
+            "docs": ["Amount of Y token to deposit"],
             "type": "u64"
           },
           {
             "name": "active_id",
-            "docs": [
-              "Active bin that integrator observe off-chain"
-            ],
+            "docs": ["Active bin that integrator observe off-chain"],
             "type": "i32"
           },
           {
             "name": "max_active_bin_slippage",
-            "docs": [
-              "max active bin slippage allowed"
-            ],
+            "docs": ["max active bin slippage allowed"],
             "type": "i32"
           },
           {
             "name": "strategy_parameters",
-            "docs": [
-              "strategy parameters"
-            ],
+            "docs": ["strategy parameters"],
             "type": {
               "defined": {
                 "name": "StrategyParameters"
@@ -6337,30 +5272,22 @@
         "fields": [
           {
             "name": "amount",
-            "docs": [
-              "Amount of X token or Y token to deposit"
-            ],
+            "docs": ["Amount of X token or Y token to deposit"],
             "type": "u64"
           },
           {
             "name": "active_id",
-            "docs": [
-              "Active bin that integrator observe off-chain"
-            ],
+            "docs": ["Active bin that integrator observe off-chain"],
             "type": "i32"
           },
           {
             "name": "max_active_bin_slippage",
-            "docs": [
-              "max active bin slippage allowed"
-            ],
+            "docs": ["max active bin slippage allowed"],
             "type": "i32"
           },
           {
             "name": "strategy_parameters",
-            "docs": [
-              "strategy parameters"
-            ],
+            "docs": ["strategy parameters"],
             "type": {
               "defined": {
                 "name": "StrategyParameters"
@@ -6377,37 +5304,27 @@
         "fields": [
           {
             "name": "amount_x",
-            "docs": [
-              "Amount of X token to deposit"
-            ],
+            "docs": ["Amount of X token to deposit"],
             "type": "u64"
           },
           {
             "name": "amount_y",
-            "docs": [
-              "Amount of Y token to deposit"
-            ],
+            "docs": ["Amount of Y token to deposit"],
             "type": "u64"
           },
           {
             "name": "active_id",
-            "docs": [
-              "Active bin that integrator observe off-chain"
-            ],
+            "docs": ["Active bin that integrator observe off-chain"],
             "type": "i32"
           },
           {
             "name": "max_active_bin_slippage",
-            "docs": [
-              "max active bin slippage allowed"
-            ],
+            "docs": ["max active bin slippage allowed"],
             "type": "i32"
           },
           {
             "name": "bin_liquidity_dist",
-            "docs": [
-              "Liquidity distribution to each bins"
-            ],
+            "docs": ["Liquidity distribution to each bins"],
             "type": {
               "vec": {
                 "defined": {
@@ -6430,9 +5347,7 @@
         "fields": [
           {
             "name": "idx",
-            "docs": [
-              "Index of latest observation"
-            ],
+            "docs": ["Index of latest observation"],
             "type": "u64"
           },
           {
@@ -6444,9 +5359,7 @@
           },
           {
             "name": "length",
-            "docs": [
-              "Number of observations"
-            ],
+            "docs": ["Number of observations"],
             "type": "u64"
           }
         ]
@@ -6509,9 +5422,7 @@
         "fields": [
           {
             "name": "lb_pair",
-            "docs": [
-              "The LB pair of this position"
-            ],
+            "docs": ["The LB pair of this position"],
             "type": "pubkey"
           },
           {
@@ -6527,17 +5438,12 @@
               "Liquidity shares of this position in bins (lower_bin_id <-> upper_bin_id). This is the same as LP concept."
             ],
             "type": {
-              "array": [
-                "u64",
-                70
-              ]
+              "array": ["u64", 70]
             }
           },
           {
             "name": "reward_infos",
-            "docs": [
-              "Farming reward information"
-            ],
+            "docs": ["Farming reward information"],
             "type": {
               "array": [
                 {
@@ -6551,9 +5457,7 @@
           },
           {
             "name": "fee_infos",
-            "docs": [
-              "Swap fee to claim information"
-            ],
+            "docs": ["Swap fee to claim information"],
             "type": {
               "array": [
                 {
@@ -6567,61 +5471,41 @@
           },
           {
             "name": "lower_bin_id",
-            "docs": [
-              "Lower bin ID"
-            ],
+            "docs": ["Lower bin ID"],
             "type": "i32"
           },
           {
             "name": "upper_bin_id",
-            "docs": [
-              "Upper bin ID"
-            ],
+            "docs": ["Upper bin ID"],
             "type": "i32"
           },
           {
             "name": "last_updated_at",
-            "docs": [
-              "Last updated timestamp"
-            ],
+            "docs": ["Last updated timestamp"],
             "type": "i64"
           },
           {
             "name": "total_claimed_fee_x_amount",
-            "docs": [
-              "Total claimed token fee X"
-            ],
+            "docs": ["Total claimed token fee X"],
             "type": "u64"
           },
           {
             "name": "total_claimed_fee_y_amount",
-            "docs": [
-              "Total claimed token fee Y"
-            ],
+            "docs": ["Total claimed token fee Y"],
             "type": "u64"
           },
           {
             "name": "total_claimed_rewards",
-            "docs": [
-              "Total claimed rewards"
-            ],
+            "docs": ["Total claimed rewards"],
             "type": {
-              "array": [
-                "u64",
-                2
-              ]
+              "array": ["u64", 2]
             }
           },
           {
             "name": "_reserved",
-            "docs": [
-              "Reserved space for future use"
-            ],
+            "docs": ["Reserved space for future use"],
             "type": {
-              "array": [
-                "u8",
-                160
-              ]
+              "array": ["u8", 160]
             }
           }
         ]
@@ -6674,9 +5558,7 @@
         "fields": [
           {
             "name": "lb_pair",
-            "docs": [
-              "The LB pair of this position"
-            ],
+            "docs": ["The LB pair of this position"],
             "type": "pubkey"
           },
           {
@@ -6692,17 +5574,12 @@
               "Liquidity shares of this position in bins (lower_bin_id <-> upper_bin_id). This is the same as LP concept."
             ],
             "type": {
-              "array": [
-                "u128",
-                70
-              ]
+              "array": ["u128", 70]
             }
           },
           {
             "name": "reward_infos",
-            "docs": [
-              "Farming reward information"
-            ],
+            "docs": ["Farming reward information"],
             "type": {
               "array": [
                 {
@@ -6716,9 +5593,7 @@
           },
           {
             "name": "fee_infos",
-            "docs": [
-              "Swap fee to claim information"
-            ],
+            "docs": ["Swap fee to claim information"],
             "type": {
               "array": [
                 {
@@ -6732,63 +5607,44 @@
           },
           {
             "name": "lower_bin_id",
-            "docs": [
-              "Lower bin ID"
-            ],
+            "docs": ["Lower bin ID"],
             "type": "i32"
           },
           {
             "name": "upper_bin_id",
-            "docs": [
-              "Upper bin ID"
-            ],
+            "docs": ["Upper bin ID"],
             "type": "i32"
           },
           {
             "name": "last_updated_at",
-            "docs": [
-              "Last updated timestamp"
-            ],
+            "docs": ["Last updated timestamp"],
             "type": "i64"
           },
           {
             "name": "total_claimed_fee_x_amount",
-            "docs": [
-              "Total claimed token fee X"
-            ],
+            "docs": ["Total claimed token fee X"],
             "type": "u64"
           },
           {
             "name": "total_claimed_fee_y_amount",
-            "docs": [
-              "Total claimed token fee Y"
-            ],
+            "docs": ["Total claimed token fee Y"],
             "type": "u64"
           },
           {
             "name": "total_claimed_rewards",
-            "docs": [
-              "Total claimed rewards"
-            ],
+            "docs": ["Total claimed rewards"],
             "type": {
-              "array": [
-                "u64",
-                2
-              ]
+              "array": ["u64", 2]
             }
           },
           {
             "name": "operator",
-            "docs": [
-              "Operator of position"
-            ],
+            "docs": ["Operator of position"],
             "type": "pubkey"
           },
           {
             "name": "lock_release_point",
-            "docs": [
-              "Time point which the locked liquidity can be withdraw"
-            ],
+            "docs": ["Time point which the locked liquidity can be withdraw"],
             "type": "u64"
           },
           {
@@ -6807,14 +5663,9 @@
           },
           {
             "name": "_reserved",
-            "docs": [
-              "Reserved space for future use"
-            ],
+            "docs": ["Reserved space for future use"],
             "type": {
-              "array": [
-                "u8",
-                87
-              ]
+              "array": ["u8", 87]
             }
           }
         ]
@@ -6827,9 +5678,7 @@
         "fields": [
           {
             "name": "bin_step",
-            "docs": [
-              "Bin step. Represent the price increment / decrement."
-            ],
+            "docs": ["Bin step. Represent the price increment / decrement."],
             "type": "u16"
           },
           {
@@ -6909,9 +5758,7 @@
         "fields": [
           {
             "name": "bin_step",
-            "docs": [
-              "Bin step. Represent the price increment / decrement."
-            ],
+            "docs": ["Bin step. Represent the price increment / decrement."],
             "type": "u16"
           },
           {
@@ -6965,35 +5812,24 @@
           },
           {
             "name": "index",
-            "docs": [
-              "index"
-            ],
+            "docs": ["index"],
             "type": "u16"
           },
           {
             "name": "base_fee_power_factor",
-            "docs": [
-              "Base fee power factor"
-            ],
+            "docs": ["Base fee power factor"],
             "type": "u8"
           },
           {
             "name": "padding_0",
-            "docs": [
-              "Padding 0 for future use"
-            ],
+            "docs": ["Padding 0 for future use"],
             "type": "u8"
           },
           {
             "name": "padding_1",
-            "docs": [
-              "Padding 1 for future use"
-            ],
+            "docs": ["Padding 1 for future use"],
             "type": {
-              "array": [
-                "u64",
-                20
-              ]
+              "array": ["u64", 20]
             }
           }
         ]
@@ -7077,10 +5913,7 @@
           {
             "name": "amounts",
             "type": {
-              "array": [
-                "u64",
-                2
-              ]
+              "array": ["u64", 2]
             }
           },
           {
@@ -7092,9 +5925,7 @@
     },
     {
       "name": "ResizeSide",
-      "docs": [
-        "Side of resize, 0 for lower and 1 for upper"
-      ],
+      "docs": ["Side of resize, 0 for lower and 1 for upper"],
       "repr": {
         "kind": "rust"
       },
@@ -7124,51 +5955,37 @@
         "fields": [
           {
             "name": "mint",
-            "docs": [
-              "Reward token mint."
-            ],
+            "docs": ["Reward token mint."],
             "type": "pubkey"
           },
           {
             "name": "vault",
-            "docs": [
-              "Reward vault token account."
-            ],
+            "docs": ["Reward vault token account."],
             "type": "pubkey"
           },
           {
             "name": "funder",
-            "docs": [
-              "Authority account that allows to fund rewards"
-            ],
+            "docs": ["Authority account that allows to fund rewards"],
             "type": "pubkey"
           },
           {
             "name": "reward_duration",
-            "docs": [
-              "TODO check whether we need to store it in pool"
-            ],
+            "docs": ["TODO check whether we need to store it in pool"],
             "type": "u64"
           },
           {
             "name": "reward_duration_end",
-            "docs": [
-              "TODO check whether we need to store it in pool"
-            ],
+            "docs": ["TODO check whether we need to store it in pool"],
             "type": "u64"
           },
           {
             "name": "reward_rate",
-            "docs": [
-              "TODO check whether we need to store it in pool"
-            ],
+            "docs": ["TODO check whether we need to store it in pool"],
             "type": "u128"
           },
           {
             "name": "last_update_time",
-            "docs": [
-              "The last time reward states were updated."
-            ],
+            "docs": ["The last time reward states were updated."],
             "type": "u64"
           },
           {
@@ -7197,9 +6014,7 @@
     },
     {
       "name": "StaticParameters",
-      "docs": [
-        "Parameter that set by the protocol"
-      ],
+      "docs": ["Parameter that set by the protocol"],
       "serialization": "bytemuck",
       "repr": {
         "kind": "c"
@@ -7272,21 +6087,14 @@
           },
           {
             "name": "base_fee_power_factor",
-            "docs": [
-              "Base fee power factor"
-            ],
+            "docs": ["Base fee power factor"],
             "type": "u8"
           },
           {
             "name": "_padding",
-            "docs": [
-              "Padding for bytemuck safe alignment"
-            ],
+            "docs": ["Padding for bytemuck safe alignment"],
             "type": {
-              "array": [
-                "u8",
-                5
-              ]
+              "array": ["u8", 5]
             }
           }
         ]
@@ -7299,23 +6107,17 @@
         "fields": [
           {
             "name": "min_bin_id",
-            "docs": [
-              "min bin id"
-            ],
+            "docs": ["min bin id"],
             "type": "i32"
           },
           {
             "name": "max_bin_id",
-            "docs": [
-              "max bin id"
-            ],
+            "docs": ["max bin id"],
             "type": "i32"
           },
           {
             "name": "strategy_type",
-            "docs": [
-              "strategy type"
-            ],
+            "docs": ["strategy type"],
             "type": {
               "defined": {
                 "name": "StrategyType"
@@ -7324,14 +6126,9 @@
           },
           {
             "name": "parameteres",
-            "docs": [
-              "parameters"
-            ],
+            "docs": ["parameters"],
             "type": {
-              "array": [
-                "u8",
-                64
-              ]
+              "array": ["u8", 64]
             }
           }
         ]
@@ -7426,9 +6223,7 @@
     },
     {
       "name": "TokenBadge",
-      "docs": [
-        "Parameter that set by the protocol"
-      ],
+      "docs": ["Parameter that set by the protocol"],
       "serialization": "bytemuck",
       "repr": {
         "kind": "c"
@@ -7438,21 +6233,14 @@
         "fields": [
           {
             "name": "token_mint",
-            "docs": [
-              "token mint"
-            ],
+            "docs": ["token mint"],
             "type": "pubkey"
           },
           {
             "name": "_padding",
-            "docs": [
-              "Reserve"
-            ],
+            "docs": ["Reserve"],
             "type": {
-              "array": [
-                "u8",
-                128
-              ]
+              "array": ["u8", 128]
             }
           }
         ]
@@ -7583,19 +6371,13 @@
           {
             "name": "reward_per_token_completes",
             "type": {
-              "array": [
-                "u128",
-                2
-              ]
+              "array": ["u128", 2]
             }
           },
           {
             "name": "reward_pendings",
             "type": {
-              "array": [
-                "u64",
-                2
-              ]
+              "array": ["u64", 2]
             }
           }
         ]
@@ -7603,9 +6385,7 @@
     },
     {
       "name": "VariableParameters",
-      "docs": [
-        "Parameters that changes based on dynamic of the market"
-      ],
+      "docs": ["Parameters that changes based on dynamic of the market"],
       "serialization": "bytemuck",
       "repr": {
         "kind": "c"
@@ -7630,40 +6410,26 @@
           },
           {
             "name": "index_reference",
-            "docs": [
-              "Active bin id of last swap."
-            ],
+            "docs": ["Active bin id of last swap."],
             "type": "i32"
           },
           {
             "name": "_padding",
-            "docs": [
-              "Padding for bytemuck safe alignment"
-            ],
+            "docs": ["Padding for bytemuck safe alignment"],
             "type": {
-              "array": [
-                "u8",
-                4
-              ]
+              "array": ["u8", 4]
             }
           },
           {
             "name": "last_update_timestamp",
-            "docs": [
-              "Last timestamp the variable parameters was updated"
-            ],
+            "docs": ["Last timestamp the variable parameters was updated"],
             "type": "i64"
           },
           {
             "name": "_padding_1",
-            "docs": [
-              "Padding for bytemuck safe alignment"
-            ],
+            "docs": ["Padding for bytemuck safe alignment"],
             "type": {
-              "array": [
-                "u8",
-                8
-              ]
+              "array": ["u8", 8]
             }
           }
         ]
@@ -7733,9 +6499,7 @@
     },
     {
       "name": "HOST_FEE_BPS",
-      "docs": [
-        "Host fee. 20%"
-      ],
+      "docs": ["Host fee. 20%"],
       "type": "u16",
       "value": "2000"
     },
@@ -7746,17 +6510,13 @@
     },
     {
       "name": "MAX_BASE_FEE",
-      "docs": [
-        "Maximum base fee, base_fee / 10^9 = fee_in_percentage"
-      ],
+      "docs": ["Maximum base fee, base_fee / 10^9 = fee_in_percentage"],
       "type": "u128",
       "value": "100000000"
     },
     {
       "name": "MAX_BIN_ID",
-      "docs": [
-        "Maximum bin ID supported. Computed based on 1 bps."
-      ],
+      "docs": ["Maximum bin ID supported. Computed based on 1 bps."],
       "type": "i32",
       "value": "443636"
     },
@@ -7767,25 +6527,19 @@
     },
     {
       "name": "MAX_BIN_STEP",
-      "docs": [
-        "Maximum bin step"
-      ],
+      "docs": ["Maximum bin step"],
       "type": "u16",
       "value": "400"
     },
     {
       "name": "MAX_FEE_RATE",
-      "docs": [
-        "Maximum fee rate. 10%"
-      ],
+      "docs": ["Maximum fee rate. 10%"],
       "type": "u64",
       "value": "100000000"
     },
     {
       "name": "MAX_PROTOCOL_SHARE",
-      "docs": [
-        "Maximum protocol share of the fee. 25%"
-      ],
+      "docs": ["Maximum protocol share of the fee. 25%"],
       "type": "u16",
       "value": "2500"
     },
@@ -7811,17 +6565,13 @@
     },
     {
       "name": "MIN_BASE_FEE",
-      "docs": [
-        "Minimum base fee"
-      ],
+      "docs": ["Minimum base fee"],
       "type": "u128",
       "value": "100000"
     },
     {
       "name": "MIN_BIN_ID",
-      "docs": [
-        "Minimum bin ID supported. Computed based on 1 bps."
-      ],
+      "docs": ["Minimum bin ID supported. Computed based on 1 bps."],
       "type": "i32",
       "value": "-443636"
     },

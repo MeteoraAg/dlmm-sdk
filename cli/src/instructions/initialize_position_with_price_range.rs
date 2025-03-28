@@ -25,10 +25,11 @@ pub async fn execute_initialize_position_with_price_range<
         width,
     } = params;
 
-    let rpc_client = program.async_rpc();
+    let rpc_client = program.rpc();
     let lb_pair_state = rpc_client
         .get_account_and_deserialize(&lb_pair, |account| {
-            Ok(LbPairAccount::deserialize(&account.data)?.0)
+                        Ok(LbPair::try_deserialize(&mut account.data.as_ref())?)
+
         })
         .await?;
 

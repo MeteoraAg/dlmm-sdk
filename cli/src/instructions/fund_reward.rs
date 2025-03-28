@@ -20,13 +20,13 @@ pub async fn execute_fund_reward<C: Deref<Target = impl Signer> + Clone>(
         funding_amount,
     } = params;
 
-    let rpc_client = program.async_rpc();
+    let rpc_client = program.rpc();
 
     let (reward_vault, _bump) = derive_reward_vault_pda(lb_pair, reward_index);
 
     let lb_pair_state = rpc_client
         .get_account_and_deserialize(&lb_pair, |account| {
-            Ok(LbPairAccount::deserialize(&account.data)?.0)
+            Ok(LbPair::try_deserialize(&mut account.data.as_ref())?)
         })
         .await?;
 
@@ -50,7 +50,7 @@ pub async fn execute_fund_reward<C: Deref<Target = impl Signer> + Clone>(
     let (event_authority, _bump) = derive_event_authority_pda();
 
     let reward_transfer_hook_accounts =
-        get_extra_account_metas_for_transfer_hook(reward_mint, program.async_rpc()).await?;
+        get_extra_account_metas_for_transfer_hook(reward_mint, program.rpc()).await?;
 
     let remaining_accounts_info = RemainingAccountsInfo {
         slices: vec![RemainingAccountsSlice {
@@ -59,7 +59,7 @@ pub async fn execute_fund_reward<C: Deref<Target = impl Signer> + Clone>(
         }],
     };
 
-    let main_accounts: [AccountMeta; FUND_REWARD_IX_ACCOUNTS_LEN] = FundRewardKeys {
+    let main_accounts = dlmm::client::accounts::FundReward {
         lb_pair,
         reward_vault,
         reward_mint,
@@ -68,22 +68,22 @@ pub async fn execute_fund_reward<C: Deref<Target = impl Signer> + Clone>(
         bin_array,
         token_program: reward_mint_program,
         event_authority,
-        program: dlmm_interface::ID,
+        program: dlmm::ID,
     }
-    .into();
+    .to_account_metas(None);
 
-    let data = FundRewardIxData(FundRewardIxArgs {
+    let data = dlmm::client::args::FundReward {
         reward_index,
         amount: funding_amount,
         carry_forward: true,
         remaining_accounts_info,
-    })
-    .try_to_vec()?;
+    }
+    .data();
 
     let accounts = [main_accounts.to_vec(), reward_transfer_hook_accounts].concat();
 
     let fund_reward_ix = Instruction {
-        program_id: dlmm_interface::ID,
+        program_id: dlmm::ID,
         accounts,
         data,
     };

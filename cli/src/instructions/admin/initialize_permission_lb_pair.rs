@@ -1,6 +1,9 @@
+use std::sync::Arc;
+
 use crate::*;
 use anchor_lang::AccountDeserialize;
 use anchor_spl::token_interface::Mint;
+use commons::dlmm::types::{InitPermissionPairIx, Rounding};
 
 #[derive(Debug, Parser)]
 pub struct InitPermissionLbPairParameters {
@@ -35,9 +38,10 @@ pub async fn execute_initialize_permission_lb_pair<C: Deref<Target = impl Signer
         activation_type,
     } = params;
 
-    let base_keypair = read_keypair_file(base_keypair_path).expect("base keypair file not found");
+    let base_keypair =
+        Arc::new(read_keypair_file(base_keypair_path).expect("base keypair file not found"));
 
-    let rpc_client = program.async_rpc();
+    let rpc_client = program.rpc();
 
     let mut accounts = rpc_client
         .get_multiple_accounts(&[token_mint_x, token_mint_y])
@@ -62,7 +66,7 @@ pub async fn execute_initialize_permission_lb_pair<C: Deref<Target = impl Signer
     let (lb_pair, _bump) =
         derive_permission_lb_pair_pda(base_keypair.pubkey(), token_mint_x, token_mint_y, bin_step);
 
-    if program.rpc().get_account_data(&lb_pair).is_ok() {
+    if program.rpc().get_account_data(&lb_pair).await.is_ok() {
         return Ok(lb_pair);
     }
 
@@ -82,39 +86,38 @@ pub async fn execute_initialize_permission_lb_pair<C: Deref<Target = impl Signer
     let token_badge_x = accounts[0]
         .as_ref()
         .map(|_| token_badge_x)
-        .unwrap_or(dlmm_interface::ID);
+        .or(Some(dlmm::ID));
 
     let token_badge_y = accounts[1]
         .as_ref()
         .map(|_| token_badge_y)
-        .unwrap_or(dlmm_interface::ID);
+        .or(Some(dlmm::ID));
 
-    let accounts: [AccountMeta; INITIALIZE_PERMISSION_LB_PAIR_IX_ACCOUNTS_LEN] =
-        InitializePermissionLbPairKeys {
-            lb_pair,
-            bin_array_bitmap_extension: dlmm_interface::ID,
-            reserve_x,
-            reserve_y,
-            token_mint_x,
-            token_mint_y,
-            token_badge_x,
-            token_badge_y,
-            token_program_x: token_mint_base_account.owner,
-            token_program_y: token_mint_quote_account.owner,
-            oracle,
-            admin: program.payer(),
-            rent: solana_sdk::sysvar::rent::ID,
-            system_program: solana_sdk::system_program::ID,
-            event_authority,
-            program: dlmm_interface::ID,
-            base: base_keypair.pubkey(),
-        }
-        .into();
+    let accounts = dlmm::client::accounts::InitializePermissionLbPair {
+        lb_pair,
+        bin_array_bitmap_extension: Some(dlmm::ID),
+        reserve_x,
+        reserve_y,
+        token_mint_x,
+        token_mint_y,
+        token_badge_x,
+        token_badge_y,
+        token_program_x: token_mint_base_account.owner,
+        token_program_y: token_mint_quote_account.owner,
+        oracle,
+        admin: program.payer(),
+        rent: solana_sdk::sysvar::rent::ID,
+        system_program: solana_sdk::system_program::ID,
+        event_authority,
+        program: dlmm::ID,
+        base: base_keypair.pubkey(),
+    }
+    .to_account_metas(None);
 
     let (base_factor, base_fee_power_factor) =
         compute_base_factor_from_fee_bps(bin_step, base_fee_bps)?;
 
-    let data = InitializePermissionLbPairIxData(InitializePermissionLbPairIxArgs {
+    let data = dlmm::client::args::InitializePermissionLbPair {
         ix_data: InitPermissionPairIx {
             active_id: computed_active_id,
             bin_step,
@@ -123,19 +126,19 @@ pub async fn execute_initialize_permission_lb_pair<C: Deref<Target = impl Signer
             base_fee_power_factor,
             protocol_share: ILM_PROTOCOL_SHARE,
         },
-    })
-    .try_to_vec()?;
+    }
+    .data();
 
     let init_pair_ix = Instruction {
-        program_id: dlmm_interface::ID,
-        accounts: accounts.to_vec(),
+        program_id: dlmm::ID,
+        accounts,
         data,
     };
 
     let request_builder = program.request();
     let signature = request_builder
         .instruction(init_pair_ix)
-        .signer(&base_keypair)
+        .signer(base_keypair)
         .send_with_spinner_and_config(transaction_config)
         .await;
 

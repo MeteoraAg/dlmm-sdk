@@ -26,7 +26,7 @@ pub async fn execute_initialize_lb_pair2<C: Deref<Target = impl Signer> + Clone>
         initial_price,
     } = params;
 
-    let rpc_client = program.async_rpc();
+    let rpc_client = program.rpc();
 
     let mut accounts = rpc_client
         .get_multiple_accounts(&[token_mint_x, token_mint_y])
@@ -47,7 +47,9 @@ pub async fn execute_initialize_lb_pair2<C: Deref<Target = impl Signer> + Clone>
 
     let preset_parameter_state = rpc_client
         .get_account_and_deserialize(&preset_parameter, |account| {
-            Ok(PresetParameter2Account::deserialize(&account.data)?.0)
+            Ok(PresetParameter2::try_deserialize(
+                &mut account.data.as_ref(),
+            )?)
         })
         .await?;
 
@@ -59,7 +61,7 @@ pub async fn execute_initialize_lb_pair2<C: Deref<Target = impl Signer> + Clone>
     let (lb_pair, _bump) =
         derive_lb_pair_with_preset_parameter_key(preset_parameter, token_mint_x, token_mint_y);
 
-    if program.rpc().get_account_data(&lb_pair).is_ok() {
+    if program.rpc().get_account_data(&lb_pair).await.is_ok() {
         return Ok(lb_pair);
     }
 
@@ -78,16 +80,16 @@ pub async fn execute_initialize_lb_pair2<C: Deref<Target = impl Signer> + Clone>
     let token_badge_x = accounts[0]
         .as_ref()
         .map(|_| token_badge_x)
-        .unwrap_or(dlmm_interface::ID);
+        .or(Some(dlmm::ID));
 
     let token_badge_y = accounts[1]
         .as_ref()
         .map(|_| token_badge_y)
-        .unwrap_or(dlmm_interface::ID);
+        .or(Some(dlmm::ID));
 
-    let accounts: [AccountMeta; INITIALIZE_LB_PAIR2_IX_ACCOUNTS_LEN] = InitializeLbPair2Keys {
+    let accounts = dlmm::client::accounts::InitializeLbPair2 {
         lb_pair,
-        bin_array_bitmap_extension: dlmm_interface::ID,
+        bin_array_bitmap_extension: Some(dlmm::ID),
         reserve_x,
         reserve_y,
         token_mint_x,
@@ -101,22 +103,22 @@ pub async fn execute_initialize_lb_pair2<C: Deref<Target = impl Signer> + Clone>
         preset_parameter,
         system_program: solana_sdk::system_program::ID,
         event_authority,
-        program: dlmm_interface::ID,
+        program: dlmm::ID,
     }
-    .into();
+    .to_account_metas(None);
 
-    let data = InitializeLbPair2IxData(InitializeLbPair2IxArgs {
+    let data = dlmm::client::args::InitializeLbPair2 {
         params: InitializeLbPair2Params {
             active_id: computed_active_id,
             padding: [0u8; 96],
         },
-    })
-    .try_to_vec()?;
+    }
+    .data();
 
     let init_pair_ix = Instruction {
-        program_id: dlmm_interface::ID,
+        program_id: dlmm::ID,
         data,
-        accounts: accounts.to_vec(),
+        accounts,
     };
 
     let request_builder = program.request();

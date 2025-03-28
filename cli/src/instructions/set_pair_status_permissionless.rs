@@ -15,21 +15,20 @@ pub async fn execute_set_pair_status_permissionless<C: Deref<Target = impl Signe
 ) -> Result<()> {
     let SetPairStatusPermissionlessParams { lb_pair, enable } = params;
 
-    let accounts: [AccountMeta; SET_PAIR_STATUS_PERMISSIONLESS_IX_ACCOUNTS_LEN] =
-        SetPairStatusPermissionlessKeys {
-            creator: program.payer(),
-            lb_pair,
-        }
-        .into();
+    let accounts = dlmm::client::accounts::SetPairStatusPermissionless {
+        creator: program.payer(),
+        lb_pair,
+    }
+    .to_account_metas(None);
 
     let status = if enable { 1 } else { 0 };
 
-    let data = SetPairStatusIxData(SetPairStatusIxArgs { status }).try_to_vec()?;
+    let data = dlmm::client::args::SetPairStatusPermissionless { status }.data();
 
     let set_pair_status_permissionless_ix = Instruction {
-        accounts: accounts.to_vec(),
+        accounts,
         data,
-        program_id: dlmm_interface::ID,
+        program_id: dlmm::ID,
     };
 
     let request_builder = program.request();

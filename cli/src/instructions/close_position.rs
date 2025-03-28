@@ -12,10 +12,10 @@ pub async fn execute_close_position<C: Deref<Target = impl Signer> + Clone>(
 ) -> Result<()> {
     let ClosePositionParams { position } = params;
 
-    let rpc_client = program.async_rpc();
+    let rpc_client = program.rpc();
     let position_state = rpc_client
         .get_account_and_deserialize(&position, |account| {
-            Ok(PositionV2Account::deserialize(&account.data)?.0)
+            Ok(PositionV2::try_deserialize(&mut account.data.as_ref())?)
         })
         .await?;
 
@@ -23,22 +23,22 @@ pub async fn execute_close_position<C: Deref<Target = impl Signer> + Clone>(
 
     let (event_authority, _bump) = derive_event_authority_pda();
 
-    let main_accounts: [AccountMeta; CLOSE_POSITION2_IX_ACCOUNTS_LEN] = ClosePosition2Keys {
+    let main_accounts = dlmm::client::accounts::ClosePosition2 {
         sender: position_state.owner,
         rent_receiver: position_state.owner,
         position,
         event_authority,
-        program: dlmm_interface::ID,
+        program: dlmm::ID,
     }
-    .into();
+    .to_account_metas(None);
 
-    let data = ClosePosition2IxData.try_to_vec()?;
+    let data = dlmm::client::args::ClosePosition2 {}.data();
     let compute_budget_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
 
     let accounts = [main_accounts.to_vec(), bin_arrays_account_meta].concat();
 
     let close_position_ix = Instruction {
-        program_id: dlmm_interface::ID,
+        program_id: dlmm::ID,
         accounts,
         data,
     };

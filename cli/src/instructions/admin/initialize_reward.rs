@@ -25,7 +25,7 @@ pub async fn execute_initialize_reward<C: Deref<Target = impl Signer> + Clone>(
     let (reward_vault, _bump) = derive_reward_vault_pda(lb_pair, reward_index);
     let (event_authority, _bump) = derive_event_authority_pda();
 
-    let rpc_client = program.async_rpc();
+    let rpc_client = program.rpc();
     let reward_mint_account = rpc_client.get_account(&reward_mint).await?;
 
     let (token_badge, _bump) = derive_token_badge_pda(reward_mint);
@@ -34,9 +34,9 @@ pub async fn execute_initialize_reward<C: Deref<Target = impl Signer> + Clone>(
         .await
         .ok()
         .map(|_| token_badge)
-        .unwrap_or(dlmm_interface::ID);
+        .or(Some(dlmm::ID));
 
-    let accounts: [AccountMeta; INITIALIZE_REWARD_IX_ACCOUNTS_LEN] = InitializeRewardKeys {
+    let accounts = dlmm::client::accounts::InitializeReward {
         lb_pair,
         reward_vault,
         reward_mint,
@@ -46,20 +46,20 @@ pub async fn execute_initialize_reward<C: Deref<Target = impl Signer> + Clone>(
         rent: solana_sdk::sysvar::rent::ID,
         system_program: solana_sdk::system_program::ID,
         event_authority,
-        program: dlmm_interface::ID,
+        program: dlmm::ID,
     }
-    .into();
+    .to_account_metas(None);
 
-    let data = InitializeRewardIxData(InitializeRewardIxArgs {
+    let data = dlmm::client::args::InitializeReward {
         reward_index,
         reward_duration,
         funder,
-    })
-    .try_to_vec()?;
+    }
+    .data();
 
     let instruction = Instruction {
-        program_id: dlmm_interface::ID,
-        accounts: accounts.to_vec(),
+        program_id: dlmm::ID,
+        accounts,
         data,
     };
 
