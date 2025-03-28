@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.4.6] - PR #190
+
+### Fixed
+
+- Fixed `seedLiquiditySingleBin` function
+
 ## @meteora-ag/dlmm [1.4.5] - PR #162
 
 ### Changed
