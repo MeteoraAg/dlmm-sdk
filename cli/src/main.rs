@@ -10,9 +10,14 @@ use anchor_client::{
     },
 };
 use anchor_lang::prelude::AccountMeta;
+use anchor_lang::AccountDeserialize;
+use anchor_lang::InstructionData;
+use anchor_lang::ToAccountMetas;
 use anyhow::*;
 use clap::*;
 use commons::*;
+use dlmm::accounts::*;
+use dlmm::types::*;
 use instructions::set_pair_status_permissionless::execute_set_pair_status_permissionless;
 use solana_account_decoder::*;
 use std::ops::Deref;
@@ -25,7 +30,6 @@ mod math;
 
 use args::*;
 use commons::rpc_client_extension::*;
-use dlmm_interface::*;
 use instructions::*;
 use math::*;
 
@@ -56,7 +60,7 @@ async fn main() -> Result<()> {
         commitment_config,
     );
 
-    let program = client.program(dlmm_interface::ID).unwrap();
+    let program = client.program(dlmm::ID)?;
 
     let transaction_config: RpcSendTransactionConfig = RpcSendTransactionConfig {
         skip_preflight: false,
@@ -195,6 +199,9 @@ async fn main() -> Result<()> {
         DLMMCommand::SetPairStatusPermissionless(params) => {
             execute_set_pair_status_permissionless(params, &program, transaction_config).await?;
         }
+        DLMMCommand::SyncPrice(params) => {
+            execute_sync_price(params, &program, transaction_config, compute_unit_price_ix).await?;
+        }
         DLMMCommand::Admin(command) => match command {
             AdminCommand::InitializePermissionPair(params) => {
                 execute_initialize_permission_lb_pair(params, &program, transaction_config).await?;
@@ -244,7 +251,7 @@ async fn main() -> Result<()> {
                 execute_create_claim_protocol_fee_operator(params, &program, transaction_config)
                     .await?;
             }
-            AdminCommand::CloseclaimProtocolFeeOperator(params) => {
+            AdminCommand::CloseClaimProtocolFeeOperator(params) => {
                 execute_close_claim_protocol_fee_operator(params, &program, transaction_config)
                     .await?;
             }

@@ -26,11 +26,11 @@ pub async fn execute_swap<C: Deref<Target = impl Signer> + Clone>(
         swap_for_y,
     } = params;
 
-    let rpc_client = program.async_rpc();
+    let rpc_client = program.rpc();
 
     let lb_pair_state = rpc_client
         .get_account_and_deserialize(&lb_pair, |account| {
-            Ok(LbPairAccount::deserialize(&account.data)?.0)
+            Ok(LbPair::try_deserialize(&mut account.data.as_ref())?)
         })
         .await?;
 
@@ -68,7 +68,9 @@ pub async fn execute_swap<C: Deref<Target = impl Signer> + Clone>(
 
     let bitmap_extension = rpc_client
         .get_account_and_deserialize(&bitmap_extension_key, |account| {
-            Ok(BinArrayBitmapExtensionAccount::deserialize(&account.data)?.0)
+            Ok(BinArrayBitmapExtension::try_deserialize(
+                &mut account.data.as_ref(),
+            )?)
         })
         .await
         .ok();
@@ -90,7 +92,7 @@ pub async fn execute_swap<C: Deref<Target = impl Signer> + Clone>(
             let account = account?;
             Some((
                 key,
-                BinArrayAccount::deserialize(account.data.as_ref()).ok()?.0,
+                BinArray::try_deserialize(&mut account.data.as_ref()).ok()?,
             ))
         })
         .collect::<Option<HashMap<Pubkey, BinArray>>>()
@@ -128,11 +130,11 @@ pub async fn execute_swap<C: Deref<Target = impl Signer> + Clone>(
 
     let (event_authority, _bump) = derive_event_authority_pda();
 
-    let main_accounts: [AccountMeta; SWAP2_IX_ACCOUNTS_LEN] = Swap2Keys {
+    let main_accounts = dlmm::client::accounts::Swap2 {
         lb_pair,
         bin_array_bitmap_extension: bitmap_extension
             .map(|_| bitmap_extension_key)
-            .unwrap_or(dlmm_interface::ID),
+            .or(Some(dlmm::ID)),
         reserve_x: lb_pair_state.reserve_x,
         reserve_y: lb_pair_state.reserve_y,
         token_x_mint: lb_pair_state.token_x_mint,
@@ -143,12 +145,12 @@ pub async fn execute_swap<C: Deref<Target = impl Signer> + Clone>(
         user_token_in,
         user_token_out,
         oracle: lb_pair_state.oracle,
-        host_fee_in: dlmm_interface::ID,
+        host_fee_in: Some(dlmm::ID),
         event_authority,
-        program: dlmm_interface::ID,
+        program: dlmm::ID,
         memo_program: spl_memo::ID,
     }
-    .into();
+    .to_account_metas(None);
 
     let mut remaining_accounts_info = RemainingAccountsInfo { slices: vec![] };
     let mut remaining_accounts = vec![];
@@ -156,7 +158,7 @@ pub async fn execute_swap<C: Deref<Target = impl Signer> + Clone>(
     if let Some((slices, transfer_hook_remaining_accounts)) =
         get_potential_token_2022_related_ix_data_and_accounts(
             &lb_pair_state,
-            program.async_rpc(),
+            program.rpc(),
             ActionType::Liquidity,
         )
         .await?
@@ -174,17 +176,17 @@ pub async fn execute_swap<C: Deref<Target = impl Signer> + Clone>(
     // 100 bps slippage
     let min_amount_out = quote.amount_out * 9900 / BASIS_POINT_MAX as u64;
 
-    let data = Swap2IxData(Swap2IxArgs {
+    let data = dlmm::client::args::Swap2 {
         amount_in,
         min_amount_out,
         remaining_accounts_info,
-    })
-    .try_to_vec()?;
+    }
+    .data();
 
     let accounts = [main_accounts.to_vec(), remaining_accounts].concat();
 
     let swap_ix = Instruction {
-        program_id: dlmm_interface::ID,
+        program_id: dlmm::ID,
         accounts,
         data,
     };
