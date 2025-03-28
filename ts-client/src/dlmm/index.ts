@@ -5877,7 +5877,6 @@ export class DLMM {
         preInstructions.push(initializeBitmapExtensionIx);
       }
     }
-    console.log({ binArrayBitmapExtension })
     if (!!binArrayAccounts?.[1]) {
       fromBinArray = fromBinArrayPubkey;
     }
