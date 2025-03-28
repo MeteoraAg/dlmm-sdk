@@ -1,4 +1,4 @@
-use dlmm_interface::TokenProgramFlags;
+use crate::*;
 use std::ops::Deref;
 
 pub struct TokenProgramFlagWrapper(TokenProgramFlags);

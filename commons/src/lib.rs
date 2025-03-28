@@ -1,5 +1,22 @@
+use anchor_lang::prelude::declare_program;
 use anyhow::*;
-use dlmm_interface::*;
+
+#[cfg(feature = "borsh")]
+pub mod dlmm {
+    use super::*;
+    declare_program!(dlmm_borsh);
+    pub use dlmm_borsh::*;
+}
+
+#[cfg(not(feature = "borsh"))]
+pub mod dlmm {
+    use super::*;
+    declare_program!(dlmm_zc);
+    pub use dlmm_zc::*;
+}
+
+use dlmm::accounts::*;
+use dlmm::types::*;
 
 pub mod constants;
 pub use constants::*;

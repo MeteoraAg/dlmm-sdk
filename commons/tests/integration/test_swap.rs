@@ -1,21 +1,4 @@
-mod helpers;
-use anchor_client::anchor_lang::AccountDeserialize;
-use anchor_spl::token::{spl_token, TokenAccount};
-use commons::derive_event_authority_pda;
-use dlmm_interface::{
-    BinArrayAccount, LbPairAccount, RemainingAccountsInfo, Swap2IxArgs, SwapExactOut2IxArgs,
-    SWAP2_IX_ACCOUNTS_LEN,
-};
-use helpers::*;
-use solana_program_test::*;
-use solana_sdk::instruction::{AccountMeta, Instruction};
-use solana_sdk::native_token::LAMPORTS_PER_SOL;
-use solana_sdk::pubkey::Pubkey;
-use solana_sdk::signature::Signer;
-use std::collections::HashMap;
-use std::str::FromStr;
-use std::{assert_eq, println};
-use utils::*;
+use crate::*;
 
 struct SplTestPair {
     lb_pair: Pubkey,
@@ -31,42 +14,42 @@ struct SplTestPair {
 fn setup_spl_test_pair() -> (ProgramTest, SplTestPair) {
     let mut test = ProgramTest::default();
     test.prefer_bpf(true);
-    test.add_program("./tests/artifacts/lb_clmm_prod", dlmm_interface::id(), None);
+    test.add_program("./tests/artifacts/lb_clmm_prod", dlmm::ID, None);
 
-    let lb_pair = Pubkey::from_str("EtAdVRLFH22rjWh3mcUasKFF27WtHhsaCvK27tPFFWig").unwrap();
-    let reserve_x = Pubkey::from_str("BmW4cCRpJwwL8maFB1AoAuEQf96t64Eq5gUvXikZardM").unwrap();
-    let reserve_y = Pubkey::from_str("FDZDrPtCjmSHeq14goCxp5pCJSRekSXY3XSgGz5Rvass").unwrap();
-    let token_x_mint = Pubkey::from_str("Df6yfrKC8kZE3KNkrHERKzAetSxbrWeniQfyJY4Jpump").unwrap();
+    let lb_pair = Pubkey::from_str_const("EtAdVRLFH22rjWh3mcUasKFF27WtHhsaCvK27tPFFWig");
+    let reserve_x = Pubkey::from_str_const("BmW4cCRpJwwL8maFB1AoAuEQf96t64Eq5gUvXikZardM");
+    let reserve_y = Pubkey::from_str_const("FDZDrPtCjmSHeq14goCxp5pCJSRekSXY3XSgGz5Rvass");
+    let token_x_mint = Pubkey::from_str_const("Df6yfrKC8kZE3KNkrHERKzAetSxbrWeniQfyJY4Jpump");
     let token_y_mint = anchor_spl::token::spl_token::native_mint::id();
-    let oracle = Pubkey::from_str("Fnkg415DEx72GSPooKUWTbPS9wzKucQe4qnvFrrvcZK2").unwrap();
-    let bin_array_1 = Pubkey::from_str("5Sm2ecMeqohRkNpFJPWSqHL1BkA7AEW4ck8TmdF1gD4t").unwrap();
-    let bin_array_2 = Pubkey::from_str("E6gur9Jw8675DCR7GpJVhoSrkruRgt8EdEVqLAc5RLUt").unwrap();
+    let oracle = Pubkey::from_str_const("Fnkg415DEx72GSPooKUWTbPS9wzKucQe4qnvFrrvcZK2");
+    let bin_array_1 = Pubkey::from_str_const("5Sm2ecMeqohRkNpFJPWSqHL1BkA7AEW4ck8TmdF1gD4t");
+    let bin_array_2 = Pubkey::from_str_const("E6gur9Jw8675DCR7GpJVhoSrkruRgt8EdEVqLAc5RLUt");
 
     test.add_account_with_file_data(
         lb_pair,
         10 * LAMPORTS_PER_SOL,
-        dlmm_interface::id(),
+        dlmm::ID,
         "EtAdVRLFH22rjWh3mcUasKFF27WtHhsaCvK27tPFFWig/lb_pair.bin",
     );
 
     test.add_account_with_file_data(
         oracle,
         10 * LAMPORTS_PER_SOL,
-        dlmm_interface::id(),
+        dlmm::ID,
         "EtAdVRLFH22rjWh3mcUasKFF27WtHhsaCvK27tPFFWig/oracle.bin",
     );
 
     test.add_account_with_file_data(
         bin_array_1,
         10 * LAMPORTS_PER_SOL,
-        dlmm_interface::id(),
+        dlmm::ID,
         "EtAdVRLFH22rjWh3mcUasKFF27WtHhsaCvK27tPFFWig/bin_array_1.bin",
     );
 
     test.add_account_with_file_data(
         bin_array_2,
         10 * LAMPORTS_PER_SOL,
-        dlmm_interface::id(),
+        dlmm::ID,
         "EtAdVRLFH22rjWh3mcUasKFF27WtHhsaCvK27tPFFWig/bin_array_2.bin",
     );
 
@@ -147,7 +130,7 @@ async fn test_swap_exact_out() {
         .flatten()
         .unwrap();
 
-    let lb_pair_state = LbPairAccount::deserialize(&lb_pair_account.data).unwrap().0;
+    let lb_pair_state = LbPair::try_deserialize(&mut lb_pair_account.data.as_ref()).unwrap();
 
     let bin_array_1_account = banks_client
         .get_account(bin_array_1)
@@ -156,9 +139,8 @@ async fn test_swap_exact_out() {
         .flatten()
         .unwrap();
 
-    let bin_array_1_state = BinArrayAccount::deserialize(&bin_array_1_account.data)
-        .unwrap()
-        .0;
+    let bin_array_1_state =
+        BinArray::try_deserialize(&mut bin_array_1_account.data.as_ref()).unwrap();
 
     let bin_array_2_account = banks_client
         .get_account(bin_array_2)
@@ -167,9 +149,8 @@ async fn test_swap_exact_out() {
         .flatten()
         .unwrap();
 
-    let bin_array_2_state = BinArrayAccount::deserialize(&bin_array_2_account.data)
-        .unwrap()
-        .0;
+    let bin_array_2_state =
+        BinArray::try_deserialize(&mut bin_array_2_account.data.as_ref()).unwrap();
 
     let mut bin_arrays = HashMap::new();
     bin_arrays.insert(bin_array_1, bin_array_1_state);
@@ -228,25 +209,25 @@ async fn test_swap_exact_out() {
     let user_token_out_state_before =
         TokenAccount::try_deserialize(&mut user_token_out_account_before.data.as_ref()).unwrap();
 
-    let main_accounts: [AccountMeta; SWAP2_IX_ACCOUNTS_LEN] = dlmm_interface::Swap2Keys {
+    let main_accounts = dlmm::client::accounts::SwapExactOut2 {
         lb_pair,
         oracle,
-        bin_array_bitmap_extension: dlmm_interface::ID,
+        bin_array_bitmap_extension: Some(dlmm::ID),
         reserve_x,
         reserve_y,
         user_token_in,
         user_token_out,
         token_x_mint,
         token_y_mint,
-        host_fee_in: dlmm_interface::ID,
+        host_fee_in: Some(dlmm::ID),
         user: payer.pubkey(),
         token_x_program: spl_token::id(),
         token_y_program: spl_token::id(),
-        program: dlmm_interface::id(),
+        program: dlmm::ID,
         event_authority,
         memo_program: spl_memo::ID,
     }
-    .into();
+    .to_account_metas(None);
 
     let mut all_accounts = main_accounts.to_vec();
 
@@ -257,15 +238,14 @@ async fn test_swap_exact_out() {
     all_accounts.append(&mut remaining_accounts);
 
     let swap_ix = Instruction {
-        program_id: dlmm_interface::id(),
+        program_id: dlmm::ID,
         accounts: all_accounts,
-        data: dlmm_interface::SwapExactOut2IxData(SwapExactOut2IxArgs {
+        data: dlmm::client::args::SwapExactOut2 {
             max_in_amount: quote_result.amount_in,
             out_amount,
             remaining_accounts_info: RemainingAccountsInfo { slices: vec![] },
-        })
-        .try_to_vec()
-        .unwrap(),
+        }
+        .data(),
     };
 
     process_and_assert_ok(&[swap_ix], &payer, &[&payer], &mut banks_client).await;
@@ -338,7 +318,7 @@ async fn test_swap() {
         .flatten()
         .unwrap();
 
-    let lb_pair_state = LbPairAccount::deserialize(&lb_pair_account.data).unwrap().0;
+    let lb_pair_state = LbPair::try_deserialize(&mut lb_pair_account.data.as_ref()).unwrap();
 
     let bin_array_1_account = banks_client
         .get_account(bin_array_1)
@@ -347,9 +327,8 @@ async fn test_swap() {
         .flatten()
         .unwrap();
 
-    let bin_array_1_state = BinArrayAccount::deserialize(&bin_array_1_account.data)
-        .unwrap()
-        .0;
+    let bin_array_1_state =
+        BinArray::try_deserialize(&mut bin_array_1_account.data.as_ref()).unwrap();
 
     let bin_array_2_account = banks_client
         .get_account(bin_array_2)
@@ -358,9 +337,8 @@ async fn test_swap() {
         .flatten()
         .unwrap();
 
-    let bin_array_2_state = BinArrayAccount::deserialize(&bin_array_2_account.data)
-        .unwrap()
-        .0;
+    let bin_array_2_state =
+        BinArray::try_deserialize(&mut bin_array_2_account.data.as_ref()).unwrap();
 
     let mut bin_arrays = HashMap::new();
     bin_arrays.insert(bin_array_1, bin_array_1_state);
@@ -407,25 +385,25 @@ async fn test_swap() {
     let user_token_out_state_before =
         TokenAccount::try_deserialize(&mut user_token_out_account_before.data.as_ref()).unwrap();
 
-    let main_accounts: [AccountMeta; SWAP2_IX_ACCOUNTS_LEN] = dlmm_interface::Swap2Keys {
+    let main_accounts = dlmm::client::accounts::Swap2 {
         lb_pair,
         oracle,
-        bin_array_bitmap_extension: dlmm_interface::ID,
+        bin_array_bitmap_extension: Some(dlmm::ID),
         reserve_x,
         reserve_y,
         user_token_in,
         user_token_out,
         token_x_mint,
         token_y_mint,
-        host_fee_in: dlmm_interface::ID,
+        host_fee_in: Some(dlmm::ID),
         user: payer.pubkey(),
         token_x_program: spl_token::id(),
         token_y_program: spl_token::id(),
-        program: dlmm_interface::id(),
+        program: dlmm::ID,
         event_authority,
         memo_program: spl_memo::id(),
     }
-    .into();
+    .to_account_metas(None);
 
     let mut all_accounts = main_accounts.to_vec();
 
@@ -436,15 +414,14 @@ async fn test_swap() {
     all_accounts.append(&mut remaining_accounts);
 
     let swap_ix = Instruction {
-        program_id: dlmm_interface::id(),
+        program_id: dlmm::ID,
         accounts: all_accounts,
-        data: dlmm_interface::Swap2IxData(Swap2IxArgs {
+        data: dlmm::client::args::Swap2 {
             amount_in,
             min_amount_out: 0,
             remaining_accounts_info: RemainingAccountsInfo { slices: vec![] },
-        })
-        .try_to_vec()
-        .unwrap(),
+        }
+        .data(),
     };
 
     process_and_assert_ok(&[swap_ix], &payer, &[&payer], &mut banks_client).await;
