@@ -2274,10 +2274,6 @@ export class DLMM {
 
     const [activeBin, positionsV2] = promiseResults;
 
-    const positions = [
-      ...positionsV2.map((p) => new PositionV2Wrapper(p.publicKey, p.account)),
-    ];
-
     if (!activeBin) {
       throw new Error("Error fetching active bin");
     }
@@ -2288,6 +2284,10 @@ export class DLMM {
         userPositions: [],
       };
     }
+
+    const positions = [
+      ...positionsV2.map((p) => new PositionV2Wrapper(p.publicKey, p.account)),
+    ];
 
     if (!positions) {
       throw new Error("Error fetching positions");
