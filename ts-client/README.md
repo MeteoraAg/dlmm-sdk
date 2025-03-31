@@ -222,7 +222,8 @@ const binIdsToRemove = userPosition.positionData.positionBinData.map(
 const removeLiquidityTx = await dlmmPool.removeLiquidity({
   position: userPosition.publicKey,
   user: user.publicKey,
-  binIds: binIdsToRemove,
+  fromBinId: binIdsToRemove[0],
+  toBinId: binIdsToRemove[binIdsToRemove.length - 1],
   liquiditiesBpsToRemove: new Array(binIdsToRemove.length).fill(
     new BN(100 * 100)
   ), // 100% (range from 0 to 100)
