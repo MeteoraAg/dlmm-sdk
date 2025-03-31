@@ -17,7 +17,13 @@
         },
         {
           "name": "lb_pair",
-          "writable": true
+          "writable": true,
+          "relations": [
+            "position",
+            "bin_array_bitmap_extension",
+            "bin_array_lower",
+            "bin_array_upper"
+          ]
         },
         {
           "name": "bin_array_bitmap_extension",
@@ -34,17 +40,21 @@
         },
         {
           "name": "reserve_x",
-          "writable": true
+          "writable": true,
+          "relations": ["lb_pair"]
         },
         {
           "name": "reserve_y",
-          "writable": true
+          "writable": true,
+          "relations": ["lb_pair"]
         },
         {
-          "name": "token_x_mint"
+          "name": "token_x_mint",
+          "relations": ["lb_pair"]
         },
         {
-          "name": "token_y_mint"
+          "name": "token_y_mint",
+          "relations": ["lb_pair"]
         },
         {
           "name": "bin_array_lower",
@@ -59,13 +69,26 @@
           "signer": true
         },
         {
-          "name": "token_x_program"
+          "name": "token_x_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
-          "name": "token_y_program"
+          "name": "token_y_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -92,7 +115,8 @@
         },
         {
           "name": "lb_pair",
-          "writable": true
+          "writable": true,
+          "relations": ["position", "bin_array_bitmap_extension"]
         },
         {
           "name": "bin_array_bitmap_extension",
@@ -109,17 +133,21 @@
         },
         {
           "name": "reserve_x",
-          "writable": true
+          "writable": true,
+          "relations": ["lb_pair"]
         },
         {
           "name": "reserve_y",
-          "writable": true
+          "writable": true,
+          "relations": ["lb_pair"]
         },
         {
-          "name": "token_x_mint"
+          "name": "token_x_mint",
+          "relations": ["lb_pair"]
         },
         {
-          "name": "token_y_mint"
+          "name": "token_y_mint",
+          "relations": ["lb_pair"]
         },
         {
           "name": "sender",
@@ -132,7 +160,18 @@
           "name": "token_y_program"
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -167,7 +206,13 @@
         },
         {
           "name": "lb_pair",
-          "writable": true
+          "writable": true,
+          "relations": [
+            "position",
+            "bin_array_bitmap_extension",
+            "bin_array_lower",
+            "bin_array_upper"
+          ]
         },
         {
           "name": "bin_array_bitmap_extension",
@@ -184,17 +229,21 @@
         },
         {
           "name": "reserve_x",
-          "writable": true
+          "writable": true,
+          "relations": ["lb_pair"]
         },
         {
           "name": "reserve_y",
-          "writable": true
+          "writable": true,
+          "relations": ["lb_pair"]
         },
         {
-          "name": "token_x_mint"
+          "name": "token_x_mint",
+          "relations": ["lb_pair"]
         },
         {
-          "name": "token_y_mint"
+          "name": "token_y_mint",
+          "relations": ["lb_pair"]
         },
         {
           "name": "bin_array_lower",
@@ -209,13 +258,26 @@
           "signer": true
         },
         {
-          "name": "token_x_program"
+          "name": "token_x_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
-          "name": "token_y_program"
+          "name": "token_y_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -242,7 +304,8 @@
         },
         {
           "name": "lb_pair",
-          "writable": true
+          "writable": true,
+          "relations": ["position", "bin_array_bitmap_extension"]
         },
         {
           "name": "bin_array_bitmap_extension",
@@ -259,17 +322,21 @@
         },
         {
           "name": "reserve_x",
-          "writable": true
+          "writable": true,
+          "relations": ["lb_pair"]
         },
         {
           "name": "reserve_y",
-          "writable": true
+          "writable": true,
+          "relations": ["lb_pair"]
         },
         {
-          "name": "token_x_mint"
+          "name": "token_x_mint",
+          "relations": ["lb_pair"]
         },
         {
-          "name": "token_y_mint"
+          "name": "token_y_mint",
+          "relations": ["lb_pair"]
         },
         {
           "name": "sender",
@@ -282,7 +349,18 @@
           "name": "token_y_program"
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -317,7 +395,13 @@
         },
         {
           "name": "lb_pair",
-          "writable": true
+          "writable": true,
+          "relations": [
+            "position",
+            "bin_array_bitmap_extension",
+            "bin_array_lower",
+            "bin_array_upper"
+          ]
         },
         {
           "name": "bin_array_bitmap_extension",
@@ -348,10 +432,22 @@
           "signer": true
         },
         {
-          "name": "token_program"
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -378,7 +474,13 @@
         },
         {
           "name": "lb_pair",
-          "writable": true
+          "writable": true,
+          "relations": [
+            "position",
+            "bin_array_bitmap_extension",
+            "bin_array_lower",
+            "bin_array_upper"
+          ]
         },
         {
           "name": "bin_array_bitmap_extension",
@@ -395,17 +497,21 @@
         },
         {
           "name": "reserve_x",
-          "writable": true
+          "writable": true,
+          "relations": ["lb_pair"]
         },
         {
           "name": "reserve_y",
-          "writable": true
+          "writable": true,
+          "relations": ["lb_pair"]
         },
         {
-          "name": "token_x_mint"
+          "name": "token_x_mint",
+          "relations": ["lb_pair"]
         },
         {
-          "name": "token_y_mint"
+          "name": "token_y_mint",
+          "relations": ["lb_pair"]
         },
         {
           "name": "bin_array_lower",
@@ -420,13 +526,26 @@
           "signer": true
         },
         {
-          "name": "token_x_program"
+          "name": "token_x_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
-          "name": "token_y_program"
+          "name": "token_y_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -453,7 +572,13 @@
         },
         {
           "name": "lb_pair",
-          "writable": true
+          "writable": true,
+          "relations": [
+            "position",
+            "bin_array_bitmap_extension",
+            "bin_array_lower",
+            "bin_array_upper"
+          ]
         },
         {
           "name": "bin_array_bitmap_extension",
@@ -484,10 +609,22 @@
           "signer": true
         },
         {
-          "name": "token_program"
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -514,7 +651,13 @@
         },
         {
           "name": "lb_pair",
-          "writable": true
+          "writable": true,
+          "relations": [
+            "position",
+            "bin_array_bitmap_extension",
+            "bin_array_lower",
+            "bin_array_upper"
+          ]
         },
         {
           "name": "bin_array_bitmap_extension",
@@ -545,10 +688,22 @@
           "signer": true
         },
         {
-          "name": "token_program"
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -575,7 +730,8 @@
         },
         {
           "name": "lb_pair",
-          "writable": true
+          "writable": true,
+          "relations": ["position", "bin_array_bitmap_extension"]
         },
         {
           "name": "bin_array_bitmap_extension",
@@ -601,7 +757,18 @@
           "name": "token_program"
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -632,7 +799,8 @@
       "accounts": [
         {
           "name": "lb_pair",
-          "writable": true
+          "writable": true,
+          "relations": ["position", "bin_array_lower", "bin_array_upper"]
         },
         {
           "name": "position",
@@ -652,11 +820,13 @@
         },
         {
           "name": "reserve_x",
-          "writable": true
+          "writable": true,
+          "relations": ["lb_pair"]
         },
         {
           "name": "reserve_y",
-          "writable": true
+          "writable": true,
+          "relations": ["lb_pair"]
         },
         {
           "name": "user_token_x",
@@ -667,16 +837,30 @@
           "writable": true
         },
         {
-          "name": "token_x_mint"
+          "name": "token_x_mint",
+          "relations": ["lb_pair"]
         },
         {
-          "name": "token_y_mint"
+          "name": "token_y_mint",
+          "relations": ["lb_pair"]
         },
         {
-          "name": "token_program"
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -690,7 +874,8 @@
       "accounts": [
         {
           "name": "lb_pair",
-          "writable": true
+          "writable": true,
+          "relations": ["position"]
         },
         {
           "name": "position",
@@ -702,11 +887,13 @@
         },
         {
           "name": "reserve_x",
-          "writable": true
+          "writable": true,
+          "relations": ["lb_pair"]
         },
         {
           "name": "reserve_y",
-          "writable": true
+          "writable": true,
+          "relations": ["lb_pair"]
         },
         {
           "name": "user_token_x",
@@ -717,10 +904,12 @@
           "writable": true
         },
         {
-          "name": "token_x_mint"
+          "name": "token_x_mint",
+          "relations": ["lb_pair"]
         },
         {
-          "name": "token_y_mint"
+          "name": "token_y_mint",
+          "relations": ["lb_pair"]
         },
         {
           "name": "token_program_x"
@@ -729,10 +918,22 @@
           "name": "token_program_y"
         },
         {
-          "name": "memo_program"
+          "name": "memo_program",
+          "address": "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -763,7 +964,8 @@
       "accounts": [
         {
           "name": "lb_pair",
-          "writable": true
+          "writable": true,
+          "relations": ["position", "bin_array_lower", "bin_array_upper"]
         },
         {
           "name": "position",
@@ -793,10 +995,22 @@
           "writable": true
         },
         {
-          "name": "token_program"
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -815,7 +1029,8 @@
       "accounts": [
         {
           "name": "lb_pair",
-          "writable": true
+          "writable": true,
+          "relations": ["position"]
         },
         {
           "name": "position",
@@ -840,10 +1055,22 @@
           "name": "token_program"
         },
         {
-          "name": "memo_program"
+          "name": "memo_program",
+          "address": "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -901,7 +1128,8 @@
         },
         {
           "name": "lb_pair",
-          "writable": true
+          "writable": true,
+          "relations": ["position", "bin_array_lower", "bin_array_upper"]
         },
         {
           "name": "bin_array_lower",
@@ -920,7 +1148,18 @@
           "writable": true
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -945,7 +1184,18 @@
           "writable": true
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -970,7 +1220,18 @@
           "writable": true
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -1024,7 +1285,19 @@
       "accounts": [
         {
           "name": "claim_fee_operator",
-          "writable": true
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [99, 102, 95, 111, 112, 101, 114, 97, 116, 111, 114]
+              },
+              {
+                "kind": "account",
+                "path": "operator"
+              }
+            ]
+          }
         },
         {
           "name": "operator"
@@ -1035,7 +1308,8 @@
           "signer": true
         },
         {
-          "name": "system_program"
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
         }
       ],
       "args": []
@@ -1054,13 +1328,26 @@
         },
         {
           "name": "owner",
-          "signer": true
+          "signer": true,
+          "relations": ["position"]
         },
         {
-          "name": "system_program"
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -1138,7 +1425,8 @@
       "accounts": [
         {
           "name": "lb_pair",
-          "writable": true
+          "writable": true,
+          "relations": ["bin_array"]
         },
         {
           "name": "reward_vault",
@@ -1163,7 +1451,18 @@
           "name": "token_program"
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -1198,7 +1497,12 @@
       "accounts": [
         {
           "name": "lb_pair",
-          "writable": true
+          "writable": true,
+          "relations": [
+            "bin_array_bitmap_extension",
+            "from_bin_array",
+            "to_bin_array"
+          ]
         },
         {
           "name": "bin_array_bitmap_extension",
@@ -1213,7 +1517,18 @@
           "optional": true
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -1240,10 +1555,22 @@
           "signer": true
         },
         {
-          "name": "system_program"
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -1266,7 +1593,8 @@
           "signer": true
         },
         {
-          "name": "lb_pair"
+          "name": "lb_pair",
+          "relations": ["position"]
         },
         {
           "name": "position",
@@ -1274,13 +1602,26 @@
         },
         {
           "name": "owner",
-          "signer": true
+          "signer": true,
+          "relations": ["position"]
         },
         {
-          "name": "system_program"
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -1306,7 +1647,23 @@
         },
         {
           "name": "bin_array",
-          "writable": true
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [98, 105, 110, 95, 97, 114, 114, 97, 121]
+              },
+              {
+                "kind": "account",
+                "path": "lb_pair"
+              },
+              {
+                "kind": "arg",
+                "path": "index"
+              }
+            ]
+          }
         },
         {
           "name": "funder",
@@ -1314,7 +1671,8 @@
           "signer": true
         },
         {
-          "name": "system_program"
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
         }
       ],
       "args": [
@@ -1336,7 +1694,19 @@
           "docs": [
             "Initialize an account to store if a bin array is initialized."
           ],
-          "writable": true
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [98, 105, 116, 109, 97, 112]
+              },
+              {
+                "kind": "account",
+                "path": "lb_pair"
+              }
+            ]
+          }
         },
         {
           "name": "funder",
@@ -1344,10 +1714,12 @@
           "signer": true
         },
         {
-          "name": "system_program"
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
         },
         {
-          "name": "rent"
+          "name": "rent",
+          "address": "SysvarRent111111111111111111111111111111111"
         }
       ],
       "args": []
@@ -1363,7 +1735,19 @@
         {
           "name": "bin_array_bitmap_extension",
           "writable": true,
-          "optional": true
+          "optional": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [98, 105, 116, 109, 97, 112]
+              },
+              {
+                "kind": "account",
+                "path": "lb_pair"
+              }
+            ]
+          }
         },
         {
           "name": "token_mint_x"
@@ -1373,15 +1757,51 @@
         },
         {
           "name": "reserve_x",
-          "writable": true
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "lb_pair"
+              },
+              {
+                "kind": "account",
+                "path": "token_mint_x"
+              }
+            ]
+          }
         },
         {
           "name": "reserve_y",
-          "writable": true
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "lb_pair"
+              },
+              {
+                "kind": "account",
+                "path": "token_mint_y"
+              }
+            ]
+          }
         },
         {
           "name": "oracle",
-          "writable": true
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [111, 114, 97, 99, 108, 101]
+              },
+              {
+                "kind": "account",
+                "path": "lb_pair"
+              }
+            ]
+          }
         },
         {
           "name": "user_token_x"
@@ -1392,16 +1812,29 @@
           "signer": true
         },
         {
-          "name": "token_program"
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
-          "name": "system_program"
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
         },
         {
           "name": "user_token_y"
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -1429,7 +1862,19 @@
         {
           "name": "bin_array_bitmap_extension",
           "writable": true,
-          "optional": true
+          "optional": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [98, 105, 116, 109, 97, 112]
+              },
+              {
+                "kind": "account",
+                "path": "lb_pair"
+              }
+            ]
+          }
         },
         {
           "name": "token_mint_x"
@@ -1439,15 +1884,51 @@
         },
         {
           "name": "reserve_x",
-          "writable": true
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "lb_pair"
+              },
+              {
+                "kind": "account",
+                "path": "token_mint_x"
+              }
+            ]
+          }
         },
         {
           "name": "reserve_y",
-          "writable": true
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "lb_pair"
+              },
+              {
+                "kind": "account",
+                "path": "token_mint_y"
+              }
+            ]
+          }
         },
         {
           "name": "oracle",
-          "writable": true
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [111, 114, 97, 99, 108, 101]
+              },
+              {
+                "kind": "account",
+                "path": "lb_pair"
+              }
+            ]
+          }
         },
         {
           "name": "user_token_x"
@@ -1472,13 +1953,25 @@
           "name": "token_program_y"
         },
         {
-          "name": "system_program"
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
         },
         {
           "name": "user_token_y"
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -1506,7 +1999,19 @@
         {
           "name": "bin_array_bitmap_extension",
           "writable": true,
-          "optional": true
+          "optional": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [98, 105, 116, 109, 97, 112]
+              },
+              {
+                "kind": "account",
+                "path": "lb_pair"
+              }
+            ]
+          }
         },
         {
           "name": "token_mint_x"
@@ -1516,15 +2021,51 @@
         },
         {
           "name": "reserve_x",
-          "writable": true
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "lb_pair"
+              },
+              {
+                "kind": "account",
+                "path": "token_mint_x"
+              }
+            ]
+          }
         },
         {
           "name": "reserve_y",
-          "writable": true
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "lb_pair"
+              },
+              {
+                "kind": "account",
+                "path": "token_mint_y"
+              }
+            ]
+          }
         },
         {
           "name": "oracle",
-          "writable": true
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [111, 114, 97, 99, 108, 101]
+              },
+              {
+                "kind": "account",
+                "path": "lb_pair"
+              }
+            ]
+          }
         },
         {
           "name": "preset_parameter"
@@ -1535,16 +2076,30 @@
           "signer": true
         },
         {
-          "name": "token_program"
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
-          "name": "system_program"
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
         },
         {
-          "name": "rent"
+          "name": "rent",
+          "address": "SysvarRent111111111111111111111111111111111"
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -1572,7 +2127,19 @@
         {
           "name": "bin_array_bitmap_extension",
           "writable": true,
-          "optional": true
+          "optional": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [98, 105, 116, 109, 97, 112]
+              },
+              {
+                "kind": "account",
+                "path": "lb_pair"
+              }
+            ]
+          }
         },
         {
           "name": "token_mint_x"
@@ -1582,15 +2149,51 @@
         },
         {
           "name": "reserve_x",
-          "writable": true
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "lb_pair"
+              },
+              {
+                "kind": "account",
+                "path": "token_mint_x"
+              }
+            ]
+          }
         },
         {
           "name": "reserve_y",
-          "writable": true
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "lb_pair"
+              },
+              {
+                "kind": "account",
+                "path": "token_mint_y"
+              }
+            ]
+          }
         },
         {
           "name": "oracle",
-          "writable": true
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [111, 114, 97, 99, 108, 101]
+              },
+              {
+                "kind": "account",
+                "path": "lb_pair"
+              }
+            ]
+          }
         },
         {
           "name": "preset_parameter"
@@ -1615,10 +2218,22 @@
           "name": "token_program_y"
         },
         {
-          "name": "system_program"
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -1650,7 +2265,19 @@
         {
           "name": "bin_array_bitmap_extension",
           "writable": true,
-          "optional": true
+          "optional": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [98, 105, 116, 109, 97, 112]
+              },
+              {
+                "kind": "account",
+                "path": "lb_pair"
+              }
+            ]
+          }
         },
         {
           "name": "token_mint_x"
@@ -1660,15 +2287,51 @@
         },
         {
           "name": "reserve_x",
-          "writable": true
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "lb_pair"
+              },
+              {
+                "kind": "account",
+                "path": "token_mint_x"
+              }
+            ]
+          }
         },
         {
           "name": "reserve_y",
-          "writable": true
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "lb_pair"
+              },
+              {
+                "kind": "account",
+                "path": "token_mint_y"
+              }
+            ]
+          }
         },
         {
           "name": "oracle",
-          "writable": true
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [111, 114, 97, 99, 108, 101]
+              },
+              {
+                "kind": "account",
+                "path": "lb_pair"
+              }
+            ]
+          }
         },
         {
           "name": "admin",
@@ -1690,13 +2353,26 @@
           "name": "token_program_y"
         },
         {
-          "name": "system_program"
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
         },
         {
-          "name": "rent"
+          "name": "rent",
+          "address": "SysvarRent111111111111111111111111111111111"
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -1735,13 +2411,26 @@
           "signer": true
         },
         {
-          "name": "system_program"
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
         },
         {
-          "name": "rent"
+          "name": "rent",
+          "address": "SysvarRent111111111111111111111111111111111"
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -1773,7 +2462,31 @@
         },
         {
           "name": "position",
-          "writable": true
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [112, 111, 115, 105, 116, 105, 111, 110]
+              },
+              {
+                "kind": "account",
+                "path": "lb_pair"
+              },
+              {
+                "kind": "account",
+                "path": "base"
+              },
+              {
+                "kind": "arg",
+                "path": "lower_bin_id"
+              },
+              {
+                "kind": "arg",
+                "path": "width"
+              }
+            ]
+          }
         },
         {
           "name": "lb_pair"
@@ -1793,10 +2506,22 @@
           "name": "owner_token_x"
         },
         {
-          "name": "system_program"
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -1836,7 +2561,31 @@
         },
         {
           "name": "position",
-          "writable": true
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [112, 111, 115, 105, 116, 105, 111, 110]
+              },
+              {
+                "kind": "account",
+                "path": "lb_pair"
+              },
+              {
+                "kind": "account",
+                "path": "base"
+              },
+              {
+                "kind": "arg",
+                "path": "lower_bin_id"
+              },
+              {
+                "kind": "arg",
+                "path": "width"
+              }
+            ]
+          }
         },
         {
           "name": "lb_pair"
@@ -1847,13 +2596,26 @@
           "signer": true
         },
         {
-          "name": "system_program"
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
         },
         {
-          "name": "rent"
+          "name": "rent",
+          "address": "SysvarRent111111111111111111111111111111111"
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -1876,7 +2638,26 @@
       "accounts": [
         {
           "name": "preset_parameter",
-          "writable": true
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112, 114, 101, 115, 101, 116, 95, 112, 97, 114, 97, 109, 101,
+                  116, 101, 114
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "ix.bin_step"
+              },
+              {
+                "kind": "arg",
+                "path": "ix.base_factor"
+              }
+            ]
+          }
         },
         {
           "name": "admin",
@@ -1884,10 +2665,12 @@
           "signer": true
         },
         {
-          "name": "system_program"
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
         },
         {
-          "name": "rent"
+          "name": "rent",
+          "address": "SysvarRent111111111111111111111111111111111"
         }
       ],
       "args": [
@@ -1907,7 +2690,22 @@
       "accounts": [
         {
           "name": "preset_parameter",
-          "writable": true
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112, 114, 101, 115, 101, 116, 95, 112, 97, 114, 97, 109, 101,
+                  116, 101, 114, 50
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "ix.index"
+              }
+            ]
+          }
         },
         {
           "name": "admin",
@@ -1915,7 +2713,8 @@
           "signer": true
         },
         {
-          "name": "system_program"
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
         }
       ],
       "args": [
@@ -1939,7 +2738,19 @@
         },
         {
           "name": "reward_vault",
-          "writable": true
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "lb_pair"
+              },
+              {
+                "kind": "arg",
+                "path": "reward_index"
+              }
+            ]
+          }
         },
         {
           "name": "reward_mint"
@@ -1957,13 +2768,26 @@
           "name": "token_program"
         },
         {
-          "name": "system_program"
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
         },
         {
-          "name": "rent"
+          "name": "rent",
+          "address": "SysvarRent111111111111111111111111111111111"
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -1993,7 +2817,19 @@
         },
         {
           "name": "token_badge",
-          "writable": true
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [116, 111, 107, 101, 110, 95, 98, 97, 100, 103, 101]
+              },
+              {
+                "kind": "account",
+                "path": "token_mint"
+              }
+            ]
+          }
         },
         {
           "name": "admin",
@@ -2001,7 +2837,8 @@
           "signer": true
         },
         {
-          "name": "system_program"
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
         }
       ],
       "args": []
@@ -2030,7 +2867,8 @@
           "writable": true
         },
         {
-          "name": "lb_pair"
+          "name": "lb_pair",
+          "relations": ["position_v1", "bin_array_lower", "bin_array_upper"]
         },
         {
           "name": "bin_array_lower",
@@ -2043,17 +2881,30 @@
         {
           "name": "owner",
           "writable": true,
-          "signer": true
+          "signer": true,
+          "relations": ["position_v1"]
         },
         {
-          "name": "system_program"
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
         },
         {
           "name": "rent_receiver",
           "writable": true
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -2071,7 +2922,13 @@
         },
         {
           "name": "lb_pair",
-          "writable": true
+          "writable": true,
+          "relations": [
+            "position",
+            "bin_array_bitmap_extension",
+            "bin_array_lower",
+            "bin_array_upper"
+          ]
         },
         {
           "name": "bin_array_bitmap_extension",
@@ -2088,17 +2945,21 @@
         },
         {
           "name": "reserve_x",
-          "writable": true
+          "writable": true,
+          "relations": ["lb_pair"]
         },
         {
           "name": "reserve_y",
-          "writable": true
+          "writable": true,
+          "relations": ["lb_pair"]
         },
         {
-          "name": "token_x_mint"
+          "name": "token_x_mint",
+          "relations": ["lb_pair"]
         },
         {
-          "name": "token_y_mint"
+          "name": "token_y_mint",
+          "relations": ["lb_pair"]
         },
         {
           "name": "bin_array_lower",
@@ -2113,13 +2974,26 @@
           "signer": true
         },
         {
-          "name": "token_x_program"
+          "name": "token_x_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
-          "name": "token_y_program"
+          "name": "token_y_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -2137,7 +3011,13 @@
         },
         {
           "name": "lb_pair",
-          "writable": true
+          "writable": true,
+          "relations": [
+            "position",
+            "bin_array_bitmap_extension",
+            "bin_array_lower",
+            "bin_array_upper"
+          ]
         },
         {
           "name": "bin_array_bitmap_extension",
@@ -2154,17 +3034,21 @@
         },
         {
           "name": "reserve_x",
-          "writable": true
+          "writable": true,
+          "relations": ["lb_pair"]
         },
         {
           "name": "reserve_y",
-          "writable": true
+          "writable": true,
+          "relations": ["lb_pair"]
         },
         {
-          "name": "token_x_mint"
+          "name": "token_x_mint",
+          "relations": ["lb_pair"]
         },
         {
-          "name": "token_y_mint"
+          "name": "token_y_mint",
+          "relations": ["lb_pair"]
         },
         {
           "name": "bin_array_lower",
@@ -2179,13 +3063,26 @@
           "signer": true
         },
         {
-          "name": "token_x_program"
+          "name": "token_x_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
-          "name": "token_y_program"
+          "name": "token_y_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -2214,7 +3111,8 @@
         },
         {
           "name": "lb_pair",
-          "writable": true
+          "writable": true,
+          "relations": ["position", "bin_array_bitmap_extension"]
         },
         {
           "name": "bin_array_bitmap_extension",
@@ -2231,17 +3129,21 @@
         },
         {
           "name": "reserve_x",
-          "writable": true
+          "writable": true,
+          "relations": ["lb_pair"]
         },
         {
           "name": "reserve_y",
-          "writable": true
+          "writable": true,
+          "relations": ["lb_pair"]
         },
         {
-          "name": "token_x_mint"
+          "name": "token_x_mint",
+          "relations": ["lb_pair"]
         },
         {
-          "name": "token_y_mint"
+          "name": "token_y_mint",
+          "relations": ["lb_pair"]
         },
         {
           "name": "sender",
@@ -2254,10 +3156,22 @@
           "name": "token_y_program"
         },
         {
-          "name": "memo_program"
+          "name": "memo_program",
+          "address": "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -2294,7 +3208,13 @@
         },
         {
           "name": "lb_pair",
-          "writable": true
+          "writable": true,
+          "relations": [
+            "position",
+            "bin_array_bitmap_extension",
+            "bin_array_lower",
+            "bin_array_upper"
+          ]
         },
         {
           "name": "bin_array_bitmap_extension",
@@ -2311,17 +3231,21 @@
         },
         {
           "name": "reserve_x",
-          "writable": true
+          "writable": true,
+          "relations": ["lb_pair"]
         },
         {
           "name": "reserve_y",
-          "writable": true
+          "writable": true,
+          "relations": ["lb_pair"]
         },
         {
-          "name": "token_x_mint"
+          "name": "token_x_mint",
+          "relations": ["lb_pair"]
         },
         {
-          "name": "token_y_mint"
+          "name": "token_y_mint",
+          "relations": ["lb_pair"]
         },
         {
           "name": "bin_array_lower",
@@ -2336,13 +3260,26 @@
           "signer": true
         },
         {
-          "name": "token_x_program"
+          "name": "token_x_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
-          "name": "token_y_program"
+          "name": "token_y_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -2373,7 +3310,8 @@
         },
         {
           "name": "lb_pair",
-          "writable": true
+          "writable": true,
+          "relations": ["position", "bin_array_bitmap_extension"]
         },
         {
           "name": "bin_array_bitmap_extension",
@@ -2390,17 +3328,21 @@
         },
         {
           "name": "reserve_x",
-          "writable": true
+          "writable": true,
+          "relations": ["lb_pair"]
         },
         {
           "name": "reserve_y",
-          "writable": true
+          "writable": true,
+          "relations": ["lb_pair"]
         },
         {
-          "name": "token_x_mint"
+          "name": "token_x_mint",
+          "relations": ["lb_pair"]
         },
         {
-          "name": "token_y_mint"
+          "name": "token_y_mint",
+          "relations": ["lb_pair"]
         },
         {
           "name": "sender",
@@ -2413,10 +3355,22 @@
           "name": "token_y_program"
         },
         {
-          "name": "memo_program"
+          "name": "memo_program",
+          "address": "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -2496,7 +3450,8 @@
         },
         {
           "name": "creator",
-          "signer": true
+          "signer": true,
+          "relations": ["lb_pair"]
         }
       ],
       "args": [
@@ -2516,7 +3471,8 @@
         },
         {
           "name": "creator",
-          "signer": true
+          "signer": true,
+          "relations": ["lb_pair"]
         }
       ],
       "args": [
@@ -2536,7 +3492,8 @@
         },
         {
           "name": "creator",
-          "signer": true
+          "signer": true,
+          "relations": ["lb_pair"]
         }
       ],
       "args": [
@@ -2552,7 +3509,8 @@
       "accounts": [
         {
           "name": "lb_pair",
-          "writable": true
+          "writable": true,
+          "relations": ["bin_array_bitmap_extension"]
         },
         {
           "name": "bin_array_bitmap_extension",
@@ -2560,11 +3518,13 @@
         },
         {
           "name": "reserve_x",
-          "writable": true
+          "writable": true,
+          "relations": ["lb_pair"]
         },
         {
           "name": "reserve_y",
-          "writable": true
+          "writable": true,
+          "relations": ["lb_pair"]
         },
         {
           "name": "user_token_in",
@@ -2575,14 +3535,17 @@
           "writable": true
         },
         {
-          "name": "token_x_mint"
+          "name": "token_x_mint",
+          "relations": ["lb_pair"]
         },
         {
-          "name": "token_y_mint"
+          "name": "token_y_mint",
+          "relations": ["lb_pair"]
         },
         {
           "name": "oracle",
-          "writable": true
+          "writable": true,
+          "relations": ["lb_pair"]
         },
         {
           "name": "host_fee_in",
@@ -2594,13 +3557,26 @@
           "signer": true
         },
         {
-          "name": "token_x_program"
+          "name": "token_x_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
-          "name": "token_y_program"
+          "name": "token_y_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -2623,7 +3599,8 @@
       "accounts": [
         {
           "name": "lb_pair",
-          "writable": true
+          "writable": true,
+          "relations": ["bin_array_bitmap_extension"]
         },
         {
           "name": "bin_array_bitmap_extension",
@@ -2631,11 +3608,13 @@
         },
         {
           "name": "reserve_x",
-          "writable": true
+          "writable": true,
+          "relations": ["lb_pair"]
         },
         {
           "name": "reserve_y",
-          "writable": true
+          "writable": true,
+          "relations": ["lb_pair"]
         },
         {
           "name": "user_token_in",
@@ -2646,14 +3625,17 @@
           "writable": true
         },
         {
-          "name": "token_x_mint"
+          "name": "token_x_mint",
+          "relations": ["lb_pair"]
         },
         {
-          "name": "token_y_mint"
+          "name": "token_y_mint",
+          "relations": ["lb_pair"]
         },
         {
           "name": "oracle",
-          "writable": true
+          "writable": true,
+          "relations": ["lb_pair"]
         },
         {
           "name": "host_fee_in",
@@ -2671,10 +3653,22 @@
           "name": "token_y_program"
         },
         {
-          "name": "memo_program"
+          "name": "memo_program",
+          "address": "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -2705,7 +3699,8 @@
       "accounts": [
         {
           "name": "lb_pair",
-          "writable": true
+          "writable": true,
+          "relations": ["bin_array_bitmap_extension"]
         },
         {
           "name": "bin_array_bitmap_extension",
@@ -2713,11 +3708,13 @@
         },
         {
           "name": "reserve_x",
-          "writable": true
+          "writable": true,
+          "relations": ["lb_pair"]
         },
         {
           "name": "reserve_y",
-          "writable": true
+          "writable": true,
+          "relations": ["lb_pair"]
         },
         {
           "name": "user_token_in",
@@ -2728,14 +3725,17 @@
           "writable": true
         },
         {
-          "name": "token_x_mint"
+          "name": "token_x_mint",
+          "relations": ["lb_pair"]
         },
         {
-          "name": "token_y_mint"
+          "name": "token_y_mint",
+          "relations": ["lb_pair"]
         },
         {
           "name": "oracle",
-          "writable": true
+          "writable": true,
+          "relations": ["lb_pair"]
         },
         {
           "name": "host_fee_in",
@@ -2747,13 +3747,26 @@
           "signer": true
         },
         {
-          "name": "token_x_program"
+          "name": "token_x_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
-          "name": "token_y_program"
+          "name": "token_y_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -2776,7 +3789,8 @@
       "accounts": [
         {
           "name": "lb_pair",
-          "writable": true
+          "writable": true,
+          "relations": ["bin_array_bitmap_extension"]
         },
         {
           "name": "bin_array_bitmap_extension",
@@ -2784,11 +3798,13 @@
         },
         {
           "name": "reserve_x",
-          "writable": true
+          "writable": true,
+          "relations": ["lb_pair"]
         },
         {
           "name": "reserve_y",
-          "writable": true
+          "writable": true,
+          "relations": ["lb_pair"]
         },
         {
           "name": "user_token_in",
@@ -2799,14 +3815,17 @@
           "writable": true
         },
         {
-          "name": "token_x_mint"
+          "name": "token_x_mint",
+          "relations": ["lb_pair"]
         },
         {
-          "name": "token_y_mint"
+          "name": "token_y_mint",
+          "relations": ["lb_pair"]
         },
         {
           "name": "oracle",
-          "writable": true
+          "writable": true,
+          "relations": ["lb_pair"]
         },
         {
           "name": "host_fee_in",
@@ -2824,10 +3843,22 @@
           "name": "token_y_program"
         },
         {
-          "name": "memo_program"
+          "name": "memo_program",
+          "address": "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -2858,7 +3889,8 @@
       "accounts": [
         {
           "name": "lb_pair",
-          "writable": true
+          "writable": true,
+          "relations": ["bin_array_bitmap_extension"]
         },
         {
           "name": "bin_array_bitmap_extension",
@@ -2866,11 +3898,13 @@
         },
         {
           "name": "reserve_x",
-          "writable": true
+          "writable": true,
+          "relations": ["lb_pair"]
         },
         {
           "name": "reserve_y",
-          "writable": true
+          "writable": true,
+          "relations": ["lb_pair"]
         },
         {
           "name": "user_token_in",
@@ -2881,14 +3915,17 @@
           "writable": true
         },
         {
-          "name": "token_x_mint"
+          "name": "token_x_mint",
+          "relations": ["lb_pair"]
         },
         {
-          "name": "token_y_mint"
+          "name": "token_y_mint",
+          "relations": ["lb_pair"]
         },
         {
           "name": "oracle",
-          "writable": true
+          "writable": true,
+          "relations": ["lb_pair"]
         },
         {
           "name": "host_fee_in",
@@ -2900,13 +3937,26 @@
           "signer": true
         },
         {
-          "name": "token_x_program"
+          "name": "token_x_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
-          "name": "token_y_program"
+          "name": "token_y_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -2935,7 +3985,8 @@
       "accounts": [
         {
           "name": "lb_pair",
-          "writable": true
+          "writable": true,
+          "relations": ["bin_array_bitmap_extension"]
         },
         {
           "name": "bin_array_bitmap_extension",
@@ -2943,11 +3994,13 @@
         },
         {
           "name": "reserve_x",
-          "writable": true
+          "writable": true,
+          "relations": ["lb_pair"]
         },
         {
           "name": "reserve_y",
-          "writable": true
+          "writable": true,
+          "relations": ["lb_pair"]
         },
         {
           "name": "user_token_in",
@@ -2958,14 +4011,17 @@
           "writable": true
         },
         {
-          "name": "token_x_mint"
+          "name": "token_x_mint",
+          "relations": ["lb_pair"]
         },
         {
-          "name": "token_y_mint"
+          "name": "token_y_mint",
+          "relations": ["lb_pair"]
         },
         {
           "name": "oracle",
-          "writable": true
+          "writable": true,
+          "relations": ["lb_pair"]
         },
         {
           "name": "host_fee_in",
@@ -2983,10 +4039,22 @@
           "name": "token_y_program"
         },
         {
-          "name": "memo_program"
+          "name": "memo_program",
+          "address": "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -3030,7 +4098,18 @@
           "signer": true
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -3060,7 +4139,18 @@
           "signer": true
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -3087,7 +4177,8 @@
         },
         {
           "name": "lb_pair",
-          "writable": true
+          "writable": true,
+          "relations": ["position"]
         },
         {
           "name": "owner",
@@ -3115,7 +4206,8 @@
         },
         {
           "name": "lb_pair",
-          "writable": true
+          "writable": true,
+          "relations": ["position", "bin_array_lower", "bin_array_upper"]
         },
         {
           "name": "bin_array_lower",
@@ -3142,10 +4234,22 @@
         },
         {
           "name": "owner",
-          "signer": true
+          "signer": true,
+          "relations": ["position"]
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -3164,7 +4268,8 @@
       "accounts": [
         {
           "name": "lb_pair",
-          "writable": true
+          "writable": true,
+          "relations": ["bin_array"]
         },
         {
           "name": "admin",
@@ -3175,7 +4280,18 @@
           "writable": true
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -3205,7 +4321,18 @@
           "signer": true
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -3228,7 +4355,8 @@
       "accounts": [
         {
           "name": "lb_pair",
-          "writable": true
+          "writable": true,
+          "relations": ["bin_array"]
         },
         {
           "name": "reward_vault",
@@ -3253,10 +4381,22 @@
           "name": "token_program"
         },
         {
-          "name": "memo_program"
+          "name": "memo_program",
+          "address": "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"
         },
         {
-          "name": "event_authority"
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "program"
@@ -3287,25 +4427,85 @@
         },
         {
           "name": "reserve_x",
-          "writable": true
+          "writable": true,
+          "relations": ["lb_pair"]
         },
         {
           "name": "reserve_y",
-          "writable": true
+          "writable": true,
+          "relations": ["lb_pair"]
         },
         {
-          "name": "token_x_mint"
+          "name": "token_x_mint",
+          "relations": ["lb_pair"]
         },
         {
-          "name": "token_y_mint"
+          "name": "token_y_mint",
+          "relations": ["lb_pair"]
         },
         {
           "name": "receiver_token_x",
-          "writable": true
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  153, 10, 107, 154, 255, 249, 210, 173, 176, 67, 220, 214, 152,
+                  71, 46, 146, 161, 33, 81, 148, 166, 119, 5, 189, 142, 11, 57,
+                  68, 162, 70, 126, 100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "token_x_program"
+              },
+              {
+                "kind": "account",
+                "path": "token_x_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140, 151, 37, 143, 78, 36, 137, 241, 187, 61, 16, 41, 20, 142,
+                13, 131, 11, 90, 19, 153, 218, 255, 16, 132, 4, 142, 123, 216,
+                219, 233, 248, 89
+              ]
+            }
+          }
         },
         {
           "name": "receiver_token_y",
-          "writable": true
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  153, 10, 107, 154, 255, 249, 210, 173, 176, 67, 220, 214, 152,
+                  71, 46, 146, 161, 33, 81, 148, 166, 119, 5, 189, 142, 11, 57,
+                  68, 162, 70, 126, 100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "token_y_program"
+              },
+              {
+                "kind": "account",
+                "path": "token_y_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140, 151, 37, 143, 78, 36, 137, 241, 187, 61, 16, 41, 20, 142,
+                13, 131, 11, 90, 19, 153, 218, 255, 16, 132, 4, 142, 123, 216,
+                219, 233, 248, 89
+              ]
+            }
+          }
         },
         {
           "name": "claim_fee_operator"
@@ -3313,7 +4513,8 @@
         {
           "name": "operator",
           "docs": ["operator"],
-          "signer": true
+          "signer": true,
+          "relations": ["claim_fee_operator"]
         },
         {
           "name": "token_x_program"
@@ -3322,7 +4523,8 @@
           "name": "token_y_program"
         },
         {
-          "name": "memo_program"
+          "name": "memo_program",
+          "address": "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"
         }
       ],
       "args": [
@@ -4035,6 +5237,9 @@
     },
     {
       "name": "Bin",
+      "repr": {
+        "kind": "c"
+      },
       "type": {
         "kind": "struct",
         "fields": [
@@ -4106,6 +5311,9 @@
         "BinArray index: 0 contains bin 0 <-> 599",
         "index: 2 contains bin 600 <-> 1199, ..."
       ],
+      "repr": {
+        "kind": "c"
+      },
       "type": {
         "kind": "struct",
         "fields": [
@@ -4146,6 +5354,9 @@
     },
     {
       "name": "BinArrayBitmapExtension",
+      "repr": {
+        "kind": "c"
+      },
       "type": {
         "kind": "struct",
         "fields": [
@@ -4276,6 +5487,9 @@
     {
       "name": "ClaimFeeOperator",
       "docs": ["Parameter that set by the protocol"],
+      "repr": {
+        "kind": "c"
+      },
       "type": {
         "kind": "struct",
         "fields": [
@@ -4551,6 +5765,9 @@
     },
     {
       "name": "FeeInfo",
+      "repr": {
+        "kind": "c"
+      },
       "type": {
         "kind": "struct",
         "fields": [
@@ -4896,6 +6113,9 @@
     },
     {
       "name": "LbPair",
+      "repr": {
+        "kind": "c"
+      },
       "type": {
         "kind": "struct",
         "fields": [
@@ -5314,6 +6534,9 @@
     },
     {
       "name": "Oracle",
+      "repr": {
+        "kind": "c"
+      },
       "type": {
         "kind": "struct",
         "fields": [
@@ -5385,6 +6608,9 @@
     },
     {
       "name": "Position",
+      "repr": {
+        "kind": "c"
+      },
       "type": {
         "kind": "struct",
         "fields": [
@@ -5517,6 +6743,9 @@
     },
     {
       "name": "PositionV2",
+      "repr": {
+        "kind": "c"
+      },
       "type": {
         "kind": "struct",
         "fields": [
@@ -5713,6 +6942,9 @@
     },
     {
       "name": "PresetParameter2",
+      "repr": {
+        "kind": "c"
+      },
       "type": {
         "kind": "struct",
         "fields": [
@@ -5797,6 +7029,9 @@
     },
     {
       "name": "ProtocolFee",
+      "repr": {
+        "kind": "c"
+      },
       "type": {
         "kind": "struct",
         "fields": [
@@ -5902,6 +7137,9 @@
       "docs": [
         "Stores the state relevant for tracking liquidity mining rewards"
       ],
+      "repr": {
+        "kind": "c"
+      },
       "type": {
         "kind": "struct",
         "fields": [
@@ -5967,6 +7205,9 @@
     {
       "name": "StaticParameters",
       "docs": ["Parameter that set by the protocol"],
+      "repr": {
+        "kind": "c"
+      },
       "type": {
         "kind": "struct",
         "fields": [
@@ -6172,6 +7413,9 @@
     {
       "name": "TokenBadge",
       "docs": ["Parameter that set by the protocol"],
+      "repr": {
+        "kind": "c"
+      },
       "type": {
         "kind": "struct",
         "fields": [
@@ -6305,6 +7549,9 @@
     },
     {
       "name": "UserRewardInfo",
+      "repr": {
+        "kind": "c"
+      },
       "type": {
         "kind": "struct",
         "fields": [
@@ -6326,6 +7573,9 @@
     {
       "name": "VariableParameters",
       "docs": ["Parameters that changes based on dynamic of the market"],
+      "repr": {
+        "kind": "c"
+      },
       "type": {
         "kind": "struct",
         "fields": [

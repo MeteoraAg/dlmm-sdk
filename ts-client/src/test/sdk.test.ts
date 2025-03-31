@@ -19,7 +19,10 @@ import {
 } from "@solana/web3.js";
 import Decimal from "decimal.js";
 import fs from "fs";
-import { MAX_BIN_PER_POSITION, LBCLMM_PROGRAM_IDS } from "../dlmm/constants";
+import {
+  DEFAULT_BIN_PER_POSITION,
+  LBCLMM_PROGRAM_IDS,
+} from "../dlmm/constants";
 import {
   binIdToBinArrayIndex,
   deriveBinArray,
@@ -30,10 +33,11 @@ import {
   deriveReserve,
 } from "../dlmm/helpers";
 import { computeBaseFactorFromFeeBps } from "../dlmm/helpers/math";
-import { IDL } from "../dlmm/idl";
 import { DLMM } from "../dlmm/index";
 import { ActivationType, PairType, StrategyType } from "../dlmm/types";
 import { wrapPosition } from "../dlmm/helpers/positions";
+import IDL from "../../../idls/dlmm_zc.json";
+import { createTestProgram } from "./helper";
 
 const keypairBuffer = fs.readFileSync(
   "../keys/localnet/admin-bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1.json",
@@ -62,11 +66,6 @@ const DEFAULT_BASE_FACTOR = new BN(10000);
 const DEFAULT_BASE_FACTOR_2 = new BN(4000);
 
 const programId = new web3.PublicKey(LBCLMM_PROGRAM_IDS["localhost"]);
-const provider = new AnchorProvider(
-  connection,
-  new Wallet(keypair),
-  AnchorProvider.defaultOptions()
-);
 
 let BTC: web3.PublicKey;
 let USDC: web3.PublicKey;
@@ -208,7 +207,7 @@ describe("SDK test", () => {
       programId
     );
 
-    const program = new Program(IDL, LBCLMM_PROGRAM_IDS["localhost"], provider);
+    const program = createTestProgram(connection, programId, keypair);
 
     const presetParamState =
       await program.account.presetParameter.fetchNullable(presetParamPda);
@@ -225,7 +224,7 @@ describe("SDK test", () => {
           protocolShare: 0,
           maxVolatilityAccumulator: 350000,
         })
-        .accounts({
+        .accountsPartial({
           admin: keypair.publicKey,
           presetParameter: presetParamPda,
           rent: web3.SYSVAR_RENT_PUBKEY,
@@ -252,7 +251,7 @@ describe("SDK test", () => {
           protocolShare: 0,
           maxVolatilityAccumulator: 350000,
         })
-        .accounts({
+        .accountsPartial({
           admin: keypair.publicKey,
           presetParameter: presetParamPda2,
           rent: web3.SYSVAR_RENT_PUBKEY,
@@ -291,11 +290,7 @@ describe("SDK test", () => {
       const protocolFeeBps = new BN(50);
 
       try {
-        const program = new Program(
-          IDL,
-          LBCLMM_PROGRAM_IDS["localhost"],
-          provider
-        );
+        const program = createTestProgram(connection, programId, keypair);
 
         [pairKey] = derivePermissionLbPair(
           baseKeypair.publicKey,
@@ -324,7 +319,7 @@ describe("SDK test", () => {
             activationType: ActivationType.Slot,
             protocolShare: protocolFeeBps.toNumber(),
           })
-          .accounts({
+          .accountsPartial({
             base: baseKeypair.publicKey,
             lbPair: pairKey,
             binArrayBitmapExtension: program.programId,
@@ -363,7 +358,7 @@ describe("SDK test", () => {
     it("initialize position and add liquidity both side", async () => {
       const program = pair.program;
       const baseKeypair = Keypair.generate();
-      const width = MAX_BIN_PER_POSITION;
+      const width = DEFAULT_BIN_PER_POSITION;
       const lowerBinId = DEFAULT_ACTIVE_ID.sub(width.div(new BN(2)));
 
       const lowerBinIdBytes = lowerBinId.isNeg()
@@ -417,7 +412,7 @@ describe("SDK test", () => {
           customFeeOwnerPositionFeeOwner.publicKey,
           new BN(0)
         )
-        .accounts({
+        .accountsPartial({
           lbPair: pair.pubkey,
           position: customFeeOwnerPosition,
           base: baseKeypair.publicKey,
@@ -479,7 +474,8 @@ describe("SDK test", () => {
     });
 
     it("Normal position add only buy side", async () => {
-      const minBinId = pair.lbPair.activeId - MAX_BIN_PER_POSITION.toNumber();
+      const minBinId =
+        pair.lbPair.activeId - DEFAULT_BIN_PER_POSITION.toNumber();
       const maxBinId = pair.lbPair.activeId - 1;
 
       const initPositionAddLiquidityTx =
@@ -1760,9 +1756,8 @@ describe("SDK Test with Mainnet RPC", () => {
     );
     expect(quote.binArraysPubkey.length).toEqual(1);
     const binArrayToSwapPubkey = quote.binArraysPubkey[0];
-    const binArrayToSwap = await lbPair.program.account.binArray.fetch(
-      binArrayToSwapPubkey
-    );
+    const binArrayToSwap =
+      await lbPair.program.account.binArray.fetch(binArrayToSwapPubkey);
 
     quote = lbPair.swapQuote(
       inAmount,
@@ -1781,10 +1776,8 @@ describe("SDK Test with Mainnet RPC", () => {
     for (let i = 1; i < binArrays.length; i++) {
       let assertBinArrayPubkey = quote.binArraysPubkey[i];
 
-      const assertBinArray = await lbPair.program.account.binArray.fetch(
-        assertBinArrayPubkey
-      );
-      console.log(assertBinArray.index);
+      const assertBinArray =
+        await lbPair.program.account.binArray.fetch(assertBinArrayPubkey);
       if (swapForY) {
         expect(assertBinArray.index).toEqual(lastBinArrayIdx.sub(new BN(1)));
       } else {
@@ -1816,9 +1809,8 @@ describe("SDK Test with Mainnet RPC", () => {
     expect(quote.binArraysPubkey.length).toEqual(1);
 
     const binArrayToSwapPubkey = quote.binArraysPubkey[0];
-    const binArrayToSwap = await lbPair.program.account.binArray.fetch(
-      binArrayToSwapPubkey
-    );
+    const binArrayToSwap =
+      await lbPair.program.account.binArray.fetch(binArrayToSwapPubkey);
 
     quote = lbPair.swapQuote(
       inAmount,
@@ -1837,10 +1829,8 @@ describe("SDK Test with Mainnet RPC", () => {
     for (let i = 1; i < binArrays.length; i++) {
       let assertBinArrayPubkey = quote.binArraysPubkey[i];
 
-      const assertBinArray = await lbPair.program.account.binArray.fetch(
-        assertBinArrayPubkey
-      );
-      console.log(assertBinArray.index);
+      const assertBinArray =
+        await lbPair.program.account.binArray.fetch(assertBinArrayPubkey);
       if (swapForY) {
         expect(assertBinArray.index).toEqual(lastBinArrayIdx.sub(new BN(1)));
       } else {

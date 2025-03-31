@@ -1,7 +1,7 @@
 import { BN } from "@coral-xyz/anchor";
 import {
   BASIS_POINT_MAX,
-  MAX_BIN_PER_POSITION,
+  DEFAULT_BIN_PER_POSITION,
   SCALE_OFFSET,
 } from "../constants";
 import Decimal from "decimal.js";
@@ -153,7 +153,7 @@ export function distributeAmountToCompressedBinsByRatio(
 
 export function getPositionCount(minBinId: BN, maxBinId: BN) {
   const binDelta = maxBinId.sub(minBinId);
-  const positionCount = binDelta.div(MAX_BIN_PER_POSITION);
+  const positionCount = binDelta.div(DEFAULT_BIN_PER_POSITION);
   return positionCount.add(new BN(1));
 }
 
