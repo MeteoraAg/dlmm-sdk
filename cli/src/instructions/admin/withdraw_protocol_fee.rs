@@ -1,5 +1,6 @@
 use crate::*;
 use anchor_spl::associated_token::get_associated_token_address_with_program_id;
+use spl_associated_token_account::instruction::create_associated_token_account_idempotent;
 
 #[derive(Debug, Parser)]
 pub struct WithdrawProtocolFeeParams {
@@ -92,9 +93,25 @@ pub async fn execute_withdraw_protocol_fee<C: Deref<Target = impl Signer> + Clon
 
     let compute_budget_ix = ComputeBudgetInstruction::set_compute_unit_limit(200_000);
 
+    let init_receiver_token_x_ix = create_associated_token_account_idempotent(
+        &program.payer(),
+        &FEE_OWNER,
+        &lb_pair_state.token_x_mint,
+        &token_x_program,
+    );
+
+    let init_receiver_token_y_ix = create_associated_token_account_idempotent(
+        &program.payer(),
+        &FEE_OWNER,
+        &lb_pair_state.token_y_mint,
+        &token_y_program,
+    );
+
     let request_builder = program.request();
     let signature = request_builder
         .instruction(compute_budget_ix)
+        .instruction(init_receiver_token_x_ix)
+        .instruction(init_receiver_token_y_ix)
         .instruction(withdraw_ix)
         .send_with_spinner_and_config(transaction_config)
         .await;
