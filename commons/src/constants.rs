@@ -1,3 +1,6 @@
+use solana_sdk::pubkey;
+use solana_sdk::pubkey::Pubkey;
+
 pub const BASIS_POINT_MAX: i32 = 10000;
 
 /// Maximum number of bin a bin array able to contains.
@@ -74,3 +77,5 @@ pub const MAX_BASE_FEE: u128 = 100_000_000; // 10% (10^9 * 10 / 100)
 
 /// Minimum base fee
 pub const MIN_BASE_FEE: u128 = 100_000; // 0.01% (10^9 * 0.01 / 100)
+
+pub const FEE_OWNER: Pubkey = pubkey!("BJQbRiRWhJCyTYZcAuAL3ngDCx3AyFQGKDq8zhiZAKUw");

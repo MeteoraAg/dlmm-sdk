@@ -1,6 +1,6 @@
+use crate::*;
 use anchor_spl::associated_token::get_associated_token_address_with_program_id;
 
-use crate::*;
 #[derive(Debug, Parser)]
 pub struct WithdrawProtocolFeeParams {
     pub lb_pair: Pubkey,
@@ -30,13 +30,13 @@ pub async fn execute_withdraw_protocol_fee<C: Deref<Target = impl Signer> + Clon
     let [token_x_program, token_y_program] = lb_pair_state.get_token_programs()?;
 
     let receiver_token_x = get_associated_token_address_with_program_id(
-        &program.payer(),
+        &FEE_OWNER,
         &lb_pair_state.token_x_mint,
         &token_x_program,
     );
 
     let receiver_token_y = get_associated_token_address_with_program_id(
-        &program.payer(),
+        &FEE_OWNER,
         &lb_pair_state.token_y_mint,
         &token_y_program,
     );
