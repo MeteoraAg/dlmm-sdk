@@ -6491,7 +6491,7 @@ export class DLMM {
       position.positionData
     );
 
-    if (!maybeClaimableBinRange) return;
+    if (!maybeClaimableBinRange) return [];
 
     const { lowerBinId, upperBinId } = maybeClaimableBinRange;
 
