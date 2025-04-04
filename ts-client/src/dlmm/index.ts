@@ -101,7 +101,8 @@ import {
   PositionV2Wrapper,
   getBinArrayAccountMetasCoverage,
   getBinArrayIndexesCoverage,
-  getPositionLowerUpperBinIdWithLiquidity,
+  isPositionNoFee,
+  isPositionNoReward,
   wrapPosition,
 } from "./helpers/positions";
 import {
@@ -4618,7 +4619,7 @@ export class DLMM {
     owner: PublicKey;
     position: LbPosition;
   }): Promise<Transaction> {
-    if (position.positionData.rewardOne.isZero() && position.positionData.rewardTwo.isZero()) {
+    if (isPositionNoReward(position.positionData)) {
       throw new Error("No LM reward to claim");
     }
 
@@ -4661,7 +4662,7 @@ export class DLMM {
     owner: PublicKey;
     positions: LbPosition[];
   }): Promise<Transaction[]> {
-    if (positions.every((position) => position.positionData.rewardOne.isZero() && position.positionData.rewardTwo.isZero())) {
+    if (positions.every((position) => isPositionNoReward(position.positionData))) {
       throw new Error("No LM reward to claim");
     }
 
@@ -4766,7 +4767,7 @@ export class DLMM {
     owner: PublicKey;
     position: LbPosition;
   }): Promise<Transaction | null> {
-    if (!position.positionData.feeX.isZero() && !position.positionData.feeY.isZero()) {
+    if (isPositionNoFee(position.positionData)) {
       throw new Error("No fee to claim");
     }
 
@@ -4802,7 +4803,7 @@ export class DLMM {
     owner: PublicKey;
     positions: LbPosition[];
   }): Promise<Transaction[]> {
-    if (positions.every((position) => position.positionData.feeX.isZero() && position.positionData.feeY.isZero())) {
+    if (positions.every((position) => isPositionNoFee(position.positionData))) {
       throw new Error("No fee to claim");
     }
 
@@ -4870,10 +4871,8 @@ export class DLMM {
     position: LbPosition;
   }): Promise<Transaction[]> {
     if (
-      position.positionData.feeX.isZero() &&
-      position.positionData.feeY.isZero() &&
-      position.positionData.rewardOne.isZero() &&
-      position.positionData.rewardTwo.isZero()
+      isPositionNoFee(position.positionData) &&
+      isPositionNoReward(position.positionData)
     ) {
       throw new Error("No fee/reward to claim");
     }
