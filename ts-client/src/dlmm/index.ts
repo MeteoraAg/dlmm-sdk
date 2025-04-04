@@ -4618,6 +4618,10 @@ export class DLMM {
     owner: PublicKey;
     position: LbPosition;
   }): Promise<Transaction> {
+    if (position.positionData.rewardOne.isZero() && position.positionData.rewardTwo.isZero()) {
+      throw new Error("No LM reward to claim");
+    }
+
     const claimTransactions = await this.createClaimBuildMethod({
       owner,
       position,
@@ -4657,6 +4661,10 @@ export class DLMM {
     owner: PublicKey;
     positions: LbPosition[];
   }): Promise<Transaction[]> {
+    if (positions.every((position) => position.positionData.rewardOne.isZero() && position.positionData.rewardTwo.isZero())) {
+      throw new Error("No LM reward to claim");
+    }
+
     const claimAllTxs = (
       await Promise.all(
         positions
@@ -4758,9 +4766,11 @@ export class DLMM {
     owner: PublicKey;
     position: LbPosition;
   }): Promise<Transaction | null> {
-    const claimFeeTx = await this.createClaimSwapFeeMethod({ owner, position });
+    if (!position.positionData.feeX.isZero() && !position.positionData.feeY.isZero()) {
+      throw new Error("No fee to claim");
+    }
 
-    if (!claimFeeTx) return null;
+    const claimFeeTx = await this.createClaimSwapFeeMethod({ owner, position });
 
     const { blockhash, lastValidBlockHeight } =
       await this.program.provider.connection.getLatestBlockhash("confirmed");
@@ -4792,6 +4802,10 @@ export class DLMM {
     owner: PublicKey;
     positions: LbPosition[];
   }): Promise<Transaction[]> {
+    if (positions.every((position) => position.positionData.feeX.isZero() && position.positionData.feeY.isZero())) {
+      throw new Error("No fee to claim");
+    }
+
     const claimAllTxs = (
       await Promise.all(
         positions
@@ -4855,6 +4869,15 @@ export class DLMM {
     owner: PublicKey;
     position: LbPosition;
   }): Promise<Transaction[]> {
+    if (
+      position.positionData.feeX.isZero() &&
+      position.positionData.feeY.isZero() &&
+      position.positionData.rewardOne.isZero() &&
+      position.positionData.rewardTwo.isZero()
+    ) {
+      throw new Error("No fee/reward to claim");
+    }
+
     const claimAllSwapFeeTxs = await this.createClaimSwapFeeMethod({
       owner,
       position,
