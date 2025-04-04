@@ -4757,8 +4757,10 @@ export class DLMM {
   }: {
     owner: PublicKey;
     position: LbPosition;
-  }): Promise<Transaction> {
+  }): Promise<Transaction | null> {
     const claimFeeTx = await this.createClaimSwapFeeMethod({ owner, position });
+
+    if (!claimFeeTx) return null;
 
     const { blockhash, lastValidBlockHeight } =
       await this.program.provider.connection.getLatestBlockhash("confirmed");
@@ -4804,7 +4806,7 @@ export class DLMM {
             });
           })
       )
-    ).flat();
+    ).flat().filter(Boolean);
 
     const chunkedClaimAllTx = chunks(claimAllTxs, MAX_CLAIM_ALL_ALLOWED);
 
@@ -6486,18 +6488,11 @@ export class DLMM {
     owner: PublicKey;
     position: LbPosition;
   }) {
-    // Avoid to attempt to load uninitialized bin array on the program
-    const maybeClaimableBinRange = getPositionLowerUpperBinIdWithLiquidity(
-      position.positionData
-    );
-
-    if (!maybeClaimableBinRange) return [];
-
-    const { lowerBinId, upperBinId } = maybeClaimableBinRange;
+    const { lowerBinId, upperBinId } = position.positionData;
 
     const binArrayAccountsMeta = getBinArrayAccountMetasCoverage(
-      lowerBinId,
-      upperBinId,
+      new BN(lowerBinId),
+      new BN(upperBinId),
       this.pubkey,
       this.program.programId
     );
@@ -6520,7 +6515,7 @@ export class DLMM {
         this.getPotentialToken2022IxDataAndAccounts(ActionType.Reward, i);
 
       const claimTransaction = await this.program.methods
-        .claimReward2(new BN(i), lowerBinId.toNumber(), upperBinId.toNumber(), {
+        .claimReward2(new BN(i), lowerBinId, upperBinId, {
           slices,
         })
         .accounts({
@@ -6550,18 +6545,11 @@ export class DLMM {
     owner: PublicKey;
     position: LbPosition;
   }) {
-    // Avoid to attempt to load uninitialized bin array on the program
-    const maybeClaimableBinRange = getPositionLowerUpperBinIdWithLiquidity(
-      position.positionData
-    );
-
-    if (!maybeClaimableBinRange) return;
-
-    const { lowerBinId, upperBinId } = maybeClaimableBinRange;
+    const { lowerBinId, upperBinId } = position.positionData;
 
     const binArrayAccountsMeta = getBinArrayAccountMetasCoverage(
-      lowerBinId,
-      upperBinId,
+      new BN(lowerBinId),
+      new BN(upperBinId),
       this.pubkey,
       this.program.programId
     );
@@ -6610,7 +6598,7 @@ export class DLMM {
       this.getPotentialToken2022IxDataAndAccounts(ActionType.Liquidity);
 
     const claimFeeTx = await this.program.methods
-      .claimFee2(lowerBinId.toNumber(), upperBinId.toNumber(), {
+      .claimFee2(lowerBinId, upperBinId, {
         slices,
       })
       .accounts({
