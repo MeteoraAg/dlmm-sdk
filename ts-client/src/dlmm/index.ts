@@ -4806,7 +4806,7 @@ export class DLMM {
             });
           })
       )
-    ).flat().filter(Boolean);
+    ).flat();
 
     const chunkedClaimAllTx = chunks(claimAllTxs, MAX_CLAIM_ALL_ALLOWED);
 
