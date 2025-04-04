@@ -1,3 +1,4 @@
+use anchor_lang::Discriminator;
 use solana_client::{
     rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig},
     rpc_filter::{Memcmp, RpcFilterType},
@@ -8,7 +9,7 @@ use crate::*;
 pub async fn execute_list_all_bin_step<C: Deref<Target = impl Signer> + Clone>(
     program: &Program<C>,
 ) -> Result<()> {
-    let rpc_client = program.async_rpc();
+    let rpc_client = program.rpc();
 
     let account_config = RpcAccountInfoConfig {
         encoding: Some(UiAccountEncoding::Base64),
@@ -21,11 +22,11 @@ pub async fn execute_list_all_bin_step<C: Deref<Target = impl Signer> + Clone>(
 
     let preset_parameter_keys = rpc_client
         .get_program_accounts_with_config(
-            &dlmm_interface::ID,
+            &dlmm::ID,
             RpcProgramAccountsConfig {
                 filters: Some(vec![RpcFilterType::Memcmp(Memcmp::new_base58_encoded(
                     0,
-                    &PRESET_PARAMETER_ACCOUNT_DISCM,
+                    &PresetParameter::DISCRIMINATOR,
                 ))]),
                 account_config: account_config.clone(),
                 ..Default::default()
@@ -38,11 +39,11 @@ pub async fn execute_list_all_bin_step<C: Deref<Target = impl Signer> + Clone>(
 
     let preset_parameter_v2_keys = rpc_client
         .get_program_accounts_with_config(
-            &dlmm_interface::ID,
+            &dlmm::ID,
             RpcProgramAccountsConfig {
                 filters: Some(vec![RpcFilterType::Memcmp(Memcmp::new_base58_encoded(
                     0,
-                    &PRESET_PARAMETER2_ACCOUNT_DISCM,
+                    &PresetParameter2::DISCRIMINATOR,
                 ))]),
                 account_config,
                 ..Default::default()
@@ -64,11 +65,11 @@ pub async fn execute_list_all_bin_step<C: Deref<Target = impl Signer> + Clone>(
 
                 let (bin_step, base_factor, base_fee_power_factor) = match disc {
                     PRESET_PARAMETER_ACCOUNT_DISCM => {
-                        let state = PresetParameterAccount::deserialize(&account.data)?.0;
+                        let state = PresetParameter::try_deserialize(&mut account.data.as_ref())?;
                         (state.bin_step, state.base_factor, 0)
                     }
                     PRESET_PARAMETER2_ACCOUNT_DISCM => {
-                        let state = PresetParameter2Account::deserialize(&account.data)?.0;
+                        let state = PresetParameter2::try_deserialize(&mut account.data.as_ref())?;
                         (
                             state.bin_step,
                             state.base_factor,

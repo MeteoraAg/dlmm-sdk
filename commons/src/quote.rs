@@ -2,7 +2,7 @@ use crate::*;
 use anchor_client::solana_sdk::pubkey::Pubkey;
 use core::result::Result::Ok;
 use solana_sdk::{account::Account, clock::Clock};
-use std::{collections::HashMap, ops::Deref};
+use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct SwapExactInQuote {
@@ -29,7 +29,7 @@ fn validate_swap_activation(
     let pair_type = lb_pair.pair_type()?;
     if pair_type.eq(&PairType::Permission) {
         let activation_type = lb_pair.activation_type()?;
-        let current_point = match activation_type.deref() {
+        let current_point = match activation_type {
             ActivationType::Slot => current_slot,
             ActivationType::Timestamp => current_timestamp,
         };
@@ -306,7 +306,8 @@ mod tests {
     use super::*;
     use anchor_client::solana_sdk::clock::Clock;
     use anchor_client::{
-        solana_client::nonblocking::rpc_client::RpcClient, solana_sdk::pubkey::Pubkey, Cluster,
+        anchor_lang::AccountDeserialize, solana_client::nonblocking::rpc_client::RpcClient,
+        solana_sdk::pubkey::Pubkey, Cluster,
     };
     use std::str::FromStr;
 
@@ -330,7 +331,7 @@ mod tests {
 
         let lb_pair_account = rpc_client.get_account(&sol_usdc).await.unwrap();
 
-        let lb_pair = LbPairAccount::deserialize(&lb_pair_account.data).unwrap().0;
+        let lb_pair = LbPair::try_deserialize(&mut lb_pair_account.data.as_ref()).unwrap();
 
         let mut mint_accounts = rpc_client
             .get_multiple_accounts(&[lb_pair.token_x_mint, lb_pair.token_y_mint])
@@ -366,9 +367,7 @@ mod tests {
             .map(|(account, key)| {
                 (
                     key,
-                    BinArrayAccount::deserialize(&account.unwrap().data)
-                        .unwrap()
-                        .0,
+                    BinArray::try_deserialize(&mut account.unwrap().data.as_ref()).unwrap(),
                 )
             })
             .collect::<HashMap<_, _>>();
@@ -469,7 +468,7 @@ mod tests {
 
         let lb_pair_account = rpc_client.get_account(&sol_usdc).await.unwrap();
 
-        let lb_pair = LbPairAccount::deserialize(&lb_pair_account.data).unwrap().0;
+        let lb_pair = LbPair::try_deserialize(&mut lb_pair_account.data.as_ref()).unwrap();
 
         let mut mint_accounts = rpc_client
             .get_multiple_accounts(&[lb_pair.token_x_mint, lb_pair.token_y_mint])
@@ -505,9 +504,7 @@ mod tests {
             .map(|(account, key)| {
                 (
                     key,
-                    BinArrayAccount::deserialize(&account.unwrap().data)
-                        .unwrap()
-                        .0,
+                    BinArray::try_deserialize(&mut account.unwrap().data.as_ref()).unwrap(),
                 )
             })
             .collect::<HashMap<_, _>>();

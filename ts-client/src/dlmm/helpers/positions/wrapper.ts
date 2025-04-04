@@ -1,6 +1,5 @@
 import BN from "bn.js";
 import {
-  POSITION_V2_DISC,
   PositionV2,
   PositionVersion,
   UserFeeInfo,
@@ -12,6 +11,7 @@ import { LbClmm } from "../../idl";
 import { getBinArrayKeysCoverage } from ".";
 import { binIdToBinArrayIndex } from "../binArray";
 import { deriveBinArray } from "../derive";
+import { decodeAccount, getAccountDiscriminator } from "..";
 
 export interface IPosition {
   address(): PublicKey;
@@ -40,9 +40,10 @@ export function wrapPosition(
   account: AccountInfo<Buffer>
 ): IPosition {
   const disc = account.data.subarray(0, 8);
-  if (disc.equals(POSITION_V2_DISC)) {
-    const state = program.coder.accounts.decode(
-      program.account.positionV2.idlAccount.name,
+  if (disc.equals(Buffer.from(getAccountDiscriminator("positionV2")))) {
+    const state = decodeAccount<PositionV2>(
+      program,
+      "positionV2",
       account.data
     );
     return new PositionV2Wrapper(key, state);

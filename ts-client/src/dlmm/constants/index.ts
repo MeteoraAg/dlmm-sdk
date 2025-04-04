@@ -1,6 +1,6 @@
 import { PublicKey } from "@solana/web3.js";
-import { IDL } from "../idl";
 import { BN } from "@coral-xyz/anchor";
+import IDL from "../../../../idls/dlmm_zc.json";
 
 export const LBCLMM_PROGRAM_IDS = {
   devnet: "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo",
@@ -34,8 +34,9 @@ const CONSTANTS = Object.entries(IDL.constants);
 export const MAX_BIN_ARRAY_SIZE = new BN(
   CONSTANTS.find(([k, v]) => v.name == "MAX_BIN_PER_ARRAY")?.[1].value ?? 0
 );
-export const MAX_BIN_PER_POSITION = new BN(
-  CONSTANTS.find(([k, v]) => v.name == "MAX_BIN_PER_POSITION")?.[1].value ?? 0
+export const DEFAULT_BIN_PER_POSITION = new BN(
+  CONSTANTS.find(([k, v]) => v.name == "DEFAULT_BIN_PER_POSITION")?.[1].value ??
+    0
 );
 export const BIN_ARRAY_BITMAP_SIZE = new BN(
   CONSTANTS.find(([k, v]) => v.name == "BIN_ARRAY_BITMAP_SIZE")?.[1].value ?? 0

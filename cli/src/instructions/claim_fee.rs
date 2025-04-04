@@ -15,16 +15,16 @@ pub async fn execute_claim_fee<C: Deref<Target = impl Signer> + Clone>(
 ) -> Result<()> {
     let ClaimFeeParams { position } = params;
 
-    let rpc_client = program.async_rpc();
+    let rpc_client = program.rpc();
     let position_state = rpc_client
         .get_account_and_deserialize(&position, |account| {
-            Ok(PositionV2Account::deserialize(&account.data)?.0)
+            Ok(PositionV2::try_deserialize(&mut account.data.as_ref())?)
         })
         .await?;
 
     let lb_pair_state = rpc_client
         .get_account_and_deserialize(&position_state.lb_pair, |account| {
-            Ok(LbPairAccount::deserialize(&account.data)?.0)
+            Ok(LbPair::try_deserialize(&mut account.data.as_ref())?)
         })
         .await?;
 
@@ -74,7 +74,7 @@ pub async fn execute_claim_fee<C: Deref<Target = impl Signer> + Clone>(
 
     let (event_authority, _bump) = derive_event_authority_pda();
 
-    let main_accounts: [AccountMeta; CLAIM_FEE2_IX_ACCOUNTS_LEN] = dlmm_interface::ClaimFee2Keys {
+    let main_accounts = dlmm::client::accounts::ClaimFee2 {
         lb_pair: position_state.lb_pair,
         sender: program.payer(),
         position,
@@ -87,10 +87,10 @@ pub async fn execute_claim_fee<C: Deref<Target = impl Signer> + Clone>(
         user_token_x,
         user_token_y,
         event_authority,
-        program: dlmm_interface::ID,
+        program: dlmm::ID,
         memo_program: spl_memo::id(),
     }
-    .into();
+    .to_account_metas(None);
 
     let mut remaining_accounts_info = RemainingAccountsInfo { slices: vec![] };
     let mut token_2022_remaining_accounts = vec![];
@@ -98,7 +98,7 @@ pub async fn execute_claim_fee<C: Deref<Target = impl Signer> + Clone>(
     if let Some((slices, transfer_hook_remaining_accounts)) =
         get_potential_token_2022_related_ix_data_and_accounts(
             &lb_pair_state,
-            program.async_rpc(),
+            program.rpc(),
             ActionType::Liquidity,
         )
         .await?
@@ -110,12 +110,12 @@ pub async fn execute_claim_fee<C: Deref<Target = impl Signer> + Clone>(
     for (min_bin_id, max_bin_id) in
         position_bin_range_chunks(position_state.lower_bin_id, position_state.upper_bin_id)
     {
-        let data = ClaimFee2IxData(ClaimFee2IxArgs {
+        let data = dlmm::client::args::ClaimFee2 {
             min_bin_id,
             max_bin_id,
             remaining_accounts_info: remaining_accounts_info.clone(),
-        })
-        .try_to_vec()?;
+        }
+        .data();
 
         let bin_arrays_account_meta =
             position_state.get_bin_array_accounts_meta_coverage_by_chunk(min_bin_id, max_bin_id)?;
@@ -128,7 +128,7 @@ pub async fn execute_claim_fee<C: Deref<Target = impl Signer> + Clone>(
         .concat();
 
         let claim_fee_ix = Instruction {
-            program_id: dlmm_interface::ID,
+            program_id: dlmm::ID,
             accounts,
             data,
         };

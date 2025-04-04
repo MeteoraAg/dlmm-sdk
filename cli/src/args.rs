@@ -115,6 +115,7 @@ pub enum DLMMCommand {
     SeedLiquiditySingleBinByOperator(SeedLiquiditySingleBinByOperatorParameters),
     SetPairStatusPermissionless(SetPairStatusPermissionlessParams),
     GetAllPositionsForAnOwner(GetAllPositionsParams),
+    SyncPrice(SyncPriceParams),
     #[clap(flatten)]
     Admin(AdminCommand),
 }
@@ -145,5 +146,5 @@ pub enum AdminCommand {
     SetPreActivationSwapAddress(SetPreactivationSwapAddressParam),
     InitializeTokenBadge(InitializeTokenBadgeParams),
     CreateClaimProtocolFeeOperator(CreateClaimFeeOperatorParams),
-    CloseclaimProtocolFeeOperator(CloseClaimFeeOperatorParams),
+    CloseClaimProtocolFeeOperator(CloseClaimFeeOperatorParams),
 }

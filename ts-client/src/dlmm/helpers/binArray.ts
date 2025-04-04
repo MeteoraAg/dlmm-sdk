@@ -1,6 +1,6 @@
 import { BN } from "@coral-xyz/anchor";
 import { PublicKey } from "@solana/web3.js";
-import { MAX_BIN_ARRAY_SIZE, MAX_BIN_PER_POSITION } from "../constants";
+import { MAX_BIN_ARRAY_SIZE, DEFAULT_BIN_PER_POSITION } from "../constants";
 import {
   Bin,
   BinArray,
@@ -348,7 +348,7 @@ export function getBinArraysRequiredByPositionRange(
   const binArrays = new Map<String, BN>();
 
   for (let i = 0; i < positionCount.toNumber(); i++) {
-    const lowerBinId = minBinId.add(MAX_BIN_PER_POSITION.mul(new BN(i)));
+    const lowerBinId = minBinId.add(DEFAULT_BIN_PER_POSITION.mul(new BN(i)));
 
     const lowerBinArrayIndex = binIdToBinArrayIndex(lowerBinId);
     const upperBinArrayIndex = lowerBinArrayIndex.add(new BN(1));

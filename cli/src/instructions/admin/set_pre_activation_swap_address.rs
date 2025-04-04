@@ -16,22 +16,21 @@ pub async fn execute_set_pre_activation_swap_address<C: Deref<Target = impl Sign
         pre_activation_swap_address,
     } = params;
 
-    let accounts: [AccountMeta; SET_PRE_ACTIVATION_SWAP_ADDRESS_IX_ACCOUNTS_LEN] =
-        SetPreActivationSwapAddressKeys {
-            creator: program.payer(),
-            lb_pair,
-        }
-        .into();
+    let accounts = dlmm::client::accounts::SetPreActivationSwapAddress {
+        creator: program.payer(),
+        lb_pair,
+    }
+    .to_account_metas(None);
 
-    let data = SetPreActivationSwapAddressIxData(SetPreActivationSwapAddressIxArgs {
+    let data = dlmm::client::args::SetPreActivationSwapAddress {
         pre_activation_swap_address,
-    })
-    .try_to_vec()?;
+    }
+    .data();
 
     let set_pre_activation_swap_address_ix = Instruction {
-        accounts: accounts.to_vec(),
+        accounts,
         data,
-        program_id: dlmm_interface::ID,
+        program_id: dlmm::ID,
     };
 
     let request_builder = program.request();

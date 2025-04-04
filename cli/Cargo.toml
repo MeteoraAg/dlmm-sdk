@@ -8,10 +8,10 @@ authors = ["tian <tian@racoons.dev>"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-staging = ["dlmm_interface/staging"]
+staging = ["commons/staging"]
 
 [dependencies]
-commons = { workspace = true }
+commons = { workspace = true, features = ["borsh"] }
 anchor-lang = { workspace = true }
 anchor-spl = { workspace = true }
 anchor-client = { workspace = true, features = ["async"] }
@@ -19,7 +19,6 @@ clap = { workspace = true, features = ["derive"] }
 anyhow = { workspace = true }
 shellexpand = { workspace = true }
 rust_decimal = { workspace = true, features = ["maths"] }
-dlmm_interface = { path = "../dlmm_interface" }
 spl-associated-token-account = { workspace = true }
 rand = { workspace = true }
 tokio = { workspace = true, features = ["full", "parking_lot"] }

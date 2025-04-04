@@ -28,7 +28,7 @@ pub async fn execute_remove_liquidity<C: Deref<Target = impl Signer> + Clone>(
 
     bin_liquidity_removal.sort_by(|a, b| a.0.cmp(&b.0));
 
-    let rpc_client = program.async_rpc();
+    let rpc_client = program.rpc();
 
     let mut accounts = rpc_client
         .get_multiple_accounts(&[lb_pair, position])
@@ -37,8 +37,8 @@ pub async fn execute_remove_liquidity<C: Deref<Target = impl Signer> + Clone>(
     let lb_pair_account = accounts[0].take().context("lb_pair not found")?;
     let position_account = accounts[1].take().context("position not found")?;
 
-    let lb_pair_state = LbPairAccount::deserialize(&lb_pair_account.data)?.0;
-    let position_state = PositionV2Account::deserialize(&position_account.data)?.0;
+    let lb_pair_state = LbPair::try_deserialize(&mut lb_pair_account.data.as_ref())?;
+    let position_state = PositionV2::try_deserialize(&mut position_account.data.as_ref())?;
 
     let min_bin_id = bin_liquidity_removal
         .first()
@@ -76,7 +76,8 @@ pub async fn execute_remove_liquidity<C: Deref<Target = impl Signer> + Clone>(
         .get_account(&bin_array_bitmap_extension)
         .await
         .map(|_| bin_array_bitmap_extension)
-        .unwrap_or(dlmm_interface::ID);
+        .ok()
+        .or(Some(dlmm::ID));
 
     let (event_authority, _bump) = derive_event_authority_pda();
 
@@ -86,7 +87,7 @@ pub async fn execute_remove_liquidity<C: Deref<Target = impl Signer> + Clone>(
     if let Some((slices, transfer_hook_remaining_accounts)) =
         get_potential_token_2022_related_ix_data_and_accounts(
             &lb_pair_state,
-            program.async_rpc(),
+            program.rpc(),
             ActionType::Liquidity,
         )
         .await?
@@ -99,7 +100,7 @@ pub async fn execute_remove_liquidity<C: Deref<Target = impl Signer> + Clone>(
 
     let [token_x_program, token_y_program] = lb_pair_state.get_token_programs()?;
 
-    let main_accounts: [AccountMeta; REMOVE_LIQUIDITY2_IX_ACCOUNTS_LEN] = RemoveLiquidity2Keys {
+    let main_accounts = dlmm::client::accounts::RemoveLiquidity2 {
         position,
         lb_pair,
         bin_array_bitmap_extension,
@@ -114,9 +115,9 @@ pub async fn execute_remove_liquidity<C: Deref<Target = impl Signer> + Clone>(
         sender: program.payer(),
         memo_program: spl_memo::ID,
         event_authority,
-        program: dlmm_interface::ID,
+        program: dlmm::ID,
     }
-    .into();
+    .to_account_metas(None);
 
     let bin_liquidity_removal = bin_liquidity_removal
         .into_iter()
@@ -126,16 +127,16 @@ pub async fn execute_remove_liquidity<C: Deref<Target = impl Signer> + Clone>(
         })
         .collect::<Vec<BinLiquidityReduction>>();
 
-    let data = RemoveLiquidity2IxData(RemoveLiquidity2IxArgs {
+    let data = dlmm::client::args::RemoveLiquidity2 {
         bin_liquidity_removal,
         remaining_accounts_info,
-    })
-    .try_to_vec()?;
+    }
+    .data();
 
     let accounts = [main_accounts.to_vec(), remaining_accounts].concat();
 
     let remove_liquidity_ix = Instruction {
-        program_id: dlmm_interface::ID,
+        program_id: dlmm::ID,
         data,
         accounts,
     };

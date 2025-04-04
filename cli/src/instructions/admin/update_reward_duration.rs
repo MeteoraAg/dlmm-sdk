@@ -1,4 +1,5 @@
 use crate::*;
+use commons::dlmm::accounts::{BinArray, LbPair};
 
 #[derive(Debug, Parser)]
 pub struct UpdateRewardDurationParams {
@@ -18,10 +19,10 @@ pub async fn execute_update_reward_duration<C: Deref<Target = impl Signer> + Clo
         reward_duration,
     } = params;
 
-    let rpc_client = program.async_rpc();
+    let rpc_client = program.rpc();
     let lb_pair_state = rpc_client
         .get_account_and_deserialize(&lb_pair, |account| {
-            Ok(LbPairAccount::deserialize(&account.data)?.0)
+            Ok(LbPair::try_deserialize(&mut account.data.as_ref())?)
         })
         .await?;
 
@@ -30,25 +31,24 @@ pub async fn execute_update_reward_duration<C: Deref<Target = impl Signer> + Clo
 
     let (event_authority, _bump) = derive_event_authority_pda();
 
-    let accounts: [AccountMeta; UPDATE_REWARD_DURATION_IX_ACCOUNTS_LEN] =
-        UpdateRewardDurationKeys {
-            lb_pair,
-            admin: program.payer(),
-            bin_array,
-            event_authority,
-            program: dlmm_interface::ID,
-        }
-        .into();
+    let accounts = dlmm::client::accounts::UpdateRewardDuration {
+        lb_pair,
+        admin: program.payer(),
+        bin_array,
+        event_authority,
+        program: dlmm::ID,
+    }
+    .to_account_metas(None);
 
-    let data = UpdateRewardDurationIxData(UpdateRewardDurationIxArgs {
+    let data = dlmm::client::args::UpdateRewardDuration {
         reward_index,
         new_duration: reward_duration,
-    })
-    .try_to_vec()?;
+    }
+    .data();
 
     let ix = Instruction {
-        program_id: dlmm_interface::ID,
-        accounts: accounts.to_vec(),
+        program_id: dlmm::ID,
+        accounts,
         data,
     };
 

@@ -16,22 +16,21 @@ pub async fn execute_set_pre_activation_duration<C: Deref<Target = impl Signer> 
         pre_activation_duration,
     } = params;
 
-    let accounts: [AccountMeta; SET_PRE_ACTIVATION_DURATION_IX_ACCOUNTS_LEN] =
-        SetPreActivationSwapAddressKeys {
-            creator: program.payer(),
-            lb_pair,
-        }
-        .into();
+    let accounts = dlmm::client::accounts::SetPreActivationDuration {
+        creator: program.payer(),
+        lb_pair,
+    }
+    .to_account_metas(None);
 
-    let data = SetPreActivationDurationIxData(SetPreActivationDurationIxArgs {
+    let data = dlmm::client::args::SetPreActivationDuration {
         pre_activation_duration: pre_activation_duration as u64,
-    })
-    .try_to_vec()?;
+    }
+    .data();
 
     let set_pre_activation_slot_duration_ix = Instruction {
-        accounts: accounts.to_vec(),
+        accounts,
         data,
-        program_id: dlmm_interface::ID,
+        program_id: dlmm::ID,
     };
 
     let request_builder = program.request();
