@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.4.10] - PR #194
+
+### Fixed
+
+- Fixed `createClaimBuildMethod` return undefined;
+
 ## @meteora-ag/dlmm [1.4.9] - PR #193
 
 ### Fixed
