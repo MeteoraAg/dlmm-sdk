@@ -101,7 +101,8 @@ import {
   PositionV2Wrapper,
   getBinArrayAccountMetasCoverage,
   getBinArrayIndexesCoverage,
-  getPositionLowerUpperBinIdWithLiquidity,
+  isPositionNoFee,
+  isPositionNoReward,
   wrapPosition,
 } from "./helpers/positions";
 import {
@@ -4618,6 +4619,10 @@ export class DLMM {
     owner: PublicKey;
     position: LbPosition;
   }): Promise<Transaction> {
+    if (isPositionNoReward(position.positionData)) {
+      throw new Error("No LM reward to claim");
+    }
+
     const claimTransactions = await this.createClaimBuildMethod({
       owner,
       position,
@@ -4657,6 +4662,10 @@ export class DLMM {
     owner: PublicKey;
     positions: LbPosition[];
   }): Promise<Transaction[]> {
+    if (positions.every((position) => isPositionNoReward(position.positionData))) {
+      throw new Error("No LM reward to claim");
+    }
+
     const claimAllTxs = (
       await Promise.all(
         positions
@@ -4757,7 +4766,11 @@ export class DLMM {
   }: {
     owner: PublicKey;
     position: LbPosition;
-  }): Promise<Transaction> {
+  }): Promise<Transaction | null> {
+    if (isPositionNoFee(position.positionData)) {
+      throw new Error("No fee to claim");
+    }
+
     const claimFeeTx = await this.createClaimSwapFeeMethod({ owner, position });
 
     const { blockhash, lastValidBlockHeight } =
@@ -4790,6 +4803,10 @@ export class DLMM {
     owner: PublicKey;
     positions: LbPosition[];
   }): Promise<Transaction[]> {
+    if (positions.every((position) => isPositionNoFee(position.positionData))) {
+      throw new Error("No fee to claim");
+    }
+
     const claimAllTxs = (
       await Promise.all(
         positions
@@ -4853,6 +4870,13 @@ export class DLMM {
     owner: PublicKey;
     position: LbPosition;
   }): Promise<Transaction[]> {
+    if (
+      isPositionNoFee(position.positionData) &&
+      isPositionNoReward(position.positionData)
+    ) {
+      throw new Error("No fee/reward to claim");
+    }
+
     const claimAllSwapFeeTxs = await this.createClaimSwapFeeMethod({
       owner,
       position,
@@ -6486,18 +6510,11 @@ export class DLMM {
     owner: PublicKey;
     position: LbPosition;
   }) {
-    // Avoid to attempt to load uninitialized bin array on the program
-    const maybeClaimableBinRange = getPositionLowerUpperBinIdWithLiquidity(
-      position.positionData
-    );
-
-    if (!maybeClaimableBinRange) return [];
-
-    const { lowerBinId, upperBinId } = maybeClaimableBinRange;
+    const { lowerBinId, upperBinId } = position.positionData;
 
     const binArrayAccountsMeta = getBinArrayAccountMetasCoverage(
-      lowerBinId,
-      upperBinId,
+      new BN(lowerBinId),
+      new BN(upperBinId),
       this.pubkey,
       this.program.programId
     );
@@ -6520,7 +6537,7 @@ export class DLMM {
         this.getPotentialToken2022IxDataAndAccounts(ActionType.Reward, i);
 
       const claimTransaction = await this.program.methods
-        .claimReward2(new BN(i), lowerBinId.toNumber(), upperBinId.toNumber(), {
+        .claimReward2(new BN(i), lowerBinId, upperBinId, {
           slices,
         })
         .accounts({
@@ -6550,18 +6567,11 @@ export class DLMM {
     owner: PublicKey;
     position: LbPosition;
   }) {
-    // Avoid to attempt to load uninitialized bin array on the program
-    const maybeClaimableBinRange = getPositionLowerUpperBinIdWithLiquidity(
-      position.positionData
-    );
-
-    if (!maybeClaimableBinRange) return;
-
-    const { lowerBinId, upperBinId } = maybeClaimableBinRange;
+    const { lowerBinId, upperBinId } = position.positionData;
 
     const binArrayAccountsMeta = getBinArrayAccountMetasCoverage(
-      lowerBinId,
-      upperBinId,
+      new BN(lowerBinId),
+      new BN(upperBinId),
       this.pubkey,
       this.program.programId
     );
@@ -6610,7 +6620,7 @@ export class DLMM {
       this.getPotentialToken2022IxDataAndAccounts(ActionType.Liquidity);
 
     const claimFeeTx = await this.program.methods
-      .claimFee2(lowerBinId.toNumber(), upperBinId.toNumber(), {
+      .claimFee2(lowerBinId, upperBinId, {
         slices,
       })
       .accounts({

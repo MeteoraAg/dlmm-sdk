@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.4.11] - PR #195
+
+### Fixed
+
+- Fixed all claim method not working if position no liquidity
+
 ## @meteora-ag/dlmm [1.4.10] - PR #194
 
 ### Fixed
