@@ -19,6 +19,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.5.0] - PR #201
+
+### Changed
+
+- `seedLiquidity` now return `costBreakdown` field for account rental in `SeedLiquidityResponse`.
+- `seedLiquiditySingleBin` now return `SeedLiquiditySingleBinResponse` instead of `TransactionInstruction[]`. `SeedLiquiditySingleBinResponse` has `costBreakdown` field for account rental.
+
+### Fixed
+
+- Fixed `POSITION_FEE` and `BIN_ARRAY_FEE` account rental cost constant.
+
 ## @meteora-ag/dlmm [1.4.11] - PR #195
 
 ### Fixed
