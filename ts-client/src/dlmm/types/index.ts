@@ -419,6 +419,21 @@ export interface SeedLiquidityResponse {
   sendPositionOwnerTokenProveIxs: TransactionInstruction[];
   initializeBinArraysAndPositionIxs: TransactionInstruction[][];
   addLiquidityIxs: TransactionInstruction[][];
+  costBreakdown: SeedLiquidityCostBreakdown;
+}
+
+export interface SeedLiquiditySingleBinResponse {
+  instructions: TransactionInstruction[];
+  costBreakdown: SeedLiquidityCostBreakdown;
+}
+
+export interface SeedLiquidityCostBreakdown {
+  tokenOwnerProveAssociatedTokenAccountLamports: BN;
+  totalPositionLamports: BN;
+  totalBinArraysLamports: BN;
+  totalPositionCount: BN;
+  totalBinArraysCount: BN;
+  binArrayBitmapLamports: BN;
 }
 
 export interface Clock {
