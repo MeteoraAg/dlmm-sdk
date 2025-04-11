@@ -5,7 +5,7 @@
  * IDL can be found at `target/idl/lb_clmm.json`.
  */
 export type LbClmm = {
-  address: "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo";
+  address: "LbVRzDTvBDEcrthxfZ4RL6yiq3uZw8bS6MwtdY6UhFQ";
   metadata: {
     name: "lbClmm";
     version: "0.9.1";
@@ -1628,53 +1628,17 @@ export type LbClmm = {
     {
       name: "forIdlTypeGenerationDoNotCall";
       discriminator: [180, 105, 69, 80, 95, 50, 73, 108];
-      accounts: [];
+      accounts: [
+        {
+          name: "dummyZcAccount";
+        },
+      ];
       args: [
         {
-          name: "pairStatus";
+          name: "ix";
           type: {
             defined: {
-              name: "pairStatus";
-            };
-          };
-        },
-        {
-          name: "pairType";
-          type: {
-            defined: {
-              name: "pairType";
-            };
-          };
-        },
-        {
-          name: "activationType";
-          type: {
-            defined: {
-              name: "activationType";
-            };
-          };
-        },
-        {
-          name: "tokenProgramFlag";
-          type: {
-            defined: {
-              name: "tokenProgramFlags";
-            };
-          };
-        },
-        {
-          name: "resizeSide";
-          type: {
-            defined: {
-              name: "resizeSide";
-            };
-          };
-        },
-        {
-          name: "rounding";
-          type: {
-            defined: {
-              name: "rounding";
+              name: "dummyIx";
             };
           };
         },
@@ -5202,38 +5166,38 @@ export type LbClmm = {
               {
                 kind: "const";
                 value: [
-                  153,
-                  10,
-                  107,
-                  154,
-                  255,
-                  249,
-                  210,
+                  8,
+                  234,
+                  192,
+                  109,
+                  87,
+                  125,
+                  190,
+                  55,
+                  129,
                   173,
-                  176,
-                  67,
-                  220,
-                  214,
-                  152,
-                  71,
-                  46,
-                  146,
-                  161,
-                  33,
-                  81,
-                  148,
-                  166,
-                  119,
-                  5,
-                  189,
-                  142,
-                  11,
+                  227,
+                  8,
+                  104,
+                  201,
+                  104,
+                  13,
+                  31,
+                  178,
+                  74,
+                  80,
+                  54,
+                  14,
+                  77,
+                  78,
+                  226,
                   57,
-                  68,
-                  162,
-                  70,
-                  126,
-                  100,
+                  47,
+                  122,
+                  166,
+                  165,
+                  57,
+                  144,
                 ];
               },
               {
@@ -5292,38 +5256,38 @@ export type LbClmm = {
               {
                 kind: "const";
                 value: [
-                  153,
-                  10,
-                  107,
-                  154,
-                  255,
-                  249,
-                  210,
+                  8,
+                  234,
+                  192,
+                  109,
+                  87,
+                  125,
+                  190,
+                  55,
+                  129,
                   173,
-                  176,
-                  67,
-                  220,
-                  214,
-                  152,
-                  71,
-                  46,
-                  146,
-                  161,
-                  33,
-                  81,
-                  148,
-                  166,
-                  119,
-                  5,
-                  189,
-                  142,
-                  11,
+                  227,
+                  8,
+                  104,
+                  201,
+                  104,
+                  13,
+                  31,
+                  178,
+                  74,
+                  80,
+                  54,
+                  14,
+                  77,
+                  78,
+                  226,
                   57,
-                  68,
-                  162,
-                  70,
-                  126,
-                  100,
+                  47,
+                  122,
+                  166,
+                  165,
+                  57,
+                  144,
                 ];
               },
               {
@@ -5426,6 +5390,10 @@ export type LbClmm = {
     {
       name: "claimFeeOperator";
       discriminator: [166, 48, 134, 86, 34, 200, 188, 150];
+    },
+    {
+      name: "dummyZcAccount";
+      discriminator: [94, 107, 238, 80, 208, 48, 180, 8];
     },
     {
       name: "lbPair";
@@ -6000,6 +5968,22 @@ export type LbClmm = {
       };
     },
     {
+      name: "actualBinRange";
+      type: {
+        kind: "struct";
+        fields: [
+          {
+            name: "minBinId";
+            type: "i32";
+          },
+          {
+            name: "maxBinId";
+            type: "i32";
+          },
+        ];
+      };
+    },
+    {
       name: "addLiquidity";
       type: {
         kind: "struct";
@@ -6540,6 +6524,82 @@ export type LbClmm = {
           {
             name: "side";
             type: "u8";
+          },
+        ];
+      };
+    },
+    {
+      name: "dummyIx";
+      type: {
+        kind: "struct";
+        fields: [
+          {
+            name: "pairStatus";
+            type: {
+              defined: {
+                name: "pairStatus";
+              };
+            };
+          },
+          {
+            name: "pairType";
+            type: {
+              defined: {
+                name: "pairType";
+              };
+            };
+          },
+          {
+            name: "activationType";
+            type: {
+              defined: {
+                name: "activationType";
+              };
+            };
+          },
+          {
+            name: "tokenProgramFlag";
+            type: {
+              defined: {
+                name: "tokenProgramFlags";
+              };
+            };
+          },
+          {
+            name: "resizeSide";
+            type: {
+              defined: {
+                name: "resizeSide";
+              };
+            };
+          },
+          {
+            name: "rounding";
+            type: {
+              defined: {
+                name: "rounding";
+              };
+            };
+          },
+        ];
+      };
+    },
+    {
+      name: "dummyZcAccount";
+      serialization: "bytemuck";
+      repr: {
+        kind: "c";
+      };
+      type: {
+        kind: "struct";
+        fields: [
+          {
+            name: "positionBinData";
+            type: {
+              defined: {
+                name: "positionBinData";
+              };
+            };
           },
         ];
       };
@@ -7581,6 +7641,38 @@ export type LbClmm = {
       };
     },
     {
+      name: "positionBinData";
+      serialization: "bytemuck";
+      repr: {
+        kind: "c";
+      };
+      type: {
+        kind: "struct";
+        fields: [
+          {
+            name: "liquidityShare";
+            type: "u128";
+          },
+          {
+            name: "rewardInfo";
+            type: {
+              defined: {
+                name: "userRewardInfo";
+              };
+            };
+          },
+          {
+            name: "feeInfo";
+            type: {
+              defined: {
+                name: "feeInfo";
+              };
+            };
+          },
+        ];
+      };
+    },
+    {
       name: "positionClose";
       type: {
         kind: "struct";
@@ -8192,10 +8284,25 @@ export type LbClmm = {
             };
           },
           {
-            name: "parameteres";
-            docs: ["parameters"];
+            name: "favorSide";
+            docs: ["favor ask/bid side, 0 for bin side, 1 for ask side"];
+            type: "u8";
+          },
+          {
+            name: "actualBinRange";
+            docs: ["actual bin range"];
             type: {
-              array: ["u8", 64];
+              option: {
+                defined: {
+                  name: "actualBinRange";
+                };
+              };
+            };
+          },
+          {
+            name: "parameteres";
+            type: {
+              array: ["u8", 54];
             };
           },
         ];

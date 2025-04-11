@@ -22,6 +22,7 @@ import fs from "fs";
 import {
   DEFAULT_BIN_PER_POSITION,
   LBCLMM_PROGRAM_IDS,
+  POSITION_MAX_LENGTH,
 } from "../dlmm/constants";
 import {
   binIdToBinArrayIndex,
@@ -31,10 +32,17 @@ import {
   derivePermissionLbPair,
   derivePresetParameter2,
   deriveReserve,
+  getBinArrayLowerUpperBinId,
+  getPriceOfBinByBinId,
 } from "../dlmm/helpers";
 import { computeBaseFactorFromFeeBps } from "../dlmm/helpers/math";
 import { DLMM } from "../dlmm/index";
-import { ActivationType, PairType, StrategyType } from "../dlmm/types";
+import {
+  ActivationType,
+  PairType,
+  ResizeSide,
+  StrategyType,
+} from "../dlmm/types";
 import { wrapPosition } from "../dlmm/helpers/positions";
 import IDL from "../../../idls/dlmm_zc.json";
 import { createTestProgram } from "./helper";
@@ -455,7 +463,11 @@ describe("SDK test", () => {
         slippage: 0,
       });
 
-      await sendAndConfirmTransaction(connection, addLiquidityTx, [keypair]);
+      await Promise.all(
+        addLiquidityTx.map((tx) =>
+          sendAndConfirmTransaction(connection, tx, [keypair])
+        )
+      );
 
       addLiquidityTx = await pair.addLiquidityByStrategy({
         positionPubKey: customFeeOwnerPosition,
@@ -568,7 +580,11 @@ describe("SDK test", () => {
         slippage: 0,
       });
 
-      await sendAndConfirmTransaction(connection, addLiquidityTx, [keypair]);
+      await Promise.all(
+        addLiquidityTx.map((tx) =>
+          sendAndConfirmTransaction(connection, tx, [keypair])
+        )
+      );
 
       const positionAccount = await connection.getAccountInfo(
         normalPosition.publicKey

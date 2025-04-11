@@ -1,6 +1,7 @@
 import { GetProgramAccountsFilter, PublicKey } from "@solana/web3.js";
 import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import BN from "bn.js";
+import { getAccountDiscriminator } from ".";
 
 export const presetParameter2BinStepFilter = (
   binStep: BN
@@ -64,6 +65,15 @@ export const positionLbPairFilter = (
     memcmp: {
       bytes: bs58.encode(lbPair.toBuffer()),
       offset: 8,
+    },
+  };
+};
+
+export const positionV2Filter = (): GetProgramAccountsFilter => {
+  return {
+    memcmp: {
+      bytes: bs58.encode(Buffer.from(getAccountDiscriminator("positionV2"))),
+      offset: 0,
     },
   };
 };

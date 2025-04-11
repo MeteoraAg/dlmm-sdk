@@ -1367,53 +1367,17 @@
     {
       "name": "for_idl_type_generation_do_not_call",
       "discriminator": [180, 105, 69, 80, 95, 50, 73, 108],
-      "accounts": [],
+      "accounts": [
+        {
+          "name": "dummy_zc_account"
+        }
+      ],
       "args": [
         {
-          "name": "_pair_status",
+          "name": "_ix",
           "type": {
             "defined": {
-              "name": "PairStatus"
-            }
-          }
-        },
-        {
-          "name": "_pair_type",
-          "type": {
-            "defined": {
-              "name": "PairType"
-            }
-          }
-        },
-        {
-          "name": "_activation_type",
-          "type": {
-            "defined": {
-              "name": "ActivationType"
-            }
-          }
-        },
-        {
-          "name": "_token_program_flag",
-          "type": {
-            "defined": {
-              "name": "TokenProgramFlags"
-            }
-          }
-        },
-        {
-          "name": "_resize_side",
-          "type": {
-            "defined": {
-              "name": "ResizeSide"
-            }
-          }
-        },
-        {
-          "name": "_rounding",
-          "type": {
-            "defined": {
-              "name": "Rounding"
+              "name": "DummyIx"
             }
           }
         }
@@ -4561,6 +4525,10 @@
       "discriminator": [166, 48, 134, 86, 34, 200, 188, 150]
     },
     {
+      "name": "DummyZcAccount",
+      "discriminator": [94, 107, 238, 80, 208, 48, 180, 8]
+    },
+    {
       "name": "LbPair",
       "discriminator": [33, 11, 49, 98, 181, 101, 177, 13]
     },
@@ -5133,6 +5101,22 @@
       }
     },
     {
+      "name": "ActualBinRange",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "min_bin_id",
+            "type": "i32"
+          },
+          {
+            "name": "max_bin_id",
+            "type": "i32"
+          }
+        ]
+      }
+    },
+    {
       "name": "AddLiquidity",
       "type": {
         "kind": "struct",
@@ -5669,6 +5653,81 @@
           {
             "name": "side",
             "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "DummyIx",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "_pair_status",
+            "type": {
+              "defined": {
+                "name": "PairStatus"
+              }
+            }
+          },
+          {
+            "name": "_pair_type",
+            "type": {
+              "defined": {
+                "name": "PairType"
+              }
+            }
+          },
+          {
+            "name": "_activation_type",
+            "type": {
+              "defined": {
+                "name": "ActivationType"
+              }
+            }
+          },
+          {
+            "name": "_token_program_flag",
+            "type": {
+              "defined": {
+                "name": "TokenProgramFlags"
+              }
+            }
+          },
+          {
+            "name": "_resize_side",
+            "type": {
+              "defined": {
+                "name": "ResizeSide"
+              }
+            }
+          },
+          {
+            "name": "_rounding",
+            "type": {
+              "defined": {
+                "name": "Rounding"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "DummyZcAccount",
+      "repr": {
+        "kind": "c"
+      },
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "position_bin_data",
+            "type": {
+              "defined": {
+                "name": "PositionBinData"
+              }
+            }
           }
         ]
       }
@@ -6706,6 +6765,37 @@
       }
     },
     {
+      "name": "PositionBinData",
+      "repr": {
+        "kind": "c"
+      },
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "liquidity_share",
+            "type": "u128"
+          },
+          {
+            "name": "reward_info",
+            "type": {
+              "defined": {
+                "name": "UserRewardInfo"
+              }
+            }
+          },
+          {
+            "name": "fee_info",
+            "type": {
+              "defined": {
+                "name": "FeeInfo"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
       "name": "PositionClose",
       "type": {
         "kind": "struct",
@@ -7314,10 +7404,25 @@
             }
           },
           {
-            "name": "parameteres",
-            "docs": ["parameters"],
+            "name": "favor_side",
+            "docs": ["favor ask/bid side, 0 for bin side, 1 for ask side"],
+            "type": "u8"
+          },
+          {
+            "name": "actual_bin_range",
+            "docs": ["actual bin range"],
             "type": {
-              "array": ["u8", 64]
+              "option": {
+                "defined": {
+                  "name": "ActualBinRange"
+                }
+              }
+            }
+          },
+          {
+            "name": "parameteres",
+            "type": {
+              "array": ["u8", 54]
             }
           }
         ]

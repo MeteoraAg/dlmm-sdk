@@ -1,4 +1,4 @@
-import { AnchorProvider, BN, IdlAccounts, Program } from "@coral-xyz/anchor";
+import { BN } from "@coral-xyz/anchor";
 import {
   AccountLayout,
   Mint,
@@ -14,6 +14,8 @@ import {
   AccountMeta,
   ComputeBudgetProgram,
   Connection,
+  Keypair,
+  LAMPORTS_PER_SOL,
   PublicKey,
   SYSVAR_CLOCK_PUBKEY,
   SYSVAR_RENT_PUBKEY,
@@ -27,17 +29,19 @@ import {
   BIN_ARRAY_BITMAP_FEE_BN,
   BIN_ARRAY_FEE,
   BIN_ARRAY_FEE_BN,
+  DEFAULT_BIN_PER_POSITION,
   FEE_PRECISION,
   MAX_ACTIVE_BIN_SLIPPAGE,
   MAX_BIN_ARRAY_SIZE,
   MAX_BIN_LENGTH_ALLOWED_IN_ONE_TX,
-  DEFAULT_BIN_PER_POSITION,
   MAX_BIN_PER_TX,
   MAX_CLAIM_ALL_ALLOWED,
   MAX_EXTRA_BIN_ARRAYS,
   MAX_FEE_RATE,
+  MAX_RESIZE_LENGTH,
   POSITION_FEE,
   POSITION_FEE_BN,
+  POSITION_MAX_LENGTH,
   PRECISION,
   SCALE_OFFSET,
   TOKEN_ACCOUNT_FEE_BN,
@@ -45,6 +49,7 @@ import {
 } from "./constants";
 import { DlmmSdkError } from "./error";
 import {
+  Opt,
   binIdToBinArrayIndex,
   chunkedGetMultipleAccountInfos,
   chunks,
@@ -74,10 +79,10 @@ import {
   getTotalFee,
   isBinIdWithinBinArray,
   isOverflowDefaultBinArrayBitmap,
-  Opt,
   range,
   swapExactInQuoteAtBin,
   swapExactOutQuoteAtBin,
+  toAmountsBothSideByStrategy,
   toStrategyParameters,
   toWeightDistribution,
   unwrapSOLInstruction,
@@ -87,11 +92,18 @@ import {
   binArrayLbPairFilter,
   positionLbPairFilter,
   positionOwnerFilter,
+  positionV2Filter,
   presetParameter2BaseFactorFilter,
   presetParameter2BaseFeePowerFactor,
   presetParameter2BinStepFilter,
 } from "./helpers/accountFilters";
-import { DEFAULT_ADD_LIQUIDITY_CU } from "./helpers/computeUnit";
+import {
+  DEFAULT_ADD_LIQUIDITY_CU,
+  DEFAULT_EXTEND_POSITION_HIGH_CU,
+  DEFAULT_INIT_BIN_ARRAY_CU,
+  DEFAULT_INIT_POSITION_CU,
+  getDefaultExtendPositionCU,
+} from "./helpers/computeUnit";
 import {
   Rounding,
   compressBinAmount,
@@ -104,11 +116,15 @@ import {
 } from "./helpers/math";
 import {
   IPosition,
-  PositionV2Wrapper,
+  chunkBinRange,
+  chunkBinRangeIntoExtendedPositions,
   getBinArrayAccountMetasCoverage,
   getBinArrayIndexesCoverage,
   isPositionNoFee,
   isPositionNoReward,
+  getExtendedPositionBinCount,
+  getPositionExpandRentExemption,
+  getPositionLowerUpperBinIdWithLiquidity,
   wrapPosition,
 } from "./helpers/positions";
 import {
@@ -117,8 +133,6 @@ import {
   getExtraAccountMetasForTransferHook,
   getMultipleMintsExtraAccountMetasForTransferHook,
 } from "./helpers/token_2022";
-import { LbClmm } from "./idl";
-import IDL from "../../../idls/dlmm_zc.json";
 import {
   ActionType,
   ActivationType,
@@ -129,9 +143,11 @@ import {
   BinArrayBitmapExtension,
   BinArrayBitmapExtensionAccount,
   BinLiquidity,
+  BinLiquidityDistribution,
   ClmmProgram,
   Clock,
   ClockLayout,
+  CompressedBinDepositAmounts,
   EmissionRate,
   FeeInfo,
   InitCustomizablePermissionlessPairIx,
@@ -139,38 +155,37 @@ import {
   LbPairAccount,
   LbPosition,
   LiquidityOneSideParameter,
+  LiquidityParameter,
   LiquidityParameterByStrategy,
   LiquidityParameterByWeight,
-  PairLockInfo,
   MEMO_PROGRAM_ID,
+  PairLockInfo,
   PairStatus,
   PairType,
   PositionBinData,
   PositionData,
   PositionInfo,
+  PositionV2,
   PositionVersion,
   ProgramStrategyParameter,
   RemainingAccountsInfoSlice,
+  ResizeSide,
+  SeedLiquidityResponse,
+  SeedLiquiditySingleBinResponse,
+  StrategyParameters,
   SwapExactOutParams,
   SwapParams,
   SwapQuote,
   SwapQuoteExactOut,
   SwapWithPriceImpactParams,
+  TInitializeMultiplePositionAndAddLiquidityParamsByStrategy,
   TInitializePositionAndAddLiquidityParams,
   TInitializePositionAndAddLiquidityParamsByStrategy,
   TQuoteCreatePositionParams,
   TokenReserve,
   sParameters,
   vParameters,
-  SeedLiquidityResponse,
-  PositionV2,
-  CompressedBinDepositAmounts,
-  BinLiquidityDistribution,
-  LiquidityParameter,
-  SeedLiquidityCostBreakdown,
-  SeedLiquiditySingleBinResponse,
 } from "./types";
-import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 
 export class DLMM {
   constructor(
@@ -836,12 +851,15 @@ export class DLMM {
   ): Promise<Map<string, PositionInfo>> {
     const program = createProgram(connection, opt);
 
-    const positionsV2 = await program.account.positionV2.all([
-      positionOwnerFilter(userPubKey),
-    ]);
+    const positionsV2 = await program.provider.connection.getProgramAccounts(
+      program.programId,
+      {
+        filters: [positionV2Filter(), positionOwnerFilter(userPubKey)],
+      }
+    );
 
     const positionWrappers: IPosition[] = [
-      ...positionsV2.map((p) => new PositionV2Wrapper(p.publicKey, p.account)),
+      ...positionsV2.map((p) => wrapPosition(program, p.pubkey, p.account)),
     ];
 
     const binArrayPubkeySetV2 = new Set<string>();
@@ -1121,14 +1139,17 @@ export class DLMM {
   ): Promise<PairLockInfo> {
     const lockDuration = lockDurationOpt | 0;
 
-    const lbPairPositions = await this.program.account.positionV2.all([
-      {
-        memcmp: {
-          bytes: bs58.encode(this.pubkey.toBuffer()),
-          offset: 8,
-        },
-      },
-    ]);
+    const positionAccounts =
+      await this.program.provider.connection.getProgramAccounts(
+        this.program.programId,
+        {
+          filters: [positionLbPairFilter(this.pubkey)],
+        }
+      );
+
+    const lbPairPositions = positionAccounts.map((acc) => {
+      return wrapPosition(this.program, acc.pubkey, acc.account);
+    });
 
     // filter positions has lock_release_point > currentTimestamp + lockDurationSecs
     const clockAccInfo = await this.program.provider.connection.getAccountInfo(
@@ -1144,7 +1165,7 @@ export class DLMM {
     const minLockReleasePoint = currentPoint.add(new BN(lockDuration));
 
     const positionsWithLock = lbPairPositions.filter((p) =>
-      p.account.lockReleasePoint.gt(minLockReleasePoint)
+      p.lockReleasePoint().gt(minLockReleasePoint)
     );
 
     if (positionsWithLock.length == 0) {
@@ -1153,14 +1174,8 @@ export class DLMM {
       };
     }
 
-    const positions = [
-      ...positionsWithLock.map(
-        (p) => new PositionV2Wrapper(p.publicKey, p.account)
-      ),
-    ];
-
     const binArrayPubkeySetV2 = new Set<string>();
-    positions.forEach((position) => {
+    positionsWithLock.forEach((position) => {
       const binArrayKeys = position.getBinArrayKeysCoverage(
         this.program.programId
       );
@@ -1197,7 +1212,7 @@ export class DLMM {
     }
 
     const positionsLockInfo = await Promise.all(
-      positions.map(async (position) => {
+      positionsWithLock.map(async (position) => {
         const positionData = await DLMM.processPosition(
           this.program,
           this.lbPair,
@@ -2166,10 +2181,16 @@ export class DLMM {
     const promiseResults = await Promise.all([
       this.getActiveBin(),
       userPubKey &&
-        this.program.account.positionV2.all([
-          positionOwnerFilter(userPubKey),
-          positionLbPairFilter(this.pubkey),
-        ]),
+        this.program.provider.connection.getProgramAccounts(
+          this.program.programId,
+          {
+            filters: [
+              positionV2Filter(),
+              positionOwnerFilter(userPubKey),
+              positionLbPairFilter(this.pubkey),
+            ],
+          }
+        ),
     ]);
 
     const [activeBin, positionsV2] = promiseResults;
@@ -2186,7 +2207,9 @@ export class DLMM {
     }
 
     const positions = [
-      ...positionsV2.map((p) => new PositionV2Wrapper(p.publicKey, p.account)),
+      ...positionsV2.map((p) =>
+        wrapPosition(this.program, p.pubkey, p.account)
+      ),
     ];
 
     if (!positions) {
@@ -2261,6 +2284,51 @@ export class DLMM {
     };
   }
 
+  /**
+   * Estimates the cost to extend a position by a specified number of bins. Max position length is 1400
+   *
+   * The function calculates the rent cost required to expand a position and the cost
+   * to create necessary bin arrays for the new position range.
+   *
+   * @param currentMinBinId - The current minimum bin ID of the position.
+   * @param currentMaxBinId - The current maximum bin ID of the position.
+   * @param binCountToExpand - The number of bins to expand the position by.
+   * @returns An object containing:
+   *   - positionExtendCost: The estimated rent cost in lamports for extending the position.
+   *   - binArrayCost: The estimated cost for creating necessary bin arrays.
+   */
+
+  public async quoteExtendPosition(
+    currentMinBinId: BN,
+    currentMaxBinId: BN,
+    binCountToExpand: BN
+  ) {
+    const positionExtendCost = await getPositionExpandRentExemption(
+      currentMinBinId,
+      currentMaxBinId,
+      this.program.provider.connection,
+      binCountToExpand
+    );
+
+    const lowerBinArrayIndex = binIdToBinArrayIndex(currentMinBinId);
+    const upperBinArrayIndex = binIdToBinArrayIndex(currentMaxBinId);
+
+    const binArraysCount = (
+      await this.binArraysToBeCreate(lowerBinArrayIndex, upperBinArrayIndex)
+    ).length;
+
+    const binArrayCost = new Decimal(binArraysCount).mul(
+      new Decimal(BIN_ARRAY_FEE)
+    );
+
+    return {
+      positionExtendCost: new Decimal(positionExtendCost).div(
+        new Decimal(LAMPORTS_PER_SOL)
+      ),
+      binArrayCost,
+    };
+  }
+
   public async quoteCreatePosition({ strategy }: TQuoteCreatePositionParams) {
     const { minBinId, maxBinId } = strategy;
 
@@ -2282,6 +2350,86 @@ export class DLMM {
       binArrayCost,
       positionCount,
       positionCost,
+    };
+  }
+
+  /**
+   * Estimates the cost to create a new position based on the given strategy.
+   *
+   * This function calculates the costs associated with creating bin arrays, positions
+   * and extending positions for a specified range of bins.
+   *
+   * @param {TQuoteCreatePositionParams} param0 - The settings of the requested new position,
+   * including the strategy with minimum and maximum bin IDs.
+   * @returns An object containing:
+   *   - binArraysCount: The number of bin arrays required.
+   *   - binArrayCost: The estimated cost for creating bin arrays.
+   *   - positionCount: The number of positions required.
+   *   - positionCost: The fee cost for creating positions.
+   *   - positionExtendCost: The rent cost in lamports for extending positions.
+   */
+
+  public async quoteCreateMultiplePositions({
+    strategy,
+  }: TQuoteCreatePositionParams) {
+    const { minBinId, maxBinId } = strategy;
+
+    const minBinIdBN = new BN(minBinId);
+    const maxBinIdBN = new BN(maxBinId);
+
+    // 1. Calculate bin array cost
+    const lowerBinArrayIndex = binIdToBinArrayIndex(minBinIdBN);
+    const upperBinArrayIndex = binIdToBinArrayIndex(maxBinIdBN);
+
+    const binArraysCount = (
+      await this.binArraysToBeCreate(lowerBinArrayIndex, upperBinArrayIndex)
+    ).length;
+
+    const binArrayCost = new Decimal(binArraysCount).mul(
+      new Decimal(BIN_ARRAY_FEE)
+    );
+
+    // 2. Calculate position and extend cost
+    let positionCost = new Decimal(0);
+    let positionExtendCost = new Decimal(0);
+
+    const chunkedPositionBinRange = chunkBinRangeIntoExtendedPositions(
+      minBinId,
+      maxBinId
+    );
+
+    const positionCount = chunkedPositionBinRange.length;
+
+    for (const { lowerBinId, upperBinId } of chunkedPositionBinRange) {
+      positionCost = positionCost.add(new Decimal(POSITION_FEE));
+      const lowerBinIdBN = new BN(lowerBinId);
+      const upperBinIdBN = new BN(upperBinId);
+
+      const extendedBinCount = getExtendedPositionBinCount(
+        lowerBinIdBN,
+        upperBinIdBN
+      );
+
+      const upperBinIdBeforeExtend = upperBinIdBN.sub(extendedBinCount);
+
+      positionExtendCost = positionExtendCost.add(
+        await getPositionExpandRentExemption(
+          lowerBinIdBN,
+          upperBinIdBeforeExtend,
+          this.program.provider.connection,
+          extendedBinCount
+        ).then((lamports) =>
+          new Decimal(lamports).div(new Decimal(LAMPORTS_PER_SOL))
+        )
+      );
+    }
+
+    return {
+      binArraysCount,
+      binArrayCost,
+      positionCount,
+      positionCost,
+      positionExtendCost,
     };
   }
 
@@ -2311,16 +2459,10 @@ export class DLMM {
       })
       .instruction();
 
-    const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(minBinId));
-    const upperBinArrayIndex = BN.max(
-      lowerBinArrayIndex.add(new BN(1)),
-      binIdToBinArrayIndex(new BN(maxBinId))
+    const binArrayIndexes = getBinArrayIndexesCoverage(
+      new BN(minBinId),
+      new BN(maxBinId)
     );
-
-    const binArrayIndexes: BN[] = Array.from(
-      { length: upperBinArrayIndex.sub(lowerBinArrayIndex).toNumber() + 1 },
-      (_, index) => index + lowerBinArrayIndex.toNumber()
-    ).map((idx) => new BN(idx));
 
     const createBinArrayIxs = await this.createBinArraysIfNeeded(
       binArrayIndexes,
@@ -2341,6 +2483,102 @@ export class DLMM {
       lastValidBlockHeight,
       feePayer: user,
     }).add(setCUIx, ...instructions);
+  }
+
+  /**
+   * Creates multiple empty positions for a user in specified bin ranges with necessary bin arrays.
+   *
+   * @param {number} minBinId - The minimum bin ID for the positions.
+   * @param {number} maxBinId - The maximum bin ID for the positions.
+   * @param {PublicKey} user - The public key of the user for whom the positions are created.
+   *
+   * @returns An object containing arrays of transactions for initializing positions, extending positions and initialzing bin arrays.
+   */
+  public async createMultipleEmptyPositions({
+    minBinId,
+    maxBinId,
+    user,
+  }: {
+    minBinId: number;
+    maxBinId: number;
+    user: PublicKey;
+  }) {
+    const chunkedBinRange = chunkBinRangeIntoExtendedPositions(
+      minBinId,
+      maxBinId
+    );
+
+    const positionCount = chunkedBinRange.length;
+
+    const positionKeypairs: Keypair[] = [];
+    const initPositionIxs: TransactionInstruction[][] = [];
+    const initBinArrayIxs: TransactionInstruction[][] = [];
+
+    for (let i = 0; i < positionCount; i++) {
+      const positionKeypair = Keypair.generate();
+      positionKeypairs.push(positionKeypair);
+
+      const { lowerBinId, upperBinId } = chunkedBinRange[i];
+
+      let width = upperBinId - lowerBinId + 1;
+      width = Math.min(width, DEFAULT_BIN_PER_POSITION.toNumber());
+
+      // 1. Init position and extend
+      const initPositionIx = await this.createInitAndExtendPositionIx(
+        lowerBinId,
+        upperBinId,
+        width,
+        user,
+        positionKeypair.publicKey
+      );
+
+      initPositionIxs.push(initPositionIx);
+
+      // 2. Create bin arrays
+      const binArrayIndexes = getBinArrayIndexesCoverage(
+        new BN(minBinId),
+        new BN(maxBinId)
+      );
+
+      const createBinArrayIxs = await this.createBinArraysIfNeeded(
+        binArrayIndexes,
+        user
+      ).then((ixs) =>
+        ixs.map((ix) => [
+          ComputeBudgetProgram.setComputeUnitLimit({
+            units: DEFAULT_INIT_BIN_ARRAY_CU,
+          }),
+          ix,
+        ])
+      );
+
+      initBinArrayIxs.push(...createBinArrayIxs);
+    }
+
+    const { blockhash, lastValidBlockHeight } =
+      await this.program.provider.connection.getLatestBlockhash("confirmed");
+
+    const initPositionTxs = initPositionIxs.map((ix) => {
+      return new Transaction({
+        blockhash,
+        lastValidBlockHeight,
+        feePayer: user,
+      }).add(...ix);
+    });
+
+    const initBinArrayTxs = initBinArrayIxs.map((ix) => {
+      return new Transaction({
+        blockhash,
+        lastValidBlockHeight,
+        feePayer: user,
+      }).add(...ix);
+    });
+
+    return {
+      positionKeypairs,
+      initPositionTxs,
+      initBinArrayTxs,
+    };
   }
 
   /**
@@ -2598,6 +2836,295 @@ export class DLMM {
       lastValidBlockHeight,
       feePayer: user,
     }).add(...instructions);
+  }
+
+  public async initializeMultiplePositionAndAddLiquidityByStrategy({
+    totalXAmount,
+    totalYAmount,
+    strategy,
+    user,
+    slippage,
+  }: TInitializeMultiplePositionAndAddLiquidityParamsByStrategy) {
+    const { maxBinId, minBinId } = strategy;
+
+    const activeBin = await this.getActiveBin();
+
+    const liquidityDistribution = toAmountsBothSideByStrategy(
+      activeBin.binId,
+      this.lbPair.binStep,
+      minBinId,
+      maxBinId,
+      totalXAmount,
+      totalYAmount,
+      activeBin.xAmount,
+      activeBin.yAmount,
+      strategy.strategyType,
+      this.tokenX.mint,
+      this.tokenY.mint,
+      this.clock
+    );
+
+    const maxActiveBinSlippage = slippage
+      ? Math.ceil(slippage / (this.lbPair.binStep / 100))
+      : MAX_ACTIVE_BIN_SLIPPAGE;
+
+    const chunkedPositionBinRange = chunkBinRangeIntoExtendedPositions(
+      minBinId,
+      maxBinId
+    );
+
+    const positionKeypairs: Keypair[] = [];
+    const initPositionIxs: TransactionInstruction[][] = [];
+    const addLiquidityIxs: TransactionInstruction[][] = [];
+
+    for (let i = 0; i < chunkedPositionBinRange.length; i++) {
+      const positionKeypair = Keypair.generate();
+      positionKeypairs.push(positionKeypair);
+
+      const { lowerBinId, upperBinId } = chunkedPositionBinRange[i];
+
+      let width = upperBinId - lowerBinId + 1;
+      width = Math.min(width, DEFAULT_BIN_PER_POSITION.toNumber());
+
+      // 1. Init position and extend position
+      const initPositionIx = await this.createInitAndExtendPositionIx(
+        lowerBinId,
+        upperBinId,
+        width,
+        user,
+        positionKeypair.publicKey
+      );
+
+      initPositionIxs.push(initPositionIx);
+
+      // lowerBinId and upperBinId is extended position bin range, possibly > 70 bins which causes add liquidity to fail. So we need to split it into multiple add liquidity ix.
+      const positionLowerBinId = lowerBinId;
+      const positionUpperBinId = upperBinId;
+
+      const userTokenX = await getAssociatedTokenAddressSync(
+        this.lbPair.tokenXMint,
+        user,
+        true,
+        this.tokenX.owner
+      );
+
+      const userTokenY = await getAssociatedTokenAddressSync(
+        this.lbPair.tokenYMint,
+        user,
+        true,
+        this.tokenY.owner
+      );
+
+      const chunkedBinRange = chunkBinRange(
+        positionLowerBinId,
+        positionUpperBinId
+      );
+
+      for (const {
+        lowerBinId: chunkedMinBinId,
+        upperBinId: chunkedMaxBinId,
+      } of chunkedBinRange) {
+        const preInstructions = [];
+
+        const chunkedMinBinIdBN = new BN(chunkedMinBinId);
+        const chunkedMaxBinIdBN = new BN(chunkedMaxBinId);
+
+        const binArrayIndexes = getBinArrayIndexesCoverage(
+          chunkedMinBinIdBN,
+          chunkedMaxBinIdBN
+        );
+
+        const binArrayAccountMetas = getBinArrayAccountMetasCoverage(
+          chunkedMinBinIdBN,
+          chunkedMaxBinIdBN,
+          this.pubkey,
+          this.program.programId
+        );
+
+        const createBinArrayIxs = await this.createBinArraysIfNeeded(
+          binArrayIndexes,
+          user
+        );
+        preInstructions.push(...createBinArrayIxs);
+
+        preInstructions.push(
+          createAssociatedTokenAccountIdempotentInstruction(
+            user,
+            userTokenX,
+            user,
+            this.lbPair.tokenXMint,
+            this.tokenX.owner
+          )
+        );
+
+        preInstructions.push(
+          createAssociatedTokenAccountIdempotentInstruction(
+            user,
+            userTokenY,
+            user,
+            this.lbPair.tokenYMint,
+            this.tokenY.owner
+          )
+        );
+
+        if (
+          this.tokenX.publicKey.equals(NATIVE_MINT) &&
+          !totalXAmount.isZero()
+        ) {
+          const wrapSOLIx = wrapSOLInstruction(
+            user,
+            userTokenX,
+            BigInt(totalXAmount.toString())
+          );
+
+          preInstructions.push(...wrapSOLIx);
+        }
+
+        if (
+          this.tokenY.publicKey.equals(NATIVE_MINT) &&
+          !totalYAmount.isZero()
+        ) {
+          const wrapSOLIx = wrapSOLInstruction(
+            user,
+            userTokenY,
+            BigInt(totalYAmount.toString())
+          );
+
+          preInstructions.push(...wrapSOLIx);
+        }
+
+        const postInstructions: Array<TransactionInstruction> = [];
+        if (
+          [
+            this.tokenX.publicKey.toBase58(),
+            this.tokenY.publicKey.toBase58(),
+          ].includes(NATIVE_MINT.toBase58())
+        ) {
+          const closeWrappedSOLIx = await unwrapSOLInstruction(user);
+          closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
+        }
+
+        const chunkedMinBinArrayIndex = binIdToBinArrayIndex(chunkedMinBinIdBN);
+        const chunkedMaxBinArrayIndex = binIdToBinArrayIndex(chunkedMaxBinIdBN);
+
+        const useExtension =
+          isOverflowDefaultBinArrayBitmap(chunkedMinBinArrayIndex) ||
+          isOverflowDefaultBinArrayBitmap(chunkedMaxBinArrayIndex);
+
+        const binArrayBitmapExtension = useExtension
+          ? deriveBinArrayBitmapExtension(
+              this.pubkey,
+              this.program.programId
+            )[0]
+          : null;
+
+        let chunkedTotalAmountX = new BN(0);
+        let chunkedTotalAmountY = new BN(0);
+
+        for (const { binId, amountX, amountY } of liquidityDistribution) {
+          if (binId >= chunkedMinBinId && binId <= chunkedMaxBinId) {
+            chunkedTotalAmountX = chunkedTotalAmountX.add(amountX);
+            chunkedTotalAmountY = chunkedTotalAmountY.add(amountY);
+          }
+        }
+
+        chunkedTotalAmountX = calculateTransferFeeIncludedAmount(
+          chunkedTotalAmountX,
+          this.tokenX.mint,
+          this.clock.epoch.toNumber()
+        ).amount;
+
+        chunkedTotalAmountY = calculateTransferFeeIncludedAmount(
+          chunkedTotalAmountY,
+          this.tokenY.mint,
+          this.clock.epoch.toNumber()
+        ).amount;
+
+        const strategyParams: StrategyParameters = {
+          minBinId: chunkedMinBinId,
+          maxBinId: chunkedMaxBinId,
+          strategyType: strategy.strategyType,
+          singleSidedX: strategy.singleSidedX,
+        };
+
+        let liquidityStrategyParams = toStrategyParameters(strategyParams, {
+          minBinId,
+          maxBinId,
+        });
+
+        const liquidityParams: LiquidityParameterByStrategy = {
+          amountX: chunkedTotalAmountX,
+          amountY: chunkedTotalAmountY,
+          activeId: activeBin.binId,
+          maxActiveBinSlippage,
+          strategyParameters: liquidityStrategyParams,
+        };
+
+        const addLiquidityAccounts = {
+          position: positionKeypair.publicKey,
+          lbPair: this.pubkey,
+          userTokenX,
+          userTokenY,
+          reserveX: this.lbPair.reserveX,
+          reserveY: this.lbPair.reserveY,
+          tokenXMint: this.lbPair.tokenXMint,
+          tokenYMint: this.lbPair.tokenYMint,
+          binArrayBitmapExtension,
+          sender: user,
+          tokenXProgram: this.tokenX.owner,
+          tokenYProgram: this.tokenY.owner,
+          memoProgram: MEMO_PROGRAM_ID,
+        };
+
+        const { slices, accounts: transferHookAccounts } =
+          this.getPotentialToken2022IxDataAndAccounts(ActionType.Liquidity);
+
+        const programMethod = this.program.methods.addLiquidityByStrategy2(
+          liquidityParams,
+          {
+            slices,
+          }
+        );
+
+        const addLiquidityIx = await programMethod
+          .accountsPartial(addLiquidityAccounts)
+          .remainingAccounts(transferHookAccounts)
+          .remainingAccounts(binArrayAccountMetas)
+          .instruction();
+
+        const instructions = [
+          ComputeBudgetProgram.setComputeUnitLimit({
+            units: DEFAULT_ADD_LIQUIDITY_CU,
+          }),
+          ...preInstructions,
+          addLiquidityIx,
+          ...postInstructions,
+        ];
+
+        addLiquidityIxs.push(instructions);
+      }
+    }
+
+    const { blockhash, lastValidBlockHeight } =
+      await this.program.provider.connection.getLatestBlockhash("confirmed");
+
+    return {
+      initPositionIxs: initPositionIxs.map((ixs) => {
+        return new Transaction({
+          feePayer: this.lbPair.creator,
+          blockhash,
+          lastValidBlockHeight,
+        }).add(...ixs);
+      }),
+      addLiquidityIxs: addLiquidityIxs.map((ixs) => {
+        return new Transaction({
+          feePayer: this.lbPair.creator,
+          blockhash,
+          lastValidBlockHeight,
+        }).add(...ixs);
+      }),
+      positionKeypairs,
+    };
   }
 
   /**
@@ -2882,7 +3409,7 @@ export class DLMM {
   }
 
   /**
-   * The `addLiquidityByStrategy` function is used to add liquidity to existing position
+   * The `addLiquidityByStrategy` function is used to add liquidity to existing position. It will chunk the bin range into multiple add liquidity transactions if it exceed max size.
    * @param {TInitializePositionAndAddLiquidityParamsByStrategy}
    *    - `positionPubKey`: The public key of the position account. (usually use `new Keypair()`)
    *    - `totalXAmount`: The total amount of token X to be added to the liquidity pool.
@@ -2890,8 +3417,7 @@ export class DLMM {
    *    - `strategy`: The strategy parameters to be used for the liquidity pool (Can use `calculateStrategyParameter` to calculate).
    *    - `user`: The public key of the user account.
    *    - `slippage`: The slippage percentage to be used for the liquidity pool.
-   * @returns {Promise<Transaction>} The function `addLiquidityByWeight` returns a `Promise` that resolves to either a single
-   * `Transaction` object
+   * @returns {Promise<Transaction[]>} The function `addLiquidityByStrategy` returns a `Promise` that resolves to an array of transactions
    */
   public async addLiquidityByStrategy({
     positionPubKey,
@@ -2900,160 +3426,244 @@ export class DLMM {
     strategy,
     user,
     slippage,
-  }: TInitializePositionAndAddLiquidityParamsByStrategy): Promise<Transaction> {
+  }: TInitializePositionAndAddLiquidityParamsByStrategy): Promise<
+    Transaction[]
+  > {
     const { maxBinId, minBinId } = strategy;
 
     const maxActiveBinSlippage = slippage
       ? Math.ceil(slippage / (this.lbPair.binStep / 100))
       : MAX_ACTIVE_BIN_SLIPPAGE;
 
-    const preInstructions: TransactionInstruction[] = [];
+    const activeBin = await this.getActiveBin();
 
-    const minBinArrayIndex = binIdToBinArrayIndex(new BN(minBinId));
-    const maxBinArrayIndex = binIdToBinArrayIndex(new BN(maxBinId));
-
-    const useExtension =
-      isOverflowDefaultBinArrayBitmap(minBinArrayIndex) ||
-      isOverflowDefaultBinArrayBitmap(maxBinArrayIndex);
-
-    const binArrayBitmapExtension = useExtension
-      ? deriveBinArrayBitmapExtension(this.pubkey, this.program.programId)[0]
-      : null;
-
-    const strategyParameters: LiquidityParameterByStrategy["strategyParameters"] =
-      toStrategyParameters(strategy) as ProgramStrategyParameter;
-
-    const binArrayIndexes = getBinArrayIndexesCoverage(
-      new BN(minBinId),
-      new BN(maxBinId)
+    const liquidityDistribution = toAmountsBothSideByStrategy(
+      activeBin.binId,
+      this.lbPair.binStep,
+      minBinId,
+      maxBinId,
+      totalXAmount,
+      totalYAmount,
+      activeBin.xAmount,
+      activeBin.yAmount,
+      strategy.strategyType,
+      this.tokenX.mint,
+      this.tokenY.mint,
+      this.clock
     );
 
-    const binArrayAccountsMeta = getBinArrayAccountMetasCoverage(
-      new BN(minBinId),
-      new BN(maxBinId),
-      this.pubkey,
-      this.program.programId
+    const chunkedBinRange = chunkBinRange(minBinId, maxBinId);
+
+    const userTokenX = getAssociatedTokenAddressSync(
+      this.lbPair.tokenXMint,
+      user,
+      true,
+      this.tokenX.owner
     );
 
-    const createBinArrayIxs = await this.createBinArraysIfNeeded(
-      binArrayIndexes,
-      user
+    const userTokenY = getAssociatedTokenAddressSync(
+      this.lbPair.tokenYMint,
+      user,
+      true,
+      this.tokenY.owner
     );
-    preInstructions.push(...createBinArrayIxs);
 
-    const [
-      { ataPubKey: userTokenX, ix: createPayerTokenXIx },
-      { ataPubKey: userTokenY, ix: createPayerTokenYIx },
-    ] = await Promise.all([
-      getOrCreateATAInstruction(
-        this.program.provider.connection,
-        this.tokenX.publicKey,
-        user,
-        this.tokenX.owner
-      ),
-      getOrCreateATAInstruction(
-        this.program.provider.connection,
-        this.tokenY.publicKey,
-        user,
-        this.tokenY.owner
-      ),
-    ]);
-
-    createPayerTokenXIx && preInstructions.push(createPayerTokenXIx);
-    createPayerTokenYIx && preInstructions.push(createPayerTokenYIx);
-
-    if (this.tokenX.publicKey.equals(NATIVE_MINT) && !totalXAmount.isZero()) {
-      const wrapSOLIx = wrapSOLInstruction(
+    const createUserTokenXIx =
+      createAssociatedTokenAccountIdempotentInstruction(
         user,
         userTokenX,
-        BigInt(totalXAmount.toString())
+        user,
+        this.lbPair.tokenXMint,
+        this.tokenX.owner
       );
 
-      preInstructions.push(...wrapSOLIx);
-    }
-
-    if (this.tokenY.publicKey.equals(NATIVE_MINT) && !totalYAmount.isZero()) {
-      const wrapSOLIx = wrapSOLInstruction(
+    const createUserTokenYIx =
+      createAssociatedTokenAccountIdempotentInstruction(
         user,
         userTokenY,
-        BigInt(totalYAmount.toString())
+        user,
+        this.lbPair.tokenYMint,
+        this.tokenY.owner
       );
-
-      preInstructions.push(...wrapSOLIx);
-    }
-
-    const postInstructions: Array<TransactionInstruction> = [];
-    if (
-      [
-        this.tokenX.publicKey.toBase58(),
-        this.tokenY.publicKey.toBase58(),
-      ].includes(NATIVE_MINT.toBase58())
-    ) {
-      const closeWrappedSOLIx = await unwrapSOLInstruction(user);
-      closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
-    }
-
-    const liquidityParams: LiquidityParameterByStrategy = {
-      amountX: totalXAmount,
-      amountY: totalYAmount,
-      activeId: this.lbPair.activeId,
-      maxActiveBinSlippage,
-      strategyParameters,
-    };
-
-    const addLiquidityAccounts = {
-      position: positionPubKey,
-      lbPair: this.pubkey,
-      userTokenX,
-      userTokenY,
-      reserveX: this.lbPair.reserveX,
-      reserveY: this.lbPair.reserveY,
-      tokenXMint: this.lbPair.tokenXMint,
-      tokenYMint: this.lbPair.tokenYMint,
-      binArrayBitmapExtension,
-      sender: user,
-      tokenXProgram: this.tokenX.owner,
-      tokenYProgram: this.tokenY.owner,
-      memoProgram: MEMO_PROGRAM_ID,
-    };
 
     const { slices, accounts: transferHookAccounts } =
       this.getPotentialToken2022IxDataAndAccounts(ActionType.Liquidity);
 
-    const programMethod = this.program.methods.addLiquidityByStrategy2(
-      liquidityParams,
-      {
-        slices,
+    const groupedInstructions: TransactionInstruction[][] = [];
+
+    for (const {
+      lowerBinId: chunkedMinBinId,
+      upperBinId: chunkedMaxBinId,
+    } of chunkedBinRange) {
+      const preInstructions: TransactionInstruction[] = [];
+
+      const minBinArrayIndex = binIdToBinArrayIndex(new BN(chunkedMinBinId));
+      const maxBinArrayIndex = binIdToBinArrayIndex(new BN(chunkedMaxBinId));
+
+      const useExtension =
+        isOverflowDefaultBinArrayBitmap(minBinArrayIndex) ||
+        isOverflowDefaultBinArrayBitmap(maxBinArrayIndex);
+
+      const binArrayBitmapExtension = useExtension
+        ? deriveBinArrayBitmapExtension(this.pubkey, this.program.programId)[0]
+        : null;
+
+      const chunkedStrategyParameter: StrategyParameters = {
+        minBinId: chunkedMinBinId,
+        maxBinId: chunkedMaxBinId,
+        strategyType: strategy.strategyType,
+        singleSidedX: strategy.singleSidedX,
+      };
+
+      const strategyParameters = toStrategyParameters(
+        chunkedStrategyParameter,
+        {
+          minBinId,
+          maxBinId,
+        }
+      );
+
+      const binArrayIndexes = getBinArrayIndexesCoverage(
+        new BN(chunkedMinBinId),
+        new BN(chunkedMaxBinId)
+      );
+
+      const binArrayAccountsMeta = getBinArrayAccountMetasCoverage(
+        new BN(chunkedMinBinId),
+        new BN(chunkedMaxBinId),
+        this.pubkey,
+        this.program.programId
+      );
+
+      const createBinArrayIxs = await this.createBinArraysIfNeeded(
+        binArrayIndexes,
+        user
+      );
+      preInstructions.push(...createBinArrayIxs);
+      preInstructions.push(createUserTokenXIx);
+      preInstructions.push(createUserTokenYIx);
+
+      if (this.tokenX.publicKey.equals(NATIVE_MINT) && !totalXAmount.isZero()) {
+        const wrapSOLIx = wrapSOLInstruction(
+          user,
+          userTokenX,
+          BigInt(totalXAmount.toString())
+        );
+
+        preInstructions.push(...wrapSOLIx);
       }
+
+      if (this.tokenY.publicKey.equals(NATIVE_MINT) && !totalYAmount.isZero()) {
+        const wrapSOLIx = wrapSOLInstruction(
+          user,
+          userTokenY,
+          BigInt(totalYAmount.toString())
+        );
+
+        preInstructions.push(...wrapSOLIx);
+      }
+
+      const postInstructions: Array<TransactionInstruction> = [];
+      if (
+        [
+          this.tokenX.publicKey.toBase58(),
+          this.tokenY.publicKey.toBase58(),
+        ].includes(NATIVE_MINT.toBase58())
+      ) {
+        const closeWrappedSOLIx = await unwrapSOLInstruction(user);
+        closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
+      }
+
+      let chunkedTotalAmountX = new BN(0);
+      let chunkedTotalAmountY = new BN(0);
+
+      for (const { binId, amountX, amountY } of liquidityDistribution) {
+        if (binId >= chunkedMinBinId && binId <= chunkedMaxBinId) {
+          chunkedTotalAmountX = chunkedTotalAmountX.add(amountX);
+          chunkedTotalAmountY = chunkedTotalAmountY.add(amountY);
+        }
+      }
+
+      chunkedTotalAmountX = calculateTransferFeeIncludedAmount(
+        chunkedTotalAmountX,
+        this.tokenX.mint,
+        this.clock.epoch.toNumber()
+      ).amount;
+
+      chunkedTotalAmountY = calculateTransferFeeIncludedAmount(
+        chunkedTotalAmountY,
+        this.tokenY.mint,
+        this.clock.epoch.toNumber()
+      ).amount;
+
+      const liquidityParams: LiquidityParameterByStrategy = {
+        amountX: chunkedTotalAmountX,
+        amountY: chunkedTotalAmountY,
+        activeId: this.lbPair.activeId,
+        maxActiveBinSlippage,
+        strategyParameters,
+      };
+
+      const addLiquidityAccounts = {
+        position: positionPubKey,
+        lbPair: this.pubkey,
+        userTokenX,
+        userTokenY,
+        reserveX: this.lbPair.reserveX,
+        reserveY: this.lbPair.reserveY,
+        tokenXMint: this.lbPair.tokenXMint,
+        tokenYMint: this.lbPair.tokenYMint,
+        binArrayBitmapExtension,
+        sender: user,
+        tokenXProgram: this.tokenX.owner,
+        tokenYProgram: this.tokenY.owner,
+        memoProgram: MEMO_PROGRAM_ID,
+      };
+
+      const programMethod = this.program.methods.addLiquidityByStrategy2(
+        liquidityParams,
+        {
+          slices,
+        }
+      );
+
+      const addLiquidityIx = await programMethod
+        .accountsPartial(addLiquidityAccounts)
+        .remainingAccounts(transferHookAccounts)
+        .remainingAccounts(binArrayAccountsMeta)
+        .instruction();
+
+      const instructions = [
+        ...preInstructions,
+        addLiquidityIx,
+        ...postInstructions,
+      ];
+
+      groupedInstructions.push(instructions);
+    }
+
+    const groupedInstructionsWithCUIx = await Promise.all(
+      groupedInstructions.map(async (ixs) => {
+        const setCUIx = await getEstimatedComputeUnitIxWithBuffer(
+          this.program.provider.connection,
+          ixs,
+          user
+        );
+
+        return [setCUIx, ...ixs];
+      })
     );
-
-    const addLiquidityIx = await programMethod
-      .accountsPartial(addLiquidityAccounts)
-      .remainingAccounts(transferHookAccounts)
-      .remainingAccounts(binArrayAccountsMeta)
-      .instruction();
-
-    const instructions = [
-      ...preInstructions,
-      addLiquidityIx,
-      ...postInstructions,
-    ];
-
-    const setCUIx = await getEstimatedComputeUnitIxWithBuffer(
-      this.program.provider.connection,
-      instructions,
-      user
-    );
-
-    instructions.unshift(setCUIx);
 
     const { blockhash, lastValidBlockHeight } =
       await this.program.provider.connection.getLatestBlockhash("confirmed");
-    return new Transaction({
-      blockhash,
-      lastValidBlockHeight,
-      feePayer: user,
-    }).add(...instructions);
+
+    return groupedInstructionsWithCUIx.map((ixs) => {
+      return new Transaction({
+        blockhash,
+        lastValidBlockHeight,
+        feePayer: user,
+      }).add(...ixs);
+    });
   }
 
   /**
@@ -3342,7 +3952,7 @@ export class DLMM {
    *    - `toBinId`: The ID of the ending bin to remove liquidity from. Must within position range.
    *    - `liquiditiesBpsToRemove`: An array of numbers (percentage) that represent the liquidity to remove from each bin.
    *    - `shouldClaimAndClose`: A boolean flag that indicates whether to claim rewards and close the position.
-   * @returns {Promise<Transaction | Transaction[]>}
+   * @returns {Promise<Transaction[]>}
    */
   public async removeLiquidity({
     user,
@@ -3358,7 +3968,7 @@ export class DLMM {
     toBinId: number;
     bps: BN;
     shouldClaimAndClose?: boolean;
-  }): Promise<Transaction | Transaction[]> {
+  }): Promise<Transaction[]> {
     const positionAccount =
       await this.program.provider.connection.getAccountInfo(position);
 
@@ -3397,230 +4007,248 @@ export class DLMM {
       toBinId = upperBinIdWithLiquidity;
     }
 
-    const { slices, accounts: transferHookAccounts } =
-      this.getPotentialToken2022IxDataAndAccounts(ActionType.Liquidity);
-
-    const binArrayAccountsMeta = getBinArrayAccountMetasCoverage(
-      new BN(fromBinId),
-      new BN(toBinId),
-      this.pubkey,
-      this.program.programId
-    );
-
-    const preInstructions: Array<TransactionInstruction> = [];
-
     const walletToReceiveFee = feeOwner.equals(PublicKey.default)
       ? user
       : feeOwner;
 
-    const [
-      { ataPubKey: userTokenX, ix: createPayerTokenXIx },
-      { ataPubKey: userTokenY, ix: createPayerTokenYIx },
-      { ataPubKey: feeOwnerTokenX, ix: createFeeOwnerTokenXIx },
-      { ataPubKey: feeOwnerTokenY, ix: createFeeOwnerTokenYIx },
-    ] = await Promise.all([
-      getOrCreateATAInstruction(
-        this.program.provider.connection,
-        this.tokenX.publicKey,
+    const userTokenX = getAssociatedTokenAddressSync(
+      this.lbPair.tokenXMint,
+      owner,
+      true,
+      this.tokenX.owner
+    );
+
+    const userTokenY = getAssociatedTokenAddressSync(
+      this.lbPair.tokenYMint,
+      owner,
+      true,
+      this.tokenY.owner
+    );
+
+    const feeOwnerTokenX = getAssociatedTokenAddressSync(
+      this.lbPair.tokenXMint,
+      walletToReceiveFee,
+      true,
+      this.tokenX.owner
+    );
+
+    const feeOwnerTokenY = getAssociatedTokenAddressSync(
+      this.lbPair.tokenYMint,
+      walletToReceiveFee,
+      true,
+      this.tokenY.owner
+    );
+
+    const createUserTokenXIx =
+      createAssociatedTokenAccountIdempotentInstruction(
+        user,
+        userTokenX,
         owner,
-        this.tokenX.owner,
-        user
-      ),
-      getOrCreateATAInstruction(
-        this.program.provider.connection,
-        this.tokenY.publicKey,
+        this.lbPair.tokenXMint,
+        this.tokenX.owner
+      );
+
+    const createUserTokenYIx =
+      createAssociatedTokenAccountIdempotentInstruction(
+        user,
+        userTokenY,
         owner,
-        this.tokenY.owner,
-        user
-      ),
-      getOrCreateATAInstruction(
-        this.program.provider.connection,
-        this.tokenX.publicKey,
+        this.lbPair.tokenYMint,
+        this.tokenY.owner
+      );
+
+    const createFeeOwnerTokenXIx =
+      createAssociatedTokenAccountIdempotentInstruction(
+        user,
+        feeOwnerTokenX,
         walletToReceiveFee,
-        this.tokenX.owner,
-        user
-      ),
-      getOrCreateATAInstruction(
-        this.program.provider.connection,
-        this.tokenY.publicKey,
+        this.lbPair.tokenXMint,
+        this.tokenX.owner
+      );
+
+    const createFeeOwnerTokenYIx =
+      createAssociatedTokenAccountIdempotentInstruction(
+        user,
+        feeOwnerTokenY,
         walletToReceiveFee,
-        this.tokenY.owner,
-        user
-      ),
-    ]);
+        this.lbPair.tokenYMint,
+        this.tokenY.owner
+      );
 
-    createPayerTokenXIx && preInstructions.push(createPayerTokenXIx);
-    createPayerTokenYIx && preInstructions.push(createPayerTokenYIx);
+    const chunkedBinRange = chunkBinRange(fromBinId, toBinId);
+    const groupedInstructions: TransactionInstruction[][] = [];
 
-    if (!walletToReceiveFee.equals(owner)) {
-      createFeeOwnerTokenXIx && preInstructions.push(createFeeOwnerTokenXIx);
-      createFeeOwnerTokenYIx && preInstructions.push(createFeeOwnerTokenYIx);
-    }
+    for (const { lowerBinId, upperBinId } of chunkedBinRange) {
+      const binArrayAccountsMeta = getBinArrayAccountMetasCoverage(
+        new BN(lowerBinId),
+        new BN(upperBinId),
+        this.pubkey,
+        this.program.programId
+      );
 
-    const secondTransactionsIx: TransactionInstruction[] = [];
-    const postInstructions: Array<TransactionInstruction> = [];
+      const { slices, accounts: transferHookAccounts } =
+        this.getPotentialToken2022IxDataAndAccounts(ActionType.Liquidity);
 
-    if (shouldClaimAndClose) {
-      const claimSwapFeeIx = await this.program.methods
-        .claimFee2(fromBinId, toBinId, {
-          slices,
-        })
-        .accountsPartial({
-          lbPair: this.pubkey,
-          sender: user,
-          position,
-          reserveX: this.lbPair.reserveX,
-          reserveY: this.lbPair.reserveY,
-          tokenXMint: this.tokenX.publicKey,
-          tokenYMint: this.tokenY.publicKey,
-          userTokenX: feeOwnerTokenX,
-          userTokenY: feeOwnerTokenY,
-          tokenProgramX: this.tokenX.owner,
-          tokenProgramY: this.tokenY.owner,
-          memoProgram: MEMO_PROGRAM_ID,
-        })
-        .remainingAccounts(transferHookAccounts)
-        .remainingAccounts(binArrayAccountsMeta)
-        .instruction();
+      const preInstructions: Array<TransactionInstruction> = [];
+      const postInstructions: Array<TransactionInstruction> = [];
 
-      postInstructions.push(claimSwapFeeIx);
-
-      for (let i = 0; i < 2; i++) {
-        const rewardInfo = this.lbPair.rewardInfos[i];
-        if (!rewardInfo || rewardInfo.mint.equals(PublicKey.default)) continue;
-
-        const { ataPubKey, ix: rewardAtaIx } = await getOrCreateATAInstruction(
-          this.program.provider.connection,
-          rewardInfo.mint,
-          user,
-          this.rewards[i].owner
-        );
-        rewardAtaIx && preInstructions.push(rewardAtaIx);
-
-        const { slices, accounts: transferHookAccounts } =
-          this.getPotentialToken2022IxDataAndAccounts(ActionType.Reward, i);
-
-        const claimRewardIx = await this.program.methods
-          .claimReward2(new BN(i), fromBinId, toBinId, {
+      if (shouldClaimAndClose) {
+        const claimSwapFeeIx = await this.program.methods
+          .claimFee2(lowerBinId, upperBinId, {
             slices,
           })
           .accountsPartial({
             lbPair: this.pubkey,
             sender: user,
             position,
-            rewardVault: rewardInfo.vault,
-            rewardMint: rewardInfo.mint,
-            tokenProgram: this.rewards[i].owner,
-            userTokenAccount: ataPubKey,
+            reserveX: this.lbPair.reserveX,
+            reserveY: this.lbPair.reserveY,
+            tokenXMint: this.tokenX.publicKey,
+            tokenYMint: this.tokenY.publicKey,
+            userTokenX: feeOwnerTokenX,
+            userTokenY: feeOwnerTokenY,
+            tokenProgramX: this.tokenX.owner,
+            tokenProgramY: this.tokenY.owner,
             memoProgram: MEMO_PROGRAM_ID,
           })
           .remainingAccounts(transferHookAccounts)
           .remainingAccounts(binArrayAccountsMeta)
           .instruction();
 
-        secondTransactionsIx.push(claimRewardIx);
-      }
+        preInstructions.push(createFeeOwnerTokenXIx);
+        preInstructions.push(createFeeOwnerTokenYIx);
+        postInstructions.push(claimSwapFeeIx);
 
-      const closePositionIx = await this.program.methods
-        .closePositionIfEmpty()
-        .accountsPartial({
-          rentReceiver: owner, // Must be position owner
-          position,
-          sender: user,
-        })
-        .instruction();
+        for (let i = 0; i < 2; i++) {
+          const rewardInfo = this.lbPair.rewardInfos[i];
+          if (!rewardInfo || rewardInfo.mint.equals(PublicKey.default))
+            continue;
 
-      if (secondTransactionsIx.length) {
-        secondTransactionsIx.push(closePositionIx);
-      } else {
+          const userRewardAccount = getAssociatedTokenAddressSync(
+            rewardInfo.mint,
+            user,
+            true,
+            this.rewards[i].owner
+          );
+
+          const createUserRewardAccountIx =
+            createAssociatedTokenAccountIdempotentInstruction(
+              user,
+              userRewardAccount,
+              user,
+              rewardInfo.mint,
+              this.rewards[i].owner
+            );
+
+          preInstructions.push(createUserRewardAccountIx);
+
+          const { slices, accounts: transferHookAccounts } =
+            this.getPotentialToken2022IxDataAndAccounts(ActionType.Reward, i);
+
+          const claimRewardIx = await this.program.methods
+            .claimReward2(new BN(i), lowerBinId, upperBinId, {
+              slices,
+            })
+            .accountsPartial({
+              lbPair: this.pubkey,
+              sender: user,
+              position,
+              rewardVault: rewardInfo.vault,
+              rewardMint: rewardInfo.mint,
+              tokenProgram: this.rewards[i].owner,
+              userTokenAccount: userRewardAccount,
+              memoProgram: MEMO_PROGRAM_ID,
+            })
+            .remainingAccounts(transferHookAccounts)
+            .remainingAccounts(binArrayAccountsMeta)
+            .instruction();
+
+          postInstructions.push(claimRewardIx);
+        }
+
+        const closePositionIx = await this.program.methods
+          .closePositionIfEmpty()
+          .accountsPartial({
+            rentReceiver: owner, // Must be position owner
+            position,
+            sender: user,
+          })
+          .instruction();
+
         postInstructions.push(closePositionIx);
       }
+
+      if (
+        [
+          this.tokenX.publicKey.toBase58(),
+          this.tokenY.publicKey.toBase58(),
+        ].includes(NATIVE_MINT.toBase58())
+      ) {
+        const closeWrappedSOLIx = await unwrapSOLInstruction(user);
+        closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
+      }
+
+      preInstructions.push(createUserTokenXIx);
+      preInstructions.push(createUserTokenYIx);
+
+      const binArrayBitmapExtension = this.binArrayBitmapExtension
+        ? this.binArrayBitmapExtension.publicKey
+        : this.program.programId;
+
+      const removeLiquidityTx = await this.program.methods
+        .removeLiquidityByRange2(fromBinId, toBinId, bps.toNumber(), {
+          slices,
+        })
+        .accountsPartial({
+          position,
+          lbPair,
+          userTokenX,
+          userTokenY,
+          reserveX: this.lbPair.reserveX,
+          reserveY: this.lbPair.reserveY,
+          tokenXMint: this.tokenX.publicKey,
+          tokenYMint: this.tokenY.publicKey,
+          binArrayBitmapExtension,
+          tokenXProgram: this.tokenX.owner,
+          tokenYProgram: this.tokenY.owner,
+          sender: user,
+          memoProgram: MEMO_PROGRAM_ID,
+        })
+        .remainingAccounts(transferHookAccounts)
+        .remainingAccounts(binArrayAccountsMeta)
+        .instruction();
+
+      const instructions = [
+        ...preInstructions,
+        removeLiquidityTx,
+        ...postInstructions,
+      ];
+
+      groupedInstructions.push(instructions);
     }
 
-    if (
-      [
-        this.tokenX.publicKey.toBase58(),
-        this.tokenY.publicKey.toBase58(),
-      ].includes(NATIVE_MINT.toBase58())
-    ) {
-      const closeWrappedSOLIx = await unwrapSOLInstruction(user);
-      closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
-    }
+    const groupedInstructionsWithCUIx = await Promise.all(
+      groupedInstructions.map(async (ixs) => {
+        const setCUIx = await getEstimatedComputeUnitIxWithBuffer(
+          this.program.provider.connection,
+          ixs,
+          user
+        );
 
-    const binArrayBitmapExtension = this.binArrayBitmapExtension
-      ? this.binArrayBitmapExtension.publicKey
-      : this.program.programId;
-
-    const removeLiquidityTx = await this.program.methods
-      .removeLiquidityByRange2(fromBinId, toBinId, bps.toNumber(), {
-        slices,
+        return [setCUIx, ...ixs];
       })
-      .accountsPartial({
-        position,
-        lbPair,
-        userTokenX,
-        userTokenY,
-        reserveX: this.lbPair.reserveX,
-        reserveY: this.lbPair.reserveY,
-        tokenXMint: this.tokenX.publicKey,
-        tokenYMint: this.tokenY.publicKey,
-        binArrayBitmapExtension,
-        tokenXProgram: this.tokenX.owner,
-        tokenYProgram: this.tokenY.owner,
-        sender: user,
-        memoProgram: MEMO_PROGRAM_ID,
-      })
-      .remainingAccounts(transferHookAccounts)
-      .remainingAccounts(binArrayAccountsMeta)
-      .instruction();
-
-    const instructions = [
-      ...preInstructions,
-      removeLiquidityTx,
-      ...postInstructions,
-    ];
-
-    const setCUIx = await getEstimatedComputeUnitIxWithBuffer(
-      this.program.provider.connection,
-      instructions,
-      user
     );
 
-    instructions.unshift(setCUIx);
+    const { blockhash, lastValidBlockHeight } =
+      await this.program.provider.connection.getLatestBlockhash("confirmed");
 
-    if (secondTransactionsIx.length) {
-      const setCUIx = await getEstimatedComputeUnitIxWithBuffer(
-        this.program.provider.connection,
-        secondTransactionsIx,
-        user
-      );
-
-      const { blockhash, lastValidBlockHeight } =
-        await this.program.provider.connection.getLatestBlockhash("confirmed");
-
-      const claimRewardsTx = new Transaction({
-        blockhash,
-        lastValidBlockHeight,
-        feePayer: user,
-      }).add(setCUIx, ...secondTransactionsIx);
-
-      const mainTx = new Transaction({
-        blockhash,
-        lastValidBlockHeight,
-        feePayer: user,
-      }).add(...instructions);
-
-      return [mainTx, claimRewardsTx];
-    } else {
-      const { blockhash, lastValidBlockHeight } =
-        await this.program.provider.connection.getLatestBlockhash("confirmed");
-
+    return groupedInstructionsWithCUIx.map((ixs) => {
       return new Transaction({
         blockhash,
         lastValidBlockHeight,
         feePayer: user,
-      }).add(...instructions);
-    }
+      }).add(...ixs);
+    });
   }
 
   /**
@@ -4512,7 +5140,7 @@ export class DLMM {
    * @param
    *    - `owner`: The public key of the owner of the position.
    *    - `position`: The public key of the position account.
-   * @returns {Promise<Transaction>} Claim LM reward transactions.
+   * @returns {Promise<Transaction[]>} Claim LM reward transactions.
    */
   public async claimLMReward({
     owner,
@@ -4520,7 +5148,7 @@ export class DLMM {
   }: {
     owner: PublicKey;
     position: LbPosition;
-  }): Promise<Transaction> {
+  }): Promise<Transaction[]> {
     if (isPositionNoReward(position.positionData)) {
       throw new Error("No LM reward to claim");
     }
@@ -4529,24 +5157,31 @@ export class DLMM {
       owner,
       position,
     });
+
     if (!claimTransactions.length) return;
 
-    const instructions = claimTransactions.map((t) => t.instructions).flat();
+    const claimTransactionWithCUIx = await Promise.all(
+      claimTransactions.map(async (tx) => {
+        const setCUIx = await getEstimatedComputeUnitIxWithBuffer(
+          this.program.provider.connection,
+          tx.instructions,
+          owner
+        );
 
-    const setCUIx = await getEstimatedComputeUnitIxWithBuffer(
-      this.program.provider.connection,
-      instructions,
-      owner
+        return [setCUIx, ...tx.instructions];
+      })
     );
 
     const { blockhash, lastValidBlockHeight } =
       await this.program.provider.connection.getLatestBlockhash("confirmed");
 
-    return new Transaction({
-      blockhash,
-      lastValidBlockHeight,
-      feePayer: owner,
-    }).add(setCUIx, ...claimTransactions);
+    return claimTransactionWithCUIx.map((ixs) => {
+      return new Transaction({
+        blockhash,
+        lastValidBlockHeight,
+        feePayer: owner,
+      }).add(...ixs);
+    });
   }
 
   /**
@@ -4662,7 +5297,7 @@ export class DLMM {
    *    - `owner`: The public key of the owner of the position.
    *    - `position`: The public key of the position account.
    *    - `binRange`: The bin range to claim swap fees for. If not provided, the function claim swap fees for full range.
-   * @returns {Promise<Transaction>} Claim swap fee transactions.
+   * @returns {Promise<Transaction[]>} Claim swap fee transactions.
    */
   public async claimSwapFee({
     owner,
@@ -4670,27 +5305,38 @@ export class DLMM {
   }: {
     owner: PublicKey;
     position: LbPosition;
-  }): Promise<Transaction | null> {
+  }): Promise<Transaction[]> {
     if (isPositionNoFee(position.positionData)) {
       throw new Error("No fee to claim");
     }
 
-    const claimFeeTx = await this.createClaimSwapFeeMethod({ owner, position });
+    const claimFeeTxs = await this.createClaimSwapFeeMethod({
+      owner,
+      position,
+    });
+
+    const claimFeeTxsWithCUIx = await Promise.all(
+      claimFeeTxs.map(async (tx) => {
+        const setCUIx = await getEstimatedComputeUnitIxWithBuffer(
+          this.program.provider.connection,
+          tx.instructions,
+          owner
+        );
+
+        return [setCUIx, ...tx.instructions];
+      })
+    );
 
     const { blockhash, lastValidBlockHeight } =
       await this.program.provider.connection.getLatestBlockhash("confirmed");
 
-    const setCUIx = await getEstimatedComputeUnitIxWithBuffer(
-      this.program.provider.connection,
-      claimFeeTx.instructions,
-      owner
-    );
-
-    return new Transaction({
-      blockhash,
-      lastValidBlockHeight,
-      feePayer: owner,
-    }).add(setCUIx, ...claimFeeTx.instructions);
+    return claimFeeTxsWithCUIx.map((ixs) => {
+      return new Transaction({
+        blockhash,
+        lastValidBlockHeight,
+        feePayer: owner,
+      }).add(...ixs);
+    });
   }
 
   /**
@@ -4792,7 +5438,7 @@ export class DLMM {
     });
 
     const claimAllTxs = chunks(
-      [claimAllSwapFeeTxs, ...claimAllLMTxs],
+      [...claimAllSwapFeeTxs, ...claimAllLMTxs],
       MAX_CLAIM_ALL_ALLOWED
     );
 
@@ -4800,8 +5446,8 @@ export class DLMM {
       await this.program.provider.connection.getLatestBlockhash("confirmed");
 
     return Promise.all(
-      claimAllTxs.map(async (claimAllTx) => {
-        const instructions = claimAllTx.map((t) => t.instructions).flat();
+      claimAllTxs.map(async (txs) => {
+        const instructions = txs.flatMap((tx) => tx.instructions);
 
         const setCUIx = await getEstimatedComputeUnitIxWithBuffer(
           this.program.provider.connection,
@@ -4809,13 +5455,13 @@ export class DLMM {
           owner
         );
 
-        const tx = new Transaction({
+        const transaction = new Transaction({
           feePayer: owner,
           blockhash,
           lastValidBlockHeight,
         }).add(setCUIx, ...instructions);
 
-        return tx;
+        return transaction;
       })
     );
   }
@@ -5125,7 +5771,7 @@ export class DLMM {
               initializeBinArraysAndPositionIxs.push(
                 await this.program.methods
                   .initializeBinArrayBitmapExtension()
-                  .accounts({
+                  .accountsPartial({
                     binArrayBitmapExtension,
                     funder: payer,
                     lbPair: this.pubkey,
@@ -5755,7 +6401,7 @@ export class DLMM {
       )
     ).flat();
 
-    const chunkedClaimAllTx = chunks(
+    const transactions = chunks(
       [...claimAllSwapFeeTxs, ...claimAllLMTxs],
       MAX_CLAIM_ALL_ALLOWED
     );
@@ -5764,8 +6410,8 @@ export class DLMM {
       await this.program.provider.connection.getLatestBlockhash("confirmed");
 
     return Promise.all(
-      chunkedClaimAllTx.map(async (claimAllTx) => {
-        const instructions = claimAllTx.map((t) => t.instructions).flat();
+      transactions.map(async (txs) => {
+        const instructions = txs.flatMap((i) => i.instructions);
 
         const setCUIx = await getEstimatedComputeUnitIxWithBuffer(
           this.program.provider.connection,
@@ -5773,13 +6419,13 @@ export class DLMM {
           owner
         );
 
-        const tx = new Transaction({
+        const transaction = new Transaction({
           feePayer: owner,
           blockhash,
           lastValidBlockHeight,
         }).add(setCUIx, ...instructions);
 
-        return tx;
+        return transaction;
       })
     );
   }
@@ -5896,7 +6542,7 @@ export class DLMM {
       if (!binArrayAccounts?.[0]) {
         const initializeBitmapExtensionIx = await this.program.methods
           .initializeBinArrayBitmapExtension()
-          .accounts({
+          .accountsPartial({
             binArrayBitmapExtension: binArrayBitMapExtensionPubkey,
             funder: owner,
             lbPair: this.pubkey,
@@ -5999,6 +6645,255 @@ export class DLMM {
     return false;
   }
 
+  /**
+   * Decrease the length of a position. The segment of the position to be decreased must be empty.
+   *
+   * @param position The public key of the position to decrease.
+   * @param side The side of the position to decrease.
+   * @param length The amount of length to decrease.
+   * @param allowParallelExecution If true, the instructions will be grouped to allow parallel execution. Otherwise, the instructions will be executed sequentially.
+   * @returns An array of transactions if allowParallelExecution is true. Otherwise, an empty array.
+   */
+  public async decreasePositionLength(
+    position: PublicKey,
+    side: ResizeSide,
+    length: BN,
+    allowParallelExecution = true
+  ) {
+    const positionAccount =
+      await this.program.provider.connection.getAccountInfo(position);
+
+    const positionState = wrapPosition(this.program, position, positionAccount);
+
+    const newWidth = positionState.width().sub(length);
+
+    // 1. Cap if it exceeds the min position length
+    if (newWidth.lte(new BN(0))) {
+      // Position must have at least one bin
+      length = length.sub(newWidth.abs()).subn(1);
+    }
+
+    const groupedIxs: TransactionInstruction[][] = [];
+    const promises = [];
+
+    // 2. Split into multiple decrease position length ix to bypass stack size limit
+    for (let i = length.toNumber(); i > 0; i -= MAX_RESIZE_LENGTH.toNumber()) {
+      const lengthToReduce = Math.min(i, MAX_RESIZE_LENGTH.toNumber());
+
+      const setCuIx = ComputeBudgetProgram.setComputeUnitLimit({
+        units: getDefaultExtendPositionCU(side),
+      });
+
+      const ixPromise = this.program.methods
+        .decreasePositionLength(lengthToReduce, Number(side))
+        .accountsPartial({
+          position,
+          owner: positionState.owner(),
+          rentReceiver: positionState.owner(),
+        })
+        .instruction()
+        .then((decreasePositionLengthIx) => {
+          if (allowParallelExecution) {
+            // Trick to make each decrease position length transaction to be unique to allow parallel execution
+            decreasePositionLengthIx.keys.push({
+              isSigner: false,
+              isWritable: false,
+              pubkey: PublicKey.unique(),
+            });
+          }
+          const ixs = [setCuIx, decreasePositionLengthIx];
+          groupedIxs.push(ixs);
+        });
+
+      promises.push(ixPromise);
+    }
+
+    await Promise.all(promises);
+
+    if (groupedIxs.length > 0) {
+      const { blockhash, lastValidBlockHeight } =
+        await this.program.provider.connection.getLatestBlockhash("confirmed");
+
+      return groupedIxs.map((ixs) => {
+        return new Transaction({
+          feePayer: positionState.owner(),
+          blockhash,
+          lastValidBlockHeight,
+        }).add(...ixs);
+      });
+    }
+  }
+
+  /**
+   * Expand the position bin range to the left or right (lower or upper).
+   *
+   * @param position The address of the position to increase the length of.
+   * @param side The side of the position to increase the length of. Must be either
+   *             ResizeSide.Lower or ResizeSide.Upper.
+   * @param length The number of bins to increase the length of. Position length after increase must be <= 1400.
+   * @param funder The address to account rental and transaction fee.
+   * @param allowParallelExecution Whether to allow parallel execution of the transaction.
+   * @returns The transaction to execute this instruction.
+   */
+  public async increasePositionLength(
+    position: PublicKey,
+    side: ResizeSide,
+    length: BN,
+    funder: PublicKey,
+    allowParallelExecution = true
+  ) {
+    const positionAccount =
+      await this.program.provider.connection.getAccountInfo(position);
+
+    const positionState = wrapPosition(this.program, position, positionAccount);
+
+    const newWidth = positionState.width().add(length);
+
+    // 1. Cap if it exceeds the max position length
+    if (newWidth.gt(POSITION_MAX_LENGTH)) {
+      length = newWidth.sub(POSITION_MAX_LENGTH);
+    }
+
+    const groupedIxs = await this.increasePositionLengthIxs(
+      position,
+      side,
+      length,
+      funder,
+      positionState.owner(),
+      true,
+      allowParallelExecution
+    );
+
+    if (groupedIxs.length > 0) {
+      const { blockhash, lastValidBlockHeight } =
+        await this.program.provider.connection.getLatestBlockhash("confirmed");
+
+      return groupedIxs.map((ixs) => {
+        return new Transaction({
+          feePayer: funder,
+          blockhash,
+          lastValidBlockHeight,
+        }).add(...ixs);
+      });
+    }
+  }
+
+  private async createInitAndExtendPositionIx(
+    lowerBinId: number,
+    upperBinId: number,
+    basePositionWidth: number,
+    user: PublicKey,
+    position: PublicKey
+  ) {
+    const createPositionIx = await this.program.methods
+      .initializePosition(lowerBinId, basePositionWidth)
+      .accountsPartial({
+        payer: user,
+        position,
+        lbPair: this.pubkey,
+        owner: user,
+      })
+      .instruction();
+
+    const extendedBinCount = getExtendedPositionBinCount(
+      new BN(lowerBinId),
+      new BN(upperBinId)
+    );
+
+    if (extendedBinCount.gt(new BN(0))) {
+      const extendPositionIxs = await this.increasePositionLengthIxs(
+        position,
+        ResizeSide.Upper,
+        extendedBinCount,
+        user,
+        user,
+        false,
+        false
+      );
+
+      const extendPositionDefaultCU =
+        getDefaultExtendPositionCU(ResizeSide.Upper) *
+        extendedBinCount.toNumber();
+
+      return [
+        ComputeBudgetProgram.setComputeUnitLimit({
+          units: Math.min(
+            DEFAULT_INIT_POSITION_CU + extendPositionDefaultCU,
+            1_400_000
+          ),
+        }),
+        createPositionIx,
+        ...extendPositionIxs.flat(),
+      ];
+    } else {
+      return [
+        ComputeBudgetProgram.setComputeUnitLimit({
+          units: DEFAULT_INIT_POSITION_CU,
+        }),
+        createPositionIx,
+      ];
+    }
+  }
+
+  private async increasePositionLengthIxs(
+    position: PublicKey,
+    side: ResizeSide,
+    length: BN,
+    funder: PublicKey,
+    positionOwner: PublicKey,
+    includeSetCuIx = true,
+    allowParallelExecution = true
+  ) {
+    // Split into multiple increase position length ix to bypass stack size limit
+    const groupedIxs: TransactionInstruction[][] = [];
+    const promises = [];
+
+    for (let i = 0; i < length.toNumber(); i += MAX_RESIZE_LENGTH.toNumber()) {
+      const lengthToAdd = Math.min(
+        length.toNumber() - i,
+        MAX_RESIZE_LENGTH.toNumber()
+      );
+
+      // Estimate CU might off due to the CU might higher and higher as the position length increase. However, simulate CU always based on current position length.
+      const setCuIx = ComputeBudgetProgram.setComputeUnitLimit({
+        units: getDefaultExtendPositionCU(side),
+      });
+
+      const ixPromise = this.program.methods
+        .increasePositionLength(lengthToAdd, Number(side))
+        .accountsPartial({
+          lbPair: this.pubkey,
+          position,
+          owner: positionOwner,
+          funder,
+        })
+        .instruction()
+        .then((increasePositionLengthIx) => {
+          if (allowParallelExecution) {
+            // Trick to make each increase position length transaction to be unique to allow parallel execution
+            increasePositionLengthIx.keys.push({
+              isSigner: false,
+              isWritable: false,
+              pubkey: PublicKey.unique(),
+            });
+          }
+
+          const ixs = [increasePositionLengthIx];
+
+          if (includeSetCuIx) {
+            ixs.unshift(setCuIx);
+          }
+
+          groupedIxs.push(ixs);
+        });
+
+      promises.push(ixPromise);
+    }
+
+    await Promise.all(promises);
+    return groupedIxs;
+  }
+
   /** Private static method */
 
   private static async getBinArrays(
@@ -6062,6 +6957,7 @@ export class DLMM {
     bins.forEach((bin, idx) => {
       const binSupply = bin.supply;
       const posShare = posShares[idx];
+
       const posBinRewardInfo = positionRewardInfos[idx];
 
       const positionXAmount = binSupply.eq(ZERO)
@@ -6510,52 +7406,81 @@ export class DLMM {
   }: {
     owner: PublicKey;
     position: LbPosition;
-  }) {
-    const { lowerBinId, upperBinId } = position.positionData;
+  }): Promise<Transaction[]> {
+    // Avoid to attempt to load uninitialized bin array on the program
+    const maybeClaimableBinRange = getPositionLowerUpperBinIdWithLiquidity(
+      position.positionData
+    );
 
-    const binArrayAccountsMeta = getBinArrayAccountMetasCoverage(
-      new BN(lowerBinId),
-      new BN(upperBinId),
-      this.pubkey,
-      this.program.programId
+    if (!maybeClaimableBinRange) return [];
+
+    const { lowerBinId, upperBinId } = maybeClaimableBinRange;
+
+    const chunkedBinRange = chunkBinRange(
+      lowerBinId.toNumber(),
+      upperBinId.toNumber()
     );
 
     const claimTransactions: Transaction[] = [];
-    for (let i = 0; i < 2; i++) {
-      const rewardInfo = this.lbPair.rewardInfos[i];
-      if (!rewardInfo || rewardInfo.mint.equals(PublicKey.default)) continue;
 
-      const preInstructions = [];
-      const { ataPubKey, ix } = await getOrCreateATAInstruction(
-        this.program.provider.connection,
-        rewardInfo.mint,
-        owner,
-        this.rewards[i].owner
+    for (const {
+      lowerBinId: chunkedLowerBinId,
+      upperBinId: chunkedUpperBinId,
+    } of chunkedBinRange) {
+      const binArrayAccountsMeta = getBinArrayAccountMetasCoverage(
+        new BN(chunkedLowerBinId),
+        new BN(chunkedUpperBinId),
+        this.pubkey,
+        this.program.programId
       );
-      ix && preInstructions.push(ix);
 
-      const { slices, accounts: transferHookAccounts } =
-        this.getPotentialToken2022IxDataAndAccounts(ActionType.Reward, i);
+      for (let i = 0; i < 2; i++) {
+        const rewardInfo = this.lbPair.rewardInfos[i];
+        if (!rewardInfo || rewardInfo.mint.equals(PublicKey.default)) continue;
 
-      const claimTransaction = await this.program.methods
-        .claimReward2(new BN(i), lowerBinId, upperBinId, {
-          slices,
-        })
-        .accountsPartial({
-          lbPair: this.pubkey,
-          sender: owner,
-          position: position.publicKey,
-          rewardVault: rewardInfo.vault,
-          rewardMint: rewardInfo.mint,
-          tokenProgram: this.rewards[i].owner,
-          userTokenAccount: ataPubKey,
-          memoProgram: MEMO_PROGRAM_ID,
-        })
-        .remainingAccounts(transferHookAccounts)
-        .remainingAccounts(binArrayAccountsMeta)
-        .preInstructions(preInstructions)
-        .transaction();
-      claimTransactions.push(claimTransaction);
+        const preInstructions = [];
+        const userRewardToken = getAssociatedTokenAddressSync(
+          rewardInfo.mint,
+          owner,
+          true,
+          this.rewards[i].owner
+        );
+
+        const createUserTokenIx =
+          createAssociatedTokenAccountIdempotentInstruction(
+            owner,
+            userRewardToken,
+            owner,
+            rewardInfo.mint,
+            this.rewards[i].owner
+          );
+
+        preInstructions.push(createUserTokenIx);
+
+        const { slices, accounts: transferHookAccounts } =
+          this.getPotentialToken2022IxDataAndAccounts(ActionType.Reward, i);
+
+        const claimTransaction = await this.program.methods
+          .claimReward2(new BN(i), chunkedLowerBinId, chunkedUpperBinId, {
+            slices,
+          })
+          .accountsPartial({
+            lbPair: this.pubkey,
+            sender: owner,
+            position: position.publicKey,
+            rewardVault: rewardInfo.vault,
+            rewardMint: rewardInfo.mint,
+            tokenProgram: this.rewards[i].owner,
+            userTokenAccount: userRewardToken,
+            memoProgram: MEMO_PROGRAM_ID,
+          })
+          .remainingAccounts(transferHookAccounts)
+          .remainingAccounts(binArrayAccountsMeta)
+          .preInstructions(preInstructions)
+          .transaction();
+
+        claimTransactions.push(claimTransaction);
+      }
     }
 
     return claimTransactions;
@@ -6567,84 +7492,119 @@ export class DLMM {
   }: {
     owner: PublicKey;
     position: LbPosition;
-  }) {
-    const { lowerBinId, upperBinId } = position.positionData;
-
-    const binArrayAccountsMeta = getBinArrayAccountMetasCoverage(
-      new BN(lowerBinId),
-      new BN(upperBinId),
-      this.pubkey,
-      this.program.programId
+  }): Promise<Transaction[]> {
+    // Avoid to attempt to load uninitialized bin array on the program
+    const maybeClaimableBinRange = getPositionLowerUpperBinIdWithLiquidity(
+      position.positionData
     );
 
-    const { feeOwner } = position.positionData;
+    if (!maybeClaimableBinRange) return [];
 
-    const walletToReceiveFee = feeOwner.equals(PublicKey.default)
-      ? owner
-      : feeOwner;
+    const { lowerBinId, upperBinId } = maybeClaimableBinRange;
 
-    const preInstructions: TransactionInstruction[] = [];
-    const [
-      { ataPubKey: userTokenX, ix: createInTokenAccountIx },
-      { ataPubKey: userTokenY, ix: createOutTokenAccountIx },
-    ] = await Promise.all([
-      getOrCreateATAInstruction(
-        this.program.provider.connection,
-        this.tokenX.publicKey,
+    const chunkedBinRange = chunkBinRange(
+      lowerBinId.toNumber(),
+      upperBinId.toNumber()
+    );
+
+    const claimFeeTxs = [];
+
+    for (const {
+      lowerBinId: chunkedLowerBinId,
+      upperBinId: chunkedUpperBinId,
+    } of chunkedBinRange) {
+      const binArrayAccountsMeta = getBinArrayAccountMetasCoverage(
+        new BN(chunkedLowerBinId),
+        new BN(chunkedUpperBinId),
+        this.pubkey,
+        this.program.programId
+      );
+
+      const { feeOwner } = position.positionData;
+
+      const walletToReceiveFee = feeOwner.equals(PublicKey.default)
+        ? owner
+        : feeOwner;
+
+      const preInstructions: TransactionInstruction[] = [];
+
+      const userTokenX = getAssociatedTokenAddressSync(
+        this.lbPair.tokenXMint,
         walletToReceiveFee,
-        this.tokenX.owner,
-        owner
-      ),
-      getOrCreateATAInstruction(
-        this.program.provider.connection,
-        this.tokenY.publicKey,
-        walletToReceiveFee,
-        this.tokenY.owner,
-        owner
-      ),
-    ]);
-    createInTokenAccountIx && preInstructions.push(createInTokenAccountIx);
-    createOutTokenAccountIx && preInstructions.push(createOutTokenAccountIx);
+        true,
+        this.tokenX.owner
+      );
 
-    const postInstructions: Array<TransactionInstruction> = [];
-    if (
-      [
-        this.tokenX.publicKey.toBase58(),
-        this.tokenY.publicKey.toBase58(),
-      ].includes(NATIVE_MINT.toBase58())
-    ) {
-      const closeWrappedSOLIx = await unwrapSOLInstruction(owner);
-      closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
+      const userTokenY = getAssociatedTokenAddressSync(
+        this.lbPair.tokenYMint,
+        walletToReceiveFee,
+        true,
+        this.tokenY.owner
+      );
+
+      const createUserTokenXIx =
+        createAssociatedTokenAccountIdempotentInstruction(
+          owner,
+          userTokenX,
+          walletToReceiveFee,
+          this.lbPair.tokenXMint,
+          this.tokenX.owner
+        );
+
+      const createUserTokenYIx =
+        createAssociatedTokenAccountIdempotentInstruction(
+          owner,
+          userTokenY,
+          walletToReceiveFee,
+          this.lbPair.tokenYMint,
+          this.tokenY.owner
+        );
+
+      preInstructions.push(createUserTokenXIx);
+      preInstructions.push(createUserTokenYIx);
+
+      const postInstructions: Array<TransactionInstruction> = [];
+      if (
+        [
+          this.tokenX.publicKey.toBase58(),
+          this.tokenY.publicKey.toBase58(),
+        ].includes(NATIVE_MINT.toBase58())
+      ) {
+        const closeWrappedSOLIx = await unwrapSOLInstruction(owner);
+        closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
+      }
+
+      const { slices, accounts: transferHookAccounts } =
+        this.getPotentialToken2022IxDataAndAccounts(ActionType.Liquidity);
+
+      const claimFeeTx = await this.program.methods
+        .claimFee2(chunkedLowerBinId, chunkedUpperBinId, {
+          slices,
+        })
+        .accountsPartial({
+          lbPair: this.pubkey,
+          sender: owner,
+          position: position.publicKey,
+          reserveX: this.lbPair.reserveX,
+          reserveY: this.lbPair.reserveY,
+          tokenProgramX: this.tokenX.owner,
+          tokenProgramY: this.tokenY.owner,
+          tokenXMint: this.tokenX.publicKey,
+          tokenYMint: this.tokenY.publicKey,
+          userTokenX,
+          userTokenY,
+          memoProgram: MEMO_PROGRAM_ID,
+        })
+        .remainingAccounts(transferHookAccounts)
+        .remainingAccounts(binArrayAccountsMeta)
+        .preInstructions(preInstructions)
+        .postInstructions(postInstructions)
+        .transaction();
+
+      claimFeeTxs.push(claimFeeTx);
     }
 
-    const { slices, accounts: transferHookAccounts } =
-      this.getPotentialToken2022IxDataAndAccounts(ActionType.Liquidity);
-
-    const claimFeeTx = await this.program.methods
-      .claimFee2(lowerBinId, upperBinId, {
-        slices,
-      })
-      .accountsPartial({
-        lbPair: this.pubkey,
-        sender: owner,
-        position: position.publicKey,
-        reserveX: this.lbPair.reserveX,
-        reserveY: this.lbPair.reserveY,
-        tokenProgramX: this.tokenX.owner,
-        tokenProgramY: this.tokenY.owner,
-        tokenXMint: this.tokenX.publicKey,
-        tokenYMint: this.tokenY.publicKey,
-        userTokenX,
-        userTokenY,
-        memoProgram: MEMO_PROGRAM_ID,
-      })
-      .remainingAccounts(transferHookAccounts)
-      .remainingAccounts(binArrayAccountsMeta)
-      .preInstructions(preInstructions)
-      .postInstructions(postInstructions)
-      .transaction();
-
-    return claimFeeTx;
+    return claimFeeTxs;
   }
 
   private getPotentialToken2022IxDataAndAccounts(

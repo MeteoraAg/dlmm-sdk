@@ -98,6 +98,9 @@ export type CompressedBinDepositAmount =
   IdlTypes<LbClmm>["compressedBinDepositAmount"];
 export type CompressedBinDepositAmounts = CompressedBinDepositAmount[];
 
+export type ResizeSideEnum = IdlTypes<LbClmm>["resizeSide"];
+export type ExtendedPositionBinData = IdlTypes<LbClmm>["positionBinData"];
+
 export interface LbPosition {
   publicKey: PublicKey;
   positionData: PositionData;
@@ -136,7 +139,6 @@ export interface LMRewards {
 export enum PositionVersion {
   V1,
   V2,
-  V3,
 }
 
 export enum PairType {
@@ -164,6 +166,10 @@ export enum ActivationType {
   Timestamp,
 }
 
+// This is position struct size, it doesn't include the discriminator bytes
+export const POSITION_MIN_SIZE = 8112;
+export const POSITION_BIN_DATA_SIZE = 112;
+
 export interface StrategyParameters {
   maxBinId: number;
   minBinId: number;
@@ -186,6 +192,14 @@ export interface TInitializePositionAndAddLiquidityParams {
 
 export interface TInitializePositionAndAddLiquidityParamsByStrategy {
   positionPubKey: PublicKey;
+  totalXAmount: BN;
+  totalYAmount: BN;
+  strategy: StrategyParameters;
+  user: PublicKey;
+  slippage?: number;
+}
+
+export interface TInitializeMultiplePositionAndAddLiquidityParamsByStrategy {
   totalXAmount: BN;
   totalYAmount: BN;
   strategy: StrategyParameters;
@@ -472,6 +486,11 @@ export interface PositionLockInfo {
 export enum ActionType {
   Liquidity,
   Reward,
+}
+
+export enum ResizeSide {
+  Lower,
+  Upper,
 }
 
 export const MEMO_PROGRAM_ID = new PublicKey(
