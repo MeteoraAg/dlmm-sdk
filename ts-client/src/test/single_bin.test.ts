@@ -193,7 +193,7 @@ describe("Single Bin Seed Liquidity Test", () => {
     });
 
     it("seed liquidity single bin", async () => {
-      const ixs = await pair.seedLiquiditySingleBin(
+      const { instructions } = await pair.seedLiquiditySingleBin(
         owner.publicKey,
         baseKeypair.publicKey,
         wenSeedAmount,
@@ -212,7 +212,7 @@ describe("Single Bin Seed Liquidity Test", () => {
         feePayer: owner.publicKey,
         blockhash,
         lastValidBlockHeight,
-      }).add(...ixs);
+      }).add(...instructions);
 
       const beforeTokenXBalance = await connection
         .getTokenAccountBalance(userWEN)
