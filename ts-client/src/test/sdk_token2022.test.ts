@@ -2572,7 +2572,7 @@ describe("SDK token2022 test", () => {
             dlmm.tokenY.reserve,
           ]);
 
-        await Promise.all(
+        await Promise.allSettled(
           addLiquidityTxs.map((tx) =>
             sendAndConfirmTransaction(connection, tx, [keypair])
           )
@@ -2710,7 +2710,7 @@ describe("SDK token2022 test", () => {
           )
         );
 
-        await Promise.all(
+        await Promise.allSettled(
           addLiquidityIxs.map((tx, idx) =>
             sendAndConfirmTransaction(connection, tx, [keypair])
           )
@@ -2855,7 +2855,7 @@ describe("SDK token2022 test", () => {
         const totalXAmount = new BN(10_000_000).mul(new BN(10 ** btcDecimal));
         const totalYAmount = new BN(10_000_000).mul(new BN(10 ** usdcDecimal));
 
-        await Promise.all(
+        await Promise.allSettled(
           [extendedPositionKeypair0, extendedPositionKeypair1].map(
             (positionKeypair) => {
               return initializePositionAndAddLiquidityByStrategyIfNotExists(
@@ -2924,7 +2924,7 @@ describe("SDK token2022 test", () => {
 
           expect(claimFeeTxs.length).toBeGreaterThanOrEqual(1);
 
-          await Promise.all(
+          await Promise.allSettled(
             claimFeeTxs.map((tx) =>
               sendAndConfirmTransaction(connection, tx, [keypair])
             )
@@ -2973,7 +2973,7 @@ describe("SDK token2022 test", () => {
             position: beforePosition,
           });
 
-          await Promise.all(
+          await Promise.allSettled(
             claimFeeTxs.map((tx) =>
               sendAndConfirmTransaction(connection, tx, [keypair])
             )
@@ -3019,7 +3019,7 @@ describe("SDK token2022 test", () => {
             position,
           });
 
-          await Promise.all(
+          await Promise.allSettled(
             claimTxs.map((tx) =>
               sendAndConfirmTransaction(connection, tx, [keypair])
             )
@@ -3072,7 +3072,7 @@ describe("SDK token2022 test", () => {
 
           expect(claimTxs.length).toBeGreaterThanOrEqual(1);
 
-          await Promise.all(
+          await Promise.allSettled(
             claimTxs.map((tx) =>
               sendAndConfirmTransaction(connection, tx, [keypair])
             )
@@ -3150,7 +3150,7 @@ describe("SDK token2022 test", () => {
 
             expect(claimTxs.length).toBeGreaterThanOrEqual(1);
 
-            await Promise.all(
+            await Promise.allSettled(
               claimTxs.map((tx) => {
                 return sendAndConfirmTransaction(connection, tx, [keypair]);
               })
