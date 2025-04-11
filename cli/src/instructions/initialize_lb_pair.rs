@@ -26,7 +26,7 @@ pub async fn execute_initialize_lb_pair<C: Deref<Target = impl Signer> + Clone>(
         initial_price,
     } = params;
 
-    let rpc_client = program.async_rpc();
+    let rpc_client = program.rpc();
 
     let mut accounts = rpc_client
         .get_multiple_accounts(&[token_mint_x, token_mint_y])
@@ -47,7 +47,9 @@ pub async fn execute_initialize_lb_pair<C: Deref<Target = impl Signer> + Clone>(
 
     let preset_parameter_state = rpc_client
         .get_account_and_deserialize(&preset_parameter, |account| {
-            Ok(PresetParameterAccount::deserialize(&account.data)?.0)
+            Ok(PresetParameter::try_deserialize(
+                &mut account.data.as_ref(),
+            )?)
         })
         .await?;
 
@@ -63,7 +65,7 @@ pub async fn execute_initialize_lb_pair<C: Deref<Target = impl Signer> + Clone>(
         preset_parameter_state.base_factor,
     );
 
-    if program.rpc().get_account_data(&lb_pair).is_ok() {
+    if program.rpc().get_account_data(&lb_pair).await.is_ok() {
         return Ok(lb_pair);
     }
 
@@ -73,9 +75,9 @@ pub async fn execute_initialize_lb_pair<C: Deref<Target = impl Signer> + Clone>(
 
     let (event_authority, _bump) = derive_event_authority_pda();
 
-    let accounts: [AccountMeta; INITIALIZE_LB_PAIR_IX_ACCOUNTS_LEN] = InitializeLbPairKeys {
+    let accounts = dlmm::client::accounts::InitializeLbPair {
         lb_pair,
-        bin_array_bitmap_extension: dlmm_interface::ID,
+        bin_array_bitmap_extension: Some(dlmm::ID),
         reserve_x,
         reserve_y,
         token_mint_x,
@@ -86,21 +88,21 @@ pub async fn execute_initialize_lb_pair<C: Deref<Target = impl Signer> + Clone>(
         preset_parameter,
         system_program: solana_sdk::system_program::ID,
         event_authority,
-        program: dlmm_interface::ID,
+        program: dlmm::ID,
         rent: solana_sdk::sysvar::rent::ID,
     }
-    .into();
+    .to_account_metas(None);
 
-    let data = InitializeLbPairIxData(InitializeLbPairIxArgs {
+    let data = dlmm::client::args::InitializeLbPair {
         active_id: computed_active_id,
         bin_step,
-    })
-    .try_to_vec()?;
+    }
+    .data();
 
     let init_pair_ix = Instruction {
-        program_id: dlmm_interface::ID,
+        program_id: dlmm::ID,
         data,
-        accounts: accounts.to_vec(),
+        accounts,
     };
 
     let request_builder = program.request();

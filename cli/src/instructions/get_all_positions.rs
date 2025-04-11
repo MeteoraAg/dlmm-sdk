@@ -1,6 +1,5 @@
-use solana_client::rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig};
-
 use crate::*;
+use solana_client::rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig};
 
 #[derive(Debug, Parser)]
 pub struct GetAllPositionsParams {
@@ -18,7 +17,7 @@ pub async fn execute_get_all_positions<C: Deref<Target = impl Signer> + Clone>(
 ) -> Result<()> {
     let GetAllPositionsParams { lb_pair, owner } = params;
 
-    let rpc_client = program.async_rpc();
+    let rpc_client = program.rpc();
 
     let account_config = RpcAccountInfoConfig {
         encoding: Some(UiAccountEncoding::Base64),
@@ -31,11 +30,11 @@ pub async fn execute_get_all_positions<C: Deref<Target = impl Signer> + Clone>(
     };
 
     let accounts = rpc_client
-        .get_program_accounts_with_config(&dlmm_interface::ID, config)
+        .get_program_accounts_with_config(&dlmm::ID, config)
         .await?;
 
     for (position_key, position_raw_account) in accounts {
-        let position_state = PositionV2Account::deserialize(&position_raw_account.data)?.0;
+        let position_state = PositionV2::try_deserialize(&mut position_raw_account.data.as_ref())?;
         println!(
             "Position {} fee owner {}",
             position_key, position_state.fee_owner

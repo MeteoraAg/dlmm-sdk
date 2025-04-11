@@ -1,19 +1,13 @@
-/**
- * Program IDL in camelCase format in order to be used in JS/TS.
- *
- * Note that this is only a type helper and is not the actual IDL. The original
- * IDL can be found at `target/idl/transfer_hook_counter.json`.
- */
-export type TransferHookCounter = {
+{
   "address": "abcSyangMHdGzUGKhBhKoQzSFdJKUdkPGf5cbXVHpEw",
   "metadata": {
-    "name": "transferHookCounter",
+    "name": "transfer_hook_counter",
     "version": "0.1.0",
     "spec": "0.1.0"
   },
   "instructions": [
     {
-      "name": "initializeExtraAccountMetaList",
+      "name": "initialize_extra_account_meta_list",
       "discriminator": [
         92,
         197,
@@ -31,30 +25,30 @@ export type TransferHookCounter = {
           "signer": true
         },
         {
-          "name": "extraAccountMetaList",
+          "name": "extra_account_meta_list",
           "writable": true
         },
         {
           "name": "mint"
         },
         {
-          "name": "counterAccount",
+          "name": "counter_account",
           "writable": true
         },
         {
-          "name": "tokenProgram"
+          "name": "token_program"
         },
         {
-          "name": "associatedTokenProgram"
+          "name": "associated_token_program"
         },
         {
-          "name": "systemProgram"
+          "name": "system_program"
         }
       ],
       "args": []
     },
     {
-      "name": "transferHook",
+      "name": "transfer_hook",
       "discriminator": [
         220,
         57,
@@ -67,22 +61,22 @@ export type TransferHookCounter = {
       ],
       "accounts": [
         {
-          "name": "sourceToken"
+          "name": "source_token"
         },
         {
           "name": "mint"
         },
         {
-          "name": "destinationToken"
+          "name": "destination_token"
         },
         {
           "name": "owner"
         },
         {
-          "name": "extraAccountMetaList"
+          "name": "extra_account_meta_list"
         },
         {
-          "name": "counterAccount",
+          "name": "counter_account",
           "writable": true
         }
       ],
@@ -96,7 +90,7 @@ export type TransferHookCounter = {
   ],
   "accounts": [
     {
-      "name": "counterAccount",
+      "name": "CounterAccount",
       "discriminator": [
         164,
         8,
@@ -112,13 +106,13 @@ export type TransferHookCounter = {
   "errors": [
     {
       "code": 6000,
-      "name": "amountTooBig",
+      "name": "AmountTooBig",
       "msg": "The amount is too big"
     }
   ],
   "types": [
     {
-      "name": "counterAccount",
+      "name": "CounterAccount",
       "type": {
         "kind": "struct",
         "fields": [
@@ -130,4 +124,4 @@ export type TransferHookCounter = {
       }
     }
   ]
-};
+}

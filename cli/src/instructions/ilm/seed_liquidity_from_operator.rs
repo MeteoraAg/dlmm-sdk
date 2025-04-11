@@ -178,13 +178,13 @@ pub async fn execute_seed_liquidity_by_operator<C: Deref<Target = impl Signer> +
         "base_pubkey mismatch"
     );
 
-    let rpc_client = program.async_rpc();
+    let rpc_client = program.rpc();
 
     let k = 1.0 / curvature;
 
     let lb_pair_state = rpc_client
         .get_account_and_deserialize(&lb_pair, |account| {
-            Ok(LbPairAccount::deserialize(&account.data)?.0)
+            Ok(LbPair::try_deserialize(&mut account.data.as_ref())?)
         })
         .await?;
 
@@ -294,11 +294,11 @@ pub async fn execute_seed_liquidity_by_operator<C: Deref<Target = impl Signer> +
     );
 
     let transfer_hook_x_account =
-        get_extra_account_metas_for_transfer_hook(lb_pair_state.token_x_mint, program.async_rpc())
+        get_extra_account_metas_for_transfer_hook(lb_pair_state.token_x_mint, program.rpc())
             .await?;
 
     let transfer_hook_y_account =
-        get_extra_account_metas_for_transfer_hook(lb_pair_state.token_y_mint, program.async_rpc())
+        get_extra_account_metas_for_transfer_hook(lb_pair_state.token_y_mint, program.rpc())
             .await?;
 
     let accounts = rpc_client
@@ -379,27 +379,26 @@ pub async fn execute_seed_liquidity_by_operator<C: Deref<Target = impl Signer> +
         upper_bin_array_index > max_bitmap_id || lower_bin_array_index < min_bitmap_id;
 
     if overflow_internal_bitmap_range && bitmap_extension_account.is_none() {
-        let accounts: [AccountMeta; INITIALIZE_BIN_ARRAY_BITMAP_EXTENSION_IX_ACCOUNTS_LEN] =
-            InitializeBinArrayBitmapExtensionKeys {
-                lb_pair,
-                bin_array_bitmap_extension: bitmap_extension,
-                funder: seeder,
-                system_program: solana_sdk::system_program::ID,
-                rent: solana_sdk::sysvar::rent::ID,
-            }
-            .into();
+        let accounts = dlmm::client::accounts::InitializeBinArrayBitmapExtension {
+            lb_pair,
+            bin_array_bitmap_extension: bitmap_extension,
+            funder: seeder,
+            system_program: solana_sdk::system_program::ID,
+            rent: solana_sdk::sysvar::rent::ID,
+        }
+        .to_account_metas(None);
 
-        let ix_data = InitializeBinArrayBitmapExtensionIxData.try_to_vec()?;
+        let ix_data = dlmm::client::args::InitializeBinArrayBitmapExtension {}.data();
 
         let init_bitmap_ext_ix = Instruction {
-            program_id: dlmm_interface::ID,
-            accounts: accounts.to_vec(),
+            program_id: dlmm::ID,
+            accounts,
             data: ix_data,
         };
 
         token_account_and_bitmap_ext_and_token_prove_setup_ixs.push(init_bitmap_ext_ix);
     } else {
-        bitmap_extension = dlmm_interface::ID;
+        bitmap_extension = dlmm::ID;
     }
 
     for i in 0..position_number {
@@ -431,32 +430,31 @@ pub async fn execute_seed_liquidity_by_operator<C: Deref<Target = impl Signer> +
 
         let position_account = accounts.index(0).to_owned();
         if position_account.is_none() {
-            let account: [AccountMeta; INITIALIZE_POSITION_BY_OPERATOR_IX_ACCOUNTS_LEN] =
-                InitializePositionByOperatorKeys {
-                    position,
-                    payer: seeder,
-                    base: position_base_kp.pubkey(),
-                    lb_pair,
-                    owner: position_owner,
-                    operator: seeder,
-                    operator_token_x: seeder_token_x,
-                    owner_token_x,
-                    system_program: solana_sdk::system_program::ID,
-                    event_authority,
-                    program: dlmm_interface::ID,
-                }
-                .into();
+            let account = dlmm::client::accounts::InitializePositionByOperator {
+                position,
+                payer: seeder,
+                base: position_base_kp.pubkey(),
+                lb_pair,
+                owner: position_owner,
+                operator: seeder,
+                operator_token_x: seeder_token_x,
+                owner_token_x,
+                system_program: solana_sdk::system_program::ID,
+                event_authority,
+                program: dlmm::ID,
+            }
+            .to_account_metas(None);
 
-            let ix_data = InitializePositionByOperatorIxData(InitializePositionByOperatorIxArgs {
+            let ix_data = dlmm::client::args::InitializePositionByOperator {
                 lower_bin_id,
                 width,
                 fee_owner,
                 lock_release_point,
-            })
-            .try_to_vec()?;
+            }
+            .data();
 
             let init_position_ix = Instruction {
-                program_id: dlmm_interface::ID,
+                program_id: dlmm::ID,
                 accounts: account.to_vec(),
                 data: ix_data,
             };
@@ -469,23 +467,23 @@ pub async fn execute_seed_liquidity_by_operator<C: Deref<Target = impl Signer> +
         for (account, index) in bin_array_account.iter().zip(bin_array_indexes) {
             if account.is_none() {
                 let bin_array = derive_bin_array_pda(lb_pair, index.into()).0;
-                let account: [AccountMeta; INITIALIZE_BIN_ARRAY_IX_ACCOUNTS_LEN] =
-                    InitializeBinArrayKeys {
-                        bin_array,
-                        lb_pair,
-                        funder: seeder,
-                        system_program: solana_sdk::system_program::ID,
-                    }
-                    .into();
+                let accounts = dlmm::client::accounts::InitializeBinArray {
+                    bin_array,
+                    lb_pair,
+                    funder: seeder,
+                    system_program: solana_sdk::system_program::ID,
+                }
+                .to_account_metas(None);
 
-                let ix_data = InitializeBinArrayIxData(InitializeBinArrayIxArgs {
+                let ix_data = dlmm::client::args::InitializeBinArray {
                     index: index.into(),
-                });
+                }
+                .data();
 
                 let init_bin_array_ix = Instruction {
-                    program_id: dlmm_interface::ID,
-                    accounts: account.to_vec(),
-                    data: ix_data.try_to_vec()?,
+                    program_id: dlmm::ID,
+                    accounts,
+                    data: ix_data,
                 };
 
                 instructions.push(init_bin_array_ix);
@@ -504,7 +502,7 @@ pub async fn execute_seed_liquidity_by_operator<C: Deref<Target = impl Signer> +
 
         let position_deposited = position_account
             .map(|account| {
-                let state = PositionV2Account::deserialize(&account.data).unwrap().0;
+                let state = PositionV2::try_deserialize(&mut account.data.as_ref()).unwrap();
                 state.liquidity_shares.iter().any(|share| *share > 0)
             })
             .unwrap_or(false);
@@ -521,7 +519,7 @@ pub async fn execute_seed_liquidity_by_operator<C: Deref<Target = impl Signer> +
                 });
             }
 
-            let ix_data = AddLiquidityOneSidePrecise2IxData(AddLiquidityOneSidePrecise2IxArgs {
+            let ix_data = dlmm::client::args::AddLiquidityOneSidePrecise2 {
                 liquidity_parameter: AddLiquiditySingleSidePreciseParameter2 {
                     bins,
                     decompress_multiplier,
@@ -533,30 +531,29 @@ pub async fn execute_seed_liquidity_by_operator<C: Deref<Target = impl Signer> +
                         length: transfer_hook_x_account.len() as u8,
                     }],
                 },
-            })
-            .try_to_vec()?;
+            }
+            .data();
 
-            let accounts: [AccountMeta; ADD_LIQUIDITY_ONE_SIDE_PRECISE2_IX_ACCOUNTS_LEN] =
-                AddLiquidityOneSidePrecise2Keys {
-                    position,
-                    lb_pair,
-                    bin_array_bitmap_extension: bitmap_extension,
-                    user_token: seeder_token_x,
-                    reserve: lb_pair_state.reserve_x,
-                    token_mint: lb_pair_state.token_x_mint,
-                    sender: program.payer(),
-                    token_program: token_mint_base_owner,
-                    event_authority,
-                    program: dlmm_interface::ID,
-                }
-                .into();
+            let accounts = dlmm::client::accounts::AddLiquidityOneSidePrecise2 {
+                position,
+                lb_pair,
+                bin_array_bitmap_extension: Some(bitmap_extension),
+                user_token: seeder_token_x,
+                reserve: lb_pair_state.reserve_x,
+                token_mint: lb_pair_state.token_x_mint,
+                sender: program.payer(),
+                token_program: token_mint_base_owner,
+                event_authority,
+                program: dlmm::ID,
+            }
+            .to_account_metas(None);
 
             let mut accounts = accounts.to_vec();
             accounts.extend_from_slice(&transfer_hook_x_account);
             accounts.extend_from_slice(&bin_array_account_metas);
 
             let add_liquidity_ix = Instruction {
-                program_id: dlmm_interface::ID,
+                program_id: dlmm::ID,
                 accounts,
                 data: ix_data,
             };
@@ -585,7 +582,7 @@ pub async fn execute_seed_liquidity_by_operator<C: Deref<Target = impl Signer> +
                     lb_pair,
                 )?;
 
-                let ix_data = AddLiquidity2IxData(AddLiquidity2IxArgs {
+                let ix_data = dlmm::client::args::AddLiquidity2 {
                     liquidity_parameter: LiquidityParameter {
                         amount_x: loss_includes_transfer_fee,
                         amount_y: 0,
@@ -607,13 +604,13 @@ pub async fn execute_seed_liquidity_by_operator<C: Deref<Target = impl Signer> +
                             },
                         ],
                     },
-                })
-                .try_to_vec()?;
+                }
+                .data();
 
-                let accounts: [AccountMeta; ADD_LIQUIDITY2_IX_ACCOUNTS_LEN] = AddLiquidity2Keys {
+                let accounts = dlmm::client::accounts::AddLiquidity2 {
                     position,
                     lb_pair,
-                    bin_array_bitmap_extension: bitmap_extension,
+                    bin_array_bitmap_extension: Some(bitmap_extension),
                     user_token_x: seeder_token_x,
                     user_token_y: seeder_token_y,
                     reserve_x: lb_pair_state.reserve_x,
@@ -624,9 +621,9 @@ pub async fn execute_seed_liquidity_by_operator<C: Deref<Target = impl Signer> +
                     token_y_program: token_mint_quote_owner,
                     sender: program.payer(),
                     event_authority,
-                    program: dlmm_interface::ID,
+                    program: dlmm::ID,
                 }
-                .into();
+                .to_account_metas(None);
 
                 let mut accounts = accounts.to_vec();
                 accounts.extend_from_slice(&transfer_hook_x_account);
@@ -634,7 +631,7 @@ pub async fn execute_seed_liquidity_by_operator<C: Deref<Target = impl Signer> +
                 accounts.extend_from_slice(&bin_array_account_metas);
 
                 let add_liquidity_ix = Instruction {
-                    program_id: dlmm_interface::ID,
+                    program_id: dlmm::ID,
                     accounts,
                     data: ix_data,
                 };

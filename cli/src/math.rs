@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
+use commons::dlmm::types::Rounding;
 use commons::{BASIS_POINT_MAX, SCALE_OFFSET};
-use dlmm_interface::Rounding;
 use rust_decimal::MathematicalOps;
 use rust_decimal::{
     prelude::{FromPrimitive, ToPrimitive},

@@ -18,14 +18,13 @@ log = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
 shellexpand = { workspace = true }
 anyhow = { workspace = true }
-dlmm_interface = { path = "../dlmm_interface" }
 serde_json = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 spl-associated-token-account = { workspace = true }
 solana-transaction-status = { workspace = true }
 bs58 = { workspace = true }
 chrono = { workspace = true }
-commons = { workspace = true }
+commons = { workspace = true, features = ["borsh"] }
 solana-account-decoder = { workspace = true }
 itertools = { workspace = true }
 rust_decimal = { workspace = true, features = ["maths"] }

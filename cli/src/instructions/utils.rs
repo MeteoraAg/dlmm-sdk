@@ -112,7 +112,7 @@ pub async fn get_or_create_ata<C: Deref<Target = impl Signer> + Clone>(
     wallet_address: Pubkey,
     compute_unit_price: Option<Instruction>,
 ) -> Result<Pubkey> {
-    let rpc_client = program.async_rpc();
+    let rpc_client = program.rpc();
     let token_mint_owner = rpc_client.get_account(&token_mint).await?.owner;
 
     let user_ata = get_associated_token_address_with_program_id(

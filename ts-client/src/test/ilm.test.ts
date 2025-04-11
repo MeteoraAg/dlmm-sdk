@@ -38,7 +38,7 @@ import {
   TRANSFER_HOOK_COUNTER_PROGRAM_ID,
 } from "./external/program";
 import { createExtraAccountMetaListAndCounter } from "./external/helper";
-import { IDL } from "../dlmm/idl";
+import { createTestProgram } from "./helper";
 
 const keypairBuffer = fs.readFileSync(
   "../keys/localnet/admin-bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1.json",
@@ -55,12 +55,7 @@ const feeOwner = Keypair.generate();
 const lockDuration = new BN(86400 * 31);
 
 const programId = new PublicKey(LBCLMM_PROGRAM_IDS["localhost"]);
-const provider = new AnchorProvider(
-  connection,
-  new Wallet(operator),
-  AnchorProvider.defaultOptions()
-);
-const program = new Program(IDL, programId, provider);
+const program = createTestProgram(connection, programId, operator);
 
 describe("ILM test", () => {
   describe("WEN", () => {
@@ -829,7 +824,7 @@ describe("ILM test", () => {
 
       await program.methods
         .initializeTokenBadge()
-        .accounts({
+        .accountsPartial({
           tokenBadge: dummyTokenBadge,
           admin: operator.publicKey,
           systemProgram: SystemProgram.programId,

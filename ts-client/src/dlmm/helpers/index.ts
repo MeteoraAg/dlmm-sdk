@@ -1,4 +1,4 @@
-import { BN, EventParser } from "@coral-xyz/anchor";
+import { AnchorProvider, BN, EventParser, Program } from "@coral-xyz/anchor";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   NATIVE_MINT,
@@ -11,17 +11,37 @@ import {
   getAssociatedTokenAddressSync,
   getMint,
 } from "@solana/spl-token";
-import { SCALE_OFFSET } from "../constants";
+import { LBCLMM_PROGRAM_IDS, SCALE_OFFSET } from "../constants";
 import {
+  Cluster,
   ComputeBudgetProgram,
   Connection,
   PublicKey,
   SystemProgram,
   TransactionInstruction,
 } from "@solana/web3.js";
-import { Bin, ClmmProgram, GetOrCreateATAResponse } from "../types";
+import {
+  AccountName,
+  Bin,
+  BinArray,
+  BinArrayBitmapExtension,
+  ClmmProgram,
+  GetOrCreateATAResponse,
+  LbPair,
+  Position,
+  PositionV2,
+  PresetParameter,
+  PresetParameter2,
+} from "../types";
 import { Rounding, mulShr, shlDiv } from "./math";
-import { getSimulationComputeUnits, MAX_CU_BUFFER, MIN_CU_BUFFER } from "./computeUnit";
+import {
+  getSimulationComputeUnits,
+  MAX_CU_BUFFER,
+  MIN_CU_BUFFER,
+} from "./computeUnit";
+import IDL from "../../../../idls/dlmm_zc.json";
+import { LbClmm } from "../idl";
+import { IdlDiscriminator } from "@coral-xyz/anchor/dist/cjs/idl";
 
 export * from "./derive";
 export * from "./binArray";
@@ -276,3 +296,43 @@ export const getEstimatedComputeUnitIxWithBuffer = async (
 
   return ComputeBudgetProgram.setComputeUnitLimit({ units });
 };
+
+export type Opt = {
+  cluster?: Cluster | "localhost";
+  programId?: PublicKey;
+};
+
+export function createProgram(connection: Connection, opt?: Opt) {
+  const cluster = opt?.cluster || "mainnet-beta";
+  const provider = new AnchorProvider(
+    connection,
+    {} as any,
+    AnchorProvider.defaultOptions()
+  );
+
+  return new Program<LbClmm>(
+    { ...IDL, address: LBCLMM_PROGRAM_IDS[cluster] },
+    provider
+  );
+}
+
+export function decodeAccount<
+  T extends
+    | LbPair
+    | BinArrayBitmapExtension
+    | BinArray
+    | PositionV2
+    | Position
+    | PresetParameter
+    | PresetParameter2,
+>(program: Program<LbClmm>, accountName: AccountName, buffer: Buffer): T {
+  return program.coder.accounts.decode(accountName, buffer);
+}
+
+export function getAccountDiscriminator(
+  accountName: AccountName
+): IdlDiscriminator {
+  return IDL.accounts.find(
+    (acc) => acc.name.toLowerCase() === accountName.toLowerCase()
+  )?.discriminator;
+}

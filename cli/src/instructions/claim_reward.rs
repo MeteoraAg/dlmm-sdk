@@ -20,18 +20,18 @@ pub async fn execute_claim_reward<C: Deref<Target = impl Signer> + Clone>(
         position,
     } = params;
 
-    let rpc_client = program.async_rpc();
+    let rpc_client = program.rpc();
     let (reward_vault, _bump) = derive_reward_vault_pda(lb_pair, reward_index);
 
     let lb_pair_state = rpc_client
         .get_account_and_deserialize(&lb_pair, |account| {
-            Ok(LbPairAccount::deserialize(&account.data)?.0)
+            Ok(LbPair::try_deserialize(&mut account.data.as_ref())?)
         })
         .await?;
 
     let position_state = rpc_client
         .get_account_and_deserialize(&position, |account| {
-            Ok(PositionV2Account::deserialize(&account.data)?.0)
+            Ok(PositionV2::try_deserialize(&mut account.data.as_ref())?)
         })
         .await?;
 
@@ -51,7 +51,7 @@ pub async fn execute_claim_reward<C: Deref<Target = impl Signer> + Clone>(
 
     let (event_authority, _bump) = derive_event_authority_pda();
 
-    let main_accounts: [AccountMeta; CLAIM_REWARD2_IX_ACCOUNTS_LEN] = ClaimReward2Keys {
+    let main_accounts = dlmm::client::accounts::ClaimReward2 {
         lb_pair,
         reward_vault,
         reward_mint,
@@ -61,9 +61,9 @@ pub async fn execute_claim_reward<C: Deref<Target = impl Signer> + Clone>(
         user_token_account,
         sender: program.payer(),
         event_authority,
-        program: dlmm_interface::ID,
+        program: dlmm::ID,
     }
-    .into();
+    .to_account_metas(None);
 
     let mut remaining_accounts_info = RemainingAccountsInfo { slices: vec![] };
     let mut token_2022_remaining_accounts = vec![];
@@ -71,7 +71,7 @@ pub async fn execute_claim_reward<C: Deref<Target = impl Signer> + Clone>(
     if let Some((slices, transfer_hook_remaining_accounts)) =
         get_potential_token_2022_related_ix_data_and_accounts(
             &lb_pair_state,
-            program.async_rpc(),
+            program.rpc(),
             ActionType::Reward(reward_index as usize),
         )
         .await?
@@ -83,13 +83,13 @@ pub async fn execute_claim_reward<C: Deref<Target = impl Signer> + Clone>(
     for (min_bin_id, max_bin_id) in
         position_bin_range_chunks(position_state.lower_bin_id, position_state.upper_bin_id)
     {
-        let data = ClaimReward2IxData(ClaimReward2IxArgs {
+        let data = dlmm::client::args::ClaimReward2 {
             reward_index,
             min_bin_id,
             max_bin_id,
             remaining_accounts_info: remaining_accounts_info.clone(),
-        })
-        .try_to_vec()?;
+        }
+        .data();
 
         let bin_arrays_account_meta =
             position_state.get_bin_array_accounts_meta_coverage_by_chunk(min_bin_id, max_bin_id)?;
@@ -102,7 +102,7 @@ pub async fn execute_claim_reward<C: Deref<Target = impl Signer> + Clone>(
         .concat();
 
         let claim_reward_ix = Instruction {
-            program_id: dlmm_interface::ID,
+            program_id: dlmm::ID,
             accounts,
             data,
         };

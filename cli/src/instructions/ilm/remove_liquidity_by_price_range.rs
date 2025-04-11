@@ -28,11 +28,11 @@ pub async fn execute_remove_liquidity_by_price_range<C: Deref<Target = impl Sign
         max_price,
     } = params;
 
-    let rpc_client = program.async_rpc();
+    let rpc_client = program.rpc();
 
     let lb_pair_state = rpc_client
         .get_account_and_deserialize(&lb_pair, |account| {
-            Ok(LbPairAccount::deserialize(&account.data)?.0)
+            Ok(LbPair::try_deserialize(&mut account.data.as_ref())?)
         })
         .await?;
 
@@ -96,7 +96,8 @@ pub async fn execute_remove_liquidity_by_price_range<C: Deref<Target = impl Sign
         .get_account(&bin_array_bitmap_extension)
         .await
         .map(|_| bin_array_bitmap_extension)
-        .unwrap_or(dlmm_interface::ID);
+        .ok()
+        .or(Some(dlmm::ID));
 
     let width = DEFAULT_BIN_PER_POSITION as i32;
 
@@ -106,7 +107,7 @@ pub async fn execute_remove_liquidity_by_price_range<C: Deref<Target = impl Sign
     if let Some((slices, remaining_accounts)) =
         get_potential_token_2022_related_ix_data_and_accounts(
             &lb_pair_state,
-            program.async_rpc(),
+            program.rpc(),
             ActionType::Liquidity,
         )
         .await?
@@ -120,7 +121,7 @@ pub async fn execute_remove_liquidity_by_price_range<C: Deref<Target = impl Sign
 
         let position_account = rpc_client.get_account(&position).await;
         if let std::result::Result::Ok(account) = position_account {
-            let position_state = PositionV2Account::deserialize(account.data.as_ref())?.0;
+            let position_state = PositionV2::try_deserialize(&mut account.data.as_ref())?;
 
             let bin_arrays_account_meta = position_state.get_bin_array_accounts_meta_coverage()?;
 
@@ -133,45 +134,44 @@ pub async fn execute_remove_liquidity_by_price_range<C: Deref<Target = impl Sign
             let mut instructions =
                 vec![ComputeBudgetInstruction::set_compute_unit_limit(1_400_000)];
 
-            let main_accounts: [AccountMeta; REMOVE_LIQUIDITY_BY_RANGE2_IX_ACCOUNTS_LEN] =
-                RemoveLiquidityByRange2Keys {
-                    position,
-                    lb_pair,
-                    bin_array_bitmap_extension,
-                    user_token_x,
-                    user_token_y,
-                    reserve_x: lb_pair_state.reserve_x,
-                    reserve_y: lb_pair_state.reserve_y,
-                    token_x_mint: lb_pair_state.token_x_mint,
-                    token_y_mint: lb_pair_state.token_y_mint,
-                    sender: program.payer(),
-                    token_x_program,
-                    token_y_program,
-                    memo_program: spl_memo::ID,
-                    event_authority,
-                    program: dlmm_interface::ID,
-                }
-                .into();
+            let main_accounts = dlmm::client::accounts::RemoveLiquidityByRange2 {
+                position,
+                lb_pair,
+                bin_array_bitmap_extension,
+                user_token_x,
+                user_token_y,
+                reserve_x: lb_pair_state.reserve_x,
+                reserve_y: lb_pair_state.reserve_y,
+                token_x_mint: lb_pair_state.token_x_mint,
+                token_y_mint: lb_pair_state.token_y_mint,
+                sender: program.payer(),
+                token_x_program,
+                token_y_program,
+                memo_program: spl_memo::ID,
+                event_authority,
+                program: dlmm::ID,
+            }
+            .to_account_metas(None);
 
-            let data = RemoveLiquidityByRange2IxData(RemoveLiquidityByRange2IxArgs {
+            let data = dlmm::client::args::RemoveLiquidityByRange2 {
                 from_bin_id: position_state.lower_bin_id,
                 to_bin_id: position_state.upper_bin_id,
                 bps_to_remove: BASIS_POINT_MAX as u16,
                 remaining_accounts_info: remaining_accounts_info.clone(),
-            })
-            .try_to_vec()?;
+            }
+            .data();
 
             let accounts = [main_accounts.to_vec(), remaining_accounts.clone()].concat();
 
             let withdraw_all_ix = Instruction {
-                program_id: dlmm_interface::ID,
+                program_id: dlmm::ID,
                 accounts,
                 data,
             };
 
             instructions.push(withdraw_all_ix);
 
-            let main_accounts: [AccountMeta; CLAIM_FEE2_IX_ACCOUNTS_LEN] = ClaimFee2Keys {
+            let main_accounts = dlmm::client::accounts::ClaimFee2 {
                 lb_pair,
                 position,
                 sender: program.payer(),
@@ -183,43 +183,43 @@ pub async fn execute_remove_liquidity_by_price_range<C: Deref<Target = impl Sign
                 token_program_y: token_y_program,
                 memo_program: spl_memo::ID,
                 event_authority,
-                program: dlmm_interface::ID,
+                program: dlmm::ID,
                 user_token_x,
                 user_token_y,
             }
-            .into();
+            .to_account_metas(None);
 
-            let data = ClaimFee2IxData(ClaimFee2IxArgs {
+            let data = dlmm::client::args::ClaimFee2 {
                 min_bin_id: position_state.lower_bin_id,
                 max_bin_id: position_state.upper_bin_id,
                 remaining_accounts_info: remaining_accounts_info.clone(),
-            })
-            .try_to_vec()?;
+            }
+            .data();
 
             let accounts = [main_accounts.to_vec(), remaining_accounts.clone()].concat();
 
             let claim_fee_ix = Instruction {
-                program_id: dlmm_interface::ID,
+                program_id: dlmm::ID,
                 accounts,
                 data,
             };
 
             instructions.push(claim_fee_ix);
 
-            let accounts: [AccountMeta; CLOSE_POSITION2_IX_ACCOUNTS_LEN] = ClosePosition2Keys {
+            let accounts = dlmm::client::accounts::ClosePosition2 {
                 position,
                 sender: program.payer(),
                 rent_receiver: program.payer(),
                 event_authority,
-                program: dlmm_interface::ID,
+                program: dlmm::ID,
             }
-            .into();
+            .to_account_metas(None);
 
-            let data = ClosePosition2IxData.try_to_vec()?;
+            let data = dlmm::client::args::ClosePosition2 {}.data();
 
             let close_position_ix = Instruction {
-                program_id: dlmm_interface::ID,
-                accounts: accounts.to_vec(),
+                program_id: dlmm::ID,
+                accounts,
                 data,
             };
 

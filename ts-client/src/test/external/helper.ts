@@ -1,6 +1,11 @@
 import { Program, web3 } from "@coral-xyz/anchor";
 import { TransferHookCounter } from "./transfer_hook_counter";
-import { getExtraAccountMetaAddress } from "@solana/spl-token";
+import {
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  getExtraAccountMetaAddress,
+  TOKEN_2022_PROGRAM_ID,
+} from "@solana/spl-token";
+import { SystemProgram } from "@solana/web3.js";
 
 export async function createExtraAccountMetaListAndCounter(
   program: Program<TransferHookCounter>,
@@ -14,10 +19,14 @@ export async function createExtraAccountMetaListAndCounter(
 
   await program.methods
     .initializeExtraAccountMetaList()
-    .accounts({
+    .accountsStrict({
       mint,
       counterAccount,
       extraAccountMetaList,
+      tokenProgram: TOKEN_2022_PROGRAM_ID,
+      payer: program.provider.wallet.publicKey,
+      systemProgram: SystemProgram.programId,
+      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
     })
     .rpc();
 

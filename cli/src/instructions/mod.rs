@@ -80,3 +80,6 @@ pub use initialize_customizable_permissionless_lb_pair::*;
 
 pub mod initialize_lb_pair;
 pub use initialize_lb_pair::*;
+
+pub mod sync_price;
+pub use sync_price::*;

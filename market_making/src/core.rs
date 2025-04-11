@@ -1,10 +1,10 @@
 use crate::MarketMakingMode;
 use crate::*;
-use anchor_lang::AccountDeserialize;
 use anchor_spl::associated_token::get_associated_token_address_with_program_id;
 use anchor_spl::token_interface::Mint;
 use anchor_spl::token_interface::TokenAccount;
 use compute_budget::ComputeBudgetInstruction;
+use dlmm::events::Swap as SwapEvent;
 use instruction::AccountMeta;
 use instruction::Instruction;
 use itertools::Itertools;
@@ -35,14 +35,14 @@ impl Core {
 
             let lb_pair_state = rpc_client
                 .get_account_and_deserialize(&pair_address, |account| {
-                    Ok(LbPairAccount::deserialize(&account.data)?.0)
+                    Ok(LbPair::try_deserialize(&mut account.data.as_ref())?)
                 })
                 .await?;
 
             // get all position with an user
             let position_accounts = rpc_client
                 .get_program_accounts_with_config(
-                    &dlmm_interface::ID,
+                    &dlmm_ID,
                     RpcProgramAccountsConfig {
                         filters: Some(position_filter_by_wallet_and_pair(self.owner, pair_address)),
                         account_config: RpcAccountInfoConfig {
@@ -57,7 +57,7 @@ impl Core {
             let mut position_key_with_state = position_accounts
                 .into_iter()
                 .filter_map(|(key, account)| {
-                    let position = PositionV2Account::deserialize(&account.data).ok()?.0;
+                    let position = PositionV2::try_deserialize(&mut account.data.as_ref()).ok()?;
                     Some((key, position))
                 })
                 .collect::<Vec<_>>();
@@ -99,7 +99,8 @@ impl Core {
 
                 for (key, account) in bin_array_keys.iter().zip(bin_array_accounts) {
                     if let Some(account) = account {
-                        let bin_array_state = BinArrayAccount::deserialize(&account.data)?.0;
+                        let bin_array_state =
+                            BinArray::try_deserialize(&mut account.data.as_ref())?;
                         bin_arrays.insert(*key, bin_array_state);
                     }
                 }
@@ -237,25 +238,24 @@ impl Core {
             let mut instructions =
                 vec![ComputeBudgetInstruction::set_compute_unit_limit(1_400_000)];
 
-            let main_accounts: [AccountMeta; REMOVE_LIQUIDITY2_IX_ACCOUNTS_LEN] =
-                RemoveLiquidityByRange2Keys {
-                    position,
-                    lb_pair,
-                    bin_array_bitmap_extension: dlmm_interface::ID,
-                    user_token_x,
-                    user_token_y,
-                    reserve_x: lb_pair_state.reserve_x,
-                    reserve_y: lb_pair_state.reserve_y,
-                    token_x_mint: lb_pair_state.token_x_mint,
-                    token_y_mint: lb_pair_state.token_y_mint,
-                    sender: payer.pubkey(),
-                    token_x_program,
-                    token_y_program,
-                    memo_program: spl_memo::ID,
-                    event_authority,
-                    program: dlmm_interface::ID,
-                }
-                .into();
+            let main_accounts = dlmm::client::accounts::RemoveLiquidityByRange2 {
+                position,
+                lb_pair,
+                bin_array_bitmap_extension: Some(dlmm_ID),
+                user_token_x,
+                user_token_y,
+                reserve_x: lb_pair_state.reserve_x,
+                reserve_y: lb_pair_state.reserve_y,
+                token_x_mint: lb_pair_state.token_x_mint,
+                token_y_mint: lb_pair_state.token_y_mint,
+                sender: payer.pubkey(),
+                token_x_program,
+                token_y_program,
+                memo_program: spl_memo::ID,
+                event_authority,
+                program: dlmm_ID,
+            }
+            .to_account_metas(None);
 
             let remaining_accounts = [
                 transfer_hook_remaining_accounts.clone(),
@@ -263,30 +263,30 @@ impl Core {
             ]
             .concat();
 
-            let data = RemoveLiquidityByRange2IxData(RemoveLiquidityByRange2IxArgs {
+            let data = dlmm::client::args::RemoveLiquidityByRange2 {
                 from_bin_id: position_state.lower_bin_id,
                 to_bin_id: position_state.upper_bin_id,
                 bps_to_remove: BASIS_POINT_MAX as u16,
                 remaining_accounts_info: remaining_account_info.clone(),
-            })
-            .try_to_vec()?;
+            }
+            .data();
 
             let accounts = [main_accounts.to_vec(), remaining_accounts].concat();
 
             let remove_all_ix = Instruction {
-                program_id: dlmm_interface::ID,
+                program_id: dlmm_ID,
                 accounts,
                 data,
             };
 
             instructions.push(remove_all_ix);
 
-            let main_accounts: [AccountMeta; CLAIM_FEE2_IX_ACCOUNTS_LEN] = ClaimFee2Keys {
+            let main_accounts = dlmm::client::accounts::ClaimFee2 {
                 lb_pair,
                 position,
                 sender: payer.pubkey(),
                 event_authority,
-                program: dlmm_interface::ID,
+                program: dlmm_ID,
                 reserve_x: lb_pair_state.reserve_x,
                 reserve_y: lb_pair_state.reserve_y,
                 token_x_mint: lb_pair_state.token_x_mint,
@@ -297,7 +297,7 @@ impl Core {
                 user_token_x,
                 user_token_y,
             }
-            .into();
+            .to_account_metas(None);
 
             let remaining_accounts = [
                 transfer_hook_remaining_accounts.clone(),
@@ -305,36 +305,36 @@ impl Core {
             ]
             .concat();
 
-            let data = ClaimFee2IxData(ClaimFee2IxArgs {
+            let data = dlmm::client::args::ClaimFee2 {
                 min_bin_id: position_state.lower_bin_id,
                 max_bin_id: position_state.upper_bin_id,
                 remaining_accounts_info: remaining_account_info.clone(),
-            })
-            .try_to_vec()?;
+            }
+            .data();
 
             let accounts = [main_accounts.to_vec(), remaining_accounts].concat();
 
             let claim_fee_ix = Instruction {
-                program_id: dlmm_interface::ID,
+                program_id: dlmm_ID,
                 accounts,
                 data,
             };
 
             instructions.push(claim_fee_ix);
 
-            let accounts: [AccountMeta; CLOSE_POSITION2_IX_ACCOUNTS_LEN] = ClosePosition2Keys {
+            let accounts = dlmm::client::accounts::ClosePosition2 {
                 position,
                 sender: payer.pubkey(),
                 rent_receiver: payer.pubkey(),
                 event_authority,
-                program: dlmm_interface::ID,
+                program: dlmm_ID,
             }
-            .into();
+            .to_account_metas(None);
 
-            let data = ClosePosition2IxData.try_to_vec()?;
+            let data = dlmm::client::args::ClosePosition2 {}.data();
 
             let close_position_ix = Instruction {
-                program_id: dlmm_interface::ID,
+                program_id: dlmm_ID,
                 accounts: accounts.to_vec(),
                 data,
             };
@@ -378,13 +378,13 @@ impl Core {
         let (bin_array_bitmap_extension, bin_array_bitmap_extension_state) =
             if let std::result::Result::Ok(account) = account {
                 let bin_array_bitmap_extension_state =
-                    BinArrayBitmapExtensionAccount::deserialize(&account.data)?.0;
+                    BinArrayBitmapExtension::try_deserialize(&mut account.data.as_ref())?;
                 (
                     bin_array_bitmap_extension,
                     Some(bin_array_bitmap_extension_state),
                 )
             } else {
-                (dlmm_interface::ID, None)
+                (dlmm_ID, None)
             };
 
         let bin_arrays_account_meta = get_bin_array_pubkeys_for_swap(
@@ -443,9 +443,9 @@ impl Core {
 
         remaining_accounts.extend(bin_arrays_account_meta);
 
-        let main_accounts: [AccountMeta; SWAP2_IX_ACCOUNTS_LEN] = Swap2Keys {
+        let main_accounts = dlmm::client::accounts::Swap2 {
             lb_pair,
-            bin_array_bitmap_extension,
+            bin_array_bitmap_extension: Some(bin_array_bitmap_extension),
             reserve_x: lb_pair_state.reserve_x,
             reserve_y: lb_pair_state.reserve_y,
             token_x_mint: lb_pair_state.token_x_mint,
@@ -456,24 +456,24 @@ impl Core {
             user_token_in,
             user_token_out,
             oracle: lb_pair_state.oracle,
-            host_fee_in: dlmm_interface::ID,
+            host_fee_in: Some(dlmm_ID),
             event_authority,
-            program: dlmm_interface::ID,
+            program: dlmm_ID,
             memo_program: spl_memo::ID,
         }
-        .into();
+        .to_account_metas(None);
 
-        let data = Swap2IxData(Swap2IxArgs {
+        let data = dlmm::client::args::Swap2 {
             amount_in,
             min_amount_out: state.get_min_out_amount_with_slippage_rate(amount_in, swap_for_y)?,
             remaining_accounts_info,
-        })
-        .try_to_vec()?;
+        }
+        .data();
 
         let accounts = [main_accounts.to_vec(), remaining_accounts].concat();
 
         let swap_ix = Instruction {
-            program_id: dlmm_interface::ID,
+            program_id: dlmm_ID,
             accounts,
             data,
         };
@@ -492,7 +492,7 @@ impl Core {
         let signature = send_tx(&instructions, &rpc_client, &[], &payer).await?;
         info!("Swap {amount_in} {swap_for_y} {signature}");
 
-        // TODO should handle if cannot get swap eevent
+        // TODO should handle if cannot get swap event
         let swap_event = parse_swap_event(&rpc_client, signature).await?;
 
         Ok(Some(swap_event))
@@ -533,20 +533,18 @@ impl Core {
             let (bin_array, _bump) = derive_bin_array_pda(lb_pair, idx.into());
 
             if rpc_client.get_account_data(&bin_array).await.is_err() {
-                let accounts: [AccountMeta; INITIALIZE_BIN_ARRAY_IX_ACCOUNTS_LEN] =
-                    InitializeBinArrayKeys {
-                        bin_array,
-                        funder: payer.pubkey(),
-                        lb_pair,
-                        system_program: system_program::ID,
-                    }
-                    .into();
+                let accounts = dlmm::client::accounts::InitializeBinArray {
+                    bin_array,
+                    funder: payer.pubkey(),
+                    lb_pair,
+                    system_program: system_program::ID,
+                }
+                .to_account_metas(None);
 
-                let data = InitializeBinArrayIxData(InitializeBinArrayIxArgs { index: idx.into() })
-                    .try_to_vec()?;
+                let data = dlmm::client::args::InitializeBinArray { index: idx.into() }.data();
 
                 let instruction = Instruction {
-                    program_id: dlmm_interface::ID,
+                    program_id: dlmm_ID,
                     accounts: accounts.to_vec(),
                     data,
                 };
@@ -558,7 +556,7 @@ impl Core {
         let position_kp = Keypair::new();
         let position = position_kp.pubkey();
 
-        let accounts: [AccountMeta; INITIALIZE_POSITION_IX_ACCOUNTS_LEN] = InitializePositionKeys {
+        let accounts = dlmm::client::accounts::InitializePosition {
             lb_pair,
             payer: payer.pubkey(),
             position,
@@ -566,18 +564,18 @@ impl Core {
             rent: sysvar::rent::ID,
             system_program: system_program::ID,
             event_authority,
-            program: dlmm_interface::ID,
+            program: dlmm_ID,
         }
-        .into();
+        .to_account_metas(None);
 
-        let data = InitializePositionIxData(InitializePositionIxArgs {
+        let data = dlmm::client::args::InitializePosition {
             lower_bin_id,
             width: DEFAULT_BIN_PER_POSITION as i32,
-        })
-        .try_to_vec()?;
+        }
+        .data();
 
         let instruction = Instruction {
-            program_id: dlmm_interface::ID,
+            program_id: dlmm_ID,
             accounts: accounts.to_vec(),
             data,
         };
@@ -590,7 +588,7 @@ impl Core {
             .get_account(&bin_array_bitmap_extension)
             .await
             .map(|_| bin_array_bitmap_extension)
-            .unwrap_or(dlmm_interface::ID);
+            .unwrap_or(dlmm_ID);
 
         let (bin_array_lower, _bump) = derive_bin_array_pda(lb_pair, lower_bin_array_idx.into());
         let (bin_array_upper, _bump) = derive_bin_array_pda(lb_pair, upper_bin_array_idx.into());
@@ -631,26 +629,25 @@ impl Core {
                 .map(|k| AccountMeta::new(k, false)),
         );
 
-        let main_accounts: [AccountMeta; ADD_LIQUIDITY_BY_STRATEGY2_IX_ACCOUNTS_LEN] =
-            AddLiquidityByStrategy2Keys {
-                lb_pair,
-                position,
-                bin_array_bitmap_extension,
-                sender: payer.pubkey(),
-                event_authority,
-                program: dlmm_interface::ID,
-                reserve_x: lb_pair_state.reserve_x,
-                reserve_y: lb_pair_state.reserve_y,
-                token_x_mint: lb_pair_state.token_x_mint,
-                token_y_mint: lb_pair_state.token_y_mint,
-                user_token_x,
-                user_token_y,
-                token_x_program,
-                token_y_program,
-            }
-            .into();
+        let main_accounts = dlmm::client::accounts::AddLiquidityByStrategy2 {
+            lb_pair,
+            position,
+            bin_array_bitmap_extension: Some(bin_array_bitmap_extension),
+            sender: payer.pubkey(),
+            event_authority,
+            program: dlmm_ID,
+            reserve_x: lb_pair_state.reserve_x,
+            reserve_y: lb_pair_state.reserve_y,
+            token_x_mint: lb_pair_state.token_x_mint,
+            token_y_mint: lb_pair_state.token_y_mint,
+            user_token_x,
+            user_token_y,
+            token_x_program,
+            token_y_program,
+        }
+        .to_account_metas(None);
 
-        let data = AddLiquidityByStrategy2IxData(AddLiquidityByStrategy2IxArgs {
+        let data = dlmm::client::args::AddLiquidityByStrategy2 {
             liquidity_parameter: LiquidityParameterByStrategy {
                 amount_x,
                 amount_y,
@@ -660,17 +657,19 @@ impl Core {
                     min_bin_id: lower_bin_id,
                     max_bin_id: upper_bin_id,
                     strategy_type: StrategyType::SpotBalanced,
-                    parameteres: [0u8; 64],
+                    favor_side: 0,
+                    actual_bin_range: None,
+                    parameteres: [0u8; 54],
                 },
             },
             remaining_accounts_info,
-        })
-        .try_to_vec()?;
+        }
+        .data();
 
         let accounts = [main_accounts.to_vec(), remaining_accounts].concat();
 
         let instruction = Instruction {
-            program_id: dlmm_interface::ID,
+            program_id: dlmm_ID,
             accounts,
             data,
         };
@@ -821,7 +820,7 @@ impl Core {
             info!("swap {}", state.lb_pair);
             let swap_event = self.swap(state, amount_y_for_buy, false, false).await?;
             (
-                swap_event.map(|e| e.0.amount_out).unwrap_or_default(),
+                swap_event.map(|e| e.amount_out).unwrap_or_default(),
                 position.amount_y - amount_y_for_buy,
             )
         } else {
@@ -871,7 +870,7 @@ impl Core {
             let swap_event = self.swap(state, amount_x_for_sell, true, false).await?;
             (
                 position.amount_x - amount_x_for_sell,
-                swap_event.map(|e| e.0.amount_out).unwrap_or_default(),
+                swap_event.map(|e| e.amount_out).unwrap_or_default(),
             )
         } else {
             (pair_config.x_amount, pair_config.y_amount)
