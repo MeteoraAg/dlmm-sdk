@@ -2844,6 +2844,22 @@ export class DLMM {
     }).add(...instructions);
   }
 
+  /**
+   * Initialize multiple positions and add liquidity to them in one transaction.
+   *
+   * This method is used to add liquidity to existing position. It will chunk the bin range into multiple add liquidity transactions if it exceed max size.
+   * The execution sequence must be: initPositionIxs -> addLiquidityIxs
+   *
+   * @param totalXAmount The total amount of token X to be added to the liquidity pool.
+   * @param totalYAmount The total amount of token Y to be added to the liquidity pool.
+   * @param strategy The strategy parameters to be used for the liquidity pool (Can use `calculateStrategyParameter` to calculate).
+   * @param user The public key of the user account.
+   * @param slippage The slippage percentage to be used for the liquidity pool.
+   * @returns An object containing the following properties:
+   *   - `initPositionIxs`: An array of `Transaction`s, each of which contains the instructions to initialize a position and extend it.
+   *   - `addLiquidityIxs`: An array of `Transaction`s, each of which contains the instructions to add liquidity to a position.
+   *   - `positionKeypairs`: An array of `Keypair`s, each of which is the keypair of a position.
+   */
   public async initializeMultiplePositionAndAddLiquidityByStrategy({
     totalXAmount,
     totalYAmount,
