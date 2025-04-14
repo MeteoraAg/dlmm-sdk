@@ -2866,6 +2866,7 @@ export class DLMM {
     strategy,
     user,
     slippage,
+    customKeyPairGenerator,
   }: TInitializeMultiplePositionAndAddLiquidityParamsByStrategy) {
     const { maxBinId, minBinId } = strategy;
 
@@ -2900,7 +2901,8 @@ export class DLMM {
     const addLiquidityIxs: TransactionInstruction[][] = [];
 
     for (let i = 0; i < chunkedPositionBinRange.length; i++) {
-      const positionKeypair = Keypair.generate();
+      const positionKeypair =
+        (await customKeyPairGenerator?.()) ?? Keypair.generate();
       positionKeypairs.push(positionKeypair);
 
       const { lowerBinId, upperBinId } = chunkedPositionBinRange[i];

@@ -10,6 +10,7 @@ import { LbClmm } from "../idl";
 import { getPriceOfBinByBinId } from "../helpers";
 import {
   AccountMeta,
+  Keypair,
   PublicKey,
   TransactionInstruction,
 } from "@solana/web3.js";
@@ -205,6 +206,7 @@ export interface TInitializeMultiplePositionAndAddLiquidityParamsByStrategy {
   strategy: StrategyParameters;
   user: PublicKey;
   slippage?: number;
+  customKeyPairGenerator?: () => Promise<Keypair>;
 }
 
 export interface BinLiquidity {
