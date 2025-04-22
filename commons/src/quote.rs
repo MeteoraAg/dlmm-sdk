@@ -229,7 +229,7 @@ pub fn quote_exact_in(
                 total_fee = total_fee.checked_add(fee).context("MathOverflow")?;
             }
 
-            if amount_in > 0 {
+            if amount_left > 0 {
                 lb_pair.advance_active_bin(swap_for_y)?;
             }
         }
