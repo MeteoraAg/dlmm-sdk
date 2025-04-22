@@ -116,6 +116,7 @@ pub enum DLMMCommand {
     SetPairStatusPermissionless(SetPairStatusPermissionlessParams),
     GetAllPositionsForAnOwner(GetAllPositionsParams),
     ExportProtocolFeeCsv(ExportProtocolFeeParams),
+    #[clap(flatten)]
     Admin(AdminCommand),
 }
 
