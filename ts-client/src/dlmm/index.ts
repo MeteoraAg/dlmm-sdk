@@ -34,7 +34,7 @@ import {
   MAX_ACTIVE_BIN_SLIPPAGE,
   MAX_BIN_ARRAY_SIZE,
   MAX_BIN_LENGTH_ALLOWED_IN_ONE_TX,
-  MAX_BIN_PER_TX,
+  MAX_BINS_PER_POSITION,
   MAX_CLAIM_ALL_ALLOWED,
   MAX_EXTRA_BIN_ARRAYS,
   MAX_FEE_RATE,
@@ -1152,10 +1152,9 @@ export class DLMM {
     });
 
     // filter positions has lock_release_point > currentTimestamp + lockDurationSecs
-    const clockAccInfo =
-      await this.program.provider.connection.getAccountInfo(
-        SYSVAR_CLOCK_PUBKEY
-      );
+    const clockAccInfo = await this.program.provider.connection.getAccountInfo(
+      SYSVAR_CLOCK_PUBKEY
+    );
     const clock = ClockLayout.decode(clockAccInfo.data) as Clock;
 
     const currentPoint =
@@ -1569,8 +1568,9 @@ export class DLMM {
       tokenBadgeY,
     ]);
 
-    const presetParameterState =
-      await program.account.presetParameter2.fetch(presetParameter);
+    const presetParameterState = await program.account.presetParameter2.fetch(
+      presetParameter
+    );
 
     const existsPool = await this.getPairPubkeyIfExists(
       connection,
@@ -2341,7 +2341,9 @@ export class DLMM {
     const binArraysCount = (
       await this.binArraysToBeCreate(lowerBinArrayIndex, upperBinArrayIndex)
     ).length;
-    const positionCount = Math.ceil((maxBinId - minBinId + 1) / MAX_BIN_PER_TX);
+    const positionCount = Math.ceil(
+      (maxBinId - minBinId + 1) / Number(MAX_BINS_PER_POSITION)
+    );
 
     const binArrayCost = binArraysCount * BIN_ARRAY_FEE;
     const positionCost = positionCount * POSITION_FEE;
@@ -3717,8 +3719,9 @@ export class DLMM {
       ? Math.ceil(slippage / (this.lbPair.binStep / 100))
       : MAX_ACTIVE_BIN_SLIPPAGE;
 
-    const positionAccount =
-      await this.program.account.positionV2.fetch(positionPubKey);
+    const positionAccount = await this.program.account.positionV2.fetch(
+      positionPubKey
+    );
     const { lowerBinId, upperBinId, binIds } =
       this.processXYAmountDistribution(xYAmountDistribution);
 

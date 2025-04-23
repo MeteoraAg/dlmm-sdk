@@ -87,7 +87,6 @@ export const PRECISION = 18446744073709551616;
 export const MAX_CLAIM_ALL_ALLOWED = 2;
 
 export const MAX_BIN_LENGTH_ALLOWED_IN_ONE_TX = 26;
-export const MAX_BIN_PER_TX = 69;
 
 export const MAX_ACTIVE_BIN_SLIPPAGE = 3;
 
@@ -97,3 +96,7 @@ export const ILM_BASE = new PublicKey(
 
 export const MAX_EXTRA_BIN_ARRAYS = 3;
 export const U64_MAX = new BN("18446744073709551615");
+
+export const MAX_BINS_PER_POSITION = new BN(
+  CONSTANTS.find(([k, v]) => v.name == "MAX_BINS_PER_POSITION")?.[1].value ?? 0
+);
