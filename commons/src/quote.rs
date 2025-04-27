@@ -327,11 +327,11 @@ mod tests {
         // RPC client. No gPA is required.
         let rpc_client = RpcClient::new(Cluster::Mainnet.url().to_string());
 
-        let sol_usdc = Pubkey::from_str("HTvjzsfX3yU6BUodCjZ5vZkUrAxMDTrBs3CJaq43ashR").unwrap();
+        let sol_usdc = Pubkey::from_str_const("HTvjzsfX3yU6BUodCjZ5vZkUrAxMDTrBs3CJaq43ashR");
 
         let lb_pair_account = rpc_client.get_account(&sol_usdc).await.unwrap();
 
-        let lb_pair = LbPair::try_deserialize(&mut lb_pair_account.data.as_ref()).unwrap();
+        let lb_pair: LbPair = bytemuck::pod_read_unaligned(&lb_pair_account.data[8..]);
 
         let mut mint_accounts = rpc_client
             .get_multiple_accounts(&[lb_pair.token_x_mint, lb_pair.token_y_mint])
@@ -367,7 +367,7 @@ mod tests {
             .map(|(account, key)| {
                 (
                     key,
-                    BinArray::try_deserialize(&mut account.unwrap().data.as_ref()).unwrap(),
+                    bytemuck::pod_read_unaligned(&account.unwrap().data[8..]),
                 )
             })
             .collect::<HashMap<_, _>>();
@@ -464,11 +464,11 @@ mod tests {
         // RPC client. No gPA is required.
         let rpc_client = RpcClient::new(Cluster::Mainnet.url().to_string());
 
-        let sol_usdc = Pubkey::from_str("HTvjzsfX3yU6BUodCjZ5vZkUrAxMDTrBs3CJaq43ashR").unwrap();
+        let sol_usdc = Pubkey::from_str_const("HTvjzsfX3yU6BUodCjZ5vZkUrAxMDTrBs3CJaq43ashR");
 
         let lb_pair_account = rpc_client.get_account(&sol_usdc).await.unwrap();
 
-        let lb_pair = LbPair::try_deserialize(&mut lb_pair_account.data.as_ref()).unwrap();
+        let lb_pair: LbPair = bytemuck::pod_read_unaligned(&lb_pair_account.data[8..]);
 
         let mut mint_accounts = rpc_client
             .get_multiple_accounts(&[lb_pair.token_x_mint, lb_pair.token_y_mint])
@@ -504,7 +504,7 @@ mod tests {
             .map(|(account, key)| {
                 (
                     key,
-                    BinArray::try_deserialize(&mut account.unwrap().data.as_ref()).unwrap(),
+                    bytemuck::pod_read_unaligned(&account.unwrap().data[8..]),
                 )
             })
             .collect::<HashMap<_, _>>();

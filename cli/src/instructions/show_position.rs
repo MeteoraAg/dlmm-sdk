@@ -1,3 +1,5 @@
+use anchor_lang::Discriminator;
+
 use crate::*;
 
 #[derive(Debug, Parser)]
@@ -17,18 +19,14 @@ pub async fn execute_show_position<C: Deref<Target = impl Signer> + Clone>(
     let mut disc = [0u8; 8];
     disc.copy_from_slice(&position_account.data[..8]);
 
-    match disc {
-        POSITION_ACCOUNT_DISCM => {
-            let position_state = Position::try_deserialize(&mut position_account.data.as_ref())?;
-            println!("{:#?}", position_state);
-        }
-        POSITION_V2_ACCOUNT_DISCM => {
-            let position_state = PositionV2::try_deserialize(&mut position_account.data.as_ref())?;
-            println!("{:#?}", position_state);
-        }
-        _ => {
-            bail!("Not a valid position account");
-        }
+    if disc == Position::DISCRIMINATOR {
+        let position_state: Position = bytemuck::pod_read_unaligned(&position_account.data[8..]);
+        println!("{:#?}", position_state);
+    } else if disc == PositionV2::DISCRIMINATOR {
+        let position_state: PositionV2 = bytemuck::pod_read_unaligned(&position_account.data[8..]);
+        println!("{:#?}", position_state);
+    } else {
+        bail!("Not a valid position account");
     };
 
     Ok(())

@@ -63,20 +63,20 @@ pub async fn execute_list_all_bin_step<C: Deref<Target = impl Signer> + Clone>(
                 let mut disc = [0u8; 8];
                 disc.copy_from_slice(&account.data[..8]);
 
-                let (bin_step, base_factor, base_fee_power_factor) = match disc {
-                    PRESET_PARAMETER_ACCOUNT_DISCM => {
-                        let state = PresetParameter::try_deserialize(&mut account.data.as_ref())?;
-                        (state.bin_step, state.base_factor, 0)
-                    }
-                    PRESET_PARAMETER2_ACCOUNT_DISCM => {
-                        let state = PresetParameter2::try_deserialize(&mut account.data.as_ref())?;
-                        (
-                            state.bin_step,
-                            state.base_factor,
-                            state.base_fee_power_factor,
-                        )
-                    }
-                    _ => continue,
+                let (bin_step, base_factor, base_fee_power_factor) = if disc
+                    == PresetParameter::DISCRIMINATOR
+                {
+                    let state = PresetParameter::try_deserialize(&mut account.data.as_ref())?;
+                    (state.bin_step, state.base_factor, 0)
+                } else if disc == PresetParameter2::DISCRIMINATOR {
+                    let state: PresetParameter2 = bytemuck::pod_read_unaligned(&account.data[8..]);
+                    (
+                        state.bin_step,
+                        state.base_factor,
+                        state.base_fee_power_factor,
+                    )
+                } else {
+                    continue;
                 };
 
                 let base_fee = (u128::from(bin_step)

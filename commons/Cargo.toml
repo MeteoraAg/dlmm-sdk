@@ -6,8 +6,6 @@ description = "Common libraries for DLMM"
 authors = ["tian <tian@racoons.dev>"]
 
 [features]
-borsh = []
-staging = []
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

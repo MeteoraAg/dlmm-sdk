@@ -37,8 +37,8 @@ pub async fn execute_remove_liquidity<C: Deref<Target = impl Signer> + Clone>(
     let lb_pair_account = accounts[0].take().context("lb_pair not found")?;
     let position_account = accounts[1].take().context("position not found")?;
 
-    let lb_pair_state = LbPair::try_deserialize(&mut lb_pair_account.data.as_ref())?;
-    let position_state = PositionV2::try_deserialize(&mut position_account.data.as_ref())?;
+    let lb_pair_state: LbPair = bytemuck::pod_read_unaligned(&lb_pair_account.data[8..]);
+    let position_state: PositionV2 = bytemuck::pod_read_unaligned(&position_account.data[8..]);
 
     let min_bin_id = bin_liquidity_removal
         .first()

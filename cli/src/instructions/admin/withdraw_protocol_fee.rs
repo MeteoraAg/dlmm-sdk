@@ -22,9 +22,9 @@ pub async fn execute_withdraw_protocol_fee<C: Deref<Target = impl Signer> + Clon
 
     let rpc_client = program.rpc();
 
-    let lb_pair_state = rpc_client
+    let lb_pair_state: LbPair = rpc_client
         .get_account_and_deserialize(&lb_pair, |account| {
-            Ok(LbPair::try_deserialize(&mut account.data.as_ref())?)
+            Ok(bytemuck::pod_read_unaligned(&account.data[8..]))
         })
         .await?;
 

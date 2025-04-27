@@ -130,7 +130,7 @@ async fn test_swap_exact_out() {
         .flatten()
         .unwrap();
 
-    let lb_pair_state = LbPair::try_deserialize(&mut lb_pair_account.data.as_ref()).unwrap();
+    let lb_pair_state: LbPair = bytemuck::pod_read_unaligned(&lb_pair_account.data[8..]);
 
     let bin_array_1_account = banks_client
         .get_account(bin_array_1)
@@ -139,8 +139,7 @@ async fn test_swap_exact_out() {
         .flatten()
         .unwrap();
 
-    let bin_array_1_state =
-        BinArray::try_deserialize(&mut bin_array_1_account.data.as_ref()).unwrap();
+    let bin_array_1_state = bytemuck::pod_read_unaligned(&bin_array_1_account.data[8..]);
 
     let bin_array_2_account = banks_client
         .get_account(bin_array_2)
@@ -149,8 +148,7 @@ async fn test_swap_exact_out() {
         .flatten()
         .unwrap();
 
-    let bin_array_2_state =
-        BinArray::try_deserialize(&mut bin_array_2_account.data.as_ref()).unwrap();
+    let bin_array_2_state = bytemuck::pod_read_unaligned(&bin_array_2_account.data[8..]);
 
     let mut bin_arrays = HashMap::new();
     bin_arrays.insert(bin_array_1, bin_array_1_state);
@@ -318,7 +316,7 @@ async fn test_swap() {
         .flatten()
         .unwrap();
 
-    let lb_pair_state = LbPair::try_deserialize(&mut lb_pair_account.data.as_ref()).unwrap();
+    let lb_pair_state: LbPair = bytemuck::pod_read_unaligned(&lb_pair_account.data[8..]);
 
     let bin_array_1_account = banks_client
         .get_account(bin_array_1)
@@ -327,8 +325,7 @@ async fn test_swap() {
         .flatten()
         .unwrap();
 
-    let bin_array_1_state =
-        BinArray::try_deserialize(&mut bin_array_1_account.data.as_ref()).unwrap();
+    let bin_array_1_state = bytemuck::pod_read_unaligned(&bin_array_1_account.data[8..]);
 
     let bin_array_2_account = banks_client
         .get_account(bin_array_2)
@@ -337,8 +334,7 @@ async fn test_swap() {
         .flatten()
         .unwrap();
 
-    let bin_array_2_state =
-        BinArray::try_deserialize(&mut bin_array_2_account.data.as_ref()).unwrap();
+    let bin_array_2_state = bytemuck::pod_read_unaligned(&bin_array_2_account.data[8..]);
 
     let mut bin_arrays = HashMap::new();
     bin_arrays.insert(bin_array_1, bin_array_1_state);

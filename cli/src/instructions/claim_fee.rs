@@ -16,15 +16,15 @@ pub async fn execute_claim_fee<C: Deref<Target = impl Signer> + Clone>(
     let ClaimFeeParams { position } = params;
 
     let rpc_client = program.rpc();
-    let position_state = rpc_client
+    let position_state: PositionV2 = rpc_client
         .get_account_and_deserialize(&position, |account| {
-            Ok(PositionV2::try_deserialize(&mut account.data.as_ref())?)
+            Ok(bytemuck::pod_read_unaligned(&account.data[8..]))
         })
         .await?;
 
-    let lb_pair_state = rpc_client
+    let lb_pair_state: LbPair = rpc_client
         .get_account_and_deserialize(&position_state.lb_pair, |account| {
-            Ok(LbPair::try_deserialize(&mut account.data.as_ref())?)
+            Ok(bytemuck::pod_read_unaligned(&account.data[8..]))
         })
         .await?;
 

@@ -1,33 +1,7 @@
 use anchor_lang::prelude::declare_program;
-#[cfg(feature = "staging")]
-use anchor_lang::prelude::Pubkey;
 use anyhow::*;
 
-#[cfg(feature = "borsh")]
-pub mod dlmm {
-    use super::*;
-    declare_program!(dlmm_borsh);
-    pub use dlmm_borsh::*;
-
-    #[cfg(feature = "staging")]
-    pub const ID: Pubkey = Pubkey::from_str_const("tLBro6JJuZNnpoad3p8pXKohE9f7f7tBZJpaeh6pXt1");
-    #[cfg(feature = "staging")]
-    pub const ID_CONST: Pubkey =
-        Pubkey::from_str_const("tLBro6JJuZNnpoad3p8pXKohE9f7f7tBZJpaeh6pXt1");
-}
-
-#[cfg(not(feature = "borsh"))]
-pub mod dlmm {
-    use super::*;
-    declare_program!(dlmm_zc);
-    pub use dlmm_zc::*;
-
-    #[cfg(feature = "staging")]
-    pub const ID: Pubkey = Pubkey::from_str_const("tLBro6JJuZNnpoad3p8pXKohE9f7f7tBZJpaeh6pXt1");
-    #[cfg(feature = "staging")]
-    pub const ID_CONST: Pubkey =
-        Pubkey::from_str_const("tLBro6JJuZNnpoad3p8pXKohE9f7f7tBZJpaeh6pXt1");
-}
+declare_program!(dlmm);
 
 use dlmm::accounts::*;
 use dlmm::types::*;

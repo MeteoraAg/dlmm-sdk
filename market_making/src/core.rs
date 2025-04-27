@@ -35,7 +35,7 @@ impl Core {
 
             let lb_pair_state = rpc_client
                 .get_account_and_deserialize(&pair_address, |account| {
-                    Ok(LbPair::try_deserialize(&mut account.data.as_ref())?)
+                    Ok(bytemuck::pod_read_unaligned(&account.data[8..]))
                 })
                 .await?;
 
@@ -56,9 +56,9 @@ impl Core {
 
             let mut position_key_with_state = position_accounts
                 .into_iter()
-                .filter_map(|(key, account)| {
-                    let position = PositionV2::try_deserialize(&mut account.data.as_ref()).ok()?;
-                    Some((key, position))
+                .map(|(key, account)| {
+                    let position: PositionV2 = bytemuck::pod_read_unaligned(&account.data[8..]);
+                    (key, position)
                 })
                 .collect::<Vec<_>>();
 
@@ -99,8 +99,7 @@ impl Core {
 
                 for (key, account) in bin_array_keys.iter().zip(bin_array_accounts) {
                     if let Some(account) = account {
-                        let bin_array_state =
-                            BinArray::try_deserialize(&mut account.data.as_ref())?;
+                        let bin_array_state = bytemuck::pod_read_unaligned(&account.data[8..]);
                         bin_arrays.insert(*key, bin_array_state);
                     }
                 }
@@ -378,7 +377,7 @@ impl Core {
         let (bin_array_bitmap_extension, bin_array_bitmap_extension_state) =
             if let std::result::Result::Ok(account) = account {
                 let bin_array_bitmap_extension_state =
-                    BinArrayBitmapExtension::try_deserialize(&mut account.data.as_ref())?;
+                    bytemuck::pod_read_unaligned(&account.data[8..]);
                 (
                     bin_array_bitmap_extension,
                     Some(bin_array_bitmap_extension_state),

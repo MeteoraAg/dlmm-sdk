@@ -34,7 +34,8 @@ pub async fn execute_get_all_positions<C: Deref<Target = impl Signer> + Clone>(
         .await?;
 
     for (position_key, position_raw_account) in accounts {
-        let position_state = PositionV2::try_deserialize(&mut position_raw_account.data.as_ref())?;
+        let position_state: PositionV2 =
+            bytemuck::pod_read_unaligned(&position_raw_account.data[8..]);
         println!(
             "Position {} fee owner {}",
             position_key, position_state.fee_owner

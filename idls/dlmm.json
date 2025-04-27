@@ -1,5 +1,5 @@
 {
-  "address": "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo",
+  "address": "LbVRzDTvBDEcrthxfZ4RL6yiq3uZw8bS6MwtdY6UhFQ",
   "metadata": {
     "name": "lb_clmm",
     "version": "0.9.1",
@@ -3977,6 +3977,180 @@
       "args": []
     },
     {
+      "name": "rebalance_liquidity",
+      "discriminator": [
+        92,
+        4,
+        176,
+        193,
+        119,
+        185,
+        83,
+        9
+      ],
+      "accounts": [
+        {
+          "name": "position",
+          "writable": true
+        },
+        {
+          "name": "lb_pair",
+          "writable": true,
+          "relations": [
+            "position",
+            "bin_array_bitmap_extension"
+          ]
+        },
+        {
+          "name": "bin_array_bitmap_extension",
+          "writable": true,
+          "optional": true
+        },
+        {
+          "name": "user_token_x",
+          "writable": true
+        },
+        {
+          "name": "user_token_y",
+          "writable": true
+        },
+        {
+          "name": "reserve_x",
+          "writable": true,
+          "relations": [
+            "lb_pair"
+          ]
+        },
+        {
+          "name": "reserve_y",
+          "writable": true,
+          "relations": [
+            "lb_pair"
+          ]
+        },
+        {
+          "name": "token_x_mint",
+          "relations": [
+            "lb_pair"
+          ]
+        },
+        {
+          "name": "token_y_mint",
+          "relations": [
+            "lb_pair"
+          ]
+        },
+        {
+          "name": "owner",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "position"
+          ]
+        },
+        {
+          "name": "token_x_program"
+        },
+        {
+          "name": "token_y_program"
+        },
+        {
+          "name": "memo_program",
+          "address": "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "reward_vault_0",
+          "writable": true,
+          "optional": true
+        },
+        {
+          "name": "user_token_reward_0",
+          "writable": true,
+          "optional": true
+        },
+        {
+          "name": "reward_mint_0",
+          "optional": true
+        },
+        {
+          "name": "reward_0_token_program",
+          "optional": true
+        },
+        {
+          "name": "reward_vault_1",
+          "writable": true,
+          "optional": true
+        },
+        {
+          "name": "user_token_reward_1",
+          "writable": true,
+          "optional": true
+        },
+        {
+          "name": "reward_mint_1",
+          "optional": true
+        },
+        {
+          "name": "reward_1_token_program",
+          "optional": true
+        },
+        {
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95,
+                  95,
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "RebalanceLiquidityParams"
+            }
+          }
+        },
+        {
+          "name": "remaining_accounts_info",
+          "type": {
+            "defined": {
+              "name": "RemainingAccountsInfo"
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "remove_all_liquidity",
       "discriminator": [
         10,
@@ -6139,38 +6313,38 @@
               {
                 "kind": "const",
                 "value": [
-                  153,
-                  10,
-                  107,
-                  154,
-                  255,
-                  249,
-                  210,
+                  8,
+                  234,
+                  192,
+                  109,
+                  87,
+                  125,
+                  190,
+                  55,
+                  129,
                   173,
-                  176,
-                  67,
-                  220,
-                  214,
-                  152,
-                  71,
-                  46,
-                  146,
-                  161,
-                  33,
-                  81,
-                  148,
-                  166,
-                  119,
-                  5,
-                  189,
-                  142,
-                  11,
+                  227,
+                  8,
+                  104,
+                  201,
+                  104,
+                  13,
+                  31,
+                  178,
+                  74,
+                  80,
+                  54,
+                  14,
+                  77,
+                  78,
+                  226,
                   57,
-                  68,
-                  162,
-                  70,
-                  126,
-                  100
+                  47,
+                  122,
+                  166,
+                  165,
+                  57,
+                  144
                 ]
               },
               {
@@ -6229,38 +6403,38 @@
               {
                 "kind": "const",
                 "value": [
-                  153,
-                  10,
-                  107,
-                  154,
-                  255,
-                  249,
-                  210,
+                  8,
+                  234,
+                  192,
+                  109,
+                  87,
+                  125,
+                  190,
+                  55,
+                  129,
                   173,
-                  176,
-                  67,
-                  220,
-                  214,
-                  152,
-                  71,
-                  46,
-                  146,
-                  161,
-                  33,
-                  81,
-                  148,
-                  166,
-                  119,
-                  5,
-                  189,
-                  142,
-                  11,
+                  227,
+                  8,
+                  104,
+                  201,
+                  104,
+                  13,
+                  31,
+                  178,
+                  74,
+                  80,
+                  54,
+                  14,
+                  77,
+                  78,
+                  226,
                   57,
-                  68,
-                  162,
-                  70,
-                  126,
-                  100
+                  47,
+                  122,
+                  166,
+                  165,
+                  57,
+                  144
                 ]
               },
               {
@@ -6694,6 +6868,19 @@
         53,
         37,
         121
+      ]
+    },
+    {
+      "name": "Rebalancing",
+      "discriminator": [
+        0,
+        109,
+        117,
+        179,
+        61,
+        91,
+        199,
+        200
       ]
     },
     {
@@ -7203,6 +7390,16 @@
       "code": 6082,
       "name": "NotSupportAtTheMoment",
       "msg": "Not support at the moment"
+    },
+    {
+      "code": 6083,
+      "name": "InvalidRebalanceParameters",
+      "msg": "Invalid rebalance parameters"
+    },
+    {
+      "code": 6084,
+      "name": "InvalidRewardAccounts",
+      "msg": "Invalid reward accounts"
     }
   ],
   "types": [
@@ -7219,6 +7416,12 @@
           },
           {
             "name": "TransferHookReward"
+          },
+          {
+            "name": "TransferHookMultiReward",
+            "fields": [
+              "u8"
+            ]
           }
         ]
       }
@@ -7288,6 +7491,59 @@
           {
             "name": "active_bin_id",
             "type": "i32"
+          }
+        ]
+      }
+    },
+    {
+      "name": "AddLiquidityParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "min_delta_id",
+            "type": "i32"
+          },
+          {
+            "name": "max_delta_id",
+            "type": "i32"
+          },
+          {
+            "name": "x0",
+            "type": "u64"
+          },
+          {
+            "name": "y0",
+            "type": "u64"
+          },
+          {
+            "name": "strategy_x",
+            "type": {
+              "defined": {
+                "name": "Strategy"
+              }
+            }
+          },
+          {
+            "name": "strategy_y",
+            "type": {
+              "defined": {
+                "name": "Strategy"
+              }
+            }
+          },
+          {
+            "name": "favor_x_in_active_id",
+            "type": "bool"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                16
+              ]
+            }
           }
         ]
       }
@@ -9558,6 +9814,129 @@
       }
     },
     {
+      "name": "RebalanceLiquidityParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "active_id",
+            "docs": [
+              "active id"
+            ],
+            "type": "i32"
+          },
+          {
+            "name": "max_active_bin_slippage",
+            "docs": [
+              "max active bin slippage allowed"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "should_claim_fee",
+            "docs": [
+              "a flag to indicate that whether fee should be harvested"
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "should_claim_reward",
+            "docs": [
+              "a flag to indicate that whether rewards should be harvested"
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "padding",
+            "docs": [
+              "padding 32 bytes for future usage"
+            ],
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "removes",
+            "docs": [
+              "removes"
+            ],
+            "type": {
+              "vec": {
+                "defined": {
+                  "name": "RemoveLiquidityParams"
+                }
+              }
+            }
+          },
+          {
+            "name": "adds",
+            "docs": [
+              "adds"
+            ],
+            "type": {
+              "vec": {
+                "defined": {
+                  "name": "AddLiquidityParams"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Rebalancing",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "lb_pair",
+            "type": "pubkey"
+          },
+          {
+            "name": "position",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount_x_removed",
+            "type": "u64"
+          },
+          {
+            "name": "amount_x_added",
+            "type": "u64"
+          },
+          {
+            "name": "amount_y_removed",
+            "type": "u64"
+          },
+          {
+            "name": "amount_y_added",
+            "type": "u64"
+          },
+          {
+            "name": "fee_x",
+            "type": "u64"
+          },
+          {
+            "name": "fee_y",
+            "type": "u64"
+          },
+          {
+            "name": "rewards",
+            "type": {
+              "array": [
+                "u64",
+                2
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
       "name": "RemainingAccountsInfo",
       "type": {
         "kind": "struct",
@@ -9624,6 +10003,39 @@
           {
             "name": "active_bin_id",
             "type": "i32"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RemoveLiquidityParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "min_bin_id",
+            "type": {
+              "option": "i32"
+            }
+          },
+          {
+            "name": "max_bin_id",
+            "type": {
+              "option": "i32"
+            }
+          },
+          {
+            "name": "bps",
+            "type": "u16"
+          },
+          {
+            "name": "padding",
+            "type": {
+              "array": [
+                "u8",
+                16
+              ]
+            }
           }
         ]
       }
@@ -9826,6 +10238,23 @@
                 5
               ]
             }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Strategy",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Spot"
+          },
+          {
+            "name": "Curve"
+          },
+          {
+            "name": "BidAsk"
           }
         ]
       }

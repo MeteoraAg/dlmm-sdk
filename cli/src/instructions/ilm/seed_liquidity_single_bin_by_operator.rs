@@ -74,9 +74,9 @@ pub async fn execute_seed_liquidity_single_bin_by_operator<
     let rpc_client = program.rpc();
     let operator = program.payer();
 
-    let lb_pair_state = rpc_client
+    let lb_pair_state: LbPair = rpc_client
         .get_account_and_deserialize(&lb_pair, |account| {
-            Ok(LbPair::try_deserialize(&mut account.data.as_ref())?)
+            Ok(bytemuck::pod_read_unaligned(&account.data[8..]))
         })
         .await?;
 

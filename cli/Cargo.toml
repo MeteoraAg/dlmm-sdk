@@ -8,10 +8,9 @@ authors = ["tian <tian@racoons.dev>"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-staging = ["commons/staging"]
 
 [dependencies]
-commons = { workspace = true, features = ["borsh"] }
+commons = { workspace = true }
 anchor-lang = { workspace = true }
 anchor-spl = { workspace = true }
 anchor-client = { workspace = true, features = ["async"] }

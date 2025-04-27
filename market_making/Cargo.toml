@@ -24,8 +24,9 @@ spl-associated-token-account = { workspace = true }
 solana-transaction-status = { workspace = true }
 bs58 = { workspace = true }
 chrono = { workspace = true }
-commons = { workspace = true, features = ["borsh"] }
+commons = { workspace = true }
 solana-account-decoder = { workspace = true }
 itertools = { workspace = true }
 rust_decimal = { workspace = true, features = ["maths"] }
 spl-memo = { workspace = true, features = ["no-entrypoint"] }
+bytemuck = { workspace = true }

@@ -25,9 +25,9 @@ pub async fn execute_swap<C: Deref<Target = impl Signer> + Clone>(
 
     let rpc_client = program.rpc();
 
-    let lb_pair_state = rpc_client
+    let lb_pair_state: LbPair = rpc_client
         .get_account_and_deserialize(&lb_pair, |account| {
-            Ok(LbPair::try_deserialize(&mut account.data.as_ref())?)
+            Ok(bytemuck::pod_read_unaligned(&account.data[8..]))
         })
         .await?;
 
@@ -65,9 +65,7 @@ pub async fn execute_swap<C: Deref<Target = impl Signer> + Clone>(
 
     let bitmap_extension = rpc_client
         .get_account_and_deserialize(&bitmap_extension_key, |account| {
-            Ok(BinArrayBitmapExtension::try_deserialize(
-                &mut account.data.as_ref(),
-            )?)
+            Ok(bytemuck::pod_read_unaligned(&account.data[8..]))
         })
         .await
         .ok();

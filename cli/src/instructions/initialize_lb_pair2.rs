@@ -45,11 +45,9 @@ pub async fn execute_initialize_lb_pair2<C: Deref<Target = impl Signer> + Clone>
     )
     .context("price_per_token_to_per_lamport overflow")?;
 
-    let preset_parameter_state = rpc_client
+    let preset_parameter_state: PresetParameter2 = rpc_client
         .get_account_and_deserialize(&preset_parameter, |account| {
-            Ok(PresetParameter2::try_deserialize(
-                &mut account.data.as_ref(),
-            )?)
+            Ok(bytemuck::pod_read_unaligned(&account.data[8..]))
         })
         .await?;
 
