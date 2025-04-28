@@ -1,12 +1,12 @@
-import { AnchorProvider, BN, Program, Wallet, web3 } from "@coral-xyz/anchor";
+import { BN, web3 } from "@coral-xyz/anchor";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
-  NATIVE_MINT,
-  TOKEN_PROGRAM_ID,
   createMint,
   getAssociatedTokenAddressSync,
   getOrCreateAssociatedTokenAccount,
   mintTo,
+  NATIVE_MINT,
+  TOKEN_PROGRAM_ID,
   transfer,
 } from "@solana/spl-token";
 import {
@@ -22,8 +22,8 @@ import fs from "fs";
 import {
   DEFAULT_BIN_PER_POSITION,
   LBCLMM_PROGRAM_IDS,
-  POSITION_MAX_LENGTH,
 } from "../dlmm/constants";
+import IDL from "../dlmm/dlmm.json";
 import {
   binIdToBinArrayIndex,
   deriveBinArray,
@@ -32,19 +32,11 @@ import {
   derivePermissionLbPair,
   derivePresetParameter2,
   deriveReserve,
-  getBinArrayLowerUpperBinId,
-  getPriceOfBinByBinId,
 } from "../dlmm/helpers";
 import { computeBaseFactorFromFeeBps } from "../dlmm/helpers/math";
-import { DLMM } from "../dlmm/index";
-import {
-  ActivationType,
-  PairType,
-  ResizeSide,
-  StrategyType,
-} from "../dlmm/types";
 import { wrapPosition } from "../dlmm/helpers/positions";
-import IDL from "../../../idls/dlmm_zc.json";
+import { DLMM } from "../dlmm/index";
+import { ActivationType, PairType, StrategyType } from "../dlmm/types";
 import { createTestProgram } from "./helper";
 
 const keypairBuffer = fs.readFileSync(
@@ -1772,8 +1764,9 @@ describe("SDK Test with Mainnet RPC", () => {
     );
     expect(quote.binArraysPubkey.length).toEqual(1);
     const binArrayToSwapPubkey = quote.binArraysPubkey[0];
-    const binArrayToSwap =
-      await lbPair.program.account.binArray.fetch(binArrayToSwapPubkey);
+    const binArrayToSwap = await lbPair.program.account.binArray.fetch(
+      binArrayToSwapPubkey
+    );
 
     quote = lbPair.swapQuote(
       inAmount,
@@ -1792,8 +1785,9 @@ describe("SDK Test with Mainnet RPC", () => {
     for (let i = 1; i < binArrays.length; i++) {
       let assertBinArrayPubkey = quote.binArraysPubkey[i];
 
-      const assertBinArray =
-        await lbPair.program.account.binArray.fetch(assertBinArrayPubkey);
+      const assertBinArray = await lbPair.program.account.binArray.fetch(
+        assertBinArrayPubkey
+      );
       if (swapForY) {
         expect(assertBinArray.index).toEqual(lastBinArrayIdx.sub(new BN(1)));
       } else {
@@ -1825,8 +1819,9 @@ describe("SDK Test with Mainnet RPC", () => {
     expect(quote.binArraysPubkey.length).toEqual(1);
 
     const binArrayToSwapPubkey = quote.binArraysPubkey[0];
-    const binArrayToSwap =
-      await lbPair.program.account.binArray.fetch(binArrayToSwapPubkey);
+    const binArrayToSwap = await lbPair.program.account.binArray.fetch(
+      binArrayToSwapPubkey
+    );
 
     quote = lbPair.swapQuote(
       inAmount,
@@ -1845,8 +1840,9 @@ describe("SDK Test with Mainnet RPC", () => {
     for (let i = 1; i < binArrays.length; i++) {
       let assertBinArrayPubkey = quote.binArraysPubkey[i];
 
-      const assertBinArray =
-        await lbPair.program.account.binArray.fetch(assertBinArrayPubkey);
+      const assertBinArray = await lbPair.program.account.binArray.fetch(
+        assertBinArrayPubkey
+      );
       if (swapForY) {
         expect(assertBinArray.index).toEqual(lastBinArrayIdx.sub(new BN(1)));
       } else {

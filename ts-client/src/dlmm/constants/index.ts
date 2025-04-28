@@ -1,6 +1,6 @@
 import { LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import { BN } from "@coral-xyz/anchor";
-import IDL from "../../../../idls/dlmm_zc.json";
+import IDL from "../dlmm.json";
 import Decimal from "decimal.js";
 
 export const LBCLMM_PROGRAM_IDS = {

@@ -36,5 +36,5 @@ jobs:
           components: clippy
       # Cache rust, cargo
       - uses: Swatinem/rust-cache@v1
-      - run: cargo t -p commons --features borsh --test '*'
+      - run: cargo t -p commons --test '*'
         shell: bash

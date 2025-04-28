@@ -1,5 +1,5 @@
-import IDL from "../../../idls/dlmm_zc.json";
-import { AnchorError, ProgramError } from "@coral-xyz/anchor";
+import IDL from "./dlmm.json";
+import { AnchorError } from "@coral-xyz/anchor";
 import { LBCLMM_PROGRAM_IDS } from "./constants";
 
 type Codes = (typeof IDL.errors)[number]["code"];

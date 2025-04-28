@@ -3,7 +3,7 @@ import { Position } from "../dlmm/types";
 import { DLMM } from "../dlmm";
 import BN from "bn.js";
 import { AnchorProvider, Program, Wallet } from "@coral-xyz/anchor";
-import IDL from "../../../idls/dlmm_zc.json";
+import IDL from "../dlmm/dlmm.json";
 import { LbClmm } from "../dlmm/idl";
 
 export function createTestProgram(
@@ -52,11 +52,13 @@ export async function assertPosition({
   xAmount: BN;
   yAmount: BN;
 }) {
-  const positionState: Position =
-    await lbClmm.program.account.positionV2.fetch(positionPubkey);
+  const positionState: Position = await lbClmm.program.account.positionV2.fetch(
+    positionPubkey
+  );
 
-  const { userPositions } =
-    await lbClmm.getPositionsByUserAndLbPair(userPublicKey);
+  const { userPositions } = await lbClmm.getPositionsByUserAndLbPair(
+    userPublicKey
+  );
 
   expect(userPositions.length).toBeGreaterThan(0);
   const position = userPositions.find((ps) =>

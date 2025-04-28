@@ -39,7 +39,7 @@ import {
   MAX_CU_BUFFER,
   MIN_CU_BUFFER,
 } from "./computeUnit";
-import IDL from "../../../../idls/dlmm_zc.json";
+import IDL from "../dlmm.json";
 import { LbClmm } from "../idl";
 import { IdlDiscriminator } from "@coral-xyz/anchor/dist/cjs/idl";
 
@@ -325,7 +325,7 @@ export function decodeAccount<
     | PositionV2
     | Position
     | PresetParameter
-    | PresetParameter2,
+    | PresetParameter2
 >(program: Program<LbClmm>, accountName: AccountName, buffer: Buffer): T {
   return program.coder.accounts.decode(accountName, buffer);
 }
