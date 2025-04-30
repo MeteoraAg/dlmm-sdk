@@ -157,6 +157,32 @@ export function getPositionCount(minBinId: BN, maxBinId: BN) {
   return positionCount.add(new BN(1));
 }
 
+export function findOptimumDecompressMultiplier(
+  binAmount: Map<number, BN>,
+  tokenDecimal: BN
+) {
+  let multiplier = new BN(10).pow(tokenDecimal);
+
+  while (!multiplier.isZero()) {
+    let found = true;
+
+    for (const [_binId, amount] of binAmount) {
+      const compressedAmount = amount.div(multiplier);
+      if (compressedAmount.isZero()) {
+        multiplier = multiplier.div(new BN(10));
+        found = false;
+        break;
+      }
+    }
+
+    if (found) {
+      return multiplier;
+    }
+  }
+
+  throw "Couldn't find optimum multiplier";
+}
+
 export function compressBinAmount(binAmount: Map<number, BN>, multiplier: BN) {
   const compressedBinAmount = new Map<number, BN>();
 
@@ -207,6 +233,10 @@ export function generateAmountForBinRange(
       maxPrice,
       k
     );
+
+    if (binAmount.isZero()) {
+      throw "bin amount is zero";
+    }
 
     binAmounts.set(i, binAmount);
   }
