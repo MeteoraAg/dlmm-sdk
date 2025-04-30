@@ -59,6 +59,8 @@ export type PresetParameter2 = IdlAccounts<LbClmm>["presetParameter2"];
 
 export type vParameters = IdlAccounts<LbClmm>["lbPair"]["vParameters"];
 export type sParameters = IdlAccounts<LbClmm>["lbPair"]["parameters"];
+export type RewardInfos = IdlAccounts<LbClmm>["lbPair"]["rewardInfos"];
+export type RewardInfo = IdlTypes<LbClmm>["rewardInfo"];
 
 export type UserRewardInfo = IdlTypes<LbClmm>["userRewardInfo"];
 export type UserFeeInfo = IdlTypes<LbClmm>["feeInfo"];

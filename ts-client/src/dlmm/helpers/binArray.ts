@@ -1,6 +1,10 @@
 import { BN } from "@coral-xyz/anchor";
 import { PublicKey } from "@solana/web3.js";
-import { MAX_BIN_ARRAY_SIZE, DEFAULT_BIN_PER_POSITION } from "../constants";
+import {
+  MAX_BIN_ARRAY_SIZE,
+  DEFAULT_BIN_PER_POSITION,
+  SCALE_OFFSET,
+} from "../constants";
 import {
   Bin,
   BinArray,
@@ -8,7 +12,10 @@ import {
   BinArrayBitmapExtension,
   BinLiquidity,
   BitmapType,
+  Clock,
   LbPair,
+  RewardInfo,
+  RewardInfos,
 } from "../types";
 import {
   EXTENSION_BINARRAY_BITMAP_SIZE,
@@ -400,4 +407,68 @@ export function* enumerateBins(
       );
     }
   }
+}
+
+function isRewardInitialized(reward: RewardInfo) {
+  return !reward.mint.equals(PublicKey.default);
+}
+
+export function getBinIdIndexInBinArray(
+  binId: BN,
+  lowerBinId: BN,
+  upperBinId: BN
+) {
+  if (binId.lt(lowerBinId) || binId.gt(upperBinId)) {
+    return null;
+  }
+  return binId.sub(lowerBinId);
+}
+
+/// Update bin array LM rewards
+export function updateBinArray(
+  activeId: BN,
+  clock: Clock,
+  allRewardInfos: RewardInfos,
+  binArray: BinArray
+) {
+  const [lowerBinId, upperBinId] = getBinArrayLowerUpperBinId(binArray.index);
+  const binIdx = getBinIdIndexInBinArray(activeId, lowerBinId, upperBinId);
+
+  if (binIdx == null) {
+    return binArray;
+  }
+
+  const binArrayClone = Object.assign({}, binArray);
+  const activeBin = binArrayClone.bins[binIdx.toNumber()];
+
+  if (activeBin.liquiditySupply.isZero()) {
+    return binArrayClone;
+  }
+
+  for (const [rewardIdx, reward] of allRewardInfos.entries()) {
+    if (!isRewardInitialized(reward)) {
+      continue;
+    }
+
+    const currentTime = new BN(
+      Math.min(
+        clock.unixTimestamp.toNumber(),
+        reward.rewardDurationEnd.toNumber()
+      )
+    );
+
+    const delta = currentTime.sub(reward.lastUpdateTime);
+    const liquiditySupply = activeBin.liquiditySupply.shrn(SCALE_OFFSET);
+
+    const rewardPerTokenStoredDelta = reward.rewardRate
+      .mul(delta)
+      .div(new BN(15))
+      .div(liquiditySupply);
+
+    activeBin.rewardPerTokenStored[rewardIdx] = activeBin.rewardPerTokenStored[
+      rewardIdx
+    ].add(rewardPerTokenStoredDelta);
+  }
+
+  return binArrayClone;
 }
