@@ -5,7 +5,7 @@
  * IDL can be found at `target/idl/lb_clmm.json`.
  */
 export type LbClmm = {
-  "address": "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo",
+  "address": "LbVRzDTvBDEcrthxfZ4RL6yiq3uZw8bS6MwtdY6UhFQ",
   "metadata": {
     "name": "lbClmm",
     "version": "0.9.1",
@@ -4069,42 +4069,6 @@ export type LbClmm = {
           "address": "11111111111111111111111111111111"
         },
         {
-          "name": "rewardVault0",
-          "writable": true,
-          "optional": true
-        },
-        {
-          "name": "userTokenReward0",
-          "writable": true,
-          "optional": true
-        },
-        {
-          "name": "rewardMint0",
-          "optional": true
-        },
-        {
-          "name": "reward0TokenProgram",
-          "optional": true
-        },
-        {
-          "name": "rewardVault1",
-          "writable": true,
-          "optional": true
-        },
-        {
-          "name": "userTokenReward1",
-          "writable": true,
-          "optional": true
-        },
-        {
-          "name": "rewardMint1",
-          "optional": true
-        },
-        {
-          "name": "reward1TokenProgram",
-          "optional": true
-        },
-        {
           "name": "eventAuthority",
           "pda": {
             "seeds": [
@@ -6319,38 +6283,38 @@ export type LbClmm = {
               {
                 "kind": "const",
                 "value": [
-                  153,
-                  10,
-                  107,
-                  154,
-                  255,
-                  249,
-                  210,
+                  8,
+                  234,
+                  192,
+                  109,
+                  87,
+                  125,
+                  190,
+                  55,
+                  129,
                   173,
-                  176,
-                  67,
-                  220,
-                  214,
-                  152,
-                  71,
-                  46,
-                  146,
-                  161,
-                  33,
-                  81,
-                  148,
-                  166,
-                  119,
-                  5,
-                  189,
-                  142,
-                  11,
+                  227,
+                  8,
+                  104,
+                  201,
+                  104,
+                  13,
+                  31,
+                  178,
+                  74,
+                  80,
+                  54,
+                  14,
+                  77,
+                  78,
+                  226,
                   57,
-                  68,
-                  162,
-                  70,
-                  126,
-                  100
+                  47,
+                  122,
+                  166,
+                  165,
+                  57,
+                  144
                 ]
               },
               {
@@ -6409,38 +6373,38 @@ export type LbClmm = {
               {
                 "kind": "const",
                 "value": [
-                  153,
-                  10,
-                  107,
-                  154,
-                  255,
-                  249,
-                  210,
+                  8,
+                  234,
+                  192,
+                  109,
+                  87,
+                  125,
+                  190,
+                  55,
+                  129,
                   173,
-                  176,
-                  67,
-                  220,
-                  214,
-                  152,
-                  71,
-                  46,
-                  146,
-                  161,
-                  33,
-                  81,
-                  148,
-                  166,
-                  119,
-                  5,
-                  189,
-                  142,
-                  11,
+                  227,
+                  8,
+                  104,
+                  201,
+                  104,
+                  13,
+                  31,
+                  178,
+                  74,
+                  80,
+                  54,
+                  14,
+                  77,
+                  78,
+                  226,
                   57,
-                  68,
-                  162,
-                  70,
-                  126,
-                  100
+                  47,
+                  122,
+                  166,
+                  165,
+                  57,
+                  144
                 ]
               },
               {
@@ -6517,11 +6481,11 @@ export type LbClmm = {
       ],
       "args": [
         {
-          "name": "amountX",
+          "name": "maxAmountX",
           "type": "u64"
         },
         {
-          "name": "amountY",
+          "name": "maxAmountY",
           "type": "u64"
         },
         {

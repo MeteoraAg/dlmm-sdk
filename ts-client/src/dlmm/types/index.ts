@@ -15,9 +15,10 @@ import {
   TransactionInstruction,
 } from "@solana/web3.js";
 import Decimal from "decimal.js";
-import { u64, i64, struct } from "@coral-xyz/borsh";
+import { u64, i64, struct, rustEnum } from "@coral-xyz/borsh";
 import { Mint } from "@solana/spl-token";
 import { AllAccountsMap } from "@coral-xyz/anchor/dist/cjs/program/namespace/types";
+import { RebalancePosition, SimulateRebalanceResp } from "../helpers/rebalance";
 
 export interface FeeInfo {
   baseFeeRatePercentage: Decimal;
@@ -64,6 +65,9 @@ export type RewardInfo = IdlTypes<LbClmm>["rewardInfo"];
 
 export type UserRewardInfo = IdlTypes<LbClmm>["userRewardInfo"];
 export type UserFeeInfo = IdlTypes<LbClmm>["feeInfo"];
+export type RebalanceAddLiquidityParam = IdlTypes<LbClmm>["addLiquidityParams"];
+export type RebalanceRemoveLiquidityParam =
+  IdlTypes<LbClmm>["removeLiquidityParams"];
 
 export type InitPermissionPairIx = IdlTypes<LbClmm>["initPermissionPairIx"];
 export type InitCustomizablePermissionlessPairIx =
@@ -103,6 +107,8 @@ export type CompressedBinDepositAmounts = CompressedBinDepositAmount[];
 
 export type ResizeSideEnum = IdlTypes<LbClmm>["resizeSide"];
 export type ExtendedPositionBinData = IdlTypes<LbClmm>["positionBinData"];
+
+export type RebalanceStrategy = IdlTypes<LbClmm>["strategy"];
 
 export interface LbPosition {
   publicKey: PublicKey;
@@ -163,6 +169,19 @@ export enum StrategyType {
   Curve,
   BidAsk,
 }
+
+export const toStrategyParamType = (
+  strategyType: StrategyType
+): RebalanceStrategy => {
+  switch (strategyType) {
+    case StrategyType.Spot:
+      return { spot: {} };
+    case StrategyType.Curve:
+      return { curve: {} };
+    case StrategyType.BidAsk:
+      return { bidAsk: {} };
+  }
+};
 
 export enum ActivationType {
   Slot,
@@ -500,3 +519,8 @@ export enum ResizeSide {
 export const MEMO_PROGRAM_ID = new PublicKey(
   "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"
 );
+
+export interface RebalancePositionResponse {
+  rebalancePosition: RebalancePosition;
+  simulationResult: SimulateRebalanceResp;
+}

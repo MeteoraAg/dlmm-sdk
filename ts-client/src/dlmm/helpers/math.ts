@@ -74,9 +74,13 @@ export function computeBaseFactorFromFeeBps(binStep: BN, feeBps: BN) {
 }
 
 export function getQPriceFromId(binId: BN, binStep: BN): BN {
+  return pow(getQPriceBaseFactor(binStep), binId);
+}
+
+export function getQPriceBaseFactor(binStep: BN): BN {
   const bps = binStep.shln(SCALE_OFFSET).div(new BN(BASIS_POINT_MAX));
   const base = ONE.add(bps);
-  return pow(base, binId);
+  return base;
 }
 
 export function getC(

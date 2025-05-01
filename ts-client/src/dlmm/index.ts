@@ -32,9 +32,9 @@ import {
   DEFAULT_BIN_PER_POSITION,
   FEE_PRECISION,
   MAX_ACTIVE_BIN_SLIPPAGE,
+  MAX_BINS_PER_POSITION,
   MAX_BIN_ARRAY_SIZE,
   MAX_BIN_LENGTH_ALLOWED_IN_ONE_TX,
-  MAX_BINS_PER_POSITION,
   MAX_CLAIM_ALL_ALLOWED,
   MAX_EXTRA_BIN_ARRAYS,
   MAX_FEE_RATE,
@@ -99,7 +99,6 @@ import {
 } from "./helpers/accountFilters";
 import {
   DEFAULT_ADD_LIQUIDITY_CU,
-  DEFAULT_EXTEND_POSITION_HIGH_CU,
   DEFAULT_INIT_BIN_ARRAY_CU,
   DEFAULT_INIT_POSITION_CU,
   getDefaultExtendPositionCU,
@@ -120,13 +119,19 @@ import {
   chunkBinRangeIntoExtendedPositions,
   getBinArrayAccountMetasCoverage,
   getBinArrayIndexesCoverage,
-  isPositionNoFee,
-  isPositionNoReward,
   getExtendedPositionBinCount,
   getPositionExpandRentExemption,
   getPositionLowerUpperBinIdWithLiquidity,
+  isPositionNoFee,
+  isPositionNoReward,
   wrapPosition,
 } from "./helpers/positions";
+import {
+  RebalancePosition,
+  RebalanceWithDeposit,
+  RebalanceWithWithdraw,
+  getRebalanceBinArrayIndexesAndBitmapCoverage,
+} from "./helpers/rebalance";
 import {
   calculateTransferFeeExcludedAmount,
   calculateTransferFeeIncludedAmount,
@@ -168,6 +173,7 @@ import {
   PositionV2,
   PositionVersion,
   ProgramStrategyParameter,
+  RebalancePositionResponse,
   RemainingAccountsInfoSlice,
   ResizeSide,
   SeedLiquidityResponse,
@@ -6802,6 +6808,295 @@ export class DLMM {
         }).add(...ixs);
       });
     }
+  }
+
+  /**
+   * Simulates a rebalance operation on a position without actually executing it.
+   *
+   * @param positionAddress The address of the position to simulate rebalancing.
+   * @param positionData The PositionData object associated with the position.
+   * @param shouldClaimFee True if the fee should be claimed during rebalancing.
+   * @param shouldClaimReward True if the reward should be claimed during rebalancing.
+   * @param deposits An array of RebalanceWithDeposit objects representing the deposits to simulate.
+   * @param withdraws An array of RebalanceWithWithdraw objects representing the withdraws to simulate.
+   */
+  public async simulateRebalancePosition(
+    positionAddress: PublicKey,
+    positionData: PositionData,
+    shouldClaimFee: boolean,
+    shouldClaimReward: boolean,
+    deposits: RebalanceWithDeposit[],
+    withdraws: RebalanceWithWithdraw[]
+  ): Promise<RebalancePositionResponse> {
+    const rebalancePosition = new RebalancePosition(
+      positionAddress,
+      positionData,
+      new BN(this.lbPair.activeId),
+      shouldClaimFee,
+      shouldClaimReward
+    );
+
+    const simulationResult = await rebalancePosition.simulateRebalance(
+      this.program.provider.connection,
+      new BN(this.lbPair.binStep),
+      new BN(this.tokenX.mint.decimals),
+      new BN(this.tokenY.mint.decimals),
+      withdraws,
+      deposits
+    );
+
+    return {
+      rebalancePosition,
+      simulationResult,
+    };
+  }
+
+  /**
+   * Rebalances a position and claim rewards if specified.
+   *
+   * @param rebalancePositionResponse The result of `simulateRebalancePosition`.
+   * @param maxActiveBinSlippage The maximum slippage allowed for active bin selection.
+   *
+   * @returns An object containing the instructions to initialize new bin arrays and the instruction to rebalance the position.
+   */
+  public async rebalancePosition(
+    rebalancePositionResponse: RebalancePositionResponse,
+    maxActiveBinSlippage: BN
+  ) {
+    const { rebalancePosition, simulationResult } = rebalancePositionResponse;
+
+    const { activeId, shouldClaimFee, shouldClaimReward, owner, address } =
+      rebalancePosition;
+    const { depositParams, withdrawParams } = simulationResult;
+
+    const { slices, accounts: transferHookAccounts } =
+      this.getPotentialToken2022IxDataAndAccounts(ActionType.Liquidity);
+
+    const preInstructions: TransactionInstruction[] = [];
+    const harvestRewardRemainingAccountMetas: AccountMeta[] = [];
+
+    if (shouldClaimReward) {
+      for (const [idx, reward] of this.lbPair.rewardInfos.entries()) {
+        if (!reward.mint.equals(PublicKey.default)) {
+          const rewardTokenInfo = this.rewards[idx];
+          slices.push({
+            accountsType: {
+              transferHookMultiReward: {
+                0: idx,
+              },
+            },
+            length: rewardTokenInfo.transferHookAccountMetas.length,
+          });
+
+          transferHookAccounts.push(
+            ...rewardTokenInfo.transferHookAccountMetas
+          );
+
+          const userTokenRewardAddress = getAssociatedTokenAddressSync(
+            reward.mint,
+            owner,
+            true,
+            rewardTokenInfo.owner
+          );
+
+          preInstructions.push(
+            createAssociatedTokenAccountIdempotentInstruction(
+              owner,
+              userTokenRewardAddress,
+              owner,
+              reward.mint,
+              rewardTokenInfo.owner
+            )
+          );
+
+          const rewardVault: AccountMeta = {
+            pubkey: reward.vault,
+            isSigner: false,
+            isWritable: true,
+          };
+
+          const userTokenReward: AccountMeta = {
+            pubkey: userTokenRewardAddress,
+            isSigner: false,
+            isWritable: true,
+          };
+
+          const rewardMint: AccountMeta = {
+            pubkey: reward.mint,
+            isSigner: false,
+            isWritable: false,
+          };
+
+          const rewardTokenProgram: AccountMeta = {
+            pubkey: rewardTokenInfo.owner,
+            isSigner: false,
+            isWritable: false,
+          };
+
+          harvestRewardRemainingAccountMetas.push(
+            rewardVault,
+            userTokenReward,
+            rewardMint,
+            rewardTokenProgram
+          );
+        }
+      }
+    }
+
+    const initBinArrayInstructions: TransactionInstruction[] = [];
+
+    const { binArrayBitmap, binArrayIndexes } =
+      getRebalanceBinArrayIndexesAndBitmapCoverage(
+        depositParams,
+        withdrawParams,
+        activeId.toNumber(),
+        this.pubkey,
+        this.program.programId
+      );
+
+    const binArrayPublicKeys = binArrayIndexes.map((index) => {
+      const [binArrayPubkey] = deriveBinArray(
+        this.pubkey,
+        index,
+        this.program.programId
+      );
+      return binArrayPubkey;
+    });
+
+    const binArrayAccounts = await chunkedGetMultipleAccountInfos(
+      this.program.provider.connection,
+      binArrayPublicKeys
+    );
+
+    for (let i = 0; i < binArrayAccounts.length; i++) {
+      const binArrayAccount = binArrayAccounts[i];
+      if (!binArrayAccount) {
+        const binArrayPubkey = binArrayPublicKeys[i];
+        const binArrayIndex = binArrayIndexes[i];
+        const initBinArrayIx = await this.program.methods
+          .initializeBinArray(binArrayIndex)
+          .accountsPartial({
+            binArray: binArrayPubkey,
+            funder: owner,
+            lbPair: this.pubkey,
+          })
+          .instruction();
+
+        initBinArrayInstructions.push(initBinArrayIx);
+      }
+    }
+
+    if (!binArrayBitmap.equals(PublicKey.default)) {
+      const bitmapAccount =
+        await this.program.provider.connection.getAccountInfo(binArrayBitmap);
+
+      if (!bitmapAccount) {
+        const initBitmapExtensionIx = await this.program.methods
+          .initializeBinArrayBitmapExtension()
+          .accountsPartial({
+            binArrayBitmapExtension: binArrayBitmap,
+            funder: owner,
+            lbPair: this.pubkey,
+          })
+          .preInstructions([
+            ComputeBudgetProgram.setComputeUnitLimit({
+              units: DEFAULT_INIT_BIN_ARRAY_CU,
+            }),
+          ])
+          .instruction();
+        preInstructions.push(initBitmapExtensionIx);
+      }
+    }
+
+    const userTokenX = getAssociatedTokenAddressSync(
+      this.tokenX.publicKey,
+      owner,
+      true,
+      this.tokenX.owner
+    );
+
+    const userTokenY = getAssociatedTokenAddressSync(
+      this.tokenY.publicKey,
+      owner,
+      true,
+      this.tokenY.owner
+    );
+
+    preInstructions.push(
+      createAssociatedTokenAccountIdempotentInstruction(
+        owner,
+        userTokenX,
+        owner,
+        this.tokenX.publicKey,
+        this.tokenX.owner
+      )
+    );
+
+    preInstructions.push(
+      createAssociatedTokenAccountIdempotentInstruction(
+        owner,
+        userTokenY,
+        owner,
+        this.tokenY.publicKey,
+        this.tokenY.owner
+      )
+    );
+
+    const instruction = await this.program.methods
+      .rebalanceLiquidity(
+        {
+          adds: depositParams,
+          removes: withdrawParams,
+          activeId: activeId.toNumber(),
+          shouldClaimFee,
+          shouldClaimReward,
+          maxActiveBinSlippage: maxActiveBinSlippage.toNumber(),
+          padding: Array(32).fill(0),
+        },
+        {
+          slices,
+        }
+      )
+      .accountsPartial({
+        lbPair: this.pubkey,
+        binArrayBitmapExtension: binArrayBitmap,
+        position: address,
+        owner,
+        userTokenX,
+        userTokenY,
+        reserveX: this.lbPair.reserveX,
+        reserveY: this.lbPair.reserveY,
+        tokenXMint: this.tokenX.publicKey,
+        tokenYMint: this.tokenY.publicKey,
+        tokenXProgram: this.tokenX.owner,
+        tokenYProgram: this.tokenY.owner,
+        memoProgram: MEMO_PROGRAM_ID,
+      })
+      .preInstructions(preInstructions)
+      .remainingAccounts(transferHookAccounts)
+      .remainingAccounts(
+        binArrayPublicKeys.map((pubkey) => {
+          return {
+            pubkey,
+            isSigner: false,
+            isWritable: true,
+          };
+        })
+      )
+      .instruction();
+
+    const setCUIX = await getEstimatedComputeUnitIxWithBuffer(
+      this.program.provider.connection,
+      [instruction],
+      owner
+    );
+
+    const rebalancePositionInstruction = [setCUIX, instruction];
+
+    return {
+      initBinArrayInstructions,
+      rebalancePositionInstruction,
+    };
   }
 
   private async createInitAndExtendPositionIx(

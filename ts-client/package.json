@@ -12,7 +12,7 @@
   "scripts": {
     "build": "tsup",
     "start": "npm run build -- --watch",
-    "test": "jest 'src/test/(ilm|sdk_token2022|sdk|single_bin|token_2022).test.ts'",
+    "test": "jest 'src/test/rebalance.test.ts'",
     "unit-test": "jest src/test/calculate_distribution.test.ts",
     "example": "dotenv -e .env npx ts-node src/examples/example.ts",
     "start-server": "npx tsc && node dist/src/server/index.js"
