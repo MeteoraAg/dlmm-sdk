@@ -260,15 +260,19 @@ async function swap(dlmmPool: DLMM) {
 
   console.log("🚀 ~ swapQuote:", swapQuote);
 
+  const [inToken, outToken] = swapYtoX
+  ? [dlmmPool.tokenY.publicKey, dlmmPool.tokenX.publicKey]
+  : [dlmmPool.tokenX.publicKey, dlmmPool.tokenY.publicKey];
+
   // Swap
   const swapTx = await dlmmPool.swap({
-    inToken: dlmmPool.tokenX.publicKey,
+    inToken,
     binArraysPubkey: swapQuote.binArraysPubkey,
     inAmount: swapAmount,
     lbPair: dlmmPool.pubkey,
-    user: user.publicKey,
+    user: feePayer.publicKey,
     minOutAmount: swapQuote.minOutAmount,
-    outToken: dlmmPool.tokenY.publicKey,
+    outToken,
   });
 
   try {
