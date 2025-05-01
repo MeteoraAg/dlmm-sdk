@@ -270,7 +270,7 @@ async function swap(dlmmPool: DLMM) {
     binArraysPubkey: swapQuote.binArraysPubkey,
     inAmount: swapAmount,
     lbPair: dlmmPool.pubkey,
-    user: feePayer.publicKey,
+    user: user.publicKey,
     minOutAmount: swapQuote.minOutAmount,
     outToken,
   });
