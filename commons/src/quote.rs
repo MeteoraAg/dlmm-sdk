@@ -306,10 +306,8 @@ mod tests {
     use super::*;
     use anchor_client::solana_sdk::clock::Clock;
     use anchor_client::{
-        anchor_lang::AccountDeserialize, solana_client::nonblocking::rpc_client::RpcClient,
-        solana_sdk::pubkey::Pubkey, Cluster,
+        solana_client::nonblocking::rpc_client::RpcClient, solana_sdk::pubkey::Pubkey, Cluster,
     };
-    use std::str::FromStr;
 
     /// Get on chain clock
     async fn get_clock(rpc_client: RpcClient) -> Result<Clock> {

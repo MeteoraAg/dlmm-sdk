@@ -5,8 +5,6 @@ use crate::*;
 #[derive(Debug, Parser)]
 pub struct WithdrawProtocolFeeParams {
     pub lb_pair: Pubkey,
-    pub amount_x: u64,
-    pub amount_y: u64,
 }
 
 pub async fn execute_withdraw_protocol_fee<C: Deref<Target = impl Signer> + Clone>(
@@ -14,11 +12,7 @@ pub async fn execute_withdraw_protocol_fee<C: Deref<Target = impl Signer> + Clon
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
 ) -> Result<()> {
-    let WithdrawProtocolFeeParams {
-        lb_pair,
-        amount_x,
-        amount_y,
-    } = params;
+    let WithdrawProtocolFeeParams { lb_pair } = params;
 
     let rpc_client = program.rpc();
 
@@ -76,8 +70,8 @@ pub async fn execute_withdraw_protocol_fee<C: Deref<Target = impl Signer> + Clon
     };
 
     let data = dlmm::client::args::WithdrawProtocolFee {
-        amount_x,
-        amount_y,
+        max_amount_x: u64::MAX,
+        max_amount_y: u64::MAX,
         remaining_accounts_info,
     }
     .data();

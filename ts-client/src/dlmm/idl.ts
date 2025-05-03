@@ -5,7 +5,7 @@
  * IDL can be found at `target/idl/lb_clmm.json`.
  */
 export type LbClmm = {
-  "address": "LbVRzDTvBDEcrthxfZ4RL6yiq3uZw8bS6MwtdY6UhFQ",
+  "address": "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo",
   "metadata": {
     "name": "lbClmm",
     "version": "0.9.1",
