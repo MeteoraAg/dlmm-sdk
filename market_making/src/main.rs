@@ -17,11 +17,13 @@ use anchor_client::*;
 use solana_account_decoder::*;
 
 use anyhow::*;
+use commons::dlmm::accounts::*;
+use commons::dlmm::types::*;
+use commons::dlmm::ID as dlmm_ID;
 use commons::extensions::*;
 use commons::pda::*;
 use commons::rpc_client_extension::*;
 use commons::*;
-use dlmm_interface::*;
 
 use serde::*;
 use solana_client::rpc_config::*;
@@ -37,6 +39,11 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Duration;
+
+use anchor_lang::AccountDeserialize;
+use anchor_lang::AnchorDeserialize;
+use anchor_lang::InstructionData;
+use anchor_lang::ToAccountMetas;
 
 #[macro_use]
 extern crate log;

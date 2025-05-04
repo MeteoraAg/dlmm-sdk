@@ -20,23 +20,23 @@ pub async fn execute_update_reward_funder<C: Deref<Target = impl Signer> + Clone
 
     let (event_authority, _bump) = derive_event_authority_pda();
 
-    let accounts: [AccountMeta; UPDATE_REWARD_FUNDER_IX_ACCOUNTS_LEN] = UpdateRewardFunderKeys {
+    let accounts = dlmm::client::accounts::UpdateRewardFunder {
         lb_pair,
         admin: program.payer(),
         event_authority,
-        program: dlmm_interface::ID,
+        program: dlmm::ID,
     }
-    .into();
+    .to_account_metas(None);
 
-    let data = UpdateRewardFunderIxData(UpdateRewardFunderIxArgs {
+    let data = dlmm::client::args::UpdateRewardFunder {
         reward_index,
         new_funder: funder,
-    })
-    .try_to_vec()?;
+    }
+    .data();
 
     let ix = Instruction {
-        program_id: dlmm_interface::ID,
-        accounts: accounts.to_vec(),
+        program_id: dlmm::ID,
+        accounts,
         data,
     };
 

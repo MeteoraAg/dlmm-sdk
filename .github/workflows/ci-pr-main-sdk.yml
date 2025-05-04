@@ -6,9 +6,9 @@ on:
       - main
 
 env:
-  SOLANA_CLI_VERSION: 1.16.13
-  NODE_VERSION: 18.14.2
-  ANCHOR_CLI_VERSION: 0.28.0
+  SOLANA_CLI_VERSION: 2.1.0
+  NODE_VERSION: 20.11.0
+  ANCHOR_CLI_VERSION: 0.31.0
 
 jobs:
   sdk_changed_files:

@@ -183,7 +183,7 @@ async function addLiquidityToExistingPosition(dlmmPool: DLMM) {
   const totalYAmount = totalXAmount.mul(new BN(Number(activeBinPricePerToken)));
 
   // Add Liquidity to existing position
-  const addLiquidityTx = await dlmmPool.addLiquidityByStrategy({
+  const addLiquidityTxs = await dlmmPool.addLiquidityByStrategy({
     positionPubKey: newBalancePosition.publicKey,
     user: user.publicKey,
     totalXAmount,
@@ -196,12 +196,16 @@ async function addLiquidityToExistingPosition(dlmmPool: DLMM) {
   });
 
   try {
-    const addLiquidityTxHash = await sendAndConfirmTransaction(
-      connection,
-      addLiquidityTx,
-      [user]
+    await Promise.all(
+      addLiquidityTxs.map(async (addLiquidityTx) => {
+        const addLiquidityTxHash = await sendAndConfirmTransaction(
+          connection,
+          addLiquidityTx,
+          [user]
+        );
+        console.log("🚀 ~ addLiquidityTxHash:", addLiquidityTxHash);
+      })
     );
-    console.log("🚀 ~ addLiquidityTxHash:", addLiquidityTxHash);
   } catch (error) {
     console.log("🚀 ~ error:", JSON.parse(JSON.stringify(error)));
   }

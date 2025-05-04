@@ -1,3 +1,5 @@
+use anchor_lang::Discriminator;
+use commons::dlmm::{accounts::PresetParameter2, types::InitPresetParameters2Ix};
 use solana_client::{
     rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig},
     rpc_filter::{Memcmp, RpcFilterType},
@@ -44,15 +46,15 @@ pub async fn execute_initialize_preset_parameter<C: Deref<Target = impl Signer> 
         base_fee_power_factor,
     } = params;
 
-    let rpc_client = program.async_rpc();
+    let rpc_client = program.rpc();
 
     let preset_parameter_v2_count = rpc_client
         .get_program_accounts_with_config(
-            &dlmm_interface::ID,
+            &dlmm::ID,
             RpcProgramAccountsConfig {
                 filters: Some(vec![RpcFilterType::Memcmp(Memcmp::new_base58_encoded(
                     0,
-                    &PRESET_PARAMETER2_ACCOUNT_DISCM,
+                    &PresetParameter2::DISCRIMINATOR,
                 ))]),
                 account_config: RpcAccountInfoConfig {
                     encoding: Some(UiAccountEncoding::Base64),
@@ -73,15 +75,14 @@ pub async fn execute_initialize_preset_parameter<C: Deref<Target = impl Signer> 
     let (preset_parameter, _bump) =
         derive_preset_parameter_pda_v2(preset_parameter_v2_count as u16);
 
-    let accounts: [AccountMeta; INITIALIZE_PRESET_PARAMETER2_IX_ACCOUNTS_LEN] =
-        InitializePresetParameter2Keys {
-            preset_parameter,
-            admin: program.payer(),
-            system_program: solana_sdk::system_program::ID,
-        }
-        .into();
+    let accounts = dlmm::client::accounts::InitializePresetParameter2 {
+        preset_parameter,
+        admin: program.payer(),
+        system_program: solana_sdk::system_program::ID,
+    }
+    .to_account_metas(None);
 
-    let data = InitializePresetParameter2IxData(InitializePresetParameter2IxArgs {
+    let data = dlmm::client::args::InitializePresetParameter2 {
         ix: InitPresetParameters2Ix {
             index,
             bin_step,
@@ -94,12 +95,12 @@ pub async fn execute_initialize_preset_parameter<C: Deref<Target = impl Signer> 
             protocol_share,
             base_fee_power_factor,
         },
-    })
-    .try_to_vec()?;
+    }
+    .data();
 
     let init_preset_param_ix = Instruction {
-        program_id: dlmm_interface::ID,
-        accounts: accounts.to_vec(),
+        program_id: dlmm::ID,
+        accounts,
         data,
     };
 

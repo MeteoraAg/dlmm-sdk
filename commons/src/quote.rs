@@ -2,7 +2,7 @@ use crate::*;
 use anchor_client::solana_sdk::pubkey::Pubkey;
 use core::result::Result::Ok;
 use solana_sdk::{account::Account, clock::Clock};
-use std::{collections::HashMap, ops::Deref};
+use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct SwapExactInQuote {
@@ -29,7 +29,7 @@ fn validate_swap_activation(
     let pair_type = lb_pair.pair_type()?;
     if pair_type.eq(&PairType::Permission) {
         let activation_type = lb_pair.activation_type()?;
-        let current_point = match activation_type.deref() {
+        let current_point = match activation_type {
             ActivationType::Slot => current_slot,
             ActivationType::Timestamp => current_timestamp,
         };
@@ -308,7 +308,6 @@ mod tests {
     use anchor_client::{
         solana_client::nonblocking::rpc_client::RpcClient, solana_sdk::pubkey::Pubkey, Cluster,
     };
-    use std::str::FromStr;
 
     /// Get on chain clock
     async fn get_clock(rpc_client: RpcClient) -> Result<Clock> {
@@ -326,11 +325,11 @@ mod tests {
         // RPC client. No gPA is required.
         let rpc_client = RpcClient::new(Cluster::Mainnet.url().to_string());
 
-        let sol_usdc = Pubkey::from_str("HTvjzsfX3yU6BUodCjZ5vZkUrAxMDTrBs3CJaq43ashR").unwrap();
+        let sol_usdc = Pubkey::from_str_const("HTvjzsfX3yU6BUodCjZ5vZkUrAxMDTrBs3CJaq43ashR");
 
         let lb_pair_account = rpc_client.get_account(&sol_usdc).await.unwrap();
 
-        let lb_pair = LbPairAccount::deserialize(&lb_pair_account.data).unwrap().0;
+        let lb_pair: LbPair = bytemuck::pod_read_unaligned(&lb_pair_account.data[8..]);
 
         let mut mint_accounts = rpc_client
             .get_multiple_accounts(&[lb_pair.token_x_mint, lb_pair.token_y_mint])
@@ -366,9 +365,7 @@ mod tests {
             .map(|(account, key)| {
                 (
                     key,
-                    BinArrayAccount::deserialize(&account.unwrap().data)
-                        .unwrap()
-                        .0,
+                    bytemuck::pod_read_unaligned(&account.unwrap().data[8..]),
                 )
             })
             .collect::<HashMap<_, _>>();
@@ -465,11 +462,11 @@ mod tests {
         // RPC client. No gPA is required.
         let rpc_client = RpcClient::new(Cluster::Mainnet.url().to_string());
 
-        let sol_usdc = Pubkey::from_str("HTvjzsfX3yU6BUodCjZ5vZkUrAxMDTrBs3CJaq43ashR").unwrap();
+        let sol_usdc = Pubkey::from_str_const("HTvjzsfX3yU6BUodCjZ5vZkUrAxMDTrBs3CJaq43ashR");
 
         let lb_pair_account = rpc_client.get_account(&sol_usdc).await.unwrap();
 
-        let lb_pair = LbPairAccount::deserialize(&lb_pair_account.data).unwrap().0;
+        let lb_pair: LbPair = bytemuck::pod_read_unaligned(&lb_pair_account.data[8..]);
 
         let mut mint_accounts = rpc_client
             .get_multiple_accounts(&[lb_pair.token_x_mint, lb_pair.token_y_mint])
@@ -505,9 +502,7 @@ mod tests {
             .map(|(account, key)| {
                 (
                     key,
-                    BinArrayAccount::deserialize(&account.unwrap().data)
-                        .unwrap()
-                        .0,
+                    bytemuck::pod_read_unaligned(&account.unwrap().data[8..]),
                 )
             })
             .collect::<HashMap<_, _>>();
