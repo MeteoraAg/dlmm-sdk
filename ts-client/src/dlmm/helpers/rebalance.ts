@@ -334,6 +334,8 @@ function getAmountIntoBinAskSide(
           amountX,
           amountY: new BN(0),
         });
+
+        basePrice = basePrice.mul(base).shrn(SCALE_OFFSET);
       }
       break;
     case StrategyType.BidAsk:
@@ -531,16 +533,19 @@ export class RebalancePosition {
       simulatedWithdrawResult;
 
     const depositBinIds = getDepositBinIds(this.activeId, deposits);
-    const depositMinBinId = depositBinIds[0];
-    const depositMaxBinId = depositBinIds[depositBinIds.length - 1];
 
-    this._simulateResize(
-      new BN(depositMinBinId),
-      new BN(depositMaxBinId),
-      binStep,
-      tokenXDecimal,
-      tokenYDecimal
-    );
+    if (depositBinIds.length > 0) {
+      const depositMinBinId = depositBinIds[0];
+      const depositMaxBinId = depositBinIds[depositBinIds.length - 1];
+
+      this._simulateResize(
+        new BN(depositMinBinId),
+        new BN(depositMaxBinId),
+        binStep,
+        tokenXDecimal,
+        tokenYDecimal
+      );
+    }
 
     let totalAmountXDeposited = new BN(0);
     let totalAmountYDeposited = new BN(0);
@@ -809,7 +814,10 @@ export class RebalancePosition {
     withdraws = validateAndSortRebalanceWithdraw(withdraws, this.activeId);
     deposits = validateAndSortRebalanceDeposit(deposits);
 
-    const beforeWidth = this.rebalancePositionBinData.length;
+    const beforeWidth = getPositionWidthWithMinWidth(
+      this.lowerBinId.toNumber(),
+      this.upperBinId.toNumber()
+    );
 
     const { withdrawParams, result: withdrawResult } =
       this._simulateWithdraw(withdraws);
@@ -822,7 +830,11 @@ export class RebalancePosition {
       withdrawResult
     );
 
-    const afterWidth = this.rebalancePositionBinData.length;
+    const afterWidth = getPositionWidthWithMinWidth(
+      this.lowerBinId.toNumber(),
+      this.upperBinId.toNumber()
+    );
+
     const widthDelta = afterWidth - beforeWidth;
 
     let rentalCostLamports = new BN(0);
@@ -899,10 +911,21 @@ export class RebalancePosition {
   }
 }
 
+function getPositionWidthWithMinWidth(lowerBinId: number, upperBinId: number) {
+  const width = upperBinId - lowerBinId + 1;
+  return Math.max(width, DEFAULT_BIN_PER_POSITION.toNumber());
+}
+
 function validateAndSortRebalanceDeposit(deposits: RebalanceWithDeposit[]) {
   const sortedDeposits = deposits.sort((a, b) =>
     a.minDeltaId.sub(b.minDeltaId).toNumber()
   );
+
+  for (const deposit of deposits) {
+    if (deposit.minDeltaId.gt(deposit.maxDeltaId)) {
+      throw "Invalid minDeltaId or maxDeltaId";
+    }
+  }
 
   for (let i = 1; i < sortedDeposits.length; i++) {
     const prevDeposit = sortedDeposits[i - 1];

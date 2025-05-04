@@ -2,52 +2,27 @@ import { BN, web3 } from "@coral-xyz/anchor";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   createMint,
-  getAssociatedTokenAddressSync,
   getOrCreateAssociatedTokenAccount,
   mintTo,
-  NATIVE_MINT,
   TOKEN_PROGRAM_ID,
-  transfer,
 } from "@solana/spl-token";
 import {
   Connection,
   Keypair,
-  LAMPORTS_PER_SOL,
-  PublicKey,
   sendAndConfirmTransaction,
-  SYSVAR_RENT_PUBKEY,
   Transaction,
 } from "@solana/web3.js";
-import Decimal from "decimal.js";
 import fs from "fs";
-import {
-  BASIS_POINT_MAX,
-  DEFAULT_BIN_PER_POSITION,
-  LBCLMM_PROGRAM_IDS,
-} from "../dlmm/constants";
+import { BASIS_POINT_MAX, LBCLMM_PROGRAM_IDS } from "../dlmm/constants";
 import IDL from "../dlmm/dlmm.json";
 import {
-  binIdToBinArrayIndex,
-  deriveBinArray,
-  deriveLbPair2,
   deriveLbPairWithPresetParamWithIndexKey,
-  deriveOracle,
-  derivePermissionLbPair,
-  derivePresetParameter2,
   derivePresetParameterWithIndex,
-  deriveReserve,
 } from "../dlmm/helpers";
-import { computeBaseFactorFromFeeBps } from "../dlmm/helpers/math";
-import { wrapPosition } from "../dlmm/helpers/positions";
-import { DLMM } from "../dlmm/index";
-import {
-  ActivationType,
-  LbPosition,
-  PairType,
-  StrategyType,
-} from "../dlmm/types";
-import { createTestProgram } from "./helper";
 import { RebalancePosition } from "../dlmm/helpers/rebalance";
+import { DLMM } from "../dlmm/index";
+import { LbPosition, StrategyType } from "../dlmm/types";
+import { createTestProgram } from "./helper";
 
 const keypairBuffer = fs.readFileSync(
   "../keys/localnet/admin-bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1.json",
@@ -58,7 +33,7 @@ const keypair = Keypair.fromSecretKey(
   new Uint8Array(JSON.parse(keypairBuffer))
 );
 
-const btcDecimal = 8;
+const btcDecimal = 6;
 const usdcDecimal = 6;
 
 const CONSTANTS = Object.entries(IDL.constants);
@@ -69,9 +44,8 @@ export const MAX_BIN_PER_ARRAY = new BN(
   CONSTANTS.find(([k, v]) => v.name == "MAX_BIN_PER_ARRAY")[1].value
 );
 
-const DEFAULT_ACTIVE_ID = new BN(5660);
+const DEFAULT_ACTIVE_ID = new BN(1);
 const DEFAULT_BIN_STEP = new BN(10);
-const DEFAULT_BASE_FACTOR = new BN(10000);
 const DEFAULT_BASE_FACTOR_2 = new BN(4000);
 
 const programId = new web3.PublicKey(LBCLMM_PROGRAM_IDS["localhost"]);
@@ -83,10 +57,47 @@ let userBTC: web3.PublicKey;
 let userUSDC: web3.PublicKey;
 let presetParamPda2: web3.PublicKey;
 
-const positionKeypair = Keypair.generate();
+const strategySet: { strategyX: StrategyType; strategyY: StrategyType }[] = [
+  {
+    strategyX: StrategyType.Spot,
+    strategyY: StrategyType.Spot,
+  },
+  {
+    strategyX: StrategyType.Curve,
+    strategyY: StrategyType.Spot,
+  },
+  {
+    strategyX: StrategyType.BidAsk,
+    strategyY: StrategyType.Spot,
+  },
+  {
+    strategyX: StrategyType.Curve,
+    strategyY: StrategyType.Spot,
+  },
+  {
+    strategyX: StrategyType.Curve,
+    strategyY: StrategyType.Curve,
+  },
+  {
+    strategyX: StrategyType.Curve,
+    strategyY: StrategyType.BidAsk,
+  },
+  {
+    strategyX: StrategyType.BidAsk,
+    strategyY: StrategyType.Spot,
+  },
+  {
+    strategyX: StrategyType.BidAsk,
+    strategyY: StrategyType.Curve,
+  },
+  {
+    strategyX: StrategyType.BidAsk,
+    strategyY: StrategyType.BidAsk,
+  },
+];
 
 describe("Rebalance", () => {
-  beforeAll(async () => {
+  beforeEach(async () => {
     BTC = await createMint(
       connection,
       keypair,
@@ -222,90 +233,726 @@ describe("Rebalance", () => {
       USDC,
       programId
     );
-
-    const dlmm = await DLMM.create(connection, lbPairPubkey, {
-      cluster: "localhost",
-    });
-
-    rawTx = await dlmm.createEmptyPosition({
-      positionPubKey: positionKeypair.publicKey,
-      user: keypair.publicKey,
-      minBinId: dlmm.lbPair.activeId - 30,
-      maxBinId: dlmm.lbPair.activeId + 30,
-    });
-
-    await sendAndConfirmTransaction(connection, rawTx, [
-      positionKeypair,
-      keypair,
-    ]);
   });
 
-  it("Rebalance with only deposit", async () => {
+  it("Rebalance with only deposit and auto shrink position", async () => {
     const dlmm = await DLMM.create(connection, lbPairPubkey, {
       cluster: "localhost",
     });
-    const beforePosition = await dlmm.getPosition(positionKeypair.publicKey);
 
-    const { simulationResult, rebalancePosition } =
-      await dlmm.simulateRebalancePosition(
-        positionKeypair.publicKey,
-        beforePosition.positionData,
-        true,
-        true,
-        [
-          {
-            minDeltaId: new BN(-10),
-            maxDeltaId: new BN(20),
-            amountX: new BN(100_000_000),
-            amountY: new BN(10_000_000),
-            strategyX: StrategyType.BidAsk,
-            strategyY: StrategyType.Spot,
-            favorXInActiveBin: false,
-          },
-        ],
-        [
-          {
-            minBinId: new BN(beforePosition.positionData.lowerBinId),
-            maxBinId: new BN(beforePosition.positionData.upperBinId),
-            bps: new BN(BASIS_POINT_MAX),
-          },
-        ]
+    for (const { strategyX, strategyY } of strategySet) {
+      const positionKeypair = Keypair.generate();
+
+      const initPositionTx = await dlmm.createEmptyPosition({
+        positionPubKey: positionKeypair.publicKey,
+        user: keypair.publicKey,
+        minBinId: dlmm.lbPair.activeId - 30,
+        maxBinId: dlmm.lbPair.activeId + 30,
+      });
+
+      await sendAndConfirmTransaction(connection, initPositionTx, [
+        positionKeypair,
+        keypair,
+      ]);
+
+      const beforePositionLamports = await connection
+        .getAccountInfo(positionKeypair.publicKey)
+        .then((account) => account.lamports);
+
+      const beforePosition = await dlmm.getPosition(positionKeypair.publicKey);
+
+      const { simulationResult, rebalancePosition } =
+        await dlmm.simulateRebalancePosition(
+          positionKeypair.publicKey,
+          beforePosition.positionData,
+          true,
+          true,
+          [
+            {
+              minDeltaId: new BN(-10),
+              maxDeltaId: new BN(20),
+              amountX: new BN(10_000_000),
+              amountY: new BN(10_000_000),
+              strategyX,
+              strategyY,
+              favorXInActiveBin: false,
+            },
+          ],
+          [
+            {
+              minBinId: new BN(beforePosition.positionData.lowerBinId),
+              maxBinId: new BN(beforePosition.positionData.upperBinId),
+              bps: new BN(BASIS_POINT_MAX),
+            },
+          ]
+        );
+
+      const { initBinArrayInstructions, rebalancePositionInstruction } =
+        await dlmm.rebalancePosition(
+          { simulationResult, rebalancePosition },
+          new BN(0)
+        );
+
+      const { lastValidBlockHeight, blockhash } =
+        await connection.getLatestBlockhash();
+
+      await Promise.all(
+        initBinArrayInstructions.map((ix) => {
+          const transaction = new Transaction({
+            lastValidBlockHeight,
+            blockhash,
+          }).add(ix);
+
+          return sendAndConfirmTransaction(connection, transaction, [keypair]);
+        })
       );
 
-    const { initBinArrayInstructions, rebalancePositionInstruction } =
-      await dlmm.rebalancePosition(
-        { simulationResult, rebalancePosition },
-        new BN(0)
+      const rebalanceTx = new Transaction({
+        lastValidBlockHeight,
+        blockhash,
+      }).add(...rebalancePositionInstruction);
+
+      await sendAndConfirmTransaction(connection, rebalanceTx, [keypair]);
+
+      const afterPositionLamports = await connection
+        .getAccountInfo(positionKeypair.publicKey)
+        .then((account) => account.lamports);
+      const afterPosition = await dlmm.getPosition(positionKeypair.publicKey);
+
+      assertEqRebalanceSimulationWithActualResult(
+        rebalancePosition,
+        afterPosition
       );
 
-    const { lastValidBlockHeight, blockhash } =
-      await connection.getLatestBlockhash();
+      const rentalChanges = new BN(afterPositionLamports).sub(
+        new BN(beforePositionLamports)
+      );
 
-    await Promise.all(
-      initBinArrayInstructions.map((ix) => {
-        const transaction = new Transaction({
+      expect(rentalChanges.toString()).toBe(
+        simulationResult.rentalCostLamports.toString()
+      );
+
+      const [beforeWidth, afterWidth] = getBeforeAfterPositionWidth(
+        beforePosition,
+        afterPosition
+      );
+
+      expect(afterWidth).toBeLessThan(beforeWidth);
+      await dlmm.refetchStates();
+    }
+  });
+
+  it("Rebalance with only deposit and auto expand position", async () => {
+    const dlmm = await DLMM.create(connection, lbPairPubkey, {
+      cluster: "localhost",
+    });
+
+    for (const { strategyX, strategyY } of strategySet) {
+      const positionKeypair = Keypair.generate();
+
+      const initPositionTx = await dlmm.createEmptyPosition({
+        positionPubKey: positionKeypair.publicKey,
+        user: keypair.publicKey,
+        minBinId: dlmm.lbPair.activeId - 30,
+        maxBinId: dlmm.lbPair.activeId + 30,
+      });
+
+      await sendAndConfirmTransaction(connection, initPositionTx, [
+        positionKeypair,
+        keypair,
+      ]);
+
+      const beforePositionLamports = await connection
+        .getAccountInfo(positionKeypair.publicKey)
+        .then((account) => account.lamports);
+
+      const beforePosition = await dlmm.getPosition(positionKeypair.publicKey);
+
+      const { simulationResult, rebalancePosition } =
+        await dlmm.simulateRebalancePosition(
+          positionKeypair.publicKey,
+          beforePosition.positionData,
+          true,
+          true,
+          [
+            {
+              minDeltaId: new BN(-50),
+              maxDeltaId: new BN(50),
+              amountX: new BN(10_000_000),
+              amountY: new BN(10_000_000),
+              strategyX,
+              strategyY,
+              favorXInActiveBin: false,
+            },
+          ],
+          [
+            {
+              minBinId: new BN(beforePosition.positionData.lowerBinId),
+              maxBinId: new BN(beforePosition.positionData.upperBinId),
+              bps: new BN(BASIS_POINT_MAX),
+            },
+          ]
+        );
+
+      const { initBinArrayInstructions, rebalancePositionInstruction } =
+        await dlmm.rebalancePosition(
+          { simulationResult, rebalancePosition },
+          new BN(0)
+        );
+
+      const { lastValidBlockHeight, blockhash } =
+        await connection.getLatestBlockhash();
+
+      await Promise.all(
+        initBinArrayInstructions.map((ix) => {
+          const transaction = new Transaction({
+            lastValidBlockHeight,
+            blockhash,
+          }).add(ix);
+
+          return sendAndConfirmTransaction(connection, transaction, [keypair]);
+        })
+      );
+
+      const rebalanceTx = new Transaction({
+        lastValidBlockHeight,
+        blockhash,
+      }).add(...rebalancePositionInstruction);
+
+      await sendAndConfirmTransaction(connection, rebalanceTx, [keypair]);
+
+      const afterPositionLamports = await connection
+        .getAccountInfo(positionKeypair.publicKey)
+        .then((account) => account.lamports);
+      const afterPosition = await dlmm.getPosition(positionKeypair.publicKey);
+
+      assertEqRebalanceSimulationWithActualResult(
+        rebalancePosition,
+        afterPosition
+      );
+
+      const rentalChanges = new BN(afterPositionLamports).sub(
+        new BN(beforePositionLamports)
+      );
+
+      expect(rentalChanges.toString()).toBe(
+        simulationResult.rentalCostLamports.toString()
+      );
+
+      const [beforeWidth, afterWidth] = getBeforeAfterPositionWidth(
+        beforePosition,
+        afterPosition
+      );
+
+      expect(afterWidth).toBeGreaterThan(beforeWidth);
+      await dlmm.refetchStates();
+    }
+  });
+
+  it("Rebalance with claim fee + withdraw + deposit and auto shrink position", async () => {
+    const dlmm = await DLMM.create(connection, lbPairPubkey, {
+      cluster: "localhost",
+    });
+    for (const { strategyX, strategyY } of strategySet) {
+      const positionKeypair = Keypair.generate();
+
+      const initPositionTx = await dlmm.createEmptyPosition({
+        positionPubKey: positionKeypair.publicKey,
+        user: keypair.publicKey,
+        minBinId: dlmm.lbPair.activeId - 30,
+        maxBinId: dlmm.lbPair.activeId + 30,
+      });
+
+      await sendAndConfirmTransaction(connection, initPositionTx, [
+        positionKeypair,
+        keypair,
+      ]);
+
+      console.log("Deposit and generate swap fees");
+      {
+        const beforePosition = await dlmm.getPosition(
+          positionKeypair.publicKey
+        );
+
+        const { simulationResult, rebalancePosition } =
+          await dlmm.simulateRebalancePosition(
+            positionKeypair.publicKey,
+            beforePosition.positionData,
+            true,
+            true,
+            [
+              {
+                minDeltaId: new BN(beforePosition.positionData.lowerBinId).subn(
+                  dlmm.lbPair.activeId
+                ),
+                maxDeltaId: new BN(beforePosition.positionData.upperBinId).subn(
+                  dlmm.lbPair.activeId
+                ),
+                amountX: new BN(100_000_000),
+                amountY: new BN(100_000_000),
+                strategyX,
+                strategyY,
+                favorXInActiveBin: false,
+              },
+            ],
+            [
+              {
+                minBinId: new BN(beforePosition.positionData.lowerBinId),
+                maxBinId: new BN(beforePosition.positionData.upperBinId),
+                bps: new BN(BASIS_POINT_MAX),
+              },
+            ]
+          );
+
+        const { initBinArrayInstructions, rebalancePositionInstruction } =
+          await dlmm.rebalancePosition(
+            { simulationResult, rebalancePosition },
+            new BN(0)
+          );
+
+        const { lastValidBlockHeight, blockhash } =
+          await connection.getLatestBlockhash();
+
+        await Promise.all(
+          initBinArrayInstructions.map((ix) => {
+            const transaction = new Transaction({
+              lastValidBlockHeight,
+              blockhash,
+            }).add(ix);
+
+            return sendAndConfirmTransaction(connection, transaction, [
+              keypair,
+            ]);
+          })
+        );
+
+        const rebalanceTx = new Transaction({
           lastValidBlockHeight,
           blockhash,
-        }).add(ix);
+        }).add(...rebalancePositionInstruction);
 
-        return sendAndConfirmTransaction(connection, transaction, [keypair]);
-      })
-    );
+        await sendAndConfirmTransaction(connection, rebalanceTx, [keypair]);
 
-    const rebalanceTx = new Transaction({
-      lastValidBlockHeight,
-      blockhash,
-    }).add(...rebalancePositionInstruction);
+        for (const swapXToY of [true, false]) {
+          const binArraysForSwap = await dlmm.getBinArrayForSwap(swapXToY, 3);
 
-    await sendAndConfirmTransaction(connection, rebalanceTx, [keypair]);
+          const [inToken, outToken] = swapXToY
+            ? [dlmm.lbPair.tokenXMint, dlmm.lbPair.tokenYMint]
+            : [dlmm.lbPair.tokenYMint, dlmm.lbPair.tokenXMint];
 
-    const afterPosition = await dlmm.getPosition(positionKeypair.publicKey);
-    assertEqRebalanceSimulationWithActualResult(
-      rebalancePosition,
-      afterPosition
-    );
+          const inAmount = new BN(100_000);
+
+          const { outAmount, binArraysPubkey } = dlmm.swapQuote(
+            inAmount,
+            swapXToY,
+            new BN(0),
+            binArraysForSwap,
+            true
+          );
+
+          const swapTx = await dlmm.swap({
+            inToken,
+            outToken,
+            inAmount,
+            minOutAmount: new BN(0),
+            binArraysPubkey,
+            user: keypair.publicKey,
+            lbPair: dlmm.pubkey,
+          });
+
+          await sendAndConfirmTransaction(connection, swapTx, [keypair]);
+        }
+      }
+
+      console.log("Rebalance");
+      let beforePosition = await dlmm.getPosition(positionKeypair.publicKey);
+
+      // Rebalance
+      const { simulationResult, rebalancePosition } =
+        await dlmm.simulateRebalancePosition(
+          positionKeypair.publicKey,
+          beforePosition.positionData,
+          true,
+          true,
+          [
+            {
+              minDeltaId: new BN(beforePosition.positionData.lowerBinId)
+                .subn(dlmm.lbPair.activeId)
+                .addn(10),
+              maxDeltaId: new BN(beforePosition.positionData.upperBinId)
+                .subn(dlmm.lbPair.activeId)
+                .subn(10),
+              amountX: new BN(100_000_000),
+              amountY: new BN(100_000_000),
+              strategyX,
+              strategyY,
+              favorXInActiveBin: false,
+            },
+          ],
+          [
+            {
+              minBinId: new BN(beforePosition.positionData.lowerBinId),
+              maxBinId: new BN(beforePosition.positionData.upperBinId),
+              bps: new BN(BASIS_POINT_MAX),
+            },
+          ]
+        );
+
+      const beforePositionLamports = await connection
+        .getAccountInfo(positionKeypair.publicKey)
+        .then((account) => account.lamports);
+
+      const { initBinArrayInstructions, rebalancePositionInstruction } =
+        await dlmm.rebalancePosition(
+          { simulationResult, rebalancePosition },
+          new BN(0)
+        );
+
+      const { lastValidBlockHeight, blockhash } =
+        await connection.getLatestBlockhash();
+
+      await Promise.all(
+        initBinArrayInstructions.map((ix) => {
+          const transaction = new Transaction({
+            lastValidBlockHeight,
+            blockhash,
+          }).add(ix);
+
+          return sendAndConfirmTransaction(connection, transaction, [keypair]);
+        })
+      );
+
+      const rebalanceTx = new Transaction({
+        lastValidBlockHeight,
+        blockhash,
+      }).add(...rebalancePositionInstruction);
+
+      await sendAndConfirmTransaction(connection, rebalanceTx, [keypair]);
+
+      const afterPositionLamports = await connection
+        .getAccountInfo(positionKeypair.publicKey)
+        .then((account) => account.lamports);
+
+      const afterPosition = await dlmm.getPosition(positionKeypair.publicKey);
+
+      assertEqRebalanceSimulationWithActualResult(
+        rebalancePosition,
+        afterPosition
+      );
+
+      const rentalChanges = new BN(afterPositionLamports).sub(
+        new BN(beforePositionLamports)
+      );
+
+      expect(rentalChanges.toString()).toBe(
+        simulationResult.rentalCostLamports.toString()
+      );
+
+      const [beforeWidth, afterWidth] = getBeforeAfterPositionWidth(
+        beforePosition,
+        afterPosition
+      );
+
+      expect(afterWidth).toBeLessThan(beforeWidth);
+
+      // Clean up
+      await dlmm
+        .simulateRebalancePosition(
+          positionKeypair.publicKey,
+          afterPosition.positionData,
+          true,
+          true,
+          [],
+          [
+            {
+              minBinId: new BN(afterPosition.positionData.lowerBinId),
+              maxBinId: new BN(afterPosition.positionData.upperBinId),
+              bps: new BN(BASIS_POINT_MAX),
+            },
+          ]
+        )
+        .then(async ({ rebalancePosition, simulationResult }) => {
+          const { initBinArrayInstructions: _, rebalancePositionInstruction } =
+            await dlmm.rebalancePosition(
+              { rebalancePosition, simulationResult },
+              new BN(0)
+            );
+
+          const { blockhash, lastValidBlockHeight } =
+            await connection.getLatestBlockhash();
+
+          const transaction = new Transaction({
+            blockhash,
+            lastValidBlockHeight,
+          }).add(...rebalancePositionInstruction);
+
+          return sendAndConfirmTransaction(connection, transaction, [keypair]);
+        });
+
+      await dlmm.refetchStates();
+    }
+  });
+
+  it("Rebalance with claim fee + withdraw + deposit and auto expand position", async () => {
+    const dlmm = await DLMM.create(connection, lbPairPubkey, {
+      cluster: "localhost",
+    });
+    for (const { strategyX, strategyY } of strategySet) {
+      const positionKeypair = Keypair.generate();
+
+      const initPositionTx = await dlmm.createEmptyPosition({
+        positionPubKey: positionKeypair.publicKey,
+        user: keypair.publicKey,
+        minBinId: dlmm.lbPair.activeId - 30,
+        maxBinId: dlmm.lbPair.activeId + 30,
+      });
+
+      await sendAndConfirmTransaction(connection, initPositionTx, [
+        positionKeypair,
+        keypair,
+      ]);
+
+      console.log("Deposit and generate swap fees");
+      {
+        const beforePosition = await dlmm.getPosition(
+          positionKeypair.publicKey
+        );
+
+        const { simulationResult, rebalancePosition } =
+          await dlmm.simulateRebalancePosition(
+            positionKeypair.publicKey,
+            beforePosition.positionData,
+            true,
+            true,
+            [
+              {
+                minDeltaId: new BN(beforePosition.positionData.lowerBinId).subn(
+                  dlmm.lbPair.activeId
+                ),
+                maxDeltaId: new BN(beforePosition.positionData.upperBinId).subn(
+                  dlmm.lbPair.activeId
+                ),
+                amountX: new BN(100_000_000),
+                amountY: new BN(100_000_000),
+                strategyX,
+                strategyY,
+                favorXInActiveBin: false,
+              },
+            ],
+            [
+              {
+                minBinId: new BN(beforePosition.positionData.lowerBinId),
+                maxBinId: new BN(beforePosition.positionData.upperBinId),
+                bps: new BN(BASIS_POINT_MAX),
+              },
+            ]
+          );
+
+        const { initBinArrayInstructions, rebalancePositionInstruction } =
+          await dlmm.rebalancePosition(
+            { simulationResult, rebalancePosition },
+            new BN(0)
+          );
+
+        const { lastValidBlockHeight, blockhash } =
+          await connection.getLatestBlockhash();
+
+        await Promise.all(
+          initBinArrayInstructions.map((ix) => {
+            const transaction = new Transaction({
+              lastValidBlockHeight,
+              blockhash,
+            }).add(ix);
+
+            return sendAndConfirmTransaction(connection, transaction, [
+              keypair,
+            ]);
+          })
+        );
+
+        const rebalanceTx = new Transaction({
+          lastValidBlockHeight,
+          blockhash,
+        }).add(...rebalancePositionInstruction);
+
+        await sendAndConfirmTransaction(connection, rebalanceTx, [keypair]);
+
+        for (const swapXToY of [true, false]) {
+          const binArraysForSwap = await dlmm.getBinArrayForSwap(swapXToY, 3);
+
+          const [inToken, outToken] = swapXToY
+            ? [dlmm.lbPair.tokenXMint, dlmm.lbPair.tokenYMint]
+            : [dlmm.lbPair.tokenYMint, dlmm.lbPair.tokenXMint];
+
+          const inAmount = new BN(100_000);
+
+          const { outAmount, binArraysPubkey } = dlmm.swapQuote(
+            inAmount,
+            swapXToY,
+            new BN(0),
+            binArraysForSwap,
+            true
+          );
+
+          const swapTx = await dlmm.swap({
+            inToken,
+            outToken,
+            inAmount,
+            minOutAmount: new BN(0),
+            binArraysPubkey,
+            user: keypair.publicKey,
+            lbPair: dlmm.pubkey,
+          });
+
+          await sendAndConfirmTransaction(connection, swapTx, [keypair]);
+        }
+      }
+
+      console.log("Rebalance");
+      let beforePosition = await dlmm.getPosition(positionKeypair.publicKey);
+
+      // Rebalance
+      const { simulationResult, rebalancePosition } =
+        await dlmm.simulateRebalancePosition(
+          positionKeypair.publicKey,
+          beforePosition.positionData,
+          true,
+          true,
+          [
+            {
+              minDeltaId: new BN(beforePosition.positionData.lowerBinId)
+                .subn(dlmm.lbPair.activeId)
+                .subn(10),
+              maxDeltaId: new BN(beforePosition.positionData.upperBinId)
+                .subn(dlmm.lbPair.activeId)
+                .addn(10),
+              amountX: new BN(100_000_000),
+              amountY: new BN(100_000_000),
+              strategyX,
+              strategyY,
+              favorXInActiveBin: false,
+            },
+          ],
+          [
+            {
+              minBinId: new BN(beforePosition.positionData.lowerBinId),
+              maxBinId: new BN(beforePosition.positionData.upperBinId),
+              bps: new BN(BASIS_POINT_MAX),
+            },
+          ]
+        );
+
+      const beforePositionLamports = await connection
+        .getAccountInfo(positionKeypair.publicKey)
+        .then((account) => account.lamports);
+
+      const { initBinArrayInstructions, rebalancePositionInstruction } =
+        await dlmm.rebalancePosition(
+          { simulationResult, rebalancePosition },
+          new BN(0)
+        );
+
+      const { lastValidBlockHeight, blockhash } =
+        await connection.getLatestBlockhash();
+
+      await Promise.all(
+        initBinArrayInstructions.map((ix) => {
+          const transaction = new Transaction({
+            lastValidBlockHeight,
+            blockhash,
+          }).add(ix);
+
+          return sendAndConfirmTransaction(connection, transaction, [keypair]);
+        })
+      );
+
+      const rebalanceTx = new Transaction({
+        lastValidBlockHeight,
+        blockhash,
+      }).add(...rebalancePositionInstruction);
+
+      await sendAndConfirmTransaction(connection, rebalanceTx, [keypair]);
+
+      const afterPositionLamports = await connection
+        .getAccountInfo(positionKeypair.publicKey)
+        .then((account) => account.lamports);
+
+      const afterPosition = await dlmm.getPosition(positionKeypair.publicKey);
+
+      assertEqRebalanceSimulationWithActualResult(
+        rebalancePosition,
+        afterPosition
+      );
+
+      const rentalChanges = new BN(afterPositionLamports).sub(
+        new BN(beforePositionLamports)
+      );
+
+      expect(rentalChanges.toString()).toBe(
+        simulationResult.rentalCostLamports.toString()
+      );
+
+      const [beforeWidth, afterWidth] = getBeforeAfterPositionWidth(
+        beforePosition,
+        afterPosition
+      );
+
+      expect(afterWidth).toBeGreaterThan(beforeWidth);
+
+      // Clean up
+      await dlmm
+        .simulateRebalancePosition(
+          positionKeypair.publicKey,
+          afterPosition.positionData,
+          true,
+          true,
+          [],
+          [
+            {
+              minBinId: new BN(afterPosition.positionData.lowerBinId),
+              maxBinId: new BN(afterPosition.positionData.upperBinId),
+              bps: new BN(BASIS_POINT_MAX),
+            },
+          ]
+        )
+        .then(async ({ rebalancePosition, simulationResult }) => {
+          const { initBinArrayInstructions: _, rebalancePositionInstruction } =
+            await dlmm.rebalancePosition(
+              { rebalancePosition, simulationResult },
+              new BN(0)
+            );
+
+          const { blockhash, lastValidBlockHeight } =
+            await connection.getLatestBlockhash();
+
+          const transaction = new Transaction({
+            blockhash,
+            lastValidBlockHeight,
+          }).add(...rebalancePositionInstruction);
+
+          return sendAndConfirmTransaction(connection, transaction, [keypair]);
+        });
+
+      await dlmm.refetchStates();
+    }
   });
 });
+
+function getBeforeAfterPositionWidth(
+  beforePosition: LbPosition,
+  afterPosition: LbPosition
+) {
+  const beforeWidth =
+    beforePosition.positionData.upperBinId -
+    beforePosition.positionData.lowerBinId +
+    1;
+  const afterWidth =
+    afterPosition.positionData.upperBinId -
+    afterPosition.positionData.lowerBinId +
+    1;
+
+  return [beforeWidth, afterWidth];
+}
 
 function assertEqRebalanceSimulationWithActualResult(
   rebalancePosition: RebalancePosition,
@@ -340,6 +987,7 @@ function assertEqRebalanceSimulationWithActualResult(
     expect(simBinData.binId).toBe(binData.binId);
     expect(simBinData.amountX.toString()).toBe(binData.positionXAmount);
     expect(simBinData.amountY.toString()).toBe(binData.positionYAmount);
+
     expect(simBinData.claimableFeeXAmount.toString()).toBe(
       binData.positionFeeXAmount
     );
