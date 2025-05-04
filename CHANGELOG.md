@@ -36,6 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `initializeMultiplePositionAndAddLiquidityByStrategy` function. It return transactions to initialize multiple positions, bin arrays, expand the position range and add liquidity to the specified input bin range.
 - Added `decreasePositionLength` function. It return transaction to shrink an expanded position. The rent is not returned upon decrement, but returned when the position is closed.
 - Added `increasePositionLength` function. It return transaction to expand a position up to maximum 1400 bins.
+- Added `simulateRebalancePosition` function. It return a locally simulated rebalanced position, and required parameters for on chain rebalancing.
+- Added `rebalancePosition` function. It return instructions to rebalance a position.
 
 ### Changed
 
