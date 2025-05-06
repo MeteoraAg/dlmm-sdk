@@ -1047,11 +1047,11 @@ describe("Edge test", () => {
 
     const toLamportMultiplier = new Decimal(10 ** (usdcDecimal - tokenDecimal));
 
-    const minPrice = 0.00001;
-    const maxPrice = 0.1;
+    const minPrice = 0.0001;
+    const maxPrice = 0.006966448211669921;
     const binStep = 100;
     const curvature = 0.4;
-    const seedAmount = new BN("100000").mul(new BN(10 ** tokenDecimal));
+    const seedAmount = new BN("19600000").mul(new BN(10 ** tokenDecimal));
 
     const minBinId = DLMM.getBinIdFromPrice(
       new Decimal(minPrice).mul(toLamportMultiplier),
