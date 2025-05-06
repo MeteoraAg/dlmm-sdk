@@ -1047,11 +1047,11 @@ describe("Edge test", () => {
 
     const toLamportMultiplier = new Decimal(10 ** (usdcDecimal - tokenDecimal));
 
-    const minPrice = 0.001;
+    const minPrice = 0.00001;
     const maxPrice = 0.1;
     const binStep = 100;
     const curvature = 0.4;
-    const seedAmount = new BN("196000000").mul(new BN(10 ** tokenDecimal));
+    const seedAmount = new BN("100000").mul(new BN(10 ** tokenDecimal));
 
     const minBinId = DLMM.getBinIdFromPrice(
       new Decimal(minPrice).mul(toLamportMultiplier),
@@ -1062,7 +1062,7 @@ describe("Edge test", () => {
     beforeAll(async () => {
       await connection.requestAirdrop(
         feePayerKeypair.publicKey,
-        LAMPORTS_PER_SOL
+        10 * LAMPORTS_PER_SOL
       );
 
       TOKEN = await createMint(
@@ -1290,6 +1290,7 @@ describe("Edge test", () => {
         .then((i) => new BN(i.value.amount));
 
       const actualDepositedAmount = beforeTokenXBalance.sub(afterTokenXBalance);
+      console.log(actualDepositedAmount.toString());
       expect(actualDepositedAmount.toString()).toEqual(seedAmount.toString());
 
       const positions = await pair.getPositionsByUserAndLbPair(
