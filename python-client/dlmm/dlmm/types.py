@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from enum import Enum
 from solders.pubkey import Pubkey
-from typing import Any, List, TypedDict
+from typing import Any, List, TypedDict, Optional
 
 class DlmmHttpError(Exception):
     def __init__(self, message):
@@ -29,7 +29,7 @@ class ActivationType(Enum):
     Timestamp=1,
 
     def __str__(self) -> str:
-        return f"{self.value[1]}
+        return f"{self.value[1]}"
     
     def __repr__(self) -> str:
         return self.name
@@ -265,7 +265,7 @@ class LBPair:
     token_y_mint: str
     padding1: List[int]
     padding2: List[int]
-    fee_owner: Pubkey
+    fee_owner: Optional[Pubkey]
     base_key: str
 
     def __init__(self, data: dict) -> None:
@@ -281,7 +281,7 @@ class LBPair:
         self.token_y_mint = data["tokenYMint"]
         self.padding1 = data["padding1"]
         self.padding2 = data["padding2"]
-        self.fee_owner = Pubkey.from_string(data["feeOwner"])
+        self.fee_owner = Pubkey.from_string(data["feeOwner"]) if "feeOwner" in data else None
         self.base_key = data["baseKey"]
         
 @dataclass
@@ -289,13 +289,13 @@ class TokenReserve():
     public_key: Pubkey
     reserve: Pubkey
     amount: str
-    decimal: int
+    decimal: Optional[int]
 
     def __init__(self, data: dict) -> None:
         self.public_key = Pubkey.from_string(data["publicKey"])
         self.reserve = Pubkey.from_string(data["reserve"])
         self.amount = data["amount"]
-        self.decimal = data["decimal"]
+        self.decimal = data.get("decimal", 9)  # Default to 9 decimals if not provided
 
 @dataclass
 class PositionInfo():
