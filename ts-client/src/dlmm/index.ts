@@ -5658,8 +5658,8 @@ export class DLMM {
         tokenXMint: this.lbPair.tokenXMint,
         tokenYMint: this.lbPair.tokenYMint,
         sender: operator,
-        tokenXProgram: TOKEN_PROGRAM_ID,
-        tokenYProgram: TOKEN_PROGRAM_ID,
+        tokenXProgram: this.tokenX.owner,
+        tokenYProgram: this.tokenY.owner,
       })
       .remainingAccounts([
         ...transferHookAccountMetas,

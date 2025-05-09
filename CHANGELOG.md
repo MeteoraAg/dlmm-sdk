@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.5.2] - PR #209
+
+### Fixed
+
+- `seedLiquiditySingle` used wrong token program for token2022
+
 ## @meteora-ag/dlmm [1.5.1] - PR #205
 
 ### Fixed
