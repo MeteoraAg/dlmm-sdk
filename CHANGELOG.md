@@ -19,6 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.5.1] - PR #205
+
+### Fixed
+
+- `seedLiquidity` find optimal decompress multiplier
+- Minor bug fix
+
 ## @meteora-ag/dlmm [1.5.0] - PR #201
 
 ### Changed
