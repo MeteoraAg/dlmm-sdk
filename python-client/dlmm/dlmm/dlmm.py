@@ -6,7 +6,7 @@ from solders.pubkey import Pubkey
 from .utils import convert_to_transaction
 from .types import ActivationType, ActiveBin, FeeInfo, GetBins, GetPositionByUser, Position, PositionInfo, StrategyParameters, SwapQuote, LBPair, TokenReserve, DlmmHttpError as HTTPError
 
-API_URL = "localhost:3000"
+API_URL = "http://localhost:3000"
 
 class DLMM:
     '''
