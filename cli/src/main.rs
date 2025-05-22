@@ -244,9 +244,12 @@ async fn main() -> Result<()> {
                 execute_create_claim_protocol_fee_operator(params, &program, transaction_config)
                     .await?;
             }
-            AdminCommand::CloseclaimProtocolFeeOperator(params) => {
+            AdminCommand::CloseClaimProtocolFeeOperator(params) => {
                 execute_close_claim_protocol_fee_operator(params, &program, transaction_config)
                     .await?;
+            }
+            AdminCommand::UpdateBaseFee(params) => {
+                execute_update_base_fee(params, &program, transaction_config).await?;
             }
         },
     };
