@@ -145,5 +145,6 @@ pub enum AdminCommand {
     SetPreActivationSwapAddress(SetPreactivationSwapAddressParam),
     InitializeTokenBadge(InitializeTokenBadgeParams),
     CreateClaimProtocolFeeOperator(CreateClaimFeeOperatorParams),
-    CloseclaimProtocolFeeOperator(CloseClaimFeeOperatorParams),
+    CloseClaimProtocolFeeOperator(CloseClaimFeeOperatorParams),
+    UpdateBaseFee(UpdateBaseFeeParams),
 }
