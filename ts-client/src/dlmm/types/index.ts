@@ -319,6 +319,7 @@ export interface PositionData {
   totalXAmountExcludeTransferFee: BN;
   totalYAmountExcludeTransferFee: BN;
   owner: PublicKey;
+  canClosePosition: boolean;
 }
 
 export interface SwapWithPriceImpactParams {
