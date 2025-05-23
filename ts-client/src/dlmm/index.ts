@@ -6316,6 +6316,16 @@ export class DLMM {
       currentEpoch
     ).amount;
 
+    const canClosePosition =
+      posShares.every((share) => share.isZero()) &&
+      feeInfos.every(
+        (feeInfo) =>
+          feeInfo.feeXPending.isZero() && feeInfo.feeYPending.isZero()
+      ) &&
+      positionRewardInfos.every((rewardInfo) =>
+        rewardInfo.rewardPendings.every((reward) => reward.isZero())
+      );
+
     return {
       totalXAmount: totalXAmount.toString(),
       totalYAmount: totalYAmount.toString(),
@@ -6337,6 +6347,7 @@ export class DLMM {
       feeXExcludeTransferFee,
       feeYExcludeTransferFee,
       owner: position.owner(),
+      canClosePosition,
     };
   }
 
