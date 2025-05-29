@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.5.3] - PR #211
+
+### Fixed
+
+- fix `getBinsBetweenLowerAndUpperBound` when bin Array not found
+
 ## @meteora-ag/dlmm [1.5.2] - PR #209
 
 ### Fixed
