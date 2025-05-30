@@ -6392,7 +6392,7 @@ export class DLMM {
               feeAmountYPerTokenStored: ZERO,
               rewardPerTokenStored: [ZERO, ZERO],
               price: pricePerLamport,
-              version: binArray.version,
+              version: 2,
               pricePerToken: new Decimal(pricePerLamport)
                 .mul(new Decimal(10 ** (baseTokenDecimal - quoteTokenDecimal)))
                 .toString(),
