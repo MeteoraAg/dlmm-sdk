@@ -8,7 +8,7 @@ use crate::*;
 pub async fn execute_list_all_bin_step<C: Deref<Target = impl Signer> + Clone>(
     program: &Program<C>,
 ) -> Result<()> {
-    let rpc_client = program.async_rpc();
+    let rpc_client = program.rpc();
 
     let account_config = RpcAccountInfoConfig {
         encoding: Some(UiAccountEncoding::Base64),

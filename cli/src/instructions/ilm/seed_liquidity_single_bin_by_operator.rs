@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use anchor_lang::{prelude::Clock, AccountDeserialize};
 use anchor_spl::{
     associated_token::get_associated_token_address_with_program_id,
@@ -59,8 +61,9 @@ pub async fn execute_seed_liquidity_single_bin_by_operator<
         selective_rounding,
     } = params;
 
-    let position_base_kp =
-        read_keypair_file(base_position_path).expect("position base keypair file not found");
+    let position_base_kp = Arc::new(
+        read_keypair_file(base_position_path).expect("position base keypair file not found"),
+    );
 
     assert_eq!(
         position_base_kp.pubkey(),
@@ -68,7 +71,7 @@ pub async fn execute_seed_liquidity_single_bin_by_operator<
         "Invalid position base key"
     );
 
-    let rpc_client = program.async_rpc();
+    let rpc_client = program.rpc();
     let operator = program.payer();
 
     let lb_pair_state = rpc_client
@@ -282,7 +285,7 @@ pub async fn execute_seed_liquidity_single_bin_by_operator<
     if let Some((slice, transfer_hook_remaining_accounts)) =
         get_potential_token_2022_related_ix_data_and_accounts(
             &lb_pair_state,
-            program.async_rpc(),
+            program.rpc(),
             ActionType::Liquidity,
         )
         .await?
@@ -336,7 +339,7 @@ pub async fn execute_seed_liquidity_single_bin_by_operator<
     instructions.push(deposit_ix);
 
     let mut builder = program.request();
-    builder = builder.signer(&position_base_kp);
+    builder = builder.signer(position_base_kp.clone());
     builder = instructions
         .into_iter()
         .fold(builder, |builder, ix| builder.instruction(ix));

@@ -18,7 +18,7 @@ pub async fn execute_get_all_positions<C: Deref<Target = impl Signer> + Clone>(
 ) -> Result<()> {
     let GetAllPositionsParams { lb_pair, owner } = params;
 
-    let rpc_client = program.async_rpc();
+    let rpc_client = program.rpc();
 
     let account_config = RpcAccountInfoConfig {
         encoding: Some(UiAccountEncoding::Base64),
