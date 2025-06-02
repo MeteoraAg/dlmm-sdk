@@ -84,7 +84,7 @@ impl LbPairExtension for LbPair {
             if elapsed < s_params.decay_period as i64 {
                 let volatility_reference = v_params
                     .volatility_accumulator
-                    .checked_sub(s_params.reduction_factor as u32)
+                    .checked_mul(s_params.reduction_factor as u32)
                     .context("overflow")?
                     .checked_div(BASIS_POINT_MAX as u32)
                     .context("overflow")?;

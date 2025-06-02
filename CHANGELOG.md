@@ -19,6 +19,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## cli [0.5.1] - PR #215
+
+### Fixed
+
+- Fix swap bin array account ordering and account fetching
+
+## common [0.3.1] - PR #215
+
+### Fixed
+
+- Fix swap quote
+
 ## @meteora-ag/dlmm [1.5.3] - PR #211
 
 ### Fixed
