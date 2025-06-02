@@ -1,6 +1,10 @@
+use std::collections::HashMap;
+
 use crate::*;
-use anchor_client::solana_client::nonblocking::rpc_client::RpcClient;
 use anchor_client::solana_client::rpc_client::RpcClient as BlockingRpcClient;
+use anchor_client::{
+    solana_client::nonblocking::rpc_client::RpcClient, solana_sdk::account::Account,
+};
 use anchor_spl::{
     associated_token::get_associated_token_address_with_program_id,
     token::spl_token,
@@ -8,6 +12,7 @@ use anchor_spl::{
 };
 use num_integer::Integer;
 use solana_sdk::program_pack::Pack;
+use solana_sdk::sysvar::clock::Clock;
 use spl_associated_token_account::instruction::create_associated_token_account_idempotent;
 use spl_transfer_hook_interface::offchain::add_extra_account_metas_for_execute;
 
@@ -142,4 +147,93 @@ pub async fn get_or_create_ata<C: Deref<Target = impl Signer> + Clone>(
     }
 
     Ok(user_ata)
+}
+
+pub struct SwapQuoteAccounts {
+    pub lb_pair_state: LbPair,
+    pub clock: Clock,
+    pub mint_x_account: Account,
+    pub mint_y_account: Account,
+    pub bin_arrays: HashMap<Pubkey, BinArray>,
+    pub bin_array_keys: Vec<Pubkey>,
+}
+
+pub async fn fetch_quote_required_accounts(
+    rpc_client: &RpcClient,
+    lb_pair: Pubkey,
+    lb_pair_state: &LbPair,
+    bin_arrays_for_swap: Vec<Pubkey>,
+) -> Result<SwapQuoteAccounts> {
+    let prerequisite_accounts = [
+        lb_pair,
+        solana_sdk::sysvar::clock::ID,
+        lb_pair_state.token_x_mint,
+        lb_pair_state.token_y_mint,
+    ];
+
+    let accounts_to_fetch = [prerequisite_accounts.to_vec(), bin_arrays_for_swap.clone()].concat();
+
+    let accounts = rpc_client.get_multiple_accounts(&accounts_to_fetch).await?;
+
+    let mut index = 0;
+    let lb_pair_account = accounts
+        .get(index)
+        .and_then(ToOwned::to_owned)
+        .context("Failed to fetch lb pair account")?;
+    let lb_pair_state = LbPairAccount::deserialize(&lb_pair_account.data)?.0;
+
+    index.inc();
+    let clock_account = accounts
+        .get(index)
+        .and_then(ToOwned::to_owned)
+        .context("Failed to fetch clock account")?;
+    let clock: Clock = bincode::deserialize(clock_account.data.as_ref())?;
+
+    index.inc();
+    let mint_x_account = accounts
+        .get(index)
+        .and_then(ToOwned::to_owned)
+        .context("Failed to fetch mint account")?;
+
+    index.inc();
+    let mint_y_account = accounts
+        .get(index)
+        .and_then(ToOwned::to_owned)
+        .context("Failed to fetch mint account")?;
+
+    let bin_array_accounts = accounts
+        .get(prerequisite_accounts.len()..)
+        .context("Failed to fetch bin array accounts")?
+        .to_vec();
+
+    let valid_bin_array_accounts = bin_array_accounts
+        .into_iter()
+        .zip(bin_arrays_for_swap.iter())
+        .filter_map(|(account, &key)| {
+            let account = account?;
+            Some((
+                key,
+                BinArrayAccount::deserialize(account.data.as_ref()).ok()?.0,
+            ))
+        })
+        .collect::<Vec<_>>();
+
+    let bin_arrays = valid_bin_array_accounts
+        .clone()
+        .into_iter()
+        .collect::<HashMap<_, _>>();
+
+    let bin_array_keys = valid_bin_array_accounts
+        .into_iter()
+        .map(|(key, _)| key)
+        .collect::<Vec<_>>();
+
+    Ok(SwapQuoteAccounts {
+        lb_pair_state,
+        clock,
+        mint_x_account,
+        mint_y_account,
+        bin_arrays,
+        bin_array_keys,
+    })
 }

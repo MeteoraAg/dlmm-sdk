@@ -1,9 +1,5 @@
-use std::collections::HashMap;
-
-use anchor_spl::associated_token::get_associated_token_address_with_program_id;
-use solana_sdk::{clock::Clock, sysvar::SysvarId};
-
 use crate::*;
+use anchor_spl::associated_token::get_associated_token_address_with_program_id;
 
 #[derive(Debug, Parser)]
 pub struct SwapWithPriceImpactParams {
@@ -84,38 +80,15 @@ pub async fn execute_swap_with_price_impact<C: Deref<Target = impl Signer> + Clo
         3,
     )?;
 
-    let bin_arrays = rpc_client
-        .get_multiple_accounts(&bin_arrays_for_swap)
-        .await?
-        .into_iter()
-        .zip(bin_arrays_for_swap.iter())
-        .map(|(account, &key)| {
-            let account = account?;
-            Some((
-                key,
-                BinArrayAccount::deserialize(account.data.as_ref()).ok()?.0,
-            ))
-        })
-        .collect::<Option<HashMap<Pubkey, BinArray>>>()
-        .context("Failed to fetch bin arrays")?;
-
-    let clock = rpc_client.get_account(&Clock::id()).await.map(|account| {
-        let clock: Clock = bincode::deserialize(account.data.as_ref())?;
-        Ok(clock)
-    })??;
-
-    let bin_array_keys = bin_arrays.iter().map(|(key, _)| *key).collect::<Vec<_>>();
-
-    let mut mint_accounts = rpc_client
-        .get_multiple_accounts(&[lb_pair_state.token_x_mint, lb_pair_state.token_y_mint])
+    let SwapQuoteAccounts {
+        lb_pair_state,
+        clock,
+        mint_x_account,
+        mint_y_account,
+        bin_arrays,
+        bin_array_keys,
+    } = fetch_quote_required_accounts(&rpc_client, lb_pair, &lb_pair_state, bin_arrays_for_swap)
         .await?;
-
-    let mint_x_account = mint_accounts[0]
-        .take()
-        .context("Failed to fetch mint account")?;
-    let mint_y_account = mint_accounts[1]
-        .take()
-        .context("Failed to fetch mint account")?;
 
     let quote = quote_exact_in(
         lb_pair,
