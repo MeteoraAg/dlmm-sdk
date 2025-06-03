@@ -23,7 +23,7 @@ pub async fn execute_show_pair<C: Deref<Target = impl Signer> + Clone>(
     program: &Program<C>,
 ) -> Result<()> {
     let ShowPairParams { lb_pair } = params;
-    let rpc_client = program.async_rpc();
+    let rpc_client = program.rpc();
 
     let lb_pair_state = rpc_client
         .get_account_and_deserialize(&lb_pair, |account| {

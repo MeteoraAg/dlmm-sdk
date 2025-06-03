@@ -26,7 +26,7 @@ pub async fn execute_swap_with_price_impact<C: Deref<Target = impl Signer> + Clo
         price_impact_bps,
     } = params;
 
-    let rpc_client = program.async_rpc();
+    let rpc_client = program.rpc();
     let lb_pair_state = rpc_client
         .get_account_and_deserialize(&lb_pair, |account| {
             Ok(LbPairAccount::deserialize(&account.data)?.0)
@@ -134,7 +134,7 @@ pub async fn execute_swap_with_price_impact<C: Deref<Target = impl Signer> + Clo
     if let Some((slices, transfer_hook_remaining_accounts)) =
         get_potential_token_2022_related_ix_data_and_accounts(
             &lb_pair_state,
-            program.async_rpc(),
+            program.rpc(),
             ActionType::Liquidity,
         )
         .await?

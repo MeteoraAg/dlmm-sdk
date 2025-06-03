@@ -11,7 +11,7 @@ pub async fn execute_show_preset_parameters<C: Deref<Target = impl Signer> + Clo
 ) -> Result<()> {
     let ShowPresetAccountParams { preset_parameter } = params;
 
-    let rpc_client = program.async_rpc();
+    let rpc_client = program.rpc();
     let account = rpc_client.get_account(&preset_parameter).await?;
 
     let mut disc = [0u8; 8];

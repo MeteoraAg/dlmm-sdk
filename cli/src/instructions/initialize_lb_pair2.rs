@@ -26,7 +26,7 @@ pub async fn execute_initialize_lb_pair2<C: Deref<Target = impl Signer> + Clone>
         initial_price,
     } = params;
 
-    let rpc_client = program.async_rpc();
+    let rpc_client = program.rpc();
 
     let mut accounts = rpc_client
         .get_multiple_accounts(&[token_mint_x, token_mint_y])
@@ -59,7 +59,7 @@ pub async fn execute_initialize_lb_pair2<C: Deref<Target = impl Signer> + Clone>
     let (lb_pair, _bump) =
         derive_lb_pair_with_preset_parameter_key(preset_parameter, token_mint_x, token_mint_y);
 
-    if program.rpc().get_account_data(&lb_pair).is_ok() {
+    if program.rpc().get_account_data(&lb_pair).await.is_ok() {
         return Ok(lb_pair);
     }
 

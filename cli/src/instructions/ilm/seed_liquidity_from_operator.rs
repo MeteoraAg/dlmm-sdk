@@ -178,7 +178,7 @@ pub async fn execute_seed_liquidity_by_operator<C: Deref<Target = impl Signer> +
         "base_pubkey mismatch"
     );
 
-    let rpc_client = program.async_rpc();
+    let rpc_client = program.rpc();
 
     let k = 1.0 / curvature;
 
@@ -294,11 +294,11 @@ pub async fn execute_seed_liquidity_by_operator<C: Deref<Target = impl Signer> +
     );
 
     let transfer_hook_x_account =
-        get_extra_account_metas_for_transfer_hook(lb_pair_state.token_x_mint, program.async_rpc())
+        get_extra_account_metas_for_transfer_hook(lb_pair_state.token_x_mint, program.rpc())
             .await?;
 
     let transfer_hook_y_account =
-        get_extra_account_metas_for_transfer_hook(lb_pair_state.token_y_mint, program.async_rpc())
+        get_extra_account_metas_for_transfer_hook(lb_pair_state.token_y_mint, program.rpc())
             .await?;
 
     let accounts = rpc_client

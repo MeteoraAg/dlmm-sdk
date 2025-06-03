@@ -25,7 +25,7 @@ pub async fn execute_initialize_reward<C: Deref<Target = impl Signer> + Clone>(
     let (reward_vault, _bump) = derive_reward_vault_pda(lb_pair, reward_index);
     let (event_authority, _bump) = derive_event_authority_pda();
 
-    let rpc_client = program.async_rpc();
+    let rpc_client = program.rpc();
     let reward_mint_account = rpc_client.get_account(&reward_mint).await?;
 
     let (token_badge, _bump) = derive_token_badge_pda(reward_mint);
