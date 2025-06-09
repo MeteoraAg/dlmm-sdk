@@ -15,7 +15,7 @@ pub async fn execute_claim_fee<C: Deref<Target = impl Signer> + Clone>(
 ) -> Result<()> {
     let ClaimFeeParams { position } = params;
 
-    let rpc_client = program.async_rpc();
+    let rpc_client = program.rpc();
     let position_state = rpc_client
         .get_account_and_deserialize(&position, |account| {
             Ok(PositionV2Account::deserialize(&account.data)?.0)
@@ -98,7 +98,7 @@ pub async fn execute_claim_fee<C: Deref<Target = impl Signer> + Clone>(
     if let Some((slices, transfer_hook_remaining_accounts)) =
         get_potential_token_2022_related_ix_data_and_accounts(
             &lb_pair_state,
-            program.async_rpc(),
+            program.rpc(),
             ActionType::Liquidity,
         )
         .await?

@@ -20,7 +20,7 @@ pub async fn execute_fund_reward<C: Deref<Target = impl Signer> + Clone>(
         funding_amount,
     } = params;
 
-    let rpc_client = program.async_rpc();
+    let rpc_client = program.rpc();
 
     let (reward_vault, _bump) = derive_reward_vault_pda(lb_pair, reward_index);
 
@@ -50,7 +50,7 @@ pub async fn execute_fund_reward<C: Deref<Target = impl Signer> + Clone>(
     let (event_authority, _bump) = derive_event_authority_pda();
 
     let reward_transfer_hook_accounts =
-        get_extra_account_metas_for_transfer_hook(reward_mint, program.async_rpc()).await?;
+        get_extra_account_metas_for_transfer_hook(reward_mint, program.rpc()).await?;
 
     let remaining_accounts_info = RemainingAccountsInfo {
         slices: vec![RemainingAccountsSlice {

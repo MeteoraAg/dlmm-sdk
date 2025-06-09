@@ -19,7 +19,7 @@ pub async fn execute_withdraw_protocol_fee<C: Deref<Target = impl Signer> + Clon
         amount_y,
     } = params;
 
-    let rpc_client = program.async_rpc();
+    let rpc_client = program.rpc();
 
     let lb_pair_state = rpc_client
         .get_account_and_deserialize(&lb_pair, |account| {
@@ -66,7 +66,7 @@ pub async fn execute_withdraw_protocol_fee<C: Deref<Target = impl Signer> + Clon
     if let Some((slices, transfer_hook_remaining_accounts)) =
         get_potential_token_2022_related_ix_data_and_accounts(
             &lb_pair_state,
-            program.async_rpc(),
+            program.rpc(),
             ActionType::Liquidity,
         )
         .await?
