@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.5.4] - PR #220
+
+### Fixed
+
+- fix `swapQuote` price impact should be absolute
+
 ## cli [0.5.1] - PR #215
 
 ### Fixed

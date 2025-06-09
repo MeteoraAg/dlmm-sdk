@@ -4178,7 +4178,8 @@ export class DLMM {
     const priceImpact = new Decimal(totalOutAmount.toString())
       .sub(new Decimal(outAmountWithoutSlippage.toString()))
       .div(new Decimal(outAmountWithoutSlippage.toString()))
-      .mul(new Decimal(100));
+      .mul(new Decimal(100))
+      .abs();
 
     const endPrice = getPriceOfBinByBinId(
       lastFilledActiveBinId.toNumber(),
