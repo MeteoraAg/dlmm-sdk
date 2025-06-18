@@ -1,8 +1,6 @@
 import { AnchorProvider, Program, Wallet, web3 } from "@coral-xyz/anchor";
-import {
-  TransferHookCounter,
-  IDL as TransferHookCounterIDL,
-} from "./transfer_hook_counter";
+import { TransferHookCounter } from "./transfer_hook_counter";
+import TransferHookCounterIDL from "./transfer_hook_counter.json";
 import { Connection } from "@solana/web3.js";
 
 export const TRANSFER_HOOK_COUNTER_PROGRAM_ID = new web3.PublicKey(
@@ -19,8 +17,7 @@ export function createTransferHookCounterProgram(
   });
 
   const program = new Program<TransferHookCounter>(
-    TransferHookCounterIDL,
-    programId,
+    { ...TransferHookCounterIDL, address: programId },
     provider
   );
 

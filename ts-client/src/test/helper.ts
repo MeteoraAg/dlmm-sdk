@@ -1,7 +1,23 @@
-import { PublicKey } from "@solana/web3.js";
+import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import { Position } from "../dlmm/types";
 import { DLMM } from "../dlmm";
 import BN from "bn.js";
+import { AnchorProvider, Program, Wallet } from "@coral-xyz/anchor";
+import IDL from "../dlmm/dlmm.json";
+import { LbClmm } from "../dlmm/idl";
+
+export function createTestProgram(
+  connection: Connection,
+  programId: PublicKey,
+  keypair: Keypair
+) {
+  const provider = new AnchorProvider(
+    connection,
+    new Wallet(keypair),
+    AnchorProvider.defaultOptions()
+  );
+  return new Program<LbClmm>({ ...IDL, address: programId }, provider);
+}
 
 export function assertAmountWithPrecision(
   actualAmount: number,

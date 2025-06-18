@@ -11,9 +11,9 @@ pub trait LbPairExtension {
     fn bitmap_range() -> (i32, i32);
     fn get_bin_array_offset(bin_array_index: i32) -> usize;
 
-    fn status(&self) -> Result<PairStatusWrapper>;
-    fn pair_type(&self) -> Result<PairTypeWrapper>;
-    fn activation_type(&self) -> Result<ActivationTypeWrapper>;
+    fn status(&self) -> Result<PairStatus>;
+    fn pair_type(&self) -> Result<PairType>;
+    fn activation_type(&self) -> Result<ActivationType>;
     fn compute_fee(&self, amount: u64) -> Result<u64>;
     fn get_total_fee(&self) -> Result<u128>;
     fn get_base_fee(&self) -> Result<u128>;
@@ -35,7 +35,7 @@ pub trait LbPairExtension {
 }
 
 impl LbPairExtension for LbPair {
-    fn status(&self) -> Result<PairStatusWrapper> {
+    fn status(&self) -> Result<PairStatus> {
         Ok(self.status.try_into()?)
     }
 
@@ -60,11 +60,11 @@ impl LbPairExtension for LbPair {
         Ok(token_programs_id)
     }
 
-    fn pair_type(&self) -> Result<PairTypeWrapper> {
+    fn pair_type(&self) -> Result<PairType> {
         Ok(self.pair_type.try_into()?)
     }
 
-    fn activation_type(&self) -> Result<ActivationTypeWrapper> {
+    fn activation_type(&self) -> Result<ActivationType> {
         Ok(self.activation_type.try_into()?)
     }
 
