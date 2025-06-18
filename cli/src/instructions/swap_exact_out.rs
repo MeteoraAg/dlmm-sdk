@@ -122,7 +122,7 @@ pub async fn execute_swap_exact_out<C: Deref<Target = impl Signer> + Clone>(
     }
 
     remaining_accounts.extend(
-        bin_arrays_for_swap
+        bin_array_keys
             .into_iter()
             .map(|key| AccountMeta::new(key, false)),
     );
@@ -134,13 +134,9 @@ pub async fn execute_swap_exact_out<C: Deref<Target = impl Signer> + Clone>(
     let data = dlmm::client::args::SwapExactOut2 {
         out_amount: amount_out,
         max_in_amount,
-    })
-    .try_to_vec()?;
-
-    let remaining_accounts = bin_array_keys
-        .into_iter()
-        .map(|key| AccountMeta::new(key, false))
-        .collect::<Vec<_>>();
+        remaining_accounts_info,
+    }
+    .data();
 
     let accounts = [main_accounts.to_vec(), remaining_accounts].concat();
 
