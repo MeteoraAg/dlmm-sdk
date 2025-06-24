@@ -4,9 +4,9 @@ from typing import Dict, List, Optional
 from solana.transaction import Transaction
 from solders.pubkey import Pubkey
 from .utils import convert_to_transaction
-from .types import ActivationType, ActiveBin, FeeInfo, GetBins, GetPositionByUser, Position, PositionInfo, StrategyParameters, SwapQuote, LBPair, TokenReserve, DlmmHttpError as HTTPError
+from .types import ActivationType, ActiveBin, FeeInfo, GetBins, BinArray, Position, GetPositionByUser, Position, PositionInfo, StrategyParameters, SwapQuote, LBPair, TokenReserve, DlmmHttpError as HTTPError
 
-API_URL = "localhost:3000"
+API_URL = "http://localhost:3000"
 
 class DLMM:
     '''
@@ -304,7 +304,6 @@ class DLMM:
             raise HTTPError(f"Error connecting to DLMM: {e}")
 
     
-    # TODO: Add type for result
     def get_bin_array_for_swap(self, swap_Y_to_X: bool, count: Optional[int]=4) -> List[dict]:
         '''
         This function retrieves a specified number of `BinArrayAccount` objects from the blockchain for swap.
@@ -438,14 +437,13 @@ class DLMM:
         except requests.exceptions.ConnectionError as e:
             raise HTTPError(f"Error connecting to DLMM: {e}")
     
-    # TODO: Add type for result
-    def get_bin_arrays(self) -> List[dict]:
+    def get_bin_arrays(self) -> list[BinArray]:
         '''
         This function retrieves all bin arrays from the blockchain.
         '''
         try:
             result = self.__session.get(f"{API_URL}/dlmm/get-bin-arrays").json()
-            return result
+            return [BinArray(bin_data) for bin_data in result]
         except requests.exceptions.HTTPError as e:
             raise HTTPError(f"Error getting bin arrays: {e}")
         except requests.exceptions.ConnectionError as e:
@@ -771,7 +769,11 @@ class DLMM_CLIENT:
             session.headers.update({
                 'Content-type': 'application/json', 
                 'Accept': 'text/plain',
-                'rpc': rpc
+                'rpc': rpc,
+                'pool': "2EszZfwee7myuECGizcprwsC5jymGTVVEqPG5uVRRbmb"
+                # There needs to be some pool passed or else it errors
+                # Could fix the error in TS but would have to rewrite the handler
+
             })
             data = json.dumps({
                 "user": str(user)
