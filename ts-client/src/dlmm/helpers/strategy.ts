@@ -1,9 +1,10 @@
 import { BN } from "@coral-xyz/anchor";
+import { Mint } from "@solana/spl-token";
 import {
-  StrategyType,
-  StrategyParameters,
   Clock,
   ProgramStrategyParameter,
+  StrategyParameters,
+  StrategyType,
 } from "../types";
 import {
   autoFillXByWeight,
@@ -12,7 +13,6 @@ import {
   toAmountBidSide,
   toAmountBothSide,
 } from "./weightToAmounts";
-import { Mint } from "@solana/spl-token";
 
 const DEFAULT_MAX_WEIGHT = 2000;
 const DEFAULT_MIN_WEIGHT = 200;
@@ -600,16 +600,16 @@ export function autoFillXByStrategy(
   }
 }
 
-// this this function to convert correct type for program
-export function toStrategyParameters(
-  { maxBinId, minBinId, strategyType, singleSidedX }: StrategyParameters,
-  actualBinRange?: { minBinId: number; maxBinId: number }
-): ProgramStrategyParameter {
+export function toStrategyParameters({
+  maxBinId,
+  minBinId,
+  strategyType,
+  singleSidedX,
+}: StrategyParameters): ProgramStrategyParameter {
   // Favor ask = 1
+  const parameteres = new Array<number>(64).fill(0);
   const favorSide = singleSidedX ? 1 : 0;
-  const parameteres = actualBinRange
-    ? new Array<number>(54).fill(0)
-    : new Array<number>(62).fill(0);
+  parameteres[0] = favorSide;
 
   switch (strategyType) {
     case StrategyType.Spot: {
@@ -617,8 +617,6 @@ export function toStrategyParameters(
         minBinId,
         maxBinId,
         strategyType: { spotImBalanced: {} },
-        favorSide,
-        actualBinRange,
         parameteres,
       };
     }
@@ -627,8 +625,6 @@ export function toStrategyParameters(
         minBinId,
         maxBinId,
         strategyType: { curveImBalanced: {} },
-        favorSide,
-        actualBinRange,
         parameteres,
       };
     }
@@ -637,8 +633,6 @@ export function toStrategyParameters(
         minBinId,
         maxBinId,
         strategyType: { bidAskImBalanced: {} },
-        favorSide,
-        actualBinRange,
         parameteres,
       };
     }

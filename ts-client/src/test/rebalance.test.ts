@@ -19,10 +19,16 @@ import {
   deriveLbPairWithPresetParamWithIndexKey,
   derivePresetParameterWithIndex,
 } from "../dlmm/helpers";
-import { RebalancePosition } from "../dlmm/helpers/rebalance";
+import {
+  buildLiquidityStrategyParameters,
+  getLiquidityStrategyParameterBuilder,
+} from "../dlmm/helpers/rebalance";
 import { DLMM } from "../dlmm/index";
 import { LbPosition, StrategyType } from "../dlmm/types";
-import { createTestProgram } from "./helper";
+import {
+  assertEqRebalanceSimulationWithActualResult,
+  createTestProgram,
+} from "./helper";
 
 const keypairBuffer = fs.readFileSync(
   "../keys/localnet/admin-bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1.json",
@@ -57,43 +63,10 @@ let userBTC: web3.PublicKey;
 let userUSDC: web3.PublicKey;
 let presetParamPda2: web3.PublicKey;
 
-const strategySet: { strategyX: StrategyType; strategyY: StrategyType }[] = [
-  {
-    strategyX: StrategyType.Spot,
-    strategyY: StrategyType.Spot,
-  },
-  {
-    strategyX: StrategyType.Curve,
-    strategyY: StrategyType.Spot,
-  },
-  {
-    strategyX: StrategyType.BidAsk,
-    strategyY: StrategyType.Spot,
-  },
-  {
-    strategyX: StrategyType.Curve,
-    strategyY: StrategyType.Spot,
-  },
-  {
-    strategyX: StrategyType.Curve,
-    strategyY: StrategyType.Curve,
-  },
-  {
-    strategyX: StrategyType.Curve,
-    strategyY: StrategyType.BidAsk,
-  },
-  {
-    strategyX: StrategyType.BidAsk,
-    strategyY: StrategyType.Spot,
-  },
-  {
-    strategyX: StrategyType.BidAsk,
-    strategyY: StrategyType.Curve,
-  },
-  {
-    strategyX: StrategyType.BidAsk,
-    strategyY: StrategyType.BidAsk,
-  },
+const strategySet: StrategyType[] = [
+  StrategyType.Spot,
+  StrategyType.BidAsk,
+  StrategyType.Curve,
 ];
 
 describe("Rebalance", () => {
@@ -240,7 +213,7 @@ describe("Rebalance", () => {
       cluster: "localhost",
     });
 
-    for (const { strategyX, strategyY } of strategySet) {
+    for (const strategy of strategySet) {
       const positionKeypair = Keypair.generate();
 
       const initPositionTx = await dlmm.createEmptyPosition({
@@ -261,6 +234,26 @@ describe("Rebalance", () => {
 
       const beforePosition = await dlmm.getPosition(positionKeypair.publicKey);
 
+      const strategyParamBuilder =
+        getLiquidityStrategyParameterBuilder(strategy);
+
+      const minDeltaId = new BN(-10);
+      const maxDeltaId = new BN(20);
+      const amountX = new BN(10_000_000);
+      const amountY = new BN(10_000_000);
+      const favorXInActiveBin = false;
+
+      const { x0, y0, deltaX, deltaY } = buildLiquidityStrategyParameters(
+        amountX,
+        amountY,
+        minDeltaId,
+        maxDeltaId,
+        new BN(dlmm.lbPair.binStep),
+        favorXInActiveBin,
+        new BN(dlmm.lbPair.activeId),
+        strategyParamBuilder
+      );
+
       const { simulationResult, rebalancePosition } =
         await dlmm.simulateRebalancePosition(
           positionKeypair.publicKey,
@@ -269,13 +262,13 @@ describe("Rebalance", () => {
           true,
           [
             {
-              minDeltaId: new BN(-10),
-              maxDeltaId: new BN(20),
-              amountX: new BN(10_000_000),
-              amountY: new BN(10_000_000),
-              strategyX,
-              strategyY,
-              favorXInActiveBin: false,
+              x0,
+              y0,
+              deltaX,
+              deltaY,
+              minDeltaId,
+              maxDeltaId,
+              favorXInActiveBin,
             },
           ],
           [
@@ -312,7 +305,9 @@ describe("Rebalance", () => {
         blockhash,
       }).add(...rebalancePositionInstruction);
 
-      await sendAndConfirmTransaction(connection, rebalanceTx, [keypair]);
+      await sendAndConfirmTransaction(connection, rebalanceTx, [keypair]).then(
+        console.log
+      );
 
       const afterPositionLamports = await connection
         .getAccountInfo(positionKeypair.publicKey)
@@ -347,7 +342,7 @@ describe("Rebalance", () => {
       cluster: "localhost",
     });
 
-    for (const { strategyX, strategyY } of strategySet) {
+    for (const strategy of strategySet) {
       const positionKeypair = Keypair.generate();
 
       const initPositionTx = await dlmm.createEmptyPosition({
@@ -368,6 +363,25 @@ describe("Rebalance", () => {
 
       const beforePosition = await dlmm.getPosition(positionKeypair.publicKey);
 
+      const minDeltaId = new BN(-50);
+      const maxDeltaId = new BN(50);
+      const amountX = new BN(10_000_000);
+      const amountY = new BN(10_000_000);
+      const favorXInActiveBin = false;
+
+      const strategyParamBuilder =
+        getLiquidityStrategyParameterBuilder(strategy);
+      const { x0, y0, deltaX, deltaY } = buildLiquidityStrategyParameters(
+        amountX,
+        amountY,
+        minDeltaId,
+        maxDeltaId,
+        new BN(dlmm.lbPair.binStep),
+        favorXInActiveBin,
+        new BN(dlmm.lbPair.activeId),
+        strategyParamBuilder
+      );
+
       const { simulationResult, rebalancePosition } =
         await dlmm.simulateRebalancePosition(
           positionKeypair.publicKey,
@@ -376,13 +390,13 @@ describe("Rebalance", () => {
           true,
           [
             {
-              minDeltaId: new BN(-50),
-              maxDeltaId: new BN(50),
-              amountX: new BN(10_000_000),
-              amountY: new BN(10_000_000),
-              strategyX,
-              strategyY,
-              favorXInActiveBin: false,
+              minDeltaId,
+              maxDeltaId,
+              x0,
+              y0,
+              deltaX,
+              deltaY,
+              favorXInActiveBin,
             },
           ],
           [
@@ -453,7 +467,8 @@ describe("Rebalance", () => {
     const dlmm = await DLMM.create(connection, lbPairPubkey, {
       cluster: "localhost",
     });
-    for (const { strategyX, strategyY } of strategySet) {
+
+    for (const strategy of strategySet) {
       const positionKeypair = Keypair.generate();
 
       const initPositionTx = await dlmm.createEmptyPosition({
@@ -474,6 +489,30 @@ describe("Rebalance", () => {
           positionKeypair.publicKey
         );
 
+        const minDeltaId = new BN(beforePosition.positionData.lowerBinId).subn(
+          dlmm.lbPair.activeId
+        );
+        const maxDeltaId = new BN(beforePosition.positionData.upperBinId).subn(
+          dlmm.lbPair.activeId
+        );
+
+        const amountX = new BN(100_000_000);
+        const amountY = new BN(100_000_000);
+        const favorXInActiveBin = false;
+
+        const strategyParamBuilder =
+          getLiquidityStrategyParameterBuilder(strategy);
+        const { x0, y0, deltaX, deltaY } = buildLiquidityStrategyParameters(
+          amountX,
+          amountY,
+          minDeltaId,
+          maxDeltaId,
+          new BN(dlmm.lbPair.binStep),
+          favorXInActiveBin,
+          new BN(dlmm.lbPair.activeId),
+          strategyParamBuilder
+        );
+
         const { simulationResult, rebalancePosition } =
           await dlmm.simulateRebalancePosition(
             positionKeypair.publicKey,
@@ -482,17 +521,13 @@ describe("Rebalance", () => {
             true,
             [
               {
-                minDeltaId: new BN(beforePosition.positionData.lowerBinId).subn(
-                  dlmm.lbPair.activeId
-                ),
-                maxDeltaId: new BN(beforePosition.positionData.upperBinId).subn(
-                  dlmm.lbPair.activeId
-                ),
-                amountX: new BN(100_000_000),
-                amountY: new BN(100_000_000),
-                strategyX,
-                strategyY,
-                favorXInActiveBin: false,
+                minDeltaId,
+                maxDeltaId,
+                x0,
+                y0,
+                deltaX,
+                deltaY,
+                favorXInActiveBin,
               },
             ],
             [
@@ -567,6 +602,29 @@ describe("Rebalance", () => {
       console.log("Rebalance");
       let beforePosition = await dlmm.getPosition(positionKeypair.publicKey);
 
+      const minDeltaId = new BN(beforePosition.positionData.lowerBinId)
+        .subn(dlmm.lbPair.activeId)
+        .addn(10);
+      const maxDeltaId = new BN(beforePosition.positionData.upperBinId)
+        .subn(dlmm.lbPair.activeId)
+        .subn(10);
+      const amountX = new BN(100_000_000);
+      const amountY = new BN(100_000_000);
+      const favorXInActiveBin = false;
+
+      const strategyParamBuilder =
+        getLiquidityStrategyParameterBuilder(strategy);
+      const { x0, y0, deltaX, deltaY } = buildLiquidityStrategyParameters(
+        amountX,
+        amountY,
+        minDeltaId,
+        maxDeltaId,
+        new BN(dlmm.lbPair.binStep),
+        favorXInActiveBin,
+        new BN(dlmm.lbPair.activeId),
+        strategyParamBuilder
+      );
+
       // Rebalance
       const { simulationResult, rebalancePosition } =
         await dlmm.simulateRebalancePosition(
@@ -576,17 +634,13 @@ describe("Rebalance", () => {
           true,
           [
             {
-              minDeltaId: new BN(beforePosition.positionData.lowerBinId)
-                .subn(dlmm.lbPair.activeId)
-                .addn(10),
-              maxDeltaId: new BN(beforePosition.positionData.upperBinId)
-                .subn(dlmm.lbPair.activeId)
-                .subn(10),
-              amountX: new BN(100_000_000),
-              amountY: new BN(100_000_000),
-              strategyX,
-              strategyY,
-              favorXInActiveBin: false,
+              x0,
+              y0,
+              deltaX,
+              deltaY,
+              maxDeltaId,
+              minDeltaId,
+              favorXInActiveBin,
             },
           ],
           [
@@ -697,7 +751,7 @@ describe("Rebalance", () => {
     const dlmm = await DLMM.create(connection, lbPairPubkey, {
       cluster: "localhost",
     });
-    for (const { strategyX, strategyY } of strategySet) {
+    for (const strategy of strategySet) {
       const positionKeypair = Keypair.generate();
 
       const initPositionTx = await dlmm.createEmptyPosition({
@@ -718,6 +772,29 @@ describe("Rebalance", () => {
           positionKeypair.publicKey
         );
 
+        const minDeltaId = new BN(beforePosition.positionData.lowerBinId).subn(
+          dlmm.lbPair.activeId
+        );
+        const maxDeltaId = new BN(beforePosition.positionData.upperBinId).subn(
+          dlmm.lbPair.activeId
+        );
+        const amountX = new BN(100_000_000);
+        const amountY = new BN(100_000_000);
+        const favorXInActiveBin = false;
+
+        const strategyParamBuilder =
+          getLiquidityStrategyParameterBuilder(strategy);
+        const { x0, y0, deltaX, deltaY } = buildLiquidityStrategyParameters(
+          amountX,
+          amountY,
+          minDeltaId,
+          maxDeltaId,
+          new BN(dlmm.lbPair.binStep),
+          favorXInActiveBin,
+          new BN(dlmm.lbPair.activeId),
+          strategyParamBuilder
+        );
+
         const { simulationResult, rebalancePosition } =
           await dlmm.simulateRebalancePosition(
             positionKeypair.publicKey,
@@ -726,17 +803,13 @@ describe("Rebalance", () => {
             true,
             [
               {
-                minDeltaId: new BN(beforePosition.positionData.lowerBinId).subn(
-                  dlmm.lbPair.activeId
-                ),
-                maxDeltaId: new BN(beforePosition.positionData.upperBinId).subn(
-                  dlmm.lbPair.activeId
-                ),
-                amountX: new BN(100_000_000),
-                amountY: new BN(100_000_000),
-                strategyX,
-                strategyY,
-                favorXInActiveBin: false,
+                x0,
+                y0,
+                deltaX,
+                deltaY,
+                maxDeltaId,
+                minDeltaId,
+                favorXInActiveBin,
               },
             ],
             [
@@ -811,6 +884,29 @@ describe("Rebalance", () => {
       console.log("Rebalance");
       let beforePosition = await dlmm.getPosition(positionKeypair.publicKey);
 
+      const minDeltaId = new BN(beforePosition.positionData.lowerBinId)
+        .subn(dlmm.lbPair.activeId)
+        .subn(10);
+      const maxDeltaId = new BN(beforePosition.positionData.upperBinId)
+        .subn(dlmm.lbPair.activeId)
+        .addn(10);
+      const amountX = new BN(100_000_000);
+      const amountY = new BN(100_000_000);
+      const favorXInActiveBin = false;
+
+      const strategyParamBuilder =
+        getLiquidityStrategyParameterBuilder(strategy);
+      const { x0, y0, deltaX, deltaY } = buildLiquidityStrategyParameters(
+        amountX,
+        amountY,
+        minDeltaId,
+        maxDeltaId,
+        new BN(dlmm.lbPair.binStep),
+        favorXInActiveBin,
+        new BN(dlmm.lbPair.activeId),
+        strategyParamBuilder
+      );
+
       // Rebalance
       const { simulationResult, rebalancePosition } =
         await dlmm.simulateRebalancePosition(
@@ -820,17 +916,13 @@ describe("Rebalance", () => {
           true,
           [
             {
-              minDeltaId: new BN(beforePosition.positionData.lowerBinId)
-                .subn(dlmm.lbPair.activeId)
-                .subn(10),
-              maxDeltaId: new BN(beforePosition.positionData.upperBinId)
-                .subn(dlmm.lbPair.activeId)
-                .addn(10),
-              amountX: new BN(100_000_000),
-              amountY: new BN(100_000_000),
-              strategyX,
-              strategyY,
-              favorXInActiveBin: false,
+              x0,
+              y0,
+              deltaX,
+              deltaY,
+              maxDeltaId,
+              minDeltaId,
+              favorXInActiveBin,
             },
           ],
           [
@@ -938,6 +1030,10 @@ describe("Rebalance", () => {
   });
 });
 
+describe("Rebalance with strategy", () => {
+  it("Balanced strategy", async () => {});
+});
+
 function getBeforeAfterPositionWidth(
   beforePosition: LbPosition,
   afterPosition: LbPosition
@@ -952,53 +1048,4 @@ function getBeforeAfterPositionWidth(
     1;
 
   return [beforeWidth, afterWidth];
-}
-
-function assertEqRebalanceSimulationWithActualResult(
-  rebalancePosition: RebalancePosition,
-  position: LbPosition
-) {
-  const [simulatedAmountX, simulatedAmountY] = rebalancePosition.totalAmounts();
-
-  expect(position.positionData.totalXAmount.toString()).toBe(
-    simulatedAmountX.toString()
-  );
-
-  expect(position.positionData.totalYAmount.toString()).toBe(
-    simulatedAmountY.toString()
-  );
-
-  expect(position.positionData.lowerBinId).toBe(
-    rebalancePosition.lowerBinId.toNumber()
-  );
-
-  expect(position.positionData.upperBinId).toBe(
-    rebalancePosition.upperBinId.toNumber()
-  );
-
-  expect(rebalancePosition.rebalancePositionBinData.length).toBe(
-    position.positionData.positionBinData.length
-  );
-
-  for (let i = 0; i < position.positionData.positionBinData.length; i++) {
-    const simBinData = rebalancePosition.rebalancePositionBinData[i];
-    const binData = position.positionData.positionBinData[i];
-
-    expect(simBinData.binId).toBe(binData.binId);
-    expect(simBinData.amountX.toString()).toBe(binData.positionXAmount);
-    expect(simBinData.amountY.toString()).toBe(binData.positionYAmount);
-
-    expect(simBinData.claimableFeeXAmount.toString()).toBe(
-      binData.positionFeeXAmount
-    );
-    expect(simBinData.claimableFeeYAmount.toString()).toBe(
-      binData.positionFeeYAmount
-    );
-    expect(simBinData.claimableRewardAmount[0].toString()).toBe(
-      binData.positionRewardAmount[0]
-    );
-    expect(simBinData.claimableRewardAmount[1].toString()).toBe(
-      binData.positionRewardAmount[1]
-    );
-  }
 }

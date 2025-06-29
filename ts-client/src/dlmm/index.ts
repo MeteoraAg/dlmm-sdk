@@ -51,6 +51,7 @@ import { DlmmSdkError } from "./error";
 import {
   Opt,
   binIdToBinArrayIndex,
+  capSlippagePercentage,
   chunkedGetMultipleAccountInfos,
   chunks,
   computeFeeFromAmount,
@@ -132,6 +133,8 @@ import {
   RebalanceWithWithdraw,
   getRebalanceBinArrayIndexesAndBitmapCoverage,
 } from "./helpers/rebalance";
+import { RebalanceStrategyBuilder } from "./helpers/rebalance/strategy";
+import { BalancedStrategyBuilder } from "./helpers/rebalance/strategy/balanced";
 import {
   calculateTransferFeeExcludedAmount,
   calculateTransferFeeIncludedAmount,
@@ -179,6 +182,7 @@ import {
   SeedLiquidityResponse,
   SeedLiquiditySingleBinResponse,
   StrategyParameters,
+  StrategyType,
   SwapExactOutParams,
   SwapParams,
   SwapQuote,
@@ -1845,7 +1849,7 @@ export class DLMM {
    * @returns an array of `BinArrayAccount` objects.
    */
   public async getBinArrayForSwap(
-    swapForY,
+    swapForY: boolean,
     count = 4
   ): Promise<BinArrayAccount[]> {
     await this.refetchStates();
@@ -1974,13 +1978,13 @@ export class DLMM {
     const sParameters = this.lbPair.parameters;
 
     const currentTimestamp = Date.now() / 1000;
-    this.updateReference(
+    DLMM.updateReference(
       activeId.toNumber(),
       vParameterClone,
       sParameters,
       currentTimestamp
     );
-    this.updateVolatilityAccumulator(
+    DLMM.updateVolatilityAccumulator(
       vParameterClone,
       sParameters,
       activeId.toNumber()
@@ -3079,17 +3083,12 @@ export class DLMM {
           singleSidedX: strategy.singleSidedX,
         };
 
-        let liquidityStrategyParams = toStrategyParameters(strategyParams, {
-          minBinId,
-          maxBinId,
-        });
-
         const liquidityParams: LiquidityParameterByStrategy = {
           amountX: chunkedTotalAmountX,
           amountY: chunkedTotalAmountY,
           activeId: activeBin.binId,
           maxActiveBinSlippage,
-          strategyParameters: liquidityStrategyParams,
+          strategyParameters: toStrategyParameters(strategyParams),
         };
 
         const addLiquidityAccounts = {
@@ -3547,13 +3546,7 @@ export class DLMM {
         singleSidedX: strategy.singleSidedX,
       };
 
-      const strategyParameters = toStrategyParameters(
-        chunkedStrategyParameter,
-        {
-          minBinId,
-          maxBinId,
-        }
-      );
+      const strategyParameters = toStrategyParameters(chunkedStrategyParameter);
 
       const binArrayIndexes = getBinArrayIndexesCoverage(
         new BN(chunkedMinBinId),
@@ -4406,7 +4399,7 @@ export class DLMM {
     const binStep = this.lbPair.binStep;
     const sParameters = this.lbPair.parameters;
 
-    this.updateReference(
+    DLMM.updateReference(
       activeId.toNumber(),
       vParameterClone,
       sParameters,
@@ -4437,7 +4430,7 @@ export class DLMM {
 
       binArraysForSwap.set(binArrayAccountToSwap.publicKey, true);
 
-      this.updateVolatilityAccumulator(
+      DLMM.updateVolatilityAccumulator(
         vParameterClone,
         sParameters,
         activeId.toNumber()
@@ -4615,7 +4608,7 @@ export class DLMM {
     const binStep = this.lbPair.binStep;
     const sParameters = this.lbPair.parameters;
 
-    this.updateReference(
+    DLMM.updateReference(
       activeId.toNumber(),
       vParameterClone,
       sParameters,
@@ -4651,7 +4644,7 @@ export class DLMM {
 
       binArraysForSwap.set(binArrayAccountToSwap.publicKey, true);
 
-      this.updateVolatilityAccumulator(
+      DLMM.updateVolatilityAccumulator(
         vParameterClone,
         sParameters,
         activeId.toNumber()
@@ -6810,8 +6803,65 @@ export class DLMM {
     }
   }
 
+  public async simulateRebalancePositionWithBalancedStrategy(
+    positionAddress: PublicKey,
+    positionData: PositionData,
+    strategy: StrategyType,
+    topUpAmountX: BN,
+    topUpAmountY: BN,
+    xWithdrawBps: BN,
+    yWithdrawBps: BN
+  ) {
+    const rebalancePosition = await RebalancePosition.create({
+      program: this.program,
+      positionAddress,
+      positionData,
+      shouldClaimFee: true,
+      shouldClaimReward: true,
+      pairAddress: this.pubkey,
+    });
+
+    const rebalanceStrategyBuilder = new BalancedStrategyBuilder(
+      new BN(rebalancePosition.lbPair.activeId),
+      new BN(rebalancePosition.lbPair.binStep),
+      positionData,
+      topUpAmountX,
+      topUpAmountY,
+      xWithdrawBps,
+      yWithdrawBps,
+      strategy
+    );
+
+    return this.simulateRebalancePositionWithStrategy(
+      rebalancePosition,
+      rebalanceStrategyBuilder
+    );
+  }
+
+  private async simulateRebalancePositionWithStrategy(
+    rebalancePosition: RebalancePosition,
+    rebalanceStrategy: RebalanceStrategyBuilder
+  ): Promise<RebalancePositionResponse> {
+    const { deposits, withdraws } =
+      rebalanceStrategy.buildRebalanceStrategyParameters();
+
+    const simulationResult = await rebalancePosition.simulateRebalance(
+      this.program.provider.connection,
+      new BN(this.lbPair.binStep),
+      new BN(this.tokenX.mint.decimals),
+      new BN(this.tokenY.mint.decimals),
+      withdraws,
+      deposits
+    );
+
+    return {
+      rebalancePosition,
+      simulationResult,
+    };
+  }
+
   /**
-   * Simulates a rebalance operation on a position without actually executing it.
+   * Simulates a rebalance operation on a position without actually executing it. It's recommended to use simulateRebalancePositionWithXStrategy instead unless you know what you're doing.
    *
    * @param positionAddress The address of the position to simulate rebalancing.
    * @param positionData The PositionData object associated with the position.
@@ -6828,13 +6878,14 @@ export class DLMM {
     deposits: RebalanceWithDeposit[],
     withdraws: RebalanceWithWithdraw[]
   ): Promise<RebalancePositionResponse> {
-    const rebalancePosition = new RebalancePosition(
+    const rebalancePosition = await RebalancePosition.create({
+      program: this.program,
       positionAddress,
       positionData,
-      new BN(this.lbPair.activeId),
       shouldClaimFee,
-      shouldClaimReward
-    );
+      shouldClaimReward,
+      pairAddress: this.pubkey,
+    });
 
     const simulationResult = await rebalancePosition.simulateRebalance(
       this.program.provider.connection,
@@ -6856,18 +6907,23 @@ export class DLMM {
    *
    * @param rebalancePositionResponse The result of `simulateRebalancePosition`.
    * @param maxActiveBinSlippage The maximum slippage allowed for active bin selection.
+   * @param slippage The slippage tolerance percentage for rebalncing.
    *
    * @returns An object containing the instructions to initialize new bin arrays and the instruction to rebalance the position.
    */
   public async rebalancePosition(
     rebalancePositionResponse: RebalancePositionResponse,
-    maxActiveBinSlippage: BN
+    maxActiveBinSlippage: BN,
+    rentPayer?: PublicKey,
+    slippage: number = 100
   ) {
     const { rebalancePosition, simulationResult } = rebalancePositionResponse;
 
-    const { activeId, shouldClaimFee, shouldClaimReward, owner, address } =
+    const { lbPair, shouldClaimFee, shouldClaimReward, owner, address } =
       rebalancePosition;
     const { depositParams, withdrawParams } = simulationResult;
+
+    const activeId = new BN(lbPair.activeId);
 
     const { slices, accounts: transferHookAccounts } =
       this.getPotentialToken2022IxDataAndAccounts(ActionType.Liquidity);
@@ -7042,6 +7098,35 @@ export class DLMM {
       )
     );
 
+    slippage = capSlippagePercentage(slippage);
+
+    const applySlippageMaxAmount = (amount: BN, slippage: number) => {
+      return slippage == 100 ? U64_MAX : amount.muln(100 + slippage).divn(100);
+    };
+
+    const applySlippageMinAmount = (amount: BN, slippage: number) => {
+      return amount.muln(100 - slippage).divn(100);
+    };
+
+    const maxDepositXAmount = applySlippageMaxAmount(
+      simulationResult.actualAmountXDeposited,
+      slippage
+    );
+
+    const maxDepositYAmount = applySlippageMaxAmount(
+      simulationResult.actualAmountYDeposited,
+      slippage
+    );
+
+    const minWithdrawXAmount = applySlippageMinAmount(
+      simulationResult.actualAmountXWithdrawn,
+      slippage
+    );
+    const minWithdrawYAmount = applySlippageMinAmount(
+      simulationResult.actualAmountYWithdrawn,
+      slippage
+    );
+
     const instruction = await this.program.methods
       .rebalanceLiquidity(
         {
@@ -7051,6 +7136,10 @@ export class DLMM {
           shouldClaimFee,
           shouldClaimReward,
           maxActiveBinSlippage: maxActiveBinSlippage.toNumber(),
+          maxDepositXAmount,
+          maxDepositYAmount,
+          minWithdrawXAmount,
+          minWithdrawYAmount,
           padding: Array(32).fill(0),
         },
         {
@@ -7071,6 +7160,7 @@ export class DLMM {
         tokenXProgram: this.tokenX.owner,
         tokenYProgram: this.tokenY.owner,
         memoProgram: MEMO_PROGRAM_ID,
+        rentPayer: rentPayer ?? owner,
       })
       .preInstructions(preInstructions)
       .remainingAccounts(transferHookAccounts)
@@ -7683,7 +7773,7 @@ export class DLMM {
     return ixs;
   }
 
-  private updateVolatilityAccumulator(
+  public static updateVolatilityAccumulator(
     vParameter: vParameters,
     sParameter: sParameters,
     activeId: number
@@ -7698,7 +7788,7 @@ export class DLMM {
     );
   }
 
-  private updateReference(
+  public static updateReference(
     activeId: number,
     vParameter: vParameters,
     sParameter: sParameters,

@@ -108,8 +108,6 @@ export type CompressedBinDepositAmounts = CompressedBinDepositAmount[];
 export type ResizeSideEnum = IdlTypes<LbClmm>["resizeSide"];
 export type ExtendedPositionBinData = IdlTypes<LbClmm>["positionBinData"];
 
-export type RebalanceStrategy = IdlTypes<LbClmm>["strategy"];
-
 export interface LbPosition {
   publicKey: PublicKey;
   positionData: PositionData;
@@ -169,19 +167,6 @@ export enum StrategyType {
   Curve,
   BidAsk,
 }
-
-export const toStrategyParamType = (
-  strategyType: StrategyType
-): RebalanceStrategy => {
-  switch (strategyType) {
-    case StrategyType.Spot:
-      return { spot: {} };
-    case StrategyType.Curve:
-      return { curve: {} };
-    case StrategyType.BidAsk:
-      return { bidAsk: {} };
-  }
-};
 
 export enum ActivationType {
   Slot,

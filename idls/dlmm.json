@@ -2922,9 +2922,13 @@
         },
         {
           "name": "owner",
-          "writable": true,
           "signer": true,
           "relations": ["position"]
+        },
+        {
+          "name": "rent_payer",
+          "writable": true,
+          "signer": true
         },
         {
           "name": "token_x_program"
@@ -4516,9 +4520,9 @@
               {
                 "kind": "const",
                 "value": [
-                  8, 234, 192, 109, 87, 125, 190, 55, 129, 173, 227, 8, 104,
-                  201, 104, 13, 31, 178, 74, 80, 54, 14, 77, 78, 226, 57, 47,
-                  122, 166, 165, 57, 144
+                  48, 9, 89, 123, 106, 114, 131, 251, 50, 173, 254, 250, 10, 80,
+                  160, 84, 143, 100, 81, 249, 134, 112, 30, 213, 50, 166, 239,
+                  78, 53, 175, 188, 85
                 ]
               },
               {
@@ -4548,9 +4552,9 @@
               {
                 "kind": "const",
                 "value": [
-                  8, 234, 192, 109, 87, 125, 190, 55, 129, 173, 227, 8, 104,
-                  201, 104, 13, 31, 178, 74, 80, 54, 14, 77, 78, 226, 57, 47,
-                  122, 166, 165, 57, 144
+                  48, 9, 89, 123, 106, 114, 131, 251, 50, 173, 254, 250, 10, 80,
+                  160, 84, 143, 100, 81, 249, 134, 112, 30, 213, 50, 166, 239,
+                  78, 53, 175, 188, 85
                 ]
               },
               {
@@ -5220,22 +5224,6 @@
       }
     },
     {
-      "name": "ActualBinRange",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "min_bin_id",
-            "type": "i32"
-          },
-          {
-            "name": "max_bin_id",
-            "type": "i32"
-          }
-        ]
-      }
-    },
-    {
       "name": "AddLiquidity",
       "type": {
         "kind": "struct",
@@ -5287,20 +5275,16 @@
             "type": "u64"
           },
           {
-            "name": "strategy_x",
-            "type": {
-              "defined": {
-                "name": "Strategy"
-              }
-            }
+            "name": "delta_x",
+            "type": "u64"
           },
           {
-            "name": "strategy_y",
-            "type": {
-              "defined": {
-                "name": "Strategy"
-              }
-            }
+            "name": "delta_y",
+            "type": "u64"
+          },
+          {
+            "name": "bit_flag",
+            "type": "u8"
           },
           {
             "name": "favor_x_in_active_id",
@@ -7346,6 +7330,26 @@
             "type": "bool"
           },
           {
+            "name": "min_withdraw_x_amount",
+            "docs": ["threshold for withdraw token x"],
+            "type": "u64"
+          },
+          {
+            "name": "max_deposit_x_amount",
+            "docs": ["threshold for deposit token x"],
+            "type": "u64"
+          },
+          {
+            "name": "min_withdraw_y_amount",
+            "docs": ["threshold for withdraw token y"],
+            "type": "u64"
+          },
+          {
+            "name": "max_deposit_y_amount",
+            "docs": ["threshold for deposit token y"],
+            "type": "u64"
+          },
+          {
             "name": "padding",
             "docs": ["padding 32 bytes for future usage"],
             "type": {
@@ -7391,28 +7395,44 @@
             "type": "pubkey"
           },
           {
-            "name": "amount_x_removed",
+            "name": "x_withdrawn_amount",
             "type": "u64"
           },
           {
-            "name": "amount_x_added",
+            "name": "x_added_amount",
             "type": "u64"
           },
           {
-            "name": "amount_y_removed",
+            "name": "y_withdrawn_amount",
             "type": "u64"
           },
           {
-            "name": "amount_y_added",
+            "name": "y_added_amount",
             "type": "u64"
           },
           {
-            "name": "fee_x",
+            "name": "x_fee_amount",
             "type": "u64"
           },
           {
-            "name": "fee_y",
+            "name": "y_fee_amount",
             "type": "u64"
+          },
+          {
+            "name": "old_min_id",
+            "type": "i32"
+          },
+          {
+            "name": "old_max_id",
+            "type": "i32"
+          },
+          {
+            "name": "new_min_id",
+            "type": "i32"
+          },
+          {
+            "name": "new_max_id",
+            "type": "i32"
           },
           {
             "name": "rewards",
@@ -7699,23 +7719,6 @@
       }
     },
     {
-      "name": "Strategy",
-      "type": {
-        "kind": "enum",
-        "variants": [
-          {
-            "name": "Spot"
-          },
-          {
-            "name": "Curve"
-          },
-          {
-            "name": "BidAsk"
-          }
-        ]
-      }
-    },
-    {
       "name": "StrategyParameters",
       "type": {
         "kind": "struct",
@@ -7740,25 +7743,10 @@
             }
           },
           {
-            "name": "favor_side",
-            "docs": ["favor ask/bid side, 0 for bin side, 1 for ask side"],
-            "type": "u8"
-          },
-          {
-            "name": "actual_bin_range",
-            "docs": ["actual bin range"],
-            "type": {
-              "option": {
-                "defined": {
-                  "name": "ActualBinRange"
-                }
-              }
-            }
-          },
-          {
             "name": "parameteres",
+            "docs": ["parameters"],
             "type": {
-              "array": ["u8", 54]
+              "array": ["u8", 64]
             }
           }
         ]

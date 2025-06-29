@@ -337,3 +337,15 @@ export function getAccountDiscriminator(
     (acc) => acc.name.toLowerCase() === accountName.toLowerCase()
   )?.discriminator;
 }
+
+export function capSlippagePercentage(slippage: number) {
+  if (slippage > 100) {
+    slippage = 100;
+  }
+
+  if (slippage < 0) {
+    slippage = 0;
+  }
+
+  return slippage;
+}

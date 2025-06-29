@@ -55,7 +55,7 @@ import {
   createTransferHookCounterProgram,
   TRANSFER_HOOK_COUNTER_PROGRAM_ID,
 } from "./external/program";
-import { createTestProgram } from "./helper";
+import { createTestProgram, logPositionLiquidities } from "./helper";
 import Decimal from "decimal.js";
 import babar from "babar";
 
@@ -166,8 +166,9 @@ describe("SDK token2022 test", () => {
     ];
 
     const mintLen = getMintLen(extensions);
-    const minLamports =
-      await connection.getMinimumBalanceForRentExemption(mintLen);
+    const minLamports = await connection.getMinimumBalanceForRentExemption(
+      mintLen
+    );
 
     const createBtcTx = new Transaction()
       .add(
@@ -1794,8 +1795,9 @@ describe("SDK token2022 test", () => {
             const dlmm = await DLMM.create(connection, pairKey, opt);
             const position = await dlmm.getPosition(positionKey);
 
-            const beforeUserRewardAccount =
-              await connection.getAccountInfo(userRewardAta);
+            const beforeUserRewardAccount = await connection.getAccountInfo(
+              userRewardAta
+            );
 
             const claimTxs = await dlmm.claimLMReward({
               owner: keypair.publicKey,
@@ -1808,8 +1810,9 @@ describe("SDK token2022 test", () => {
               )
             );
 
-            const afterUserRewardAccount =
-              await connection.getAccountInfo(userRewardAta);
+            const afterUserRewardAccount = await connection.getAccountInfo(
+              userRewardAta
+            );
 
             const beforeUserReward = unpackAccount(
               userRewardAta,
@@ -1838,8 +1841,9 @@ describe("SDK token2022 test", () => {
         it("Claim all rewards", async () => {
           const dlmm = await DLMM.create(connection, pairKey, opt);
 
-          const beforeUserRewardAccount =
-            await connection.getAccountInfo(userRewardAta);
+          const beforeUserRewardAccount = await connection.getAccountInfo(
+            userRewardAta
+          );
 
           const [beforeP0, beforeP1] = await Promise.all([
             dlmm.getPosition(nonExtendedPositionKeypair0.publicKey),
@@ -1864,8 +1868,9 @@ describe("SDK token2022 test", () => {
             )
           );
 
-          const afterUserRewardAccount =
-            await connection.getAccountInfo(userRewardAta);
+          const afterUserRewardAccount = await connection.getAccountInfo(
+            userRewardAta
+          );
 
           const beforeUserReward = unpackAccount(
             userRewardAta,
@@ -2379,8 +2384,8 @@ describe("SDK token2022 test", () => {
     });
   });
 
-  describe("Extended position", () => {
-    describe("Extend / Shrink position", () => {
+  describe("Extend / Shrink position", () => {
+    describe("Extended position", () => {
       it("Increase from 1 to 1400 max length", async () => {
         const dlmm = await DLMM.create(connection, pairKey, opt);
         const sides = [ResizeSide.Lower, ResizeSide.Upper];
@@ -2579,6 +2584,8 @@ describe("SDK token2022 test", () => {
         );
 
         position = await dlmm.getPosition(extendedPositionKeypair0.publicKey);
+
+        logPositionLiquidities(position.positionData);
 
         const [afterReserveXAccount, afterReserveYAccount] =
           await connection.getMultipleAccountsInfo([
@@ -2841,8 +2848,8 @@ describe("SDK token2022 test", () => {
 
         console.log(babar(xyPoints));
 
-        // fs.writeFileSync("./labels.json", JSON.stringify(labels));
-        // fs.writeFileSync("./dataPoints.json", JSON.stringify(dataPoints));
+        fs.writeFileSync("./labels.json", JSON.stringify(labels));
+        fs.writeFileSync("./dataPoints.json", JSON.stringify(dataPoints));
       });
     });
 
@@ -3011,8 +3018,9 @@ describe("SDK token2022 test", () => {
           const positionKey = extendedPositionKeypair0.publicKey;
           const position = await dlmm.getPosition(positionKey);
 
-          const beforeUserRewardAccount =
-            await connection.getAccountInfo(userRewardAta);
+          const beforeUserRewardAccount = await connection.getAccountInfo(
+            userRewardAta
+          );
 
           const claimTxs = await dlmm.claimLMReward({
             owner: keypair.publicKey,
@@ -3025,8 +3033,9 @@ describe("SDK token2022 test", () => {
             )
           );
 
-          const afterUserRewardAccount =
-            await connection.getAccountInfo(userRewardAta);
+          const afterUserRewardAccount = await connection.getAccountInfo(
+            userRewardAta
+          );
 
           const beforeUserReward = unpackAccount(
             userRewardAta,
@@ -3052,8 +3061,9 @@ describe("SDK token2022 test", () => {
         it("Claim all rewards", async () => {
           const dlmm = await DLMM.create(connection, pairKey, opt);
 
-          const beforeUserRewardAccount =
-            await connection.getAccountInfo(userRewardAta);
+          const beforeUserRewardAccount = await connection.getAccountInfo(
+            userRewardAta
+          );
 
           const [beforeP0, beforeP1] = await Promise.all([
             dlmm.getPosition(extendedPositionKeypair0.publicKey),
@@ -3078,8 +3088,9 @@ describe("SDK token2022 test", () => {
             )
           );
 
-          const afterUserRewardAccount =
-            await connection.getAccountInfo(userRewardAta);
+          const afterUserRewardAccount = await connection.getAccountInfo(
+            userRewardAta
+          );
 
           const beforeUserReward = unpackAccount(
             userRewardAta,

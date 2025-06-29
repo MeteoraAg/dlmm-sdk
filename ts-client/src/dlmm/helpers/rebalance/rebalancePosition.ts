@@ -1,31 +1,84 @@
-import BN, { max } from "bn.js";
+import { Program } from "@coral-xyz/anchor";
+import { Connection, PublicKey, SYSVAR_CLOCK_PUBKEY } from "@solana/web3.js";
+import BN from "bn.js";
+import Decimal from "decimal.js";
+import { decodeAccount, deriveBinArray } from "..";
+import { DLMM } from "../..";
 import {
+  BASIS_POINT_MAX,
+  DEFAULT_BIN_PER_POSITION,
+  FEE_PRECISION,
+  SCALE_OFFSET,
+} from "../../constants";
+import { LbClmm } from "../../idl";
+import {
+  Bin,
+  Clock,
+  ClockLayout,
+  LbPair,
   POSITION_BIN_DATA_SIZE,
   PositionData,
   RebalanceAddLiquidityParam,
   RebalanceRemoveLiquidityParam,
-  StrategyType,
-  toStrategyParamType,
-} from "../types";
-import { AccountMeta, Connection, PublicKey } from "@solana/web3.js";
-import {
-  BASIS_POINT_MAX,
-  DEFAULT_BIN_PER_POSITION,
-  SCALE_OFFSET,
-} from "../constants";
-import { getPriceOfBinByBinId } from "./weight";
-import Decimal from "decimal.js";
-import { getQPriceBaseFactor, getQPriceFromId } from "./math";
-import { ONE } from "./u64xu64_math";
+  sParameters,
+  vParameters,
+} from "../../types";
 import {
   binIdToBinArrayIndex,
   deriveBinArrayBitmapExtension,
   getBinArrayLowerUpperBinId,
+  getBinIdIndexInBinArray,
   isOverflowDefaultBinArrayBitmap,
-} from "./binArray";
-import { deriveBinArray } from "./derive";
+} from "../binArray";
+import { getTotalFee } from "../fee";
+import { getQPriceBaseFactor, getQPriceFromId } from "../math";
+import { pow } from "../u64xu64_math";
+import { getPriceOfBinByBinId } from "../weight";
 
-interface AmountIntoBin {
+function buildBitFlagAndNegateStrategyParameters(
+  x0: BN,
+  y0: BN,
+  deltaX: BN,
+  deltaY: BN
+): {
+  bitFlag: number;
+  x0: BN;
+  y0: BN;
+  deltaX: BN;
+  deltaY: BN;
+} {
+  let bitFlag = 0;
+
+  if (x0.isNeg()) {
+    bitFlag |= 0b1;
+    x0 = x0.neg();
+  }
+
+  if (y0.isNeg()) {
+    bitFlag |= 0b10;
+    y0 = y0.neg();
+  }
+
+  if (deltaX.isNeg()) {
+    bitFlag |= 0b100;
+    deltaX = deltaX.neg();
+  }
+
+  if (deltaY.isNeg()) {
+    bitFlag |= 0b1000;
+    deltaY = deltaY.neg();
+  }
+
+  return {
+    bitFlag,
+    x0,
+    y0,
+    deltaX,
+    deltaY,
+  };
+}
+
+export interface AmountIntoBin {
   binId: BN;
   amountX: BN;
   amountY: BN;
@@ -112,368 +165,206 @@ function findMinMaxBinIdWithLiquidity(
   return [minBinId, maxBinId];
 }
 
-function findX0OneLoop(
-  amountX: BN,
+function onlyDepositToBidSide(maxDeltaId: BN, favorXInActiveBin: boolean) {
+  if (favorXInActiveBin) {
+    return maxDeltaId.lt(new BN(0));
+  }
+  return maxDeltaId.lte(new BN(0));
+}
+
+function onlyDepositToAskSide(minDeltaId: BN, favorXInActiveBin: boolean) {
+  if (favorXInActiveBin) {
+    return minDeltaId.gte(new BN(0));
+  }
+  return minDeltaId.gt(new BN(0));
+}
+
+export function getAmountInBinsBidSide(
+  activeId: BN,
   minDeltaId: BN,
   maxDeltaId: BN,
-  binStep: BN,
-  isCurve: boolean
+  deltaY: BN,
+  y0: BN
 ) {
-  let totalWeight = new BN(0);
-  const precision = new BN(100_000_000);
+  const amountInBins: AmountIntoBin[] = [];
 
-  const binCount = maxDeltaId.sub(minDeltaId).addn(1);
+  const minBinId = activeId.add(minDeltaId);
+  const maxBinId = activeId.add(maxDeltaId);
 
-  let base = getQPriceBaseFactor(binStep);
-  let basePrice = ONE;
-
-  for (
-    let binId = minDeltaId.toNumber();
-    binId <= maxDeltaId.toNumber();
-    binId++
-  ) {
-    const binDelta = isCurve
-      ? new BN(binId).sub(minDeltaId)
-      : maxDeltaId.subn(binId);
-    const weight = precision.sub(precision.mul(binDelta).div(binCount));
-    const weightDelta = weight.mul(basePrice);
-    totalWeight = totalWeight.add(weightDelta);
-
-    basePrice = basePrice.mul(base).shrn(SCALE_OFFSET);
+  for (let binId = minBinId.toNumber(); binId <= maxBinId.toNumber(); binId++) {
+    const deltaBin = activeId.toNumber() - binId;
+    const totalDeltaY = deltaY.mul(new BN(deltaBin));
+    const amountY = y0.add(totalDeltaY);
+    amountInBins.push({
+      binId: new BN(binId),
+      amountX: new BN(0),
+      amountY,
+    });
   }
 
-  const x0 = amountX.shln(SCALE_OFFSET).mul(precision).div(totalWeight);
-  return x0;
+  return amountInBins;
 }
 
-function findY0OneLoop(amountY: BN, minDeltaId: BN, maxDeltaId: BN) {
-  let totalWeight = new BN(0);
-  const precision = new BN(100_000_000);
-
-  const binCount = maxDeltaId.sub(minDeltaId).addn(1);
-
-  for (
-    let deltaId = minDeltaId.toNumber();
-    deltaId <= maxDeltaId.toNumber();
-    deltaId++
-  ) {
-    const binDelta = maxDeltaId.subn(deltaId);
-    const delta = precision.sub(precision.mul(binDelta).div(binCount));
-    totalWeight = totalWeight.add(delta);
-  }
-
-  const y0 = amountY.mul(precision).div(totalWeight);
-  return y0;
-}
-
-function findY0(
-  amountY: BN,
-  minDeltaId: BN,
-  maxDeltaId: BN,
-  strategy: StrategyType,
-  activeId: BN
-): BN {
-  const binCount = maxDeltaId.sub(minDeltaId).addn(1);
-  switch (strategy) {
-    case StrategyType.Spot:
-      return amountY.div(binCount);
-    case StrategyType.Curve:
-    case StrategyType.BidAsk:
-      let y0 = findY0OneLoop(amountY, minDeltaId, maxDeltaId);
-      while (true) {
-        const amountIntoBins = getAmountIntoBinBidSide(
-          activeId,
-          minDeltaId,
-          maxDeltaId,
-          y0,
-          strategy
-        );
-
-        const amountYReference = amountIntoBins.reduce(
-          (total, { amountY }) => total.add(amountY),
-          new BN(0)
-        );
-
-        if (amountYReference.gt(amountY)) {
-          y0 = y0.subn(1);
-        } else {
-          break;
-        }
-      }
-
-      return y0;
-  }
-}
-
-function findX0(
-  amountX: BN,
-  minDeltaId: BN,
-  maxDeltaId: BN,
+export function getAmountInBinsAskSide(
+  activeId: BN,
   binStep: BN,
-  strategy: StrategyType,
-  activeId: BN
+  minDeltaId: BN,
+  maxDeltaId: BN,
+  deltaX: BN,
+  x0: BN
 ) {
-  const binCount = maxDeltaId.sub(minDeltaId).addn(1);
-  switch (strategy) {
-    case StrategyType.Spot:
-      let totalWeight = new BN(0);
+  const binCount = maxDeltaId.sub(minDeltaId).add(new BN(1));
 
-      for (let i = 0; i < binCount.toNumber(); i++) {
-        const basePrice = getQPriceFromId(new BN(i), binStep);
-        totalWeight = totalWeight.add(basePrice);
-      }
+  const minBinId = activeId.add(minDeltaId);
+  const maxBinId = activeId.add(maxDeltaId);
 
-      return amountX.shln(SCALE_OFFSET).div(totalWeight);
-    case StrategyType.Curve:
-    case StrategyType.BidAsk:
-      let x0 = findX0OneLoop(
-        amountX,
-        minDeltaId,
-        maxDeltaId,
-        binStep,
-        strategy == StrategyType.Curve
-      );
+  const amountInBins: AmountIntoBin[] = new Array(binCount.toNumber());
 
-      while (true) {
-        const amountIntoBins = getAmountIntoBinAskSide(
-          activeId,
-          binStep,
-          minDeltaId,
-          maxDeltaId,
-          x0,
-          strategy
-        );
+  const base = getQPriceBaseFactor(binStep);
+  let inverseBasePrice = pow(base, maxBinId.neg());
 
-        const amountXReference = amountIntoBins.reduce(
-          (total, { amountX }) => total.add(amountX),
-          new BN(0)
-        );
-
-        if (amountXReference.gt(amountX)) {
-          x0 = x0.subn(1);
-        } else {
-          break;
-        }
-      }
-
-      return x0;
-  }
-}
-
-function getAmountIntoBinBidSide(
-  activeId: BN,
-  minDeltaId: BN,
-  maxDeltaId: BN,
-  y0: BN,
-  strategy: StrategyType
-): AmountIntoBin[] {
-  const amountIntoBin: AmountIntoBin[] = [];
-
-  switch (strategy) {
-    case StrategyType.Spot:
-      for (
-        let binDeltaId = minDeltaId.toNumber();
-        binDeltaId <= maxDeltaId.toNumber();
-        binDeltaId++
-      ) {
-        const binId = activeId.addn(binDeltaId);
-        amountIntoBin.push({ binId, amountX: new BN(0), amountY: y0 });
-      }
-      break;
-    case StrategyType.Curve:
-    case StrategyType.BidAsk:
-      const binCount = maxDeltaId.sub(minDeltaId).addn(1);
-      const deltaY = y0.div(binCount);
-      for (
-        let binDeltaId = minDeltaId.toNumber();
-        binDeltaId <= maxDeltaId.toNumber();
-        binDeltaId++
-      ) {
-        const binDelta =
-          strategy == StrategyType.Curve
-            ? maxDeltaId.subn(binDeltaId)
-            : new BN(binDeltaId).sub(minDeltaId);
-
-        const delta = deltaY.mul(binDelta);
-        const binId = activeId.addn(binDeltaId);
-        amountIntoBin.push({
-          binId,
-          amountX: new BN(0),
-          amountY: y0.sub(delta),
-        });
-      }
-      break;
-  }
-
-  return amountIntoBin;
-}
-
-function getAmountIntoBinAskSide(
-  activeId: BN,
-  binStep: BN,
-  minDeltaId: BN,
-  maxDeltaId: BN,
-  x0: BN,
-  strategy: StrategyType
-): AmountIntoBin[] {
-  let base = getQPriceBaseFactor(binStep);
-  let basePrice = ONE;
-
-  const amountIntoBin: AmountIntoBin[] = [];
-
-  switch (strategy) {
-    case StrategyType.Spot:
-      for (
-        let deltaId = maxDeltaId.toNumber();
-        deltaId >= minDeltaId.toNumber();
-        deltaId--
-      ) {
-        const amountX = basePrice.mul(x0).shrn(SCALE_OFFSET);
-        amountIntoBin.unshift({
-          binId: activeId.addn(deltaId),
-          amountX,
-          amountY: new BN(0),
-        });
-
-        basePrice = basePrice.mul(base).shrn(SCALE_OFFSET);
-      }
-      break;
-    case StrategyType.BidAsk:
-    case StrategyType.Curve:
-      const binCount = maxDeltaId.sub(minDeltaId).addn(1);
-      const deltaX = x0.div(binCount);
-
-      for (
-        let deltaBinId = maxDeltaId.toNumber();
-        deltaBinId >= minDeltaId.toNumber();
-        deltaBinId--
-      ) {
-        const binDelta =
-          strategy == StrategyType.Curve
-            ? new BN(deltaBinId).sub(minDeltaId)
-            : maxDeltaId.subn(deltaBinId);
-
-        const delta = deltaX.mul(binDelta);
-        const amountX = x0.sub(delta).mul(basePrice).shrn(SCALE_OFFSET);
-
-        amountIntoBin.unshift({
-          binId: activeId.addn(deltaBinId),
-          amountX,
-          amountY: new BN(0),
-        });
-
-        basePrice = basePrice.mul(base).shrn(SCALE_OFFSET);
-      }
-      break;
-  }
-
-  return amountIntoBin;
-}
-
-function toAmountIntoBin(
-  activeId: BN,
-  binStep: BN,
-  minDeltaId: BN,
-  maxDeltaId: BN,
-  strategyX: StrategyType,
-  strategyY: StrategyType,
-  amountX: BN,
-  amountY: BN,
-  favorXInActiveBin: boolean
-): {
-  x0: BN;
-  y0: BN;
-  amountIntoBins: AmountIntoBin[];
-} {
-  if (maxDeltaId.toNumber() < 0) {
-    const y0 = findY0(amountY, minDeltaId, maxDeltaId, strategyY, activeId);
-    const amountIntoBins = getAmountIntoBinBidSide(
-      activeId,
-      minDeltaId,
-      maxDeltaId,
-      y0,
-      strategyY
-    );
-
-    return {
-      x0: new BN(0),
-      y0,
-      amountIntoBins,
-    };
-  }
-
-  if (minDeltaId.toNumber() > 0) {
-    const x0 = findX0(
+  for (let binId = maxBinId.toNumber(); binId >= minBinId.toNumber(); binId--) {
+    const delta = binId - activeId.toNumber();
+    const totalDeltaX = deltaX.mul(new BN(delta));
+    const amountX = x0
+      .add(totalDeltaX)
+      .mul(inverseBasePrice)
+      .shrn(SCALE_OFFSET);
+    const idx = binId - minBinId.toNumber();
+    amountInBins[idx] = {
+      binId: new BN(binId),
       amountX,
-      minDeltaId,
-      maxDeltaId,
-      binStep,
-      strategyX,
-      activeId
-    );
+      amountY: new BN(0),
+    };
+    inverseBasePrice = inverseBasePrice.mul(base).shrn(SCALE_OFFSET);
+  }
 
-    const amountIntoBins = getAmountIntoBinAskSide(
+  return amountInBins;
+}
+
+export function toAmountIntoBins(
+  activeId: BN,
+  minDeltaId: BN,
+  maxDeltaId: BN,
+  deltaX: BN,
+  deltaY: BN,
+  x0: BN,
+  y0: BN,
+  binStep: BN,
+  favorXInActiveBin: boolean
+): AmountIntoBin[] {
+  if (onlyDepositToBidSide(maxDeltaId, favorXInActiveBin)) {
+    return getAmountInBinsBidSide(activeId, minDeltaId, maxDeltaId, deltaY, y0);
+  }
+
+  if (onlyDepositToAskSide(minDeltaId, favorXInActiveBin)) {
+    return getAmountInBinsAskSide(
       activeId,
       binStep,
       minDeltaId,
       maxDeltaId,
-      x0,
-      strategyX
+      deltaX,
+      x0
     );
-
-    return {
-      x0,
-      y0: new BN(0),
-      amountIntoBins,
-    };
   }
 
   const [bidSideEndDeltaId, askSideStartDeltaId] = favorXInActiveBin
     ? [-1, 0]
     : [0, 1];
 
-  const y0 = findY0(
-    amountY,
+  const amountInBinsBidSide = getAmountInBinsBidSide(
+    activeId,
     minDeltaId,
     new BN(bidSideEndDeltaId),
-    strategyY,
-    activeId
+    deltaY,
+    y0
   );
 
-  const x0 = findX0(
-    amountX,
+  const amountInBinsAskSide = getAmountInBinsAskSide(
+    activeId,
+    binStep,
     new BN(askSideStartDeltaId),
     maxDeltaId,
-    binStep,
-    strategyX,
-    activeId
+    deltaX,
+    x0
   );
 
-  const amountIntoBinsBidSide = minDeltaId.lte(new BN(bidSideEndDeltaId))
-    ? getAmountIntoBinBidSide(
-        activeId,
-        minDeltaId,
-        new BN(bidSideEndDeltaId),
-        y0,
-        strategyY
-      )
-    : [];
+  return amountInBinsBidSide.concat(amountInBinsAskSide);
+}
 
-  const amountIntoBinsAskSide = maxDeltaId.gte(new BN(askSideStartDeltaId))
-    ? getAmountIntoBinAskSide(
-        activeId,
-        binStep,
-        new BN(askSideStartDeltaId),
-        maxDeltaId,
-        x0,
-        strategyX
-      )
-    : [];
+function getLiquidity(x: BN, y: BN, price: BN) {
+  const px = price.mul(x);
+  const shly = y.shln(SCALE_OFFSET);
+  return px.add(shly);
+}
+
+function computeCompositionFee(
+  binStep: BN,
+  sParameters: sParameters,
+  vParameters: vParameters,
+  outAmountX: BN,
+  inAmountX: BN,
+  outAmountY: BN,
+  inAmountY: BN
+) {
+  if (outAmountX.gt(inAmountX)) {
+    const delta = inAmountY.sub(outAmountY);
+    const totalFeeRate = getTotalFee(
+      binStep.toNumber(),
+      sParameters,
+      vParameters
+    );
+    const feeAmount = delta.mul(totalFeeRate);
+    return feeAmount
+      .mul(FEE_PRECISION.add(totalFeeRate))
+      .div(FEE_PRECISION.pow(new BN(2)));
+  }
+  return new BN(0);
+}
+
+function simulateDepositBin(
+  binId: BN,
+  binStep: BN,
+  amountX: BN,
+  amountY: BN,
+  bin: Bin
+) {
+  if (!bin) {
+    return {
+      amountXIntoBin: amountX,
+      amountYIntoBin: amountY,
+    };
+  }
+
+  const price = getQPriceFromId(binId, binStep);
+  const inLiquidity = getLiquidity(amountX, amountY, price);
+  const binLiquidity = getLiquidity(bin.amountX, bin.amountY, price);
+
+  if (bin.liquiditySupply.isZero()) {
+    return {
+      amountXIntoBin: amountX,
+      amountYIntoBin: amountY,
+    };
+  }
+
+  const liquidityShare = inLiquidity.mul(bin.liquiditySupply).div(binLiquidity);
+  const updatedBinXAmount = bin.amountX.add(amountX);
+  const updatedBinYAmount = bin.amountY.add(amountY);
+  const updatedBinSupply = bin.liquiditySupply.add(liquidityShare);
+
+  let amountXIntoBin = liquidityShare.mul(
+    updatedBinXAmount.div(updatedBinSupply)
+  );
+  let amountYIntoBin = liquidityShare.mul(
+    updatedBinYAmount.div(updatedBinSupply)
+  );
+
+  if (amountXIntoBin.gt(amountX)) {
+  }
 
   return {
-    x0,
-    y0,
-    amountIntoBins: amountIntoBinsBidSide.concat(amountIntoBinsAskSide),
+    amountXIntoBin,
+    amountYIntoBin,
   };
 }
 
@@ -492,31 +383,95 @@ interface SimulateDepositResult {
   actualLiquidityAndFeeYWithdrawn: BN;
 }
 
+export interface CreateRebalancePositionParams {
+  program: Program<LbClmm>;
+  pairAddress: PublicKey;
+  positionAddress: PublicKey;
+  positionData: PositionData;
+  shouldClaimFee: boolean;
+  shouldClaimReward: boolean;
+}
+
 export class RebalancePosition {
   public address: PublicKey;
   public lowerBinId: BN;
   public upperBinId: BN;
-  public activeId: BN;
+  public lbPair: LbPair;
   public owner: PublicKey;
   public shouldClaimFee: boolean;
   public shouldClaimReward: boolean;
   public rebalancePositionBinData: RebalancePositionBinData[];
+  public activeBin: Bin;
+  public currentTimestamp: BN;
 
   constructor(
     positionAddress: PublicKey,
     positionData: PositionData,
-    activeId: BN,
+    lbPair: LbPair,
+    activeBin: Bin,
     shouldClaimFee: boolean,
-    shouldClaimReward: boolean
+    shouldClaimReward: boolean,
+    currentTimestamp: BN
   ) {
     this.address = positionAddress;
     this.rebalancePositionBinData = toRebalancePositionBinData(positionData);
     this.lowerBinId = new BN(positionData.lowerBinId);
     this.upperBinId = new BN(positionData.upperBinId);
-    this.activeId = activeId;
+    this.lbPair = lbPair;
     this.shouldClaimFee = shouldClaimFee;
     this.shouldClaimReward = shouldClaimReward;
     this.owner = positionData.owner;
+    this.activeBin = activeBin;
+    this.currentTimestamp = currentTimestamp;
+  }
+
+  static async create(
+    params: CreateRebalancePositionParams
+  ): Promise<RebalancePosition> {
+    const {
+      program,
+      positionAddress,
+      pairAddress,
+      positionData,
+      shouldClaimFee,
+      shouldClaimReward,
+    } = params;
+    const [lbPairAccount, clockAccount] =
+      await program.provider.connection.getMultipleAccountsInfo([
+        pairAddress,
+        SYSVAR_CLOCK_PUBKEY,
+      ]);
+
+    const lbPair = decodeAccount<LbPair>(program, "lbPair", lbPairAccount.data);
+    const clock = ClockLayout.decode(clockAccount.data) as Clock;
+
+    const activeBinArrayIdx = binIdToBinArrayIndex(new BN(lbPair.activeId));
+    const [activeBinArrayPubkey] = deriveBinArray(
+      pairAddress,
+      activeBinArrayIdx,
+      program.programId
+    );
+    const activeBinArrayState = await program.account.binArray.fetch(
+      activeBinArrayPubkey
+    );
+    const [lowerBinId, upperBinId] =
+      getBinArrayLowerUpperBinId(activeBinArrayIdx);
+    const idx = getBinIdIndexInBinArray(
+      new BN(lbPair.activeId),
+      lowerBinId,
+      upperBinId
+    );
+    const activeBin = activeBinArrayState[idx.toNumber()];
+
+    return new RebalancePosition(
+      positionAddress,
+      positionData,
+      lbPair,
+      activeBin,
+      shouldClaimFee,
+      shouldClaimReward,
+      clock.unixTimestamp
+    );
   }
 
   _simulateDeposit(
@@ -532,7 +487,8 @@ export class RebalancePosition {
     const { liquidityAndFeeXWithdrawn, liquidityAndFeeYWithdrawn } =
       simulatedWithdrawResult;
 
-    const depositBinIds = getDepositBinIds(this.activeId, deposits);
+    const activeId = new BN(this.lbPair.activeId);
+    const depositBinIds = getDepositBinIds(activeId, deposits);
 
     if (depositBinIds.length > 0) {
       const depositMinBinId = depositBinIds[0];
@@ -553,36 +509,44 @@ export class RebalancePosition {
     const addLiquidityParam: RebalanceAddLiquidityParam[] = [];
 
     for (const {
-      amountX,
-      amountY,
+      x0,
+      y0,
       favorXInActiveBin,
-      strategyX,
-      strategyY,
+      deltaX,
+      deltaY,
       minDeltaId,
       maxDeltaId,
     } of deposits) {
-      const { x0, y0, amountIntoBins } = toAmountIntoBin(
-        this.activeId,
-        binStep,
-        minDeltaId,
-        maxDeltaId,
-        strategyX,
-        strategyY,
-        amountX,
-        amountY,
-        favorXInActiveBin
+      const params = buildBitFlagAndNegateStrategyParameters(
+        x0,
+        y0,
+        deltaX,
+        deltaY
       );
 
       addLiquidityParam.push({
         minDeltaId: minDeltaId.toNumber(),
         maxDeltaId: maxDeltaId.toNumber(),
-        x0,
-        y0,
-        strategyX: toStrategyParamType(strategyX),
-        strategyY: toStrategyParamType(strategyY),
+        x0: params.x0,
+        y0: params.y0,
+        deltaX: params.deltaX,
+        deltaY: params.deltaY,
+        bitFlag: params.bitFlag,
         padding: Array(16).fill(0),
         favorXInActiveId: favorXInActiveBin,
       });
+
+      const amountIntoBins = toAmountIntoBins(
+        activeId,
+        minDeltaId,
+        maxDeltaId,
+        deltaX,
+        deltaY,
+        x0,
+        y0,
+        binStep,
+        favorXInActiveBin
+      );
 
       for (const { binId, amountX, amountY } of amountIntoBins) {
         totalAmountXDeposited = totalAmountXDeposited.add(amountX);
@@ -591,10 +555,62 @@ export class RebalancePosition {
         const idx = this.rebalancePositionBinData.findIndex(
           (data) => data.binId == binId.toNumber()
         );
-        this.rebalancePositionBinData[idx].amountX =
-          this.rebalancePositionBinData[idx].amountX.add(amountX);
-        this.rebalancePositionBinData[idx].amountY =
-          this.rebalancePositionBinData[idx].amountY.add(amountY);
+
+        if (binId.eq(activeId)) {
+          const vParameters = Object.assign({}, this.lbPair.vParameters);
+          const sParameters = Object.assign({}, this.lbPair.parameters);
+          DLMM.updateReference(
+            activeId.toNumber(),
+            vParameters,
+            sParameters,
+            this.currentTimestamp.toNumber()
+          );
+          DLMM.updateVolatilityAccumulator(
+            vParameters,
+            sParameters,
+            activeId.toNumber()
+          );
+          const { amountXIntoBin, amountYIntoBin } = simulateDepositBin(
+            binId,
+            binStep,
+            amountX,
+            amountY,
+            this.activeBin
+          );
+          const feeY = computeCompositionFee(
+            binStep,
+            sParameters,
+            vParameters,
+            amountXIntoBin,
+            amountX,
+            amountYIntoBin,
+            amountY
+          );
+          const feeX = computeCompositionFee(
+            binStep,
+            sParameters,
+            vParameters,
+            amountYIntoBin,
+            amountY,
+            amountXIntoBin,
+            amountX
+          );
+          const amountXIntoBinExcludeFee = amountXIntoBin.sub(feeX);
+          const amountYIntoBinExcludeFee = amountYIntoBin.sub(feeY);
+          this.rebalancePositionBinData[idx].amountX =
+            this.rebalancePositionBinData[idx].amountX.add(
+              amountXIntoBinExcludeFee
+            );
+          this.rebalancePositionBinData[idx].amountY =
+            this.rebalancePositionBinData[idx].amountY.add(
+              amountYIntoBinExcludeFee
+            );
+        } else {
+          this.rebalancePositionBinData[idx].amountX =
+            this.rebalancePositionBinData[idx].amountX.add(amountX);
+          this.rebalancePositionBinData[idx].amountY =
+            this.rebalancePositionBinData[idx].amountY.add(amountY);
+        }
       }
     }
 
@@ -729,9 +745,11 @@ export class RebalancePosition {
     let liquidityAndFeeYWithdrawn = new BN(0);
     let rewardsAmountClaimed = [new BN(0), new BN(0)];
 
+    const activeId = new BN(this.lbPair.activeId);
+
     for (const { minBinId, maxBinId, bps } of withdraws) {
-      const fromBinId = minBinId ?? this.activeId;
-      const toBinId = maxBinId ?? this.activeId;
+      const fromBinId = minBinId ?? activeId;
+      const toBinId = maxBinId ?? activeId;
 
       const binIds = binRangeToBinIdArray(fromBinId, toBinId).filter(
         (binId) => binId.gte(this.lowerBinId) && binId.lte(this.upperBinId)
@@ -811,7 +829,13 @@ export class RebalancePosition {
     withdraws: RebalanceWithWithdraw[],
     deposits: RebalanceWithDeposit[]
   ): Promise<SimulateRebalanceResp> {
-    withdraws = validateAndSortRebalanceWithdraw(withdraws, this.activeId);
+    if (withdraws.length == 0 && deposits.length == 0) {
+      throw "No rebalance action";
+    }
+
+    const activeId = new BN(this.lbPair.activeId);
+
+    withdraws = validateAndSortRebalanceWithdraw(withdraws, activeId);
     deposits = validateAndSortRebalanceDeposit(deposits);
 
     const beforeWidth = getPositionWidthWithMinWidth(
@@ -922,7 +946,7 @@ function validateAndSortRebalanceDeposit(deposits: RebalanceWithDeposit[]) {
   );
 
   for (const deposit of deposits) {
-    if (deposit.minDeltaId.gt(deposit.maxDeltaId)) {
+    if (deposit.minDeltaId.gte(deposit.maxDeltaId)) {
       throw "Invalid minDeltaId or maxDeltaId";
     }
   }
@@ -932,7 +956,7 @@ function validateAndSortRebalanceDeposit(deposits: RebalanceWithDeposit[]) {
     const currDeposit = sortedDeposits[i];
 
     if (prevDeposit.maxDeltaId.gte(currDeposit.minDeltaId)) {
-      throw "Invalid minDeltaId or maxDeltaId";
+      throw "Overlap deposit bin range";
     }
   }
 
@@ -953,7 +977,7 @@ function validateAndSortRebalanceWithdraw(
     const filledMinBinId = minBinId ?? activeId;
     const filledMaxBinId = maxBinId ?? activeId;
 
-    if (filledMinBinId.gte(filledMaxBinId)) {
+    if (filledMinBinId.gt(filledMaxBinId)) {
       throw "Invalid minBinId or maxBinId";
     }
 
@@ -1003,14 +1027,14 @@ export interface RebalanceWithDeposit {
   minDeltaId: BN;
   /// maxBinId = activeId + maxDeltaId
   maxDeltaId: BN;
-  /// Amount X to be deposited into bin range of minBinId to maxBinId
-  amountX: BN;
-  /// Amount Y to be deposited into bin range of minBinId to maxBinId
-  amountY: BN;
-  /// Strategy type for token X
-  strategyX: StrategyType;
-  /// Strategy type for token Y
-  strategyY: StrategyType;
+  /// X0
+  x0: BN;
+  /// Y0
+  y0: BN;
+  /// Delta X
+  deltaX: BN;
+  /// Delta Y
+  deltaY: BN;
   /// Deposit token X or Y in active bin
   favorXInActiveBin: boolean;
 }
@@ -1060,7 +1084,7 @@ export function getRebalanceBinArrayIndexesAndBitmapCoverage(
   binArrayIndexes: BN[];
   binArrayBitmap: PublicKey;
 } {
-  let indexMap: Map<BN, boolean> = new Map();
+  let indexMap: Map<number, boolean> = new Map();
   removes.forEach((value) => {
     let minBinId = value.minBinId;
     if (minBinId == null) {
@@ -1073,7 +1097,7 @@ export function getRebalanceBinArrayIndexesAndBitmapCoverage(
     let binArrayIndex = binIdToBinArrayIndex(new BN(minBinId));
     const upperBinId = new BN(maxBinId);
     while (true) {
-      indexMap.set(binArrayIndex, true);
+      indexMap.set(binArrayIndex.toNumber(), true);
       const [binArrayLowerBinId, binArrayUpperBinId] =
         getBinArrayLowerUpperBinId(binArrayIndex);
 
@@ -1094,7 +1118,7 @@ export function getRebalanceBinArrayIndexesAndBitmapCoverage(
     let binArrayIndex = binIdToBinArrayIndex(new BN(minBinId));
     const upperBinId = new BN(maxBinId);
     while (true) {
-      indexMap.set(binArrayIndex, true);
+      indexMap.set(binArrayIndex.toNumber(), true);
       const [binArrayLowerBinId, binArrayUpperBinId] =
         getBinArrayLowerUpperBinId(binArrayIndex);
 
@@ -1108,10 +1132,10 @@ export function getRebalanceBinArrayIndexesAndBitmapCoverage(
       }
     }
   });
-  const binArrayIndexes = Array.from(indexMap.keys());
+  const binArrayIndexes = Array.from(indexMap.keys()).map((idx) => new BN(idx));
 
   const requireBitmapExtension = binArrayIndexes.some((index) =>
-    isOverflowDefaultBinArrayBitmap(index)
+    isOverflowDefaultBinArrayBitmap(new BN(index))
   );
 
   return {
