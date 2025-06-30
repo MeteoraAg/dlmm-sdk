@@ -31,17 +31,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `getPositionRentExemption` function. It return minimum balance required to pay for a position account for rent exemption.
 - Added `getPositionExpandRentExemption` function. It return minimum balance required to pay for a position account expansion for rent exemption.
 - Added `quoteExtendPosition` function. It return minimum balance required to pay for rent exemption for the given position expansion and bin array accounts to cover the expanded position range.
-- Added `quoteCreateMultiplePositions` function. It return minimum balance required to pay for rent exemption for initializing multiple positions, expansion of position range and bin array accounts to the full range based on the strategy input.
-- Added `createMultipleEmptyPositions` function. It return transactions to create multiple positions, expand, and bin arrays to cover the specified input bin range.
-- Added `initializeMultiplePositionAndAddLiquidityByStrategy` function. It return transactions to initialize multiple positions, bin arrays, expand the position range and add liquidity to the specified input bin range.
 - Added `decreasePositionLength` function. It return transaction to shrink an expanded position. The rent is not returned upon decrement, but returned when the position is closed.
 - Added `increasePositionLength` function. It return transaction to expand a position up to maximum 1400 bins.
 - Added `simulateRebalancePosition` function. It return a locally simulated rebalanced position, and required parameters for on chain rebalancing.
+- Added `createExtendedEmptyPosition` function. It return transaction to create an empty position with maximum 1400 bins.
+- Added `simulateRebalancePositionWithStrategy` function. It return a locally simulated rebalanced position with current price rebalanced to the center of the position.
 - Added `rebalancePosition` function. It return instructions to rebalance a position.
 
 ### Changed
 
-- `addLiquidityByStrategy` function. It will chunk the bin range into multiple add liquidity transactions if it exceed max size. The return type changed from `Promise<Transaction>` to `Promise<Transaction[]>`.
 - `removeLiquidity` function. It will chunk the bin range into multiple remove liquidity transactions if it exceed max size. The return type changed from `Promise<Transaction>` to `Promise<Transaction[]>`.
 - `claimLMReward` function. It will chunk the bin range into multiple claim reward transactions if it exceed max size. The return type changed from `Promise<Transaction>` to `Promise<Transaction[]>`.
 - `claimSwapFee` function. It will chunk the bin range into multiple claim swap fee transactions if it exceed max size. The return type changed from `Promise<Transaction>` to `Promise<Transaction[]>`.
