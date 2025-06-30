@@ -2366,86 +2366,6 @@ export class DLMM {
   }
 
   /**
-   * Estimates the cost to create a new position based on the given strategy.
-   *
-   * This function calculates the costs associated with creating bin arrays, positions
-   * and extending positions for a specified range of bins.
-   *
-   * @param {TQuoteCreatePositionParams} param0 - The settings of the requested new position,
-   * including the strategy with minimum and maximum bin IDs.
-   * @returns An object containing:
-   *   - binArraysCount: The number of bin arrays required.
-   *   - binArrayCost: The estimated cost for creating bin arrays.
-   *   - positionCount: The number of positions required.
-   *   - positionCost: The fee cost for creating positions.
-   *   - positionExtendCost: The rent cost in lamports for extending positions.
-   */
-
-  public async quoteCreateMultiplePositions({
-    strategy,
-  }: TQuoteCreatePositionParams) {
-    const { minBinId, maxBinId } = strategy;
-
-    const minBinIdBN = new BN(minBinId);
-    const maxBinIdBN = new BN(maxBinId);
-
-    // 1. Calculate bin array cost
-    const lowerBinArrayIndex = binIdToBinArrayIndex(minBinIdBN);
-    const upperBinArrayIndex = binIdToBinArrayIndex(maxBinIdBN);
-
-    const binArraysCount = (
-      await this.binArraysToBeCreate(lowerBinArrayIndex, upperBinArrayIndex)
-    ).length;
-
-    const binArrayCost = new Decimal(binArraysCount).mul(
-      new Decimal(BIN_ARRAY_FEE)
-    );
-
-    // 2. Calculate position and extend cost
-    let positionCost = new Decimal(0);
-    let positionExtendCost = new Decimal(0);
-
-    const chunkedPositionBinRange = chunkBinRangeIntoExtendedPositions(
-      minBinId,
-      maxBinId
-    );
-
-    const positionCount = chunkedPositionBinRange.length;
-
-    for (const { lowerBinId, upperBinId } of chunkedPositionBinRange) {
-      positionCost = positionCost.add(new Decimal(POSITION_FEE));
-      const lowerBinIdBN = new BN(lowerBinId);
-      const upperBinIdBN = new BN(upperBinId);
-
-      const extendedBinCount = getExtendedPositionBinCount(
-        lowerBinIdBN,
-        upperBinIdBN
-      );
-
-      const upperBinIdBeforeExtend = upperBinIdBN.sub(extendedBinCount);
-
-      positionExtendCost = positionExtendCost.add(
-        await getPositionExpandRentExemption(
-          lowerBinIdBN,
-          upperBinIdBeforeExtend,
-          this.program.provider.connection,
-          extendedBinCount
-        ).then((lamports) =>
-          new Decimal(lamports).div(new Decimal(LAMPORTS_PER_SOL))
-        )
-      );
-    }
-
-    return {
-      binArraysCount,
-      binArrayCost,
-      positionCount,
-      positionCost,
-      positionExtendCost,
-    };
-  }
-
-  /**
    * Creates an empty position and initializes the corresponding bin arrays if needed.
    * @param param0 The settings of the requested new position.
    * @returns A promise that resolves into a transaction for creating the requested position.
@@ -2495,108 +2415,6 @@ export class DLMM {
       lastValidBlockHeight,
       feePayer: user,
     }).add(setCUIx, ...instructions);
-  }
-
-  /**
-   * Creates multiple empty positions for a user in specified bin ranges with necessary bin arrays.
-   *
-   * @param {number} minBinId - The minimum bin ID for the positions.
-   * @param {number} maxBinId - The maximum bin ID for the positions.
-   * @param {PublicKey} user - The public key of the user for whom the positions are created.
-   *
-   * @returns An object containing arrays of transactions for initializing positions, extending positions and initialzing bin arrays.
-   */
-  public async createMultipleEmptyPositions({
-    minBinId,
-    maxBinId,
-    user,
-  }: {
-    minBinId: number;
-    maxBinId: number;
-    user: PublicKey;
-  }) {
-    const chunkedBinRange = chunkBinRangeIntoExtendedPositions(
-      minBinId,
-      maxBinId
-    );
-
-    const positionCount = chunkedBinRange.length;
-
-    const positionKeypairs: Keypair[] = [];
-    const initPositionIxs: TransactionInstruction[][] = [];
-    const initBinArrayIxs: TransactionInstruction[][] = [];
-
-    const binArrayIndexSet = new Set<number>();
-
-    for (let i = 0; i < positionCount; i++) {
-      const positionKeypair = Keypair.generate();
-      positionKeypairs.push(positionKeypair);
-
-      const { lowerBinId, upperBinId } = chunkedBinRange[i];
-
-      let width = upperBinId - lowerBinId + 1;
-      width = Math.min(width, DEFAULT_BIN_PER_POSITION.toNumber());
-
-      // 1. Init position and extend
-      const initPositionIx = await this.createInitAndExtendPositionIx(
-        lowerBinId,
-        upperBinId,
-        width,
-        user,
-        positionKeypair.publicKey
-      );
-
-      initPositionIxs.push(initPositionIx);
-
-      // 2. Create bin arrays
-      const binArrayIndexes = getBinArrayIndexesCoverage(
-        new BN(lowerBinId),
-        new BN(upperBinId)
-      ).filter((idx) => !binArrayIndexSet.has(idx.toNumber()));
-
-      const createBinArrayIxs = await this.createBinArraysIfNeeded(
-        binArrayIndexes,
-        user
-      ).then((ixs) =>
-        ixs.map((ix) => [
-          ComputeBudgetProgram.setComputeUnitLimit({
-            units: DEFAULT_INIT_BIN_ARRAY_CU,
-          }),
-          ix,
-        ])
-      );
-
-      binArrayIndexes.map((idx) => {
-        binArrayIndexSet.add(idx.toNumber());
-      });
-
-      initBinArrayIxs.push(...createBinArrayIxs);
-    }
-
-    const { blockhash, lastValidBlockHeight } =
-      await this.program.provider.connection.getLatestBlockhash("confirmed");
-
-    const initPositionTxs = initPositionIxs.map((ix) => {
-      return new Transaction({
-        blockhash,
-        lastValidBlockHeight,
-        feePayer: user,
-      }).add(...ix);
-    });
-
-    const initBinArrayTxs = initBinArrayIxs.map((ix) => {
-      return new Transaction({
-        blockhash,
-        lastValidBlockHeight,
-        feePayer: user,
-      }).add(...ix);
-    });
-
-    return {
-      positionKeypairs,
-      initPositionTxs,
-      initBinArrayTxs,
-    };
   }
 
   /**
@@ -6885,6 +6703,45 @@ export class DLMM {
       initBinArrayInstructions,
       rebalancePositionInstruction,
     };
+  }
+
+  /**
+   * Create an extended empty position.
+   *
+   * @param lowerBinid The lowest bin of the position.
+   * @param upperBinId The highest bin of the position.
+   * @param position The public key of the position.
+   * @param owner The owner of the position.
+   * @returns The instructions to create the extended empty position.
+   */
+  public async createExtendedEmptyPosition(
+    lowerBinid: number,
+    upperBinId: number,
+    position: PublicKey,
+    owner: PublicKey
+  ) {
+    const positionWidth = upperBinId - lowerBinid + 1;
+    const basePositionWidth = Math.min(
+      positionWidth,
+      DEFAULT_BIN_PER_POSITION.toNumber()
+    );
+
+    const ixs = await this.createInitAndExtendPositionIx(
+      lowerBinid,
+      upperBinId,
+      basePositionWidth,
+      owner,
+      position
+    );
+
+    const latestBlockhashInfo =
+      await this.program.provider.connection.getLatestBlockhash();
+
+    const tx = new Transaction({
+      ...latestBlockhashInfo,
+    }).add(...ixs);
+
+    return tx;
   }
 
   private async createInitAndExtendPositionIx(
