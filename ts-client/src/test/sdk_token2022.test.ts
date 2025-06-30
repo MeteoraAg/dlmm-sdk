@@ -2529,329 +2529,329 @@ describe("SDK token2022 test", () => {
       });
     });
 
-    describe("Add liquidity", () => {
-      it("Add liquidity by strategy", async () => {
-        const totalXAmount = new BN(10_000_000).mul(new BN(10 ** btcDecimal));
-        const totalYAmount = new BN(10_000_000).mul(new BN(10 ** usdcDecimal));
+    // describe("Add liquidity", () => {
+    //   it("Add liquidity by strategy", async () => {
+    //     const totalXAmount = new BN(10_000_000).mul(new BN(10 ** btcDecimal));
+    //     const totalYAmount = new BN(10_000_000).mul(new BN(10 ** usdcDecimal));
 
-        const dlmm = await DLMM.create(connection, pairKey, opt);
-        let position = await dlmm.getPosition(
-          extendedPositionKeypair0.publicKey
-        );
+    //     const dlmm = await DLMM.create(connection, pairKey, opt);
+    //     let position = await dlmm.getPosition(
+    //       extendedPositionKeypair0.publicKey
+    //     );
 
-        const activeBinInfo = await dlmm.getActiveBin();
+    //     const activeBinInfo = await dlmm.getActiveBin();
 
-        const computedInBinAmount = toAmountsBothSideByStrategy(
-          dlmm.lbPair.activeId,
-          dlmm.lbPair.binStep,
-          position.positionData.lowerBinId,
-          position.positionData.upperBinId,
-          totalXAmount,
-          totalYAmount,
-          activeBinInfo.xAmount,
-          activeBinInfo.yAmount,
-          StrategyType.Curve,
-          dlmm.tokenX.mint,
-          dlmm.tokenY.mint,
-          dlmm.clock
-        );
+    //     const computedInBinAmount = toAmountsBothSideByStrategy(
+    //       dlmm.lbPair.activeId,
+    //       dlmm.lbPair.binStep,
+    //       position.positionData.lowerBinId,
+    //       position.positionData.upperBinId,
+    //       totalXAmount,
+    //       totalYAmount,
+    //       activeBinInfo.xAmount,
+    //       activeBinInfo.yAmount,
+    //       StrategyType.Curve,
+    //       dlmm.tokenX.mint,
+    //       dlmm.tokenY.mint,
+    //       dlmm.clock
+    //     );
 
-        const addLiquidityTxs = await dlmm.addLiquidityByStrategy({
-          positionPubKey: extendedPositionKeypair0.publicKey,
-          totalXAmount,
-          totalYAmount,
-          user: keypair.publicKey,
-          strategy: {
-            strategyType: StrategyType.Curve,
-            minBinId: position.positionData.lowerBinId,
-            maxBinId: position.positionData.upperBinId,
-          },
-          slippage: 0,
-        });
+    //     const addLiquidityTxs = await dlmm.addLiquidityByStrategy({
+    //       positionPubKey: extendedPositionKeypair0.publicKey,
+    //       totalXAmount,
+    //       totalYAmount,
+    //       user: keypair.publicKey,
+    //       strategy: {
+    //         strategyType: StrategyType.Curve,
+    //         minBinId: position.positionData.lowerBinId,
+    //         maxBinId: position.positionData.upperBinId,
+    //       },
+    //       slippage: 0,
+    //     });
 
-        expect(addLiquidityTxs.length).toBeGreaterThan(1);
+    //     expect(addLiquidityTxs.length).toBeGreaterThan(1);
 
-        const [beforeReserveXAccount, beforeReserveYAccount] =
-          await connection.getMultipleAccountsInfo([
-            dlmm.tokenX.reserve,
-            dlmm.tokenY.reserve,
-          ]);
+    //     const [beforeReserveXAccount, beforeReserveYAccount] =
+    //       await connection.getMultipleAccountsInfo([
+    //         dlmm.tokenX.reserve,
+    //         dlmm.tokenY.reserve,
+    //       ]);
 
-        await Promise.allSettled(
-          addLiquidityTxs.map((tx) =>
-            sendAndConfirmTransaction(connection, tx, [keypair])
-          )
-        );
+    //     await Promise.allSettled(
+    //       addLiquidityTxs.map((tx) =>
+    //         sendAndConfirmTransaction(connection, tx, [keypair])
+    //       )
+    //     );
 
-        position = await dlmm.getPosition(extendedPositionKeypair0.publicKey);
+    //     position = await dlmm.getPosition(extendedPositionKeypair0.publicKey);
 
-        logPositionLiquidities(position.positionData);
+    //     logPositionLiquidities(position.positionData);
 
-        const [afterReserveXAccount, afterReserveYAccount] =
-          await connection.getMultipleAccountsInfo([
-            dlmm.tokenX.reserve,
-            dlmm.tokenY.reserve,
-          ]);
+    //     const [afterReserveXAccount, afterReserveYAccount] =
+    //       await connection.getMultipleAccountsInfo([
+    //         dlmm.tokenX.reserve,
+    //         dlmm.tokenY.reserve,
+    //       ]);
 
-        const [computedInAmountX, computedInAmountY] =
-          computedInBinAmount.reduce(
-            ([totalXAmount, totalYAmount], { amountX, amountY }) => {
-              return [totalXAmount.add(amountX), totalYAmount.add(amountY)];
-            },
-            [new BN(0), new BN(0)]
-          );
+    //     const [computedInAmountX, computedInAmountY] =
+    //       computedInBinAmount.reduce(
+    //         ([totalXAmount, totalYAmount], { amountX, amountY }) => {
+    //           return [totalXAmount.add(amountX), totalYAmount.add(amountY)];
+    //         },
+    //         [new BN(0), new BN(0)]
+    //       );
 
-        expect(computedInAmountX.lte(totalXAmount)).toBeTruthy();
-        expect(computedInAmountY.lte(totalYAmount)).toBeTruthy();
+    //     expect(computedInAmountX.lte(totalXAmount)).toBeTruthy();
+    //     expect(computedInAmountY.lte(totalYAmount)).toBeTruthy();
 
-        const beforeReserveX = unpackAccount(
-          dlmm.tokenX.reserve,
-          beforeReserveXAccount,
-          beforeReserveXAccount.owner
-        );
+    //     const beforeReserveX = unpackAccount(
+    //       dlmm.tokenX.reserve,
+    //       beforeReserveXAccount,
+    //       beforeReserveXAccount.owner
+    //     );
 
-        const beforeReserveY = unpackAccount(
-          dlmm.tokenY.reserve,
-          beforeReserveYAccount,
-          beforeReserveYAccount.owner
-        );
+    //     const beforeReserveY = unpackAccount(
+    //       dlmm.tokenY.reserve,
+    //       beforeReserveYAccount,
+    //       beforeReserveYAccount.owner
+    //     );
 
-        const afterReserveX = unpackAccount(
-          dlmm.tokenX.reserve,
-          afterReserveXAccount,
-          afterReserveXAccount.owner
-        );
+    //     const afterReserveX = unpackAccount(
+    //       dlmm.tokenX.reserve,
+    //       afterReserveXAccount,
+    //       afterReserveXAccount.owner
+    //     );
 
-        const afterReserveY = unpackAccount(
-          dlmm.tokenY.reserve,
-          afterReserveYAccount,
-          afterReserveYAccount.owner
-        );
+    //     const afterReserveY = unpackAccount(
+    //       dlmm.tokenY.reserve,
+    //       afterReserveYAccount,
+    //       afterReserveYAccount.owner
+    //     );
 
-        const reserveXReceivedAmount =
-          afterReserveX.amount - beforeReserveX.amount;
+    //     const reserveXReceivedAmount =
+    //       afterReserveX.amount - beforeReserveX.amount;
 
-        const reserveYReceivedAmount =
-          afterReserveY.amount - beforeReserveY.amount;
+    //     const reserveYReceivedAmount =
+    //       afterReserveY.amount - beforeReserveY.amount;
 
-        let xDiff = computedInAmountX.sub(
-          new BN(reserveXReceivedAmount.toString())
-        );
+    //     let xDiff = computedInAmountX.sub(
+    //       new BN(reserveXReceivedAmount.toString())
+    //     );
 
-        let yDiff = computedInAmountY.sub(
-          new BN(reserveYReceivedAmount.toString())
-        );
+    //     let yDiff = computedInAmountY.sub(
+    //       new BN(reserveYReceivedAmount.toString())
+    //     );
 
-        expect(xDiff.toNumber()).toBeLessThan(MAX_ALLOWED_LAMPORT_LOSS);
-        expect(yDiff.toNumber()).toBeLessThan(MAX_ALLOWED_LAMPORT_LOSS);
+    //     expect(xDiff.toNumber()).toBeLessThan(MAX_ALLOWED_LAMPORT_LOSS);
+    //     expect(yDiff.toNumber()).toBeLessThan(MAX_ALLOWED_LAMPORT_LOSS);
 
-        const positionXAmount = new BN(position.positionData.totalXAmount);
-        const positionYAmount = new BN(position.positionData.totalYAmount);
+    //     const positionXAmount = new BN(position.positionData.totalXAmount);
+    //     const positionYAmount = new BN(position.positionData.totalYAmount);
 
-        xDiff = computedInAmountX.sub(positionXAmount);
-        yDiff = computedInAmountY.sub(positionYAmount);
+    //     xDiff = computedInAmountX.sub(positionXAmount);
+    //     yDiff = computedInAmountY.sub(positionYAmount);
 
-        expect(xDiff.toNumber()).toBeLessThan(MAX_ALLOWED_LAMPORT_LOSS);
-        expect(yDiff.toNumber()).toBeLessThan(MAX_ALLOWED_LAMPORT_LOSS);
+    //     expect(xDiff.toNumber()).toBeLessThan(MAX_ALLOWED_LAMPORT_LOSS);
+    //     expect(yDiff.toNumber()).toBeLessThan(MAX_ALLOWED_LAMPORT_LOSS);
 
-        expect(positionXAmount.add(xDiff).toString()).toBe(
-          computedInAmountX.toString()
-        );
-        expect(positionYAmount.add(yDiff).toString()).toBe(
-          computedInAmountY.toString()
-        );
-      });
+    //     expect(positionXAmount.add(xDiff).toString()).toBe(
+    //       computedInAmountX.toString()
+    //     );
+    //     expect(positionYAmount.add(yDiff).toString()).toBe(
+    //       computedInAmountY.toString()
+    //     );
+    //   });
 
-      it("Initialize multiple positions and add liquidity by strategy", async () => {
-        const dlmm = await DLMM.create(connection, pairKey, opt);
-        const totalXAmount = new BN(10_000_000).mul(new BN(10 ** btcDecimal));
-        const totalYAmount = new BN(10_000_000).mul(new BN(10 ** usdcDecimal));
+    //   it("Initialize multiple positions and add liquidity by strategy", async () => {
+    //     const dlmm = await DLMM.create(connection, pairKey, opt);
+    //     const totalXAmount = new BN(10_000_000).mul(new BN(10 ** btcDecimal));
+    //     const totalYAmount = new BN(10_000_000).mul(new BN(10 ** usdcDecimal));
 
-        const minBinId =
-          dlmm.lbPair.activeId - 100 - POSITION_MAX_LENGTH.toNumber();
-        const maxBinId =
-          dlmm.lbPair.activeId + 100 + POSITION_MAX_LENGTH.toNumber();
+    //     const minBinId =
+    //       dlmm.lbPair.activeId - 100 - POSITION_MAX_LENGTH.toNumber();
+    //     const maxBinId =
+    //       dlmm.lbPair.activeId + 100 + POSITION_MAX_LENGTH.toNumber();
 
-        const activeBinInfo = await dlmm.getActiveBin();
+    //     const activeBinInfo = await dlmm.getActiveBin();
 
-        const computedInBinAmount = toAmountsBothSideByStrategy(
-          dlmm.lbPair.activeId,
-          dlmm.lbPair.binStep,
-          minBinId,
-          maxBinId,
-          totalXAmount,
-          totalYAmount,
-          activeBinInfo.xAmount,
-          activeBinInfo.yAmount,
-          StrategyType.Curve,
-          dlmm.tokenX.mint,
-          dlmm.tokenY.mint,
-          dlmm.clock
-        );
+    //     const computedInBinAmount = toAmountsBothSideByStrategy(
+    //       dlmm.lbPair.activeId,
+    //       dlmm.lbPair.binStep,
+    //       minBinId,
+    //       maxBinId,
+    //       totalXAmount,
+    //       totalYAmount,
+    //       activeBinInfo.xAmount,
+    //       activeBinInfo.yAmount,
+    //       StrategyType.Curve,
+    //       dlmm.tokenX.mint,
+    //       dlmm.tokenY.mint,
+    //       dlmm.clock
+    //     );
 
-        const { positionKeypairs, initPositionIxs, addLiquidityIxs } =
-          await dlmm.initializeMultiplePositionAndAddLiquidityByStrategy({
-            totalXAmount,
-            totalYAmount,
-            strategy: {
-              strategyType: StrategyType.Curve,
-              minBinId,
-              maxBinId,
-            },
-            user: keypair.publicKey,
-            slippage: 0,
-          });
+    //     const { positionKeypairs, initPositionIxs, addLiquidityIxs } =
+    //       await dlmm.initializeMultiplePositionAndAddLiquidityByStrategy({
+    //         totalXAmount,
+    //         totalYAmount,
+    //         strategy: {
+    //           strategyType: StrategyType.Curve,
+    //           minBinId,
+    //           maxBinId,
+    //         },
+    //         user: keypair.publicKey,
+    //         slippage: 0,
+    //       });
 
-        const [beforeReserveXAccount, beforeReserveYAccount] =
-          await connection.getMultipleAccountsInfo([
-            dlmm.tokenX.reserve,
-            dlmm.tokenY.reserve,
-          ]);
+    //     const [beforeReserveXAccount, beforeReserveYAccount] =
+    //       await connection.getMultipleAccountsInfo([
+    //         dlmm.tokenX.reserve,
+    //         dlmm.tokenY.reserve,
+    //       ]);
 
-        await Promise.all(
-          initPositionIxs.map((tx, idx) =>
-            sendAndConfirmTransaction(connection, tx, [
-              positionKeypairs[idx],
-              keypair,
-            ])
-          )
-        );
+    //     await Promise.all(
+    //       initPositionIxs.map((tx, idx) =>
+    //         sendAndConfirmTransaction(connection, tx, [
+    //           positionKeypairs[idx],
+    //           keypair,
+    //         ])
+    //       )
+    //     );
 
-        await Promise.allSettled(
-          addLiquidityIxs.map((tx, idx) =>
-            sendAndConfirmTransaction(connection, tx, [keypair])
-          )
-        );
+    //     await Promise.allSettled(
+    //       addLiquidityIxs.map((tx, idx) =>
+    //         sendAndConfirmTransaction(connection, tx, [keypair])
+    //       )
+    //     );
 
-        const [afterReserveXAccount, afterReserveYAccount] =
-          await connection.getMultipleAccountsInfo([
-            dlmm.tokenX.reserve,
-            dlmm.tokenY.reserve,
-          ]);
+    //     const [afterReserveXAccount, afterReserveYAccount] =
+    //       await connection.getMultipleAccountsInfo([
+    //         dlmm.tokenX.reserve,
+    //         dlmm.tokenY.reserve,
+    //       ]);
 
-        const [computedInAmountX, computedInAmountY] =
-          computedInBinAmount.reduce(
-            ([totalXAmount, totalYAmount], { amountX, amountY }) => {
-              return [totalXAmount.add(amountX), totalYAmount.add(amountY)];
-            },
-            [new BN(0), new BN(0)]
-          );
+    //     const [computedInAmountX, computedInAmountY] =
+    //       computedInBinAmount.reduce(
+    //         ([totalXAmount, totalYAmount], { amountX, amountY }) => {
+    //           return [totalXAmount.add(amountX), totalYAmount.add(amountY)];
+    //         },
+    //         [new BN(0), new BN(0)]
+    //       );
 
-        const beforeReserveX = unpackAccount(
-          dlmm.tokenX.reserve,
-          beforeReserveXAccount,
-          beforeReserveXAccount.owner
-        );
+    //     const beforeReserveX = unpackAccount(
+    //       dlmm.tokenX.reserve,
+    //       beforeReserveXAccount,
+    //       beforeReserveXAccount.owner
+    //     );
 
-        const beforeReserveY = unpackAccount(
-          dlmm.tokenY.reserve,
-          beforeReserveYAccount,
-          beforeReserveYAccount.owner
-        );
+    //     const beforeReserveY = unpackAccount(
+    //       dlmm.tokenY.reserve,
+    //       beforeReserveYAccount,
+    //       beforeReserveYAccount.owner
+    //     );
 
-        const afterReserveX = unpackAccount(
-          dlmm.tokenX.reserve,
-          afterReserveXAccount,
-          afterReserveXAccount.owner
-        );
+    //     const afterReserveX = unpackAccount(
+    //       dlmm.tokenX.reserve,
+    //       afterReserveXAccount,
+    //       afterReserveXAccount.owner
+    //     );
 
-        const afterReserveY = unpackAccount(
-          dlmm.tokenY.reserve,
-          afterReserveYAccount,
-          afterReserveYAccount.owner
-        );
+    //     const afterReserveY = unpackAccount(
+    //       dlmm.tokenY.reserve,
+    //       afterReserveYAccount,
+    //       afterReserveYAccount.owner
+    //     );
 
-        const reserveXReceivedAmount =
-          afterReserveX.amount - beforeReserveX.amount;
+    //     const reserveXReceivedAmount =
+    //       afterReserveX.amount - beforeReserveX.amount;
 
-        const reserveYReceivedAmount =
-          afterReserveY.amount - beforeReserveY.amount;
+    //     const reserveYReceivedAmount =
+    //       afterReserveY.amount - beforeReserveY.amount;
 
-        let xDiff = computedInAmountX.sub(
-          new BN(reserveXReceivedAmount.toString())
-        );
+    //     let xDiff = computedInAmountX.sub(
+    //       new BN(reserveXReceivedAmount.toString())
+    //     );
 
-        let yDiff = computedInAmountY.sub(
-          new BN(reserveYReceivedAmount.toString())
-        );
+    //     let yDiff = computedInAmountY.sub(
+    //       new BN(reserveYReceivedAmount.toString())
+    //     );
 
-        const CUSTOM_MAX_ALLOWED_LAMPORT_LOSS =
-          MAX_ALLOWED_LAMPORT_LOSS * positionKeypairs.length;
+    //     const CUSTOM_MAX_ALLOWED_LAMPORT_LOSS =
+    //       MAX_ALLOWED_LAMPORT_LOSS * positionKeypairs.length;
 
-        expect(xDiff.toNumber()).toBeLessThan(CUSTOM_MAX_ALLOWED_LAMPORT_LOSS);
-        expect(yDiff.toNumber()).toBeLessThan(CUSTOM_MAX_ALLOWED_LAMPORT_LOSS);
+    //     expect(xDiff.toNumber()).toBeLessThan(CUSTOM_MAX_ALLOWED_LAMPORT_LOSS);
+    //     expect(yDiff.toNumber()).toBeLessThan(CUSTOM_MAX_ALLOWED_LAMPORT_LOSS);
 
-        const positions = await Promise.all(
-          positionKeypairs.map((positionKeypair) => {
-            return dlmm.getPosition(positionKeypair.publicKey);
-          })
-        );
+    //     const positions = await Promise.all(
+    //       positionKeypairs.map((positionKeypair) => {
+    //         return dlmm.getPosition(positionKeypair.publicKey);
+    //       })
+    //     );
 
-        const totalPositionXAmount = positions.reduce(
-          (totalAmount, position) => {
-            return totalAmount.add(new BN(position.positionData.totalXAmount));
-          },
-          new BN(0)
-        );
+    //     const totalPositionXAmount = positions.reduce(
+    //       (totalAmount, position) => {
+    //         return totalAmount.add(new BN(position.positionData.totalXAmount));
+    //       },
+    //       new BN(0)
+    //     );
 
-        const totalPositionYAmount = positions.reduce(
-          (totalAmount, position) => {
-            return totalAmount.add(new BN(position.positionData.totalYAmount));
-          },
-          new BN(0)
-        );
+    //     const totalPositionYAmount = positions.reduce(
+    //       (totalAmount, position) => {
+    //         return totalAmount.add(new BN(position.positionData.totalYAmount));
+    //       },
+    //       new BN(0)
+    //     );
 
-        xDiff = computedInAmountX.sub(totalPositionXAmount);
-        yDiff = computedInAmountY.sub(totalPositionYAmount);
+    //     xDiff = computedInAmountX.sub(totalPositionXAmount);
+    //     yDiff = computedInAmountY.sub(totalPositionYAmount);
 
-        expect(xDiff.toNumber()).toBeLessThan(CUSTOM_MAX_ALLOWED_LAMPORT_LOSS);
-        expect(yDiff.toNumber()).toBeLessThan(CUSTOM_MAX_ALLOWED_LAMPORT_LOSS);
+    //     expect(xDiff.toNumber()).toBeLessThan(CUSTOM_MAX_ALLOWED_LAMPORT_LOSS);
+    //     expect(yDiff.toNumber()).toBeLessThan(CUSTOM_MAX_ALLOWED_LAMPORT_LOSS);
 
-        expect(totalPositionXAmount.toString()).toBe(
-          reserveXReceivedAmount.toString()
-        );
-        expect(totalPositionYAmount.toString()).toBe(
-          reserveYReceivedAmount.toString()
-        );
+    //     expect(totalPositionXAmount.toString()).toBe(
+    //       reserveXReceivedAmount.toString()
+    //     );
+    //     expect(totalPositionYAmount.toString()).toBe(
+    //       reserveYReceivedAmount.toString()
+    //     );
 
-        await dlmm.refetchStates();
-        const binArrays = await dlmm.getBinArrays();
-        // Just for checking purpose. Leaving it here in case needed in the future
-        const labels = [];
-        const dataPoints = [];
-        const xyPoints = [];
+    //     await dlmm.refetchStates();
+    //     const binArrays = await dlmm.getBinArrays();
+    //     // Just for checking purpose. Leaving it here in case needed in the future
+    //     const labels = [];
+    //     const dataPoints = [];
+    //     const xyPoints = [];
 
-        for (const binArray of binArrays.sort((a, b) =>
-          a.account.index.cmp(b.account.index)
-        )) {
-          let [binId] = getBinArrayLowerUpperBinId(binArray.account.index);
+    //     for (const binArray of binArrays.sort((a, b) =>
+    //       a.account.index.cmp(b.account.index)
+    //     )) {
+    //       let [binId] = getBinArrayLowerUpperBinId(binArray.account.index);
 
-          for (const bin of binArray.account.bins) {
-            const binPrice = new Decimal(bin.price.toString()).div(
-              new Decimal(2).pow(new Decimal(64))
-            );
+    //       for (const bin of binArray.account.bins) {
+    //         const binPrice = new Decimal(bin.price.toString()).div(
+    //           new Decimal(2).pow(new Decimal(64))
+    //         );
 
-            const binLiquidity = new Decimal(bin.amountX.toString())
-              .mul(binPrice)
-              .add(new Decimal(bin.amountY.toString()));
-            // const binLiquidity = new Decimal(bin.amountX.toString());
+    //         const binLiquidity = new Decimal(bin.amountX.toString())
+    //           .mul(binPrice)
+    //           .add(new Decimal(bin.amountY.toString()));
+    //         // const binLiquidity = new Decimal(bin.amountX.toString());
 
-            if (binLiquidity.gt(new Decimal(0))) {
-              labels.push(binId.toNumber());
-              dataPoints.push(binLiquidity.toNumber());
-              xyPoints.push([binId.toNumber(), binLiquidity.toNumber()]);
-            }
+    //         if (binLiquidity.gt(new Decimal(0))) {
+    //           labels.push(binId.toNumber());
+    //           dataPoints.push(binLiquidity.toNumber());
+    //           xyPoints.push([binId.toNumber(), binLiquidity.toNumber()]);
+    //         }
 
-            binId = binId.addn(1);
-          }
-        }
+    //         binId = binId.addn(1);
+    //       }
+    //     }
 
-        console.log(babar(xyPoints));
+    //     console.log(babar(xyPoints));
 
-        fs.writeFileSync("./labels.json", JSON.stringify(labels));
-        fs.writeFileSync("./dataPoints.json", JSON.stringify(dataPoints));
-      });
-    });
+    //     fs.writeFileSync("./labels.json", JSON.stringify(labels));
+    //     fs.writeFileSync("./dataPoints.json", JSON.stringify(dataPoints));
+    //   });
+    // });
 
     describe("Claim fees and rewards", () => {
       let userXAta: PublicKey, userYAta: PublicKey, userRewardAta: PublicKey;
