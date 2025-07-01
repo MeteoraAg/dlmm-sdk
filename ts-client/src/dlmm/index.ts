@@ -158,6 +158,7 @@ import {
   CompressedBinDepositAmounts,
   EmissionRate,
   FeeInfo,
+  GetOrCreateATAResponse,
   InitCustomizablePermissionlessPairIx,
   LbPair,
   LbPairAccount,
@@ -2351,17 +2352,15 @@ export class DLMM {
     const binArraysCount = (
       await this.binArraysToBeCreate(lowerBinArrayIndex, upperBinArrayIndex)
     ).length;
-    const positionCount = Math.ceil(
-      (maxBinId - minBinId + 1) / Number(MAX_BINS_PER_POSITION)
+    const transactionCount = Math.ceil(
+      (maxBinId - minBinId + 1) / DEFAULT_BIN_PER_POSITION.toNumber()
     );
 
     const binArrayCost = binArraysCount * BIN_ARRAY_FEE;
-    const positionCost = positionCount * POSITION_FEE;
     return {
       binArraysCount,
       binArrayCost,
-      positionCount,
-      positionCost,
+      transactionCount,
     };
   }
 
@@ -6580,39 +6579,25 @@ export class DLMM {
       }
     }
 
-    const userTokenX = getAssociatedTokenAddressSync(
-      this.tokenX.publicKey,
-      owner,
-      true,
-      this.tokenX.owner
-    );
-
-    const userTokenY = getAssociatedTokenAddressSync(
-      this.tokenY.publicKey,
-      owner,
-      true,
-      this.tokenY.owner
-    );
-
-    preInstructions.push(
-      createAssociatedTokenAccountIdempotentInstruction(
-        owner,
-        userTokenX,
-        owner,
+    const [
+      { ataPubKey: userTokenX, ix: createUserTokenXIx },
+      { ataPubKey: userTokenY, ix: createUserTokenYIx },
+    ] = await Promise.all([
+      getOrCreateATAInstruction(
+        this.program.provider.connection,
         this.tokenX.publicKey,
+        owner,
         this.tokenX.owner
-      )
-    );
-
-    preInstructions.push(
-      createAssociatedTokenAccountIdempotentInstruction(
-        owner,
-        userTokenY,
-        owner,
+      ),
+      getOrCreateATAInstruction(
+        this.program.provider.connection,
         this.tokenY.publicKey,
+        owner,
         this.tokenY.owner
-      )
-    );
+      ),
+    ]);
+    createUserTokenXIx && preInstructions.push(createUserTokenXIx);
+    createUserTokenYIx && preInstructions.push(createUserTokenYIx);
 
     slippage = capSlippagePercentage(slippage);
 
@@ -6642,6 +6627,42 @@ export class DLMM {
       simulationResult.actualAmountYWithdrawn,
       slippage
     );
+
+    const postInstructions: Array<TransactionInstruction> = [];
+
+    // Add wrapSOL instructions if tokenX or tokenY is NATIVE_MINT
+    if (
+      this.tokenX.publicKey.equals(NATIVE_MINT) &&
+      simulationResult.actualAmountXDeposited.gtn(0)
+    ) {
+      const wrapSOLIx = wrapSOLInstruction(
+        owner,
+        userTokenX,
+        BigInt(simulationResult.actualAmountXDeposited.toString())
+      );
+      preInstructions.push(...wrapSOLIx);
+    }
+
+    if (
+      this.tokenY.publicKey.equals(NATIVE_MINT) &&
+      simulationResult.actualAmountYDeposited.gtn(0)
+    ) {
+      const wrapSOLIx = wrapSOLInstruction(
+        owner,
+        userTokenY,
+        BigInt(simulationResult.actualAmountYDeposited.toString())
+      );
+      preInstructions.push(...wrapSOLIx);
+    }
+
+    // Add unwrapSOL instructions if tokenX or tokenY is NATIVE_MINT
+    if (
+      this.tokenX.publicKey.equals(NATIVE_MINT) ||
+      this.tokenY.publicKey.equals(NATIVE_MINT)
+    ) {
+      const closeWrappedSOLIx = await unwrapSOLInstruction(owner);
+      closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
+    }
 
     const instruction = await this.program.methods
       .rebalanceLiquidity(
@@ -6678,7 +6699,6 @@ export class DLMM {
         memoProgram: MEMO_PROGRAM_ID,
         rentPayer: rentPayer ?? owner,
       })
-      .preInstructions(preInstructions)
       .remainingAccounts(transferHookAccounts)
       .remainingAccounts(
         binArrayPublicKeys.map((pubkey) => {
@@ -6697,7 +6717,12 @@ export class DLMM {
       owner
     );
 
-    const rebalancePositionInstruction = [setCUIX, instruction];
+    const rebalancePositionInstruction = [
+      setCUIX,
+      ...preInstructions,
+      instruction,
+      ...postInstructions,
+    ];
 
     return {
       initBinArrayInstructions,
@@ -6739,6 +6764,7 @@ export class DLMM {
 
     const tx = new Transaction({
       ...latestBlockhashInfo,
+      feePayer: owner,
     }).add(...ixs);
 
     return tx;
