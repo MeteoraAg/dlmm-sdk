@@ -3,7 +3,7 @@ import { StrategyType } from "../../../types";
 import { BidAskStrategyParameterBuilder } from "./bidAsk";
 import { CurveStrategyParameterBuilder } from "./curve";
 import { SpotStrategyParameterBuilder } from "./spot";
-import { toAmountIntoBins } from "../rebalancePosition";
+import { RebalancePosition, toAmountIntoBins } from "../rebalancePosition";
 import { getPriceOfBinByBinId } from "../../weight";
 import Decimal from "decimal.js";
 
@@ -114,6 +114,113 @@ export function suggestBalancedXParametersFromY(
     maxXDeltaId,
     totalAmountY
   );
+}
+
+export function getAutoFillAmountByRebalancedPosition(
+  rebalancePosition: RebalancePosition,
+  strategyType: StrategyType
+): {
+  amount: BN;
+  isBidSide: boolean;
+} {
+  let liquidityInBidSide = new BN(0);
+  let liquidityInAskSide = new BN(0);
+
+  const builder = getLiquidityStrategyParameterBuilder(strategyType);
+  const { lbPair } = rebalancePosition;
+  let favorXInActiveBin = false;
+
+  let activeIdIndex = -1;
+
+  for (const [
+    idx,
+    binData,
+  ] of rebalancePosition.rebalancePositionBinData.entries()) {
+    const liquidityBid = binData.amountY;
+    const liquidityAsk = new Decimal(binData.price)
+      .mul(new Decimal(binData.amountX.toString()))
+      .floor()
+      .toString();
+
+    liquidityInBidSide = liquidityInBidSide.add(liquidityBid);
+    liquidityInAskSide = liquidityInAskSide.add(new BN(liquidityAsk));
+
+    if (binData.binId == lbPair.activeId) {
+      favorXInActiveBin = binData.amountX.gt(binData.amountY);
+      activeIdIndex = idx;
+    }
+  }
+
+  if (liquidityInAskSide.gt(liquidityInBidSide)) {
+    const minBinId = rebalancePosition.rebalancePositionBinData[0].binId;
+    let maxBinId: number;
+
+    if (activeIdIndex == -1) {
+      maxBinId =
+        rebalancePosition.rebalancePositionBinData[
+          rebalancePosition.rebalancePositionBinData.length - 1
+        ].binId;
+    } else {
+      maxBinId =
+        rebalancePosition.rebalancePositionBinData[
+          favorXInActiveBin ? activeIdIndex - 1 : activeIdIndex
+        ].binId;
+    }
+
+    const minDeltaId = minBinId - lbPair.activeId;
+    const maxDeltaId = maxBinId - lbPair.activeId;
+
+    const { amountY } = builder.suggestBalancedYParametersFromX(
+      new BN(lbPair.activeId),
+      new BN(lbPair.binStep),
+      favorXInActiveBin,
+      new BN(minDeltaId),
+      new BN(maxDeltaId),
+      liquidityInAskSide
+    );
+
+    return {
+      amount: amountY,
+      isBidSide: true,
+    };
+  } else if (liquidityInAskSide.lt(liquidityInBidSide)) {
+    const maxBinId =
+      rebalancePosition.rebalancePositionBinData[
+        rebalancePosition.rebalancePositionBinData.length - 1
+      ].binId;
+
+    let minBinId: number;
+    if (activeIdIndex == -1) {
+      minBinId = rebalancePosition.rebalancePositionBinData[0].binId;
+    } else {
+      minBinId =
+        rebalancePosition.rebalancePositionBinData[
+          favorXInActiveBin ? activeIdIndex - 1 : activeIdIndex
+        ].binId;
+    }
+
+    const minDeltaId = lbPair.activeId - minBinId;
+    const maxDeltaId = lbPair.activeId - maxBinId;
+
+    const { amountX } = builder.suggestBalancedXParametersFromY(
+      new BN(lbPair.activeId),
+      new BN(lbPair.binStep),
+      favorXInActiveBin,
+      new BN(minDeltaId),
+      new BN(maxDeltaId),
+      liquidityInBidSide
+    );
+
+    return {
+      amount: amountX,
+      isBidSide: false,
+    };
+  } else {
+    return {
+      amount: new BN(0),
+      isBidSide: false,
+    };
+  }
 }
 
 export function suggestBalancedYParametersFromX(

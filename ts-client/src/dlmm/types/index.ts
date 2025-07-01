@@ -509,3 +509,10 @@ export interface RebalancePositionResponse {
   rebalancePosition: RebalancePosition;
   simulationResult: SimulateRebalanceResp;
 }
+
+export interface RebalancePositionBinArrayRentalCostQuote {
+  binArrayExistence: Set<string>;
+  binArrayCount: number;
+  binArrayCost: number;
+  bitmapExtensionCost: number;
+}

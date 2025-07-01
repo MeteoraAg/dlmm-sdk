@@ -26,6 +26,7 @@ import {
 import Decimal from "decimal.js";
 import {
   BASIS_POINT_MAX,
+  BIN_ARRAY_BITMAP_FEE,
   BIN_ARRAY_BITMAP_FEE_BN,
   BIN_ARRAY_FEE,
   BIN_ARRAY_FEE_BN,
@@ -178,6 +179,7 @@ import {
   PositionVersion,
   ProgramStrategyParameter,
   RebalanceAddLiquidityParam,
+  RebalancePositionBinArrayRentalCostQuote,
   RebalancePositionResponse,
   RebalanceRemoveLiquidityParam,
   RemainingAccountsInfoSlice,
@@ -6358,7 +6360,9 @@ export class DLMM {
   private async simulateRebalancePositionWithStrategy(
     rebalancePosition: RebalancePosition,
     rebalanceStrategy: RebalanceStrategyBuilder
-  ): Promise<RebalancePositionResponse> {
+  ): Promise<
+    RebalancePositionResponse & RebalancePositionBinArrayRentalCostQuote
+  > {
     const { deposits, withdraws } =
       rebalanceStrategy.buildRebalanceStrategyParameters();
 
@@ -6371,9 +6375,86 @@ export class DLMM {
       deposits
     );
 
+    const binArrayQuoteResult = await this.quoteBinArrayAccountsRentalCost(
+      simulationResult.depositParams,
+      simulationResult.withdrawParams,
+      new BN(rebalancePosition.lbPair.activeId)
+    );
+
     return {
       rebalancePosition,
       simulationResult,
+      ...binArrayQuoteResult,
+    };
+  }
+
+  private async quoteBinArrayAccountsRentalCost(
+    deposits: RebalanceAddLiquidityParam[],
+    withdraws: RebalanceRemoveLiquidityParam[],
+    activeId: BN
+  ): Promise<{
+    binArrayExistence: Set<string>;
+    binArrayCount: number;
+    binArrayCost: number;
+    bitmapExtensionCost: number;
+  }> {
+    const { binArrayBitmap, binArrayIndexes } =
+      getRebalanceBinArrayIndexesAndBitmapCoverage(
+        deposits,
+        withdraws,
+        activeId.toNumber(),
+        this.pubkey,
+        this.program.programId
+      );
+
+    const binArrayPublicKeys = binArrayIndexes.map((index) => {
+      const [binArrayPubkey] = deriveBinArray(
+        this.pubkey,
+        index,
+        this.program.programId
+      );
+      return binArrayPubkey;
+    });
+
+    const accountPublicKeys = [...binArrayPublicKeys];
+    if (!binArrayBitmap.equals(PublicKey.default)) {
+      accountPublicKeys.push(binArrayBitmap);
+    }
+
+    const accounts = await chunkedGetMultipleAccountInfos(
+      this.program.provider.connection,
+      binArrayPublicKeys
+    );
+
+    const binArrayAccounts = accounts.splice(0, binArrayPublicKeys.length);
+
+    let binArrayCount = 0;
+    let bitmapExtensionCost = 0;
+
+    const binArraySet = new Set<string>();
+
+    for (let i = 0; i < binArrayAccounts.length; i++) {
+      const binArrayAccount = binArrayAccounts[i];
+      const binArrayPubkey = binArrayPublicKeys[i];
+      if (!binArrayAccount) {
+        binArrayCount++;
+      } else {
+        binArraySet.add(binArrayPubkey.toBase58());
+      }
+    }
+
+    if (!binArrayBitmap.equals(PublicKey.default)) {
+      const bitmapAccount = accounts.pop();
+      if (!bitmapAccount) {
+        bitmapExtensionCost = BIN_ARRAY_BITMAP_FEE;
+      }
+    }
+
+    return {
+      binArrayCost: binArrayCount * BIN_ARRAY_FEE,
+      binArrayCount,
+      binArrayExistence: binArraySet,
+      bitmapExtensionCost,
     };
   }
 
@@ -6394,7 +6475,9 @@ export class DLMM {
     shouldClaimReward: boolean,
     deposits: RebalanceWithDeposit[],
     withdraws: RebalanceWithWithdraw[]
-  ): Promise<RebalancePositionResponse> {
+  ): Promise<
+    RebalancePositionResponse & RebalancePositionBinArrayRentalCostQuote
+  > {
     const rebalancePosition = await RebalancePosition.create({
       program: this.program,
       positionAddress,
@@ -6413,9 +6496,16 @@ export class DLMM {
       deposits
     );
 
+    const binArrayQuoteResult = await this.quoteBinArrayAccountsRentalCost(
+      simulationResult.depositParams,
+      simulationResult.withdrawParams,
+      new BN(rebalancePosition.lbPair.activeId)
+    );
+
     return {
       rebalancePosition,
       simulationResult,
+      ...binArrayQuoteResult,
     };
   }
 
