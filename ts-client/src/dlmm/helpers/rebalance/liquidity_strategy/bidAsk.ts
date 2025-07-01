@@ -5,7 +5,10 @@ import { getQPriceBaseFactor, getQPriceFromId } from "../../math";
 import {
   getAmountInBinsAskSide,
   getAmountInBinsBidSide,
+  toAmountIntoBins,
 } from "../rebalancePosition";
+import Decimal from "decimal.js";
+import { getPriceOfBinByBinId } from "../../weight";
 
 function findMinY0(amountY: BN, minDeltaId: BN, maxDeltaId: BN) {
   const binCount = maxDeltaId.sub(minDeltaId).addn(1);
@@ -13,12 +16,7 @@ function findMinY0(amountY: BN, minDeltaId: BN, maxDeltaId: BN) {
   return amountY.div(totalWeight);
 }
 
-function findBaseDeltaY(
-  amountY: BN,
-  minDeltaId: BN,
-  maxDeltaId: BN,
-  minY0: BN
-) {
+function findBaseDeltaY(amountY: BN, minDeltaId: BN, maxDeltaId: BN) {
   // min_delta_id = -m1, max_delta_id = -m2
   //
   // active_id - m2 = y0 + delta_y * m2
@@ -28,10 +26,10 @@ function findBaseDeltaY(
   //
   // sum(amounts) = y0 * (m1-m2+1) + delta_y * (m1 * (m1+1)/2 - m2 * (m2-1)/2)
   // ** default formula is, set y0 = -delta_y * m2
-  // set y0 = -delta_y * m2 + e
-  // sum(amounts) = -delta_y * m2 * (m1-m2+1) + delta_y * (m1 * (m1+1)/2 - m2 * (m2-1)/2) + e
+  // set y0 = -delta_y * m2
+  // sum(amounts) = -delta_y * m2 * (m1-m2+1) + delta_y * (m1 * (m1+1)/2 - m2 * (m2-1)/2)
   // A = -m2 * (m1-m2+1) + (m1 * (m1+1)/2 - m2 * (m2-1)/2)
-  // delta_y = sum(amounts) - e / A
+  // delta_y = sum(amounts) / A
   if (minDeltaId.gt(maxDeltaId) || amountY.lte(new BN(0))) {
     return new BN(0);
   }
@@ -40,7 +38,8 @@ function findBaseDeltaY(
     return amountY;
   }
 
-  const m1 = minDeltaId.neg();
+  // ensure no 0 amount in active bin
+  const m1 = minDeltaId.neg().subn(1);
   const m2 = maxDeltaId.neg();
 
   // A = b + (c - d)
@@ -53,9 +52,8 @@ function findBaseDeltaY(
   const d = m2.mul(m2.subn(1)).divn(2);
 
   const a = b.add(c.sub(d));
-  const e = minY0;
 
-  return amountY.sub(e).div(a);
+  return amountY.div(a);
 }
 
 function findY0AndDeltaY(
@@ -71,9 +69,8 @@ function findY0AndDeltaY(
     };
   }
 
-  const minY0 = findMinY0(amountY, minDeltaId, maxDeltaId);
-  let baseDeltaY = findBaseDeltaY(amountY, minDeltaId, maxDeltaId, minY0);
-  const y0 = baseDeltaY.neg().mul(maxDeltaId).add(minY0);
+  let baseDeltaY = findBaseDeltaY(amountY, minDeltaId, maxDeltaId);
+  const y0 = baseDeltaY.neg().mul(maxDeltaId).add(baseDeltaY);
 
   while (true) {
     const amountInBins = getAmountInBinsBidSide(
@@ -126,8 +123,7 @@ function findBaseDeltaX(
   minDeltaId: BN,
   maxDeltaId: BN,
   binStep: BN,
-  activeId: BN,
-  minX0: BN
+  activeId: BN
 ) {
   if (minDeltaId.gt(maxDeltaId) || amountX.lte(new BN(0))) {
     return new BN(0);
@@ -142,18 +138,18 @@ function findBaseDeltaX(
   // active_id + m2 =  (x0 + m2 * delta_x) * p(m2)
   //
   // sum(amounts) = x0 * (p(m1)+..+p(m2)) + delta_x * (m1 * p(m1) + ... + m2 * p(m2))
-  // default formula is, set x0 = -m1 * delta_x
-  // set x0 = -m1 * delta_x + e
+  // set x0 = -m1 * delta_x
 
-  // sum(amounts) = -m1 * delta_x * (p(m1)+..+p(m2)) + delta_x * (m1 * p(m1) + ... + m2 * p(m2)) + e
+  // sum(amounts) = -m1 * delta_x * (p(m1)+..+p(m2)) + delta_x * (m1 * p(m1) + ... + m2 * p(m2))
   // A = -m1 * (p(m1)+..+p(m2)) + (m1 * p(m1) + ... + m2 * p(m2))
   // B = m1 * (p(m1)+..+p(m2))
   // C = (m1 * p(m1) + ... + m2 * p(m2))
-  // x0 = sum(amounts) -e / (C-B)
+  // delta_x = sum(amounts) / (C-B)
   let b = new BN(0);
   let c = new BN(0);
   let m1 = minDeltaId;
-  let m2 = maxDeltaId;
+  // +1 ensure no 0 amount in active id
+  let m2 = maxDeltaId.addn(1);
 
   for (let m = m1.toNumber(); m <= m2.toNumber(); m++) {
     const binId = activeId.addn(m);
@@ -166,7 +162,7 @@ function findBaseDeltaX(
     c = c.add(cDelta);
   }
 
-  return amountX.sub(minX0).shln(SCALE_OFFSET).div(c.sub(b));
+  return amountX.shln(SCALE_OFFSET).div(c.sub(b));
 }
 
 function findX0AndDeltaX(
@@ -183,18 +179,15 @@ function findX0AndDeltaX(
     };
   }
 
-  const minX0 = findMinX0(amountX, minDeltaId, maxDeltaId, activeId, binStep);
-
   let baseDeltaX = findBaseDeltaX(
     amountX,
     minDeltaId,
     maxDeltaId,
     binStep,
-    activeId,
-    minX0
+    activeId
   );
 
-  const x0 = minDeltaId.neg().mul(baseDeltaX).add(minX0);
+  const x0 = minDeltaId.neg().mul(baseDeltaX).add(baseDeltaX);
 
   while (true) {
     const amountInBins = getAmountInBinsAskSide(
@@ -241,5 +234,96 @@ export class BidAskStrategyParameterBuilder
     activeId: BN
   ): BidAskParameters {
     return findY0AndDeltaY(amountY, minDeltaId, maxDeltaId, activeId);
+  }
+
+  suggestBalancedXParametersFromY(
+    activeId: BN,
+    binStep: BN,
+    favorXInActiveBin: boolean,
+    minDeltaId: BN,
+    maxDeltaId: BN,
+    amountY: BN
+  ): BidAskParameters & { amountX: BN } {
+    // sum(amounts) = x0 * (p(m1)+..+p(m2)) + delta_x * (m1 * p(m1) + ... + m2 * p(m2))
+    // default formula is, set x0 = -m1 * delta_x
+    // set x0 = -m1 * delta_x + e where e = delta_x
+    // Total quote = delta_x * (1 + 2 + ... + max_delta_id)
+    // delta_x = total_quote / (1 + 2 + ... + max_delta_id)
+
+    const deltaX = amountY.div(
+      maxDeltaId.addn(1).mul(maxDeltaId.addn(2)).divn(2)
+    );
+
+    const x0 = minDeltaId.neg().mul(deltaX).add(deltaX);
+
+    const totalAmountX = toAmountIntoBins(
+      activeId,
+      minDeltaId,
+      maxDeltaId,
+      deltaX,
+      new BN(0),
+      x0,
+      new BN(0),
+      binStep,
+      favorXInActiveBin
+    ).reduce((acc, bin) => {
+      return acc.add(bin.amountX);
+    }, new BN(0));
+
+    return {
+      base: x0,
+      delta: deltaX,
+      amountX: totalAmountX,
+    };
+  }
+
+  suggestBalancedYParametersFromX(
+    activeId: BN,
+    binStep: BN,
+    favorXInActiveBin: boolean,
+    minDeltaId: BN,
+    maxDeltaId: BN,
+    amountXInQuoteValue: BN
+  ): BidAskParameters & { amountY: BN } {
+    // set y0 = -delta_y * m2
+    // sum(amounts) = -delta_y * m2 * (m1-m2+1) + delta_y * (m1 * (m1+1)/2 - m2 * (m2-1)/2)
+    // A = -m2 * (m1-m2+1) + (m1 * (m1+1)/2 - m2 * (m2-1)/2)
+    // delta_y = sum(amounts) / A
+
+    // Total quote = sum(amounts) = x0 * (p(m1)+..+p(m2)) + delta_x * (m1 * p(m1) + ... + m2 * p(m2))
+    // delta_y = sum(amounts) / A
+
+    // extra sub 1 to ensure no zero amount
+    const m1 = minDeltaId.neg().subn(1);
+    const m2 = maxDeltaId.neg();
+
+    const a1 = m2.neg().mul(m1.sub(m2).addn(1));
+    const a2 = m1.mul(m1.addn(1)).divn(2);
+    const a3 = m2.mul(m2.subn(1)).divn(2);
+
+    const a = a1.add(a2.sub(a3));
+
+    const deltaY = amountXInQuoteValue.div(a);
+    const y0 = deltaY.neg().mul(m2).add(deltaY); // add the subtracted deltaY back to y0
+
+    const amountY = toAmountIntoBins(
+      activeId,
+      minDeltaId,
+      maxDeltaId,
+      new BN(0),
+      deltaY,
+      new BN(0),
+      y0,
+      binStep,
+      favorXInActiveBin
+    ).reduce((acc, bin) => {
+      return acc.add(bin.amountY);
+    }, new BN(0));
+
+    return {
+      base: y0,
+      delta: deltaY,
+      amountY,
+    };
   }
 }

@@ -5,7 +5,10 @@ import { getQPriceBaseFactor, getQPriceFromId } from "../../math";
 import {
   getAmountInBinsAskSide,
   getAmountInBinsBidSide,
+  toAmountIntoBins,
 } from "../rebalancePosition";
+import { getPriceOfBinByBinId } from "../../weight";
+import Decimal from "decimal.js";
 
 function findBaseY0(amountY: BN, minDeltaId: BN, maxDeltaId: BN) {
   // min_delta_id = -m1, max_delta_id = -m2
@@ -194,5 +197,101 @@ export class CurveStrategyParameterBuilder
     activeId: BN
   ): BidAskParameters {
     return findY0AndDeltaY(amountY, minDeltaId, maxDeltaId, activeId);
+  }
+
+  suggestBalancedXParametersFromY(
+    activeId: BN,
+    binStep: BN,
+    favorXInActiveBin: boolean,
+    minDeltaId: BN,
+    maxDeltaId: BN,
+    amountY: BN
+  ): BidAskParameters & { amountX: BN } {
+    // p(m) = (1+b)^-(active_id + m)
+    // active_id = x0 * p(0)
+    // active_id + 1= (x0 + delta_x) * p(1)
+    // ...
+    // active_id + max_delta_id =  (x0 + max_delta_id * delta_x) * p(max_delta_id)
+    // Total quote = x0 + (x0 + delta_x) + ... + (x0 + max_delta_id * delta_x)
+    // = x0 * (max_delta_id + 1) + delta_x * (1+2+...+max_delta_id)
+    //
+    // set delta_x = -x0 / max_delta_id
+    // Total quote  = x0 * (max_delta_id + 1) - x0 * (1+2+...+max_delta_id) / max_delta_id = x0 * (max_delta_id + 1) / 2
+    // x0 = total_amount_y * 2 / (max_delta_id + 1)
+
+    const x0 = amountY.muln(2).div(maxDeltaId.addn(1));
+    const deltaX = x0.neg().div(maxDeltaId);
+
+    const totalAmountX = toAmountIntoBins(
+      activeId,
+      minDeltaId,
+      maxDeltaId,
+      deltaX,
+      new BN(0),
+      x0,
+      new BN(0),
+      binStep,
+      favorXInActiveBin
+    ).reduce((acc, bin) => {
+      return acc.add(bin.amountX);
+    }, new BN(0));
+
+    return {
+      base: x0,
+      delta: deltaX,
+      amountX: totalAmountX,
+    };
+  }
+
+  suggestBalancedYParametersFromX(
+    activeId: BN,
+    binStep: BN,
+    favorXInActiveBin: boolean,
+    minDeltaId: BN,
+    maxDeltaId: BN,
+    amountXInQuoteValue: BN
+  ): BidAskParameters & { amountY: BN } {
+    // sum(amounts) = y0 * (m1-m2+1) + delta_y * (m1 * (m1+1)/2 - m2 * (m2-1)/2)
+    // set delta_y = -y0 / m1
+    // sum(amounts) = y0 * (m1-m2+1) - y0 * (m1 * (m1+1)/2 - m2 * (m2-1)/2) / m1
+    // A = (m1-m2+1) - (m1 * (m1+1)/2 - m2 * (m2-1)/2) / m1
+    // y0 = sum(amounts) / A
+    //
+    // pm = (1+b)(active_id + m)
+    //
+    // Total quote = sum(amounts) = x0 * (p(m1)+..+p(m2)) + delta_x * (m1 * p(m1) + ... + m2 * p(m2))
+    // y0 = x0 * (p(m1)+..+p(m2)) + delta_x * (m1 * p(m1) + ... + m2 * p(m2)) / A
+
+    const m1 = minDeltaId.neg();
+    const m2 = maxDeltaId.neg();
+
+    const a1 = m1.sub(m2).addn(1);
+    const a2 = m1.mul(m1.addn(1)).divn(2);
+    const a3 = m2.mul(m2.subn(1)).divn(2);
+
+    const a = m1.sub(a3.sub(a2)).div(m1);
+
+    const y0 = amountXInQuoteValue.div(a);
+    const deltaY = y0.neg().div(m1);
+
+    const amountY = toAmountIntoBins(
+      activeId,
+      minDeltaId,
+      maxDeltaId,
+      new BN(0),
+      deltaY,
+      new BN(0),
+      y0,
+      binStep,
+      favorXInActiveBin
+    ).reduce((acc, bin) => {
+      return acc.add(bin.amountY);
+    }, new BN(0));
+
+    return {
+      base: y0,
+      delta: deltaY,
+      amountY,
+    };
   }
 }

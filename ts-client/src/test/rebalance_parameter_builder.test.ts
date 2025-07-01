@@ -1,3 +1,4 @@
+import babar from "babar";
 import BN from "bn.js";
 import { SCALE_OFFSET } from "../dlmm/constants";
 import { getQPriceFromId } from "../dlmm/helpers/math";
@@ -5,6 +6,8 @@ import {
   AmountIntoBin,
   buildLiquidityStrategyParameters,
   getLiquidityStrategyParameterBuilder,
+  suggestBalancedXParametersFromY,
+  suggestBalancedYParametersFromX,
   toAmountIntoBins,
 } from "../dlmm/helpers/rebalance";
 import { StrategyType } from "../dlmm/types";
@@ -93,6 +96,7 @@ function logLiquidityInfo(
     return amountX.mul(qPrice).shrn(SCALE_OFFSET).add(amountY).toString();
   });
 
+  console.log(babar(liquidities.map((liq, idx) => [idx, Number(liq)])));
   console.log("Liquidity distribution", JSON.stringify(liquidities));
 }
 
@@ -108,9 +112,9 @@ describe("Rebalance liquidity parameter builder", () => {
       const amountY = new BN(100_000_000);
       const minDeltaId = new BN(60).neg();
       const maxDeltaId = new BN(1).neg();
-      const favorXInActiveBin = false;
+      const favorXInActiveBin = true;
 
-      const { deltaX, deltaY, x0, y0 } = buildLiquidityStrategyParameters(
+      const { deltaY, y0, deltaX, x0 } = buildLiquidityStrategyParameters(
         amountX,
         amountY,
         minDeltaId,
@@ -120,6 +124,69 @@ describe("Rebalance liquidity parameter builder", () => {
         activeId,
         builder
       );
+
+      const amountInBins = toAmountIntoBins(
+        activeId,
+        minDeltaId,
+        maxDeltaId,
+        deltaX,
+        deltaY,
+        x0,
+        y0,
+        binStep,
+        favorXInActiveBin
+      );
+
+      logLiquidityInfo(amountX, amountY, amountInBins, binStep);
+
+      assertBinDepositResult(
+        activeId,
+        minDeltaId,
+        maxDeltaId,
+        favorXInActiveBin,
+        amountInBins,
+        amountX,
+        amountY,
+        new BN(50)
+      );
+    });
+
+    it("Bid side and suggest ask side parameters", () => {
+      let amountX = new BN(0);
+      const amountY = new BN(100_000_000);
+      const minDeltaId = new BN(60).neg();
+      let maxDeltaId = new BN(1).neg();
+      const favorXInActiveBin = true;
+
+      const { deltaY, y0 } = buildLiquidityStrategyParameters(
+        amountX,
+        amountY,
+        minDeltaId,
+        maxDeltaId,
+        binStep,
+        favorXInActiveBin,
+        activeId,
+        builder
+      );
+
+      maxDeltaId = maxDeltaId.add(maxDeltaId.sub(minDeltaId).addn(1));
+
+      const {
+        base: x0,
+        delta: deltaX,
+        amountX: suggestedAmountX,
+      } = suggestBalancedXParametersFromY(
+        y0,
+        deltaY,
+        minDeltaId,
+        maxDeltaId,
+        activeId,
+        binStep,
+        favorXInActiveBin,
+        builder
+      );
+
+      amountX = suggestedAmountX;
 
       const amountInBins = toAmountIntoBins(
         activeId,
@@ -164,6 +231,69 @@ describe("Rebalance liquidity parameter builder", () => {
         activeId,
         builder
       );
+
+      const amountInBins = toAmountIntoBins(
+        activeId,
+        minDeltaId,
+        maxDeltaId,
+        deltaX,
+        deltaY,
+        x0,
+        y0,
+        binStep,
+        favorXInActiveBin
+      );
+
+      logLiquidityInfo(amountX, amountY, amountInBins, binStep);
+
+      assertBinDepositResult(
+        activeId,
+        minDeltaId,
+        maxDeltaId,
+        favorXInActiveBin,
+        amountInBins,
+        amountX,
+        amountY,
+        new BN(50)
+      );
+    });
+
+    it("Ask side and suggest bid side parameters", () => {
+      const amountX = new BN(100_000_000);
+      let amountY = new BN(0);
+      let minDeltaId = new BN(1);
+      const maxDeltaId = new BN(60);
+      const favorXInActiveBin = false;
+
+      const { deltaX, x0 } = buildLiquidityStrategyParameters(
+        amountX,
+        amountY,
+        minDeltaId,
+        maxDeltaId,
+        binStep,
+        favorXInActiveBin,
+        activeId,
+        builder
+      );
+
+      minDeltaId = minDeltaId.sub(maxDeltaId.sub(minDeltaId).addn(1));
+
+      const {
+        base: y0,
+        delta: deltaY,
+        amountY: suggestedAmountY,
+      } = suggestBalancedYParametersFromX(
+        x0,
+        deltaX,
+        minDeltaId,
+        maxDeltaId,
+        activeId,
+        binStep,
+        favorXInActiveBin,
+        builder
+      );
+
+      amountY = suggestedAmountY;
 
       const amountInBins = toAmountIntoBins(
         activeId,
@@ -415,6 +545,69 @@ describe("Rebalance liquidity parameter builder", () => {
       );
     });
 
+    it("Bid side and suggest ask side parameters", () => {
+      let amountX = new BN(0);
+      const amountY = new BN(100_000_000);
+      const minDeltaId = new BN(60).neg();
+      let maxDeltaId = new BN(1).neg();
+      const favorXInActiveBin = true;
+
+      const { deltaY, y0 } = buildLiquidityStrategyParameters(
+        amountX,
+        amountY,
+        minDeltaId,
+        maxDeltaId,
+        binStep,
+        favorXInActiveBin,
+        activeId,
+        builder
+      );
+
+      maxDeltaId = maxDeltaId.add(maxDeltaId.sub(minDeltaId).addn(1));
+
+      const {
+        base: x0,
+        delta: deltaX,
+        amountX: suggestedAmountX,
+      } = suggestBalancedXParametersFromY(
+        y0,
+        deltaY,
+        minDeltaId,
+        maxDeltaId,
+        activeId,
+        binStep,
+        favorXInActiveBin,
+        builder
+      );
+
+      amountX = suggestedAmountX;
+
+      const amountInBins = toAmountIntoBins(
+        activeId,
+        minDeltaId,
+        maxDeltaId,
+        deltaX,
+        deltaY,
+        x0,
+        y0,
+        binStep,
+        favorXInActiveBin
+      );
+
+      logLiquidityInfo(amountX, amountY, amountInBins, binStep);
+
+      assertBinDepositResult(
+        activeId,
+        minDeltaId,
+        maxDeltaId,
+        favorXInActiveBin,
+        amountInBins,
+        amountX,
+        amountY,
+        new BN(50)
+      );
+    });
+
     it("Ask side", () => {
       const amountX = new BN(100_000_000);
       const amountY = new BN(0);
@@ -432,6 +625,69 @@ describe("Rebalance liquidity parameter builder", () => {
         activeId,
         builder
       );
+
+      const amountInBins = toAmountIntoBins(
+        activeId,
+        minDeltaId,
+        maxDeltaId,
+        deltaX,
+        deltaY,
+        x0,
+        y0,
+        binStep,
+        favorXInActiveBin
+      );
+
+      logLiquidityInfo(amountX, amountY, amountInBins, binStep);
+
+      assertBinDepositResult(
+        activeId,
+        minDeltaId,
+        maxDeltaId,
+        favorXInActiveBin,
+        amountInBins,
+        amountX,
+        amountY,
+        new BN(50)
+      );
+    });
+
+    it("Ask side and suggest bid side parameters", () => {
+      const amountX = new BN(100_000_000);
+      let amountY = new BN(0);
+      let minDeltaId = new BN(1);
+      const maxDeltaId = new BN(60);
+      const favorXInActiveBin = false;
+
+      const { deltaX, x0 } = buildLiquidityStrategyParameters(
+        amountX,
+        amountY,
+        minDeltaId,
+        maxDeltaId,
+        binStep,
+        favorXInActiveBin,
+        activeId,
+        builder
+      );
+
+      minDeltaId = minDeltaId.sub(maxDeltaId.sub(minDeltaId).addn(1));
+
+      const {
+        base: y0,
+        delta: deltaY,
+        amountY: suggestedAmountY,
+      } = suggestBalancedYParametersFromX(
+        x0,
+        deltaX,
+        minDeltaId,
+        maxDeltaId,
+        activeId,
+        binStep,
+        favorXInActiveBin,
+        builder
+      );
+
+      amountY = suggestedAmountY;
 
       const amountInBins = toAmountIntoBins(
         activeId,
@@ -683,6 +939,69 @@ describe("Rebalance liquidity parameter builder", () => {
       );
     });
 
+    it("Bid side suggest ask side parameters", () => {
+      let amountX = new BN(0);
+      const amountY = new BN(100_000_000);
+      const minDeltaId = new BN(60).neg();
+      let maxDeltaId = new BN(1).neg();
+      const favorXInActiveBin = true;
+
+      const { deltaY, y0 } = buildLiquidityStrategyParameters(
+        amountX,
+        amountY,
+        minDeltaId,
+        maxDeltaId,
+        binStep,
+        favorXInActiveBin,
+        activeId,
+        builder
+      );
+
+      maxDeltaId = maxDeltaId.add(maxDeltaId.sub(minDeltaId).addn(1));
+
+      const {
+        delta: deltaX,
+        base: x0,
+        amountX: suggestedAmountX,
+      } = suggestBalancedXParametersFromY(
+        y0,
+        deltaY,
+        minDeltaId,
+        maxDeltaId,
+        activeId,
+        binStep,
+        favorXInActiveBin,
+        builder
+      );
+
+      amountX = suggestedAmountX;
+
+      const amountInBins = toAmountIntoBins(
+        activeId,
+        minDeltaId,
+        maxDeltaId,
+        deltaX,
+        deltaY,
+        x0,
+        y0,
+        binStep,
+        favorXInActiveBin
+      );
+
+      logLiquidityInfo(amountX, amountY, amountInBins, binStep);
+
+      assertBinDepositResult(
+        activeId,
+        minDeltaId,
+        maxDeltaId,
+        favorXInActiveBin,
+        amountInBins,
+        amountX,
+        amountY,
+        new BN(2000)
+      );
+    });
+
     it("Ask side", () => {
       const amountX = new BN(100_000_000);
       const amountY = new BN(0);
@@ -700,6 +1019,69 @@ describe("Rebalance liquidity parameter builder", () => {
         activeId,
         builder
       );
+
+      const amountInBins = toAmountIntoBins(
+        activeId,
+        minDeltaId,
+        maxDeltaId,
+        deltaX,
+        deltaY,
+        x0,
+        y0,
+        binStep,
+        favorXInActiveBin
+      );
+
+      logLiquidityInfo(amountX, amountY, amountInBins, binStep);
+
+      assertBinDepositResult(
+        activeId,
+        minDeltaId,
+        maxDeltaId,
+        favorXInActiveBin,
+        amountInBins,
+        amountX,
+        amountY,
+        new BN(1000)
+      );
+    });
+
+    it("Ask side suggest bid side parameters", () => {
+      const amountX = new BN(100_000_000);
+      let amountY = new BN(0);
+      let minDeltaId = new BN(1);
+      const maxDeltaId = new BN(60);
+      const favorXInActiveBin = false;
+
+      const { deltaX, x0 } = buildLiquidityStrategyParameters(
+        amountX,
+        amountY,
+        minDeltaId,
+        maxDeltaId,
+        binStep,
+        favorXInActiveBin,
+        activeId,
+        builder
+      );
+
+      minDeltaId = minDeltaId.sub(maxDeltaId.sub(minDeltaId).addn(1));
+
+      const {
+        delta: deltaY,
+        base: y0,
+        amountY: suggestedAmountY,
+      } = suggestBalancedYParametersFromX(
+        x0,
+        deltaX,
+        minDeltaId,
+        maxDeltaId,
+        activeId,
+        binStep,
+        favorXInActiveBin,
+        builder
+      );
+
+      amountY = suggestedAmountY;
 
       const amountInBins = toAmountIntoBins(
         activeId,
@@ -767,7 +1149,7 @@ describe("Rebalance liquidity parameter builder", () => {
         amountInBins,
         amountX,
         amountY,
-        new BN(1000)
+        new BN(2000)
       );
     });
 

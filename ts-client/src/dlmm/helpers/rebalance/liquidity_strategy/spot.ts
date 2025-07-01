@@ -1,8 +1,10 @@
 import BN from "bn.js";
+import Decimal from "decimal.js";
 import { BidAskParameters, LiquidityStrategyParameterBuilder } from ".";
 import { SCALE_OFFSET } from "../../../constants";
 import { getQPriceBaseFactor, getQPriceFromId } from "../../math";
-import { getAmountInBinsAskSide } from "../rebalancePosition";
+import { getPriceOfBinByBinId } from "../../weight";
+import { getAmountInBinsAskSide, toAmountIntoBins } from "../rebalancePosition";
 
 function findY0(amountY: BN, minDeltaId: BN, maxDeltaId: BN) {
   if (minDeltaId.gt(maxDeltaId) || amountY.lte(new BN(0)) || amountY.isZero()) {
@@ -127,6 +129,84 @@ export class SpotStrategyParameterBuilder
     return {
       base: findY0(amountY, minDeltaId, maxDeltaId),
       delta: new BN(0),
+    };
+  }
+
+  suggestBalancedXParametersFromY(
+    activeId: BN,
+    binStep: BN,
+    favorXInActiveBin: boolean,
+    minDeltaId: BN,
+    maxDeltaId: BN,
+    amountY: BN
+  ): BidAskParameters & { amountX: BN } {
+    // pm = (1+b)^-(active_id + m)
+    //
+    // sum(amounts) = x0 * (p(m1)+..+p(m2)) + delta_x * (m1 * p(m1) + ... + m2 * p(m2))
+    // set delta_x = 0
+    // Total quote = x0 * (max_delta_id + 1) = total_amount_y
+    // x0 = total_amount_y / (max_delta_id + 1)
+
+    const x0 = amountY.div(maxDeltaId.addn(1));
+
+    const totalAmountX = toAmountIntoBins(
+      activeId,
+      minDeltaId,
+      maxDeltaId,
+      new BN(0),
+      new BN(0),
+      x0,
+      new BN(0),
+      binStep,
+      favorXInActiveBin
+    ).reduce((acc, bin) => {
+      return acc.add(bin.amountX);
+    }, new BN(0));
+
+    return {
+      base: new BN(x0.toString()),
+      delta: new BN(0),
+      amountX: totalAmountX,
+    };
+  }
+
+  suggestBalancedYParametersFromX(
+    activeId: BN,
+    binStep: BN,
+    favorXInActiveBin: boolean,
+    minDeltaId: BN,
+    maxDeltaId: BN,
+    amountXInQuoteValue: BN
+  ): BidAskParameters & { amountY: BN } {
+    // sum(amounts) = y0 * (m1-m2+1) + delta_y * (m1 * (m1+1)/2 - m2 * (m2-1)/2)
+    // set delta_y = 0
+    // sum(amounts) = y0 * (m1-m2+1)
+    //
+    // pm = (1+b)^(active_id + m)
+    //
+    // Total quote = sum(amounts) = x0 * (p(m1)+..+p(m2)) + delta_x * (m1 * p(m1) + ... + m2 * p(m2))
+    // y0 = sum(amounts) / (m1-m2+1)
+
+    const y0 = amountXInQuoteValue.div(maxDeltaId.sub(minDeltaId).addn(1));
+
+    const amountY = toAmountIntoBins(
+      activeId,
+      minDeltaId,
+      maxDeltaId,
+      new BN(0),
+      new BN(0),
+      new BN(0),
+      y0,
+      binStep,
+      favorXInActiveBin
+    ).reduce((acc, bin) => {
+      return acc.add(bin.amountY);
+    }, new BN(0));
+
+    return {
+      base: y0,
+      delta: new BN(0),
+      amountY,
     };
   }
 }
