@@ -201,8 +201,8 @@ export function getAutoFillAmountByRebalancedPosition(
         ].binId;
     }
 
-    const minDeltaId = lbPair.activeId - minBinId;
-    const maxDeltaId = lbPair.activeId - maxBinId;
+    const minDeltaId = minBinId - lbPair.activeId;
+    const maxDeltaId = maxBinId - lbPair.activeId;
 
     const { amountX } = builder.suggestBalancedXParametersFromY(
       new BN(lbPair.activeId),

@@ -14,8 +14,9 @@ import { StrategyType } from "../dlmm/types";
 import {
   getAmountInBinsAskSide,
   getAmountInBinsBidSide,
+  getAutoFillAmountByRebalancedPosition,
 } from "../dlmm/helpers/rebalance";
-import { Connection, PublicKey } from "@solana/web3.js";
+import { clusterApiUrl, Connection, PublicKey } from "@solana/web3.js";
 import { DLMM } from "../dlmm";
 import Decimal from "decimal.js";
 import { getPriceOfBinByBinId } from "../dlmm/helpers";
@@ -318,52 +319,37 @@ import { getPriceOfBinByBinId } from "../dlmm/helpers";
 // main();
 
 (async () => {
-  const pool = new PublicKey("5AnM2kPJdK1BLFGCCNodgPXn5b2B2oavVmmx2rTHPJsA");
-  const connection = new Connection("https://solana-rpc.publicnode.com");
+  const pool = new PublicKey("5JyR6thg3z9QENS8t9qt1Ktkj2fp8YQxFugS75Do45YE");
+  const position = new PublicKey(
+    "FeN6BgLg7n2qGqHevgcaWxTyhFwKaGXcsHpF7WEUpvvD"
+  );
+
+  const connection = new Connection(clusterApiUrl("devnet"));
   const dlmm = await DLMM.create(connection, pool);
 
-  const binArrayForSwaps = await dlmm.getBinArrayForSwap(false, 10);
-  const { consumedInAmount, outAmount, fee, endPrice } = await dlmm.swapQuote(
-    new BN("10000000"),
-    false,
-    new BN(0),
-    binArrayForSwaps,
-    true
+  const parsedPosition = await dlmm.getPosition(position);
+  const { rebalancePosition } =
+    await dlmm.simulateRebalancePositionWithBalancedStrategy(
+      position,
+      parsedPosition.positionData,
+      StrategyType.Spot,
+      new BN(0),
+      new BN(0),
+      new BN(0),
+      new BN(0)
+    );
+
+  const [totalAmountX, totalAmountY] = rebalancePosition.totalAmounts();
+  console.log("🚀 ~ totalAmountX:", totalAmountX.toString());
+  console.log("🚀 ~ totalAmountY:", totalAmountY.toString());
+
+  const { amount, isBidSide } = getAutoFillAmountByRebalancedPosition(
+    rebalancePosition,
+    StrategyType.Spot
   );
 
-  console.log(
-    endPrice,
-    getPriceOfBinByBinId(dlmm.lbPair.activeId, dlmm.lbPair.binStep)
-  );
-
-  const averagePrice = new Decimal(consumedInAmount.sub(fee).toString()).div(
-    new Decimal(outAmount.toString())
-  );
-
-  const priceFactor = new Decimal(
-    10 ** (dlmm.tokenX.mint.decimals - dlmm.tokenY.mint.decimals)
-  );
-  const adjustedAveragePrice = averagePrice.mul(priceFactor);
-  const adjustedEndPrice = endPrice.mul(priceFactor);
-  const adjustedStartPrice = getPriceOfBinByBinId(
-    dlmm.lbPair.activeId,
-    dlmm.lbPair.binStep
-  ).mul(priceFactor);
-
-  console.log(
-    "startPrice",
-    adjustedStartPrice,
-    "averagePrice",
-    adjustedAveragePrice,
-    "endPrice",
-    adjustedEndPrice
-  );
-  const discount = adjustedEndPrice
-    .sub(adjustedAveragePrice)
-    .div(adjustedEndPrice)
-    .mul(100);
-
-  console.log("discount percentage", discount);
+  console.log("🚀 ~ amount:", amount.toString());
+  console.log("🚀 ~ isBidSide:", isBidSide);
 })();
 
 // (async () => {
