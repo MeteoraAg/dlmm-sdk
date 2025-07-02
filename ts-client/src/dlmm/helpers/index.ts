@@ -50,7 +50,8 @@ export * from "./fee";
 export * from "./weightToAmounts";
 export * from "./strategy";
 export * from "./lbPair";
-export * from "./positions"
+export * from "./positions";
+export * from "./rebalance";
 
 export function chunks<T>(array: T[], size: number): T[][] {
   return Array.apply(0, new Array(Math.ceil(array.length / size))).map(

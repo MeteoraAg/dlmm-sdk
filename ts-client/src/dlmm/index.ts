@@ -6608,12 +6608,10 @@ export class DLMM {
         chunk,
         activeId
       );
-      console.log("🚀 ~ DLMM ~ chunkedDepositParams:", chunkedDepositParams);
       const chunkedWithdrawParams = splitWithdrawParamsForChunk(
         withdrawParams,
         chunk
       );
-      console.log("🚀 ~ DLMM ~ chunkedWithdrawParams:", chunkedWithdrawParams);
       if (
         chunkedDepositParams.length === 0 &&
         chunkedWithdrawParams.length === 0

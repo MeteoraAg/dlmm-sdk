@@ -7,7 +7,7 @@ import { RebalancePosition, toAmountIntoBins } from "../rebalancePosition";
 import { getPriceOfBinByBinId } from "../../weight";
 import Decimal from "decimal.js";
 
-export interface StrategyParameters {
+export interface LiquidityStrategyParameters {
   x0: BN;
   y0: BN;
   deltaX: BN;
@@ -290,7 +290,7 @@ export function buildLiquidityStrategyParameters(
   favorXInActiveId: boolean,
   activeId: BN,
   strategyParameterBuilder: LiquidityStrategyParameterBuilder
-): StrategyParameters {
+): LiquidityStrategyParameters {
   if (minDeltaId.gt(maxDeltaId)) {
     return {
       x0: new BN(0),
