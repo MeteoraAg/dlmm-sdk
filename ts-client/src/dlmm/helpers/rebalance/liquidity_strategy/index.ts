@@ -179,8 +179,10 @@ export function getAutoFillAmountByRebalancedPosition(
       liquidityInAskSide
     );
 
+    const [_, positionAmountY] = rebalancePosition.totalAmounts();
+
     return {
-      amount: amountY,
+      amount: BN.max(amountY.sub(positionAmountY), new BN(0)),
       isBidSide: true,
     };
   } else if (liquidityInAskSide.lt(liquidityInBidSide)) {
@@ -211,8 +213,10 @@ export function getAutoFillAmountByRebalancedPosition(
       liquidityInBidSide
     );
 
+    const [positionAmountX] = rebalancePosition.totalAmounts();
+
     return {
-      amount: amountX,
+      amount: BN.max(amountX.sub(positionAmountX), new BN(0)),
       isBidSide: false,
     };
   } else {
