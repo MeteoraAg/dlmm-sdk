@@ -206,6 +206,16 @@ export interface TInitializePositionAndAddLiquidityParamsByStrategy {
   slippage?: number;
 }
 
+export interface InitializePositionAndAddLiquidityByStrategyInstructions {
+  initializePositionIx: TransactionInstruction;
+  addLiquidityIxs: TransactionInstruction[];
+  positionKeypair: Keypair;
+}
+
+export interface InitializeMultiplePositionAndAddLiquidityByStrategyResponse {
+  positionInstructions: InitializePositionAndAddLiquidityByStrategyInstructions[];
+}
+
 export interface TInitializeMultiplePositionAndAddLiquidityParamsByStrategy {
   totalXAmount: BN;
   totalYAmount: BN;

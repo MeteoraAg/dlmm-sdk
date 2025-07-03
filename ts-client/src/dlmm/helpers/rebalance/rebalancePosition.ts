@@ -35,7 +35,7 @@ import { getQPriceBaseFactor, getQPriceFromId } from "../math";
 import { pow } from "../u64xu64_math";
 import { getPriceOfBinByBinId } from "../weight";
 
-function buildBitFlagAndNegateStrategyParameters(
+export function buildBitFlagAndNegateStrategyParameters(
   x0: BN,
   y0: BN,
   deltaX: BN,
