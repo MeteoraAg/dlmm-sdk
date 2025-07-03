@@ -6829,355 +6829,301 @@ export class DLMM {
     slippage: number = 100
   ) {
     const { rebalancePosition, simulationResult } = rebalancePositionResponse;
+
     const { lbPair, shouldClaimFee, shouldClaimReward, owner, address } =
       rebalancePosition;
     const { depositParams, withdrawParams } = simulationResult;
+
     const activeId = new BN(lbPair.activeId);
 
-    // --- Determine min/max binId for chunking ---
-    // For depositParams, minDeltaId/maxDeltaId are relative to activeId
-    let minBinId = Number.POSITIVE_INFINITY;
-    let maxBinId = Number.NEGATIVE_INFINITY;
-    for (const param of depositParams) {
-      const min = activeId.toNumber() + param.minDeltaId;
-      const max = activeId.toNumber() + param.maxDeltaId;
-      if (min < minBinId) minBinId = min;
-      if (max > maxBinId) maxBinId = max;
-    }
-    for (const param of withdrawParams) {
-      if (param.minBinId !== null && param.minBinId < minBinId)
-        minBinId = param.minBinId;
-      if (param.maxBinId !== null && param.maxBinId > maxBinId)
-        maxBinId = param.maxBinId;
-    }
-    if (!Number.isFinite(minBinId) || !Number.isFinite(maxBinId)) {
-      throw new Error("Unable to determine min/max binId for chunking");
-    }
+    const { slices, accounts: transferHookAccounts } =
+      this.getPotentialToken2022IxDataAndAccounts(ActionType.Liquidity);
 
-    // --- Chunk bin range ---
-    const binChunks = chunkBinRange(minBinId, maxBinId); // [{lowerBinId, upperBinId}]
+    const preInstructions: TransactionInstruction[] = [];
+    const harvestRewardRemainingAccountMetas: AccountMeta[] = [];
 
-    // --- Helper to split params at chunk boundaries ---
-    function splitDepositParamsForChunk(
-      params: RebalanceAddLiquidityParam[],
-      chunk: { lowerBinId: number; upperBinId: number },
-      activeId: BN
-    ) {
-      const res: RebalanceAddLiquidityParam[] = [];
-      for (const param of params) {
-        const absMin = activeId.toNumber() + param.minDeltaId;
-        const absMax = activeId.toNumber() + param.maxDeltaId;
-        // If no overlap, skip
-        if (absMax < chunk.lowerBinId || absMin > chunk.upperBinId) continue;
-        // Clamp to chunk
-        const newMin = Math.max(absMin, chunk.lowerBinId);
-        const newMax = Math.min(absMax, chunk.upperBinId);
-        res.push({
-          ...param,
-          minDeltaId: newMin - activeId.toNumber(),
-          maxDeltaId: newMax - activeId.toNumber(),
-        });
-      }
-      return res;
-    }
-    function splitWithdrawParamsForChunk(
-      params: RebalanceRemoveLiquidityParam[],
-      chunk: { lowerBinId: number; upperBinId: number }
-    ) {
-      const res: RebalanceRemoveLiquidityParam[] = [];
-      for (const param of params) {
-        const absMin =
-          param.minBinId !== null ? param.minBinId : activeId.toNumber();
-        const absMax =
-          param.maxBinId !== null ? param.maxBinId : activeId.toNumber();
-        // If no overlap, skip
-        if (absMax < chunk.lowerBinId || absMin > chunk.upperBinId) continue;
-        // Clamp to chunk
-        const newMin = Math.max(absMin, chunk.lowerBinId);
-        const newMax = Math.min(absMax, chunk.upperBinId);
-        res.push({
-          ...param,
-          minBinId: newMin,
-          maxBinId: newMax,
-        });
-      }
-      return res;
-    }
-
-    // --- Prepare instructions for each chunk ---
-    const allInstructions: TransactionInstruction[][] = [];
-    for (const chunk of binChunks) {
-      const chunkedDepositParams = splitDepositParamsForChunk(
-        depositParams,
-        chunk,
-        activeId
-      );
-      const chunkedWithdrawParams = splitWithdrawParamsForChunk(
-        withdrawParams,
-        chunk
-      );
-      if (
-        chunkedDepositParams.length === 0 &&
-        chunkedWithdrawParams.length === 0
-      )
-        continue;
-
-      // --- (Copy the rest of the original logic, but use chunkedDepositParams/chunkedWithdrawParams) ---
-      const { slices, accounts: transferHookAccounts } =
-        this.getPotentialToken2022IxDataAndAccounts(ActionType.Liquidity);
-      const preInstructions: TransactionInstruction[] = [];
-      const harvestRewardRemainingAccountMetas: AccountMeta[] = [];
-      if (shouldClaimReward) {
-        for (const [idx, reward] of this.lbPair.rewardInfos.entries()) {
-          if (!reward.mint.equals(PublicKey.default)) {
-            const rewardTokenInfo = this.rewards[idx];
-            slices.push({
-              accountsType: {
-                transferHookMultiReward: {
-                  0: idx,
-                },
+    if (shouldClaimReward) {
+      for (const [idx, reward] of this.lbPair.rewardInfos.entries()) {
+        if (!reward.mint.equals(PublicKey.default)) {
+          const rewardTokenInfo = this.rewards[idx];
+          slices.push({
+            accountsType: {
+              transferHookMultiReward: {
+                0: idx,
               },
-              length: rewardTokenInfo.transferHookAccountMetas.length,
-            });
-            transferHookAccounts.push(
-              ...rewardTokenInfo.transferHookAccountMetas
-            );
-            const userTokenRewardAddress = getAssociatedTokenAddressSync(
-              reward.mint,
+            },
+            length: rewardTokenInfo.transferHookAccountMetas.length,
+          });
+
+          transferHookAccounts.push(
+            ...rewardTokenInfo.transferHookAccountMetas
+          );
+
+          const userTokenRewardAddress = getAssociatedTokenAddressSync(
+            reward.mint,
+            owner,
+            true,
+            rewardTokenInfo.owner
+          );
+
+          preInstructions.push(
+            createAssociatedTokenAccountIdempotentInstruction(
               owner,
-              true,
+              userTokenRewardAddress,
+              owner,
+              reward.mint,
               rewardTokenInfo.owner
-            );
-            preInstructions.push(
-              createAssociatedTokenAccountIdempotentInstruction(
-                owner,
-                userTokenRewardAddress,
-                owner,
-                reward.mint,
-                rewardTokenInfo.owner
-              )
-            );
-            const rewardVault: AccountMeta = {
-              pubkey: reward.vault,
-              isSigner: false,
-              isWritable: true,
-            };
-            const userTokenReward: AccountMeta = {
-              pubkey: userTokenRewardAddress,
-              isSigner: false,
-              isWritable: true,
-            };
-            const rewardMint: AccountMeta = {
-              pubkey: reward.mint,
-              isSigner: false,
-              isWritable: false,
-            };
-            const rewardTokenProgram: AccountMeta = {
-              pubkey: rewardTokenInfo.owner,
-              isSigner: false,
-              isWritable: false,
-            };
-            harvestRewardRemainingAccountMetas.push(
-              rewardVault,
-              userTokenReward,
-              rewardMint,
-              rewardTokenProgram
-            );
-          }
+            )
+          );
+
+          const rewardVault: AccountMeta = {
+            pubkey: reward.vault,
+            isSigner: false,
+            isWritable: true,
+          };
+
+          const userTokenReward: AccountMeta = {
+            pubkey: userTokenRewardAddress,
+            isSigner: false,
+            isWritable: true,
+          };
+
+          const rewardMint: AccountMeta = {
+            pubkey: reward.mint,
+            isSigner: false,
+            isWritable: false,
+          };
+
+          const rewardTokenProgram: AccountMeta = {
+            pubkey: rewardTokenInfo.owner,
+            isSigner: false,
+            isWritable: false,
+          };
+
+          harvestRewardRemainingAccountMetas.push(
+            rewardVault,
+            userTokenReward,
+            rewardMint,
+            rewardTokenProgram
+          );
         }
       }
-      const initBinArrayInstructions: TransactionInstruction[] = [];
-      const { binArrayBitmap, binArrayIndexes } =
-        getRebalanceBinArrayIndexesAndBitmapCoverage(
-          chunkedDepositParams,
-          chunkedWithdrawParams,
-          activeId.toNumber(),
-          this.pubkey,
-          this.program.programId
-        );
-      const binArrayPublicKeys = binArrayIndexes.map((index) => {
-        const [binArrayPubkey] = deriveBinArray(
-          this.pubkey,
-          index,
-          this.program.programId
-        );
-        return binArrayPubkey;
-      });
-      const binArrayAccounts = await chunkedGetMultipleAccountInfos(
-        this.program.provider.connection,
-        binArrayPublicKeys
-      );
-      for (let i = 0; i < binArrayAccounts.length; i++) {
-        const binArrayAccount = binArrayAccounts[i];
-        if (!binArrayAccount) {
-          const binArrayPubkey = binArrayPublicKeys[i];
-          const binArrayIndex = binArrayIndexes[i];
-          const initBinArrayIx = await this.program.methods
-            .initializeBinArray(binArrayIndex)
-            .accountsPartial({
-              binArray: binArrayPubkey,
-              funder: owner,
-              lbPair: this.pubkey,
-            })
-            .instruction();
-          initBinArrayInstructions.push(initBinArrayIx);
-        }
-      }
-      if (!binArrayBitmap.equals(PublicKey.default)) {
-        const bitmapAccount =
-          await this.program.provider.connection.getAccountInfo(binArrayBitmap);
-        if (!bitmapAccount) {
-          const initBitmapExtensionIx = await this.program.methods
-            .initializeBinArrayBitmapExtension()
-            .accountsPartial({
-              binArrayBitmapExtension: binArrayBitmap,
-              funder: owner,
-              lbPair: this.pubkey,
-            })
-            .preInstructions([
-              ComputeBudgetProgram.setComputeUnitLimit({
-                units: DEFAULT_INIT_BIN_ARRAY_CU,
-              }),
-            ])
-            .instruction();
-          preInstructions.push(initBitmapExtensionIx);
-        }
-      }
-      const [
-        { ataPubKey: userTokenX, ix: createUserTokenXIx },
-        { ataPubKey: userTokenY, ix: createUserTokenYIx },
-      ] = await Promise.all([
-        getOrCreateATAInstruction(
-          this.program.provider.connection,
-          this.tokenX.publicKey,
-          owner,
-          this.tokenX.owner
-        ),
-        getOrCreateATAInstruction(
-          this.program.provider.connection,
-          this.tokenY.publicKey,
-          owner,
-          this.tokenY.owner
-        ),
-      ]);
-      createUserTokenXIx && preInstructions.push(createUserTokenXIx);
-      createUserTokenYIx && preInstructions.push(createUserTokenYIx);
-      slippage = capSlippagePercentage(slippage);
-      const applySlippageMaxAmount = (amount: BN, slippage: number) => {
-        return slippage == 100
-          ? U64_MAX
-          : amount.muln(100 + slippage).divn(100);
-      };
-      const applySlippageMinAmount = (amount: BN, slippage: number) => {
-        return amount.muln(100 - slippage).divn(100);
-      };
-      const maxDepositXAmount = applySlippageMaxAmount(
-        simulationResult.actualAmountXDeposited,
-        slippage
-      );
-      const maxDepositYAmount = applySlippageMaxAmount(
-        simulationResult.actualAmountYDeposited,
-        slippage
-      );
-      const minWithdrawXAmount = applySlippageMinAmount(
-        simulationResult.actualAmountXWithdrawn,
-        slippage
-      );
-      const minWithdrawYAmount = applySlippageMinAmount(
-        simulationResult.actualAmountYWithdrawn,
-        slippage
-      );
-      const postInstructions: Array<TransactionInstruction> = [];
-      if (
-        this.tokenX.publicKey.equals(NATIVE_MINT) &&
-        simulationResult.actualAmountXDeposited.gtn(0)
-      ) {
-        const wrapSOLIx = wrapSOLInstruction(
-          owner,
-          userTokenX,
-          BigInt(simulationResult.actualAmountXDeposited.toString())
-        );
-        preInstructions.push(...wrapSOLIx);
-      }
-      if (
-        this.tokenY.publicKey.equals(NATIVE_MINT) &&
-        simulationResult.actualAmountYDeposited.gtn(0)
-      ) {
-        const wrapSOLIx = wrapSOLInstruction(
-          owner,
-          userTokenY,
-          BigInt(simulationResult.actualAmountYDeposited.toString())
-        );
-        preInstructions.push(...wrapSOLIx);
-      }
-      if (
-        this.tokenX.publicKey.equals(NATIVE_MINT) ||
-        this.tokenY.publicKey.equals(NATIVE_MINT)
-      ) {
-        const closeWrappedSOLIx = await unwrapSOLInstruction(owner);
-        closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
-      }
-      const instruction = await this.program.methods
-        .rebalanceLiquidity(
-          {
-            adds: chunkedDepositParams,
-            removes: chunkedWithdrawParams,
-            activeId: activeId.toNumber(),
-            shouldClaimFee,
-            shouldClaimReward,
-            maxActiveBinSlippage: maxActiveBinSlippage.toNumber(),
-            maxDepositXAmount,
-            maxDepositYAmount,
-            minWithdrawXAmount,
-            minWithdrawYAmount,
-            padding: Array(32).fill(0),
-          },
-          {
-            slices,
-          }
-        )
-        .accountsPartial({
-          lbPair: this.pubkey,
-          binArrayBitmapExtension: binArrayBitmap,
-          position: address,
-          owner,
-          userTokenX,
-          userTokenY,
-          reserveX: this.lbPair.reserveX,
-          reserveY: this.lbPair.reserveY,
-          tokenXMint: this.tokenX.publicKey,
-          tokenYMint: this.tokenY.publicKey,
-          tokenXProgram: this.tokenX.owner,
-          tokenYProgram: this.tokenY.owner,
-          memoProgram: MEMO_PROGRAM_ID,
-          rentPayer: rentPayer ?? owner,
-        })
-        .remainingAccounts(transferHookAccounts)
-        .remainingAccounts(
-          binArrayPublicKeys.map((pubkey) => {
-            return {
-              pubkey,
-              isSigner: false,
-              isWritable: true,
-            };
-          })
-        )
-        .instruction();
-      const setCUIX = await getEstimatedComputeUnitIxWithBuffer(
-        this.program.provider.connection,
-        [instruction],
-        owner
-      );
-      const rebalancePositionInstruction = [
-        setCUIX,
-        ...initBinArrayInstructions,
-        ...preInstructions,
-        instruction,
-        ...postInstructions,
-      ];
-      allInstructions.push(rebalancePositionInstruction);
     }
-    return allInstructions;
+
+    const initBinArrayInstructions: TransactionInstruction[] = [];
+
+    const { binArrayBitmap, binArrayIndexes } =
+      getRebalanceBinArrayIndexesAndBitmapCoverage(
+        depositParams,
+        withdrawParams,
+        activeId.toNumber(),
+        this.pubkey,
+        this.program.programId
+      );
+
+    const binArrayPublicKeys = binArrayIndexes.map((index) => {
+      const [binArrayPubkey] = deriveBinArray(
+        this.pubkey,
+        index,
+        this.program.programId
+      );
+      return binArrayPubkey;
+    });
+
+    const binArrayAccounts = await chunkedGetMultipleAccountInfos(
+      this.program.provider.connection,
+      binArrayPublicKeys
+    );
+
+    for (let i = 0; i < binArrayAccounts.length; i++) {
+      const binArrayAccount = binArrayAccounts[i];
+      if (!binArrayAccount) {
+        const binArrayPubkey = binArrayPublicKeys[i];
+        const binArrayIndex = binArrayIndexes[i];
+        const initBinArrayIx = await this.program.methods
+          .initializeBinArray(binArrayIndex)
+          .accountsPartial({
+            binArray: binArrayPubkey,
+            funder: owner,
+            lbPair: this.pubkey,
+          })
+          .instruction();
+
+        initBinArrayInstructions.push(initBinArrayIx);
+      }
+    }
+
+    if (!binArrayBitmap.equals(PublicKey.default)) {
+      const bitmapAccount =
+        await this.program.provider.connection.getAccountInfo(binArrayBitmap);
+
+      if (!bitmapAccount) {
+        const initBitmapExtensionIx = await this.program.methods
+          .initializeBinArrayBitmapExtension()
+          .accountsPartial({
+            binArrayBitmapExtension: binArrayBitmap,
+            funder: owner,
+            lbPair: this.pubkey,
+          })
+          .preInstructions([
+            ComputeBudgetProgram.setComputeUnitLimit({
+              units: DEFAULT_INIT_BIN_ARRAY_CU,
+            }),
+          ])
+          .instruction();
+        preInstructions.push(initBitmapExtensionIx);
+      }
+    }
+
+    const [
+      { ataPubKey: userTokenX, ix: createUserTokenXIx },
+      { ataPubKey: userTokenY, ix: createUserTokenYIx },
+    ] = await Promise.all([
+      getOrCreateATAInstruction(
+        this.program.provider.connection,
+        this.tokenX.publicKey,
+        owner,
+        this.tokenX.owner
+      ),
+      getOrCreateATAInstruction(
+        this.program.provider.connection,
+        this.tokenY.publicKey,
+        owner,
+        this.tokenY.owner
+      ),
+    ]);
+    createUserTokenXIx && preInstructions.push(createUserTokenXIx);
+    createUserTokenYIx && preInstructions.push(createUserTokenYIx);
+
+    slippage = capSlippagePercentage(slippage);
+
+    const applySlippageMaxAmount = (amount: BN, slippage: number) => {
+      return slippage == 100 ? U64_MAX : amount.muln(100 + slippage).divn(100);
+    };
+
+    const applySlippageMinAmount = (amount: BN, slippage: number) => {
+      return amount.muln(100 - slippage).divn(100);
+    };
+
+    const maxDepositXAmount = applySlippageMaxAmount(
+      simulationResult.actualAmountXDeposited,
+      slippage
+    );
+
+    const maxDepositYAmount = applySlippageMaxAmount(
+      simulationResult.actualAmountYDeposited,
+      slippage
+    );
+
+    const minWithdrawXAmount = applySlippageMinAmount(
+      simulationResult.actualAmountXWithdrawn,
+      slippage
+    );
+    const minWithdrawYAmount = applySlippageMinAmount(
+      simulationResult.actualAmountYWithdrawn,
+      slippage
+    );
+
+    const postInstructions: Array<TransactionInstruction> = [];
+
+    // Add wrapSOL instructions if tokenX or tokenY is NATIVE_MINT
+    if (
+      this.tokenX.publicKey.equals(NATIVE_MINT) &&
+      simulationResult.actualAmountXDeposited.gtn(0)
+    ) {
+      const wrapSOLIx = wrapSOLInstruction(
+        owner,
+        userTokenX,
+        BigInt(simulationResult.actualAmountXDeposited.toString())
+      );
+      preInstructions.push(...wrapSOLIx);
+    }
+
+    if (
+      this.tokenY.publicKey.equals(NATIVE_MINT) &&
+      simulationResult.actualAmountYDeposited.gtn(0)
+    ) {
+      const wrapSOLIx = wrapSOLInstruction(
+        owner,
+        userTokenY,
+        BigInt(simulationResult.actualAmountYDeposited.toString())
+      );
+      preInstructions.push(...wrapSOLIx);
+    }
+
+    // Add unwrapSOL instructions if tokenX or tokenY is NATIVE_MINT
+    if (
+      this.tokenX.publicKey.equals(NATIVE_MINT) ||
+      this.tokenY.publicKey.equals(NATIVE_MINT)
+    ) {
+      const closeWrappedSOLIx = await unwrapSOLInstruction(owner);
+      closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
+    }
+
+    const instruction = await this.program.methods
+      .rebalanceLiquidity(
+        {
+          adds: depositParams,
+          removes: withdrawParams,
+          activeId: activeId.toNumber(),
+          shouldClaimFee,
+          shouldClaimReward,
+          maxActiveBinSlippage: maxActiveBinSlippage.toNumber(),
+          maxDepositXAmount,
+          maxDepositYAmount,
+          minWithdrawXAmount,
+          minWithdrawYAmount,
+          padding: Array(32).fill(0),
+        },
+        {
+          slices,
+        }
+      )
+      .accountsPartial({
+        lbPair: this.pubkey,
+        binArrayBitmapExtension: binArrayBitmap,
+        position: address,
+        owner,
+        userTokenX,
+        userTokenY,
+        reserveX: this.lbPair.reserveX,
+        reserveY: this.lbPair.reserveY,
+        tokenXMint: this.tokenX.publicKey,
+        tokenYMint: this.tokenY.publicKey,
+        tokenXProgram: this.tokenX.owner,
+        tokenYProgram: this.tokenY.owner,
+        memoProgram: MEMO_PROGRAM_ID,
+        rentPayer: rentPayer ?? owner,
+      })
+      .remainingAccounts(transferHookAccounts)
+      .remainingAccounts(
+        binArrayPublicKeys.map((pubkey) => {
+          return {
+            pubkey,
+            isSigner: false,
+            isWritable: true,
+          };
+        })
+      )
+      .instruction();
+
+    const setCUIX = await getEstimatedComputeUnitIxWithBuffer(
+      this.program.provider.connection,
+      [instruction],
+      owner
+    );
+
+    const rebalancePositionInstruction = [
+      setCUIX,
+      ...preInstructions,
+      instruction,
+      ...postInstructions,
+    ];
+
+    return {
+      initBinArrayInstructions,
+      rebalancePositionInstruction,
+    };
   }
 
   /**
