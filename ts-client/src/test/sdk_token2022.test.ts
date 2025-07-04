@@ -862,7 +862,7 @@ describe("SDK token2022 test", () => {
           dlmm.clock
         );
 
-        const addLiquidityTxs = await dlmm.addLiquidityByStrategy({
+        const addLiquidityTx = await dlmm.addLiquidityByStrategy({
           positionPubKey: nonExtendedPositionKeypair0.publicKey,
           totalXAmount,
           totalYAmount,
@@ -881,11 +881,7 @@ describe("SDK token2022 test", () => {
             dlmm.tokenY.reserve,
           ]);
 
-        await Promise.all(
-          addLiquidityTxs.map((tx) =>
-            sendAndConfirmTransaction(connection, tx, [keypair])
-          )
-        );
+        await sendAndConfirmTransaction(connection, addLiquidityTx, [keypair]);
 
         position = await dlmm.getPosition(
           nonExtendedPositionKeypair0.publicKey

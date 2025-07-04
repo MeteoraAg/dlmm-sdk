@@ -3342,7 +3342,7 @@ export class DLMM {
   }
 
   /**
-   * The `addLiquidityByStrategy` function is used to add liquidity to existing position. It will chunk the bin range into multiple add liquidity transactions if it exceed max size.
+   * The `addLiquidityByStrategy` function is used to add liquidity to existing position
    * @param {TInitializePositionAndAddLiquidityParamsByStrategy}
    *    - `positionPubKey`: The public key of the position account. (usually use `new Keypair()`)
    *    - `totalXAmount`: The total amount of token X to be added to the liquidity pool.
@@ -3350,7 +3350,8 @@ export class DLMM {
    *    - `strategy`: The strategy parameters to be used for the liquidity pool (Can use `calculateStrategyParameter` to calculate).
    *    - `user`: The public key of the user account.
    *    - `slippage`: The slippage percentage to be used for the liquidity pool.
-   * @returns {Promise<Transaction[]>} The function `addLiquidityByStrategy` returns a `Promise` that resolves to an array of transactions
+   * @returns {Promise<Transaction>} The function `addLiquidityByWeight` returns a `Promise` that resolves to either a single
+   * `Transaction` object
    */
   public async addLiquidityByStrategy({
     positionPubKey,
@@ -3359,238 +3360,160 @@ export class DLMM {
     strategy,
     user,
     slippage,
-  }: TInitializePositionAndAddLiquidityParamsByStrategy): Promise<
-    Transaction[]
-  > {
+  }: TInitializePositionAndAddLiquidityParamsByStrategy): Promise<Transaction> {
     const { maxBinId, minBinId } = strategy;
 
     const maxActiveBinSlippage = slippage
       ? Math.ceil(slippage / (this.lbPair.binStep / 100))
       : MAX_ACTIVE_BIN_SLIPPAGE;
 
-    const activeBin = await this.getActiveBin();
+    const preInstructions: TransactionInstruction[] = [];
 
-    const liquidityDistribution = toAmountsBothSideByStrategy(
-      activeBin.binId,
-      this.lbPair.binStep,
-      minBinId,
-      maxBinId,
-      totalXAmount,
-      totalYAmount,
-      activeBin.xAmount,
-      activeBin.yAmount,
-      strategy.strategyType,
-      this.tokenX.mint,
-      this.tokenY.mint,
-      this.clock
+    const minBinArrayIndex = binIdToBinArrayIndex(new BN(minBinId));
+    const maxBinArrayIndex = binIdToBinArrayIndex(new BN(maxBinId));
+
+    const useExtension =
+      isOverflowDefaultBinArrayBitmap(minBinArrayIndex) ||
+      isOverflowDefaultBinArrayBitmap(maxBinArrayIndex);
+
+    const binArrayBitmapExtension = useExtension
+      ? deriveBinArrayBitmapExtension(this.pubkey, this.program.programId)[0]
+      : null;
+
+    const strategyParameters: LiquidityParameterByStrategy["strategyParameters"] =
+      toStrategyParameters(strategy) as ProgramStrategyParameter;
+
+    const binArrayIndexes = getBinArrayIndexesCoverage(
+      new BN(minBinId),
+      new BN(maxBinId)
     );
 
-    const chunkedBinRange = chunkBinRange(minBinId, maxBinId);
-
-    const userTokenX = getAssociatedTokenAddressSync(
-      this.lbPair.tokenXMint,
-      user,
-      true,
-      this.tokenX.owner
+    const binArrayAccountsMeta = getBinArrayAccountMetasCoverage(
+      new BN(minBinId),
+      new BN(maxBinId),
+      this.pubkey,
+      this.program.programId
     );
 
-    const userTokenY = getAssociatedTokenAddressSync(
-      this.lbPair.tokenYMint,
-      user,
-      true,
-      this.tokenY.owner
+    const createBinArrayIxs = await this.createBinArraysIfNeeded(
+      binArrayIndexes,
+      user
     );
+    preInstructions.push(...createBinArrayIxs);
 
-    const createUserTokenXIx =
-      createAssociatedTokenAccountIdempotentInstruction(
+    const [
+      { ataPubKey: userTokenX, ix: createPayerTokenXIx },
+      { ataPubKey: userTokenY, ix: createPayerTokenYIx },
+    ] = await Promise.all([
+      getOrCreateATAInstruction(
+        this.program.provider.connection,
+        this.tokenX.publicKey,
+        user,
+        this.tokenX.owner
+      ),
+      getOrCreateATAInstruction(
+        this.program.provider.connection,
+        this.tokenY.publicKey,
+        user,
+        this.tokenY.owner
+      ),
+    ]);
+
+    createPayerTokenXIx && preInstructions.push(createPayerTokenXIx);
+    createPayerTokenYIx && preInstructions.push(createPayerTokenYIx);
+
+    if (this.tokenX.publicKey.equals(NATIVE_MINT) && !totalXAmount.isZero()) {
+      const wrapSOLIx = wrapSOLInstruction(
         user,
         userTokenX,
-        user,
-        this.lbPair.tokenXMint,
-        this.tokenX.owner
+        BigInt(totalXAmount.toString())
       );
 
-    const createUserTokenYIx =
-      createAssociatedTokenAccountIdempotentInstruction(
+      preInstructions.push(...wrapSOLIx);
+    }
+
+    if (this.tokenY.publicKey.equals(NATIVE_MINT) && !totalYAmount.isZero()) {
+      const wrapSOLIx = wrapSOLInstruction(
         user,
         userTokenY,
-        user,
-        this.lbPair.tokenYMint,
-        this.tokenY.owner
+        BigInt(totalYAmount.toString())
       );
+
+      preInstructions.push(...wrapSOLIx);
+    }
+
+    const postInstructions: Array<TransactionInstruction> = [];
+    if (
+      [
+        this.tokenX.publicKey.toBase58(),
+        this.tokenY.publicKey.toBase58(),
+      ].includes(NATIVE_MINT.toBase58())
+    ) {
+      const closeWrappedSOLIx = await unwrapSOLInstruction(user);
+      closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
+    }
+
+    const liquidityParams: LiquidityParameterByStrategy = {
+      amountX: totalXAmount,
+      amountY: totalYAmount,
+      activeId: this.lbPair.activeId,
+      maxActiveBinSlippage,
+      strategyParameters,
+    };
+
+    const addLiquidityAccounts = {
+      position: positionPubKey,
+      lbPair: this.pubkey,
+      userTokenX,
+      userTokenY,
+      reserveX: this.lbPair.reserveX,
+      reserveY: this.lbPair.reserveY,
+      tokenXMint: this.lbPair.tokenXMint,
+      tokenYMint: this.lbPair.tokenYMint,
+      binArrayBitmapExtension,
+      sender: user,
+      tokenXProgram: this.tokenX.owner,
+      tokenYProgram: this.tokenY.owner,
+      memoProgram: MEMO_PROGRAM_ID,
+    };
 
     const { slices, accounts: transferHookAccounts } =
       this.getPotentialToken2022IxDataAndAccounts(ActionType.Liquidity);
 
-    const groupedInstructions: TransactionInstruction[][] = [];
-
-    for (const {
-      lowerBinId: chunkedMinBinId,
-      upperBinId: chunkedMaxBinId,
-    } of chunkedBinRange) {
-      const preInstructions: TransactionInstruction[] = [];
-
-      const minBinArrayIndex = binIdToBinArrayIndex(new BN(chunkedMinBinId));
-      const maxBinArrayIndex = binIdToBinArrayIndex(new BN(chunkedMaxBinId));
-
-      const useExtension =
-        isOverflowDefaultBinArrayBitmap(minBinArrayIndex) ||
-        isOverflowDefaultBinArrayBitmap(maxBinArrayIndex);
-
-      const binArrayBitmapExtension = useExtension
-        ? deriveBinArrayBitmapExtension(this.pubkey, this.program.programId)[0]
-        : null;
-
-      const chunkedStrategyParameter: StrategyParameters = {
-        minBinId: chunkedMinBinId,
-        maxBinId: chunkedMaxBinId,
-        strategyType: strategy.strategyType,
-        singleSidedX: strategy.singleSidedX,
-      };
-
-      const strategyParameters = toStrategyParameters(chunkedStrategyParameter);
-
-      const binArrayIndexes = getBinArrayIndexesCoverage(
-        new BN(chunkedMinBinId),
-        new BN(chunkedMaxBinId)
-      );
-
-      const binArrayAccountsMeta = getBinArrayAccountMetasCoverage(
-        new BN(chunkedMinBinId),
-        new BN(chunkedMaxBinId),
-        this.pubkey,
-        this.program.programId
-      );
-
-      const createBinArrayIxs = await this.createBinArraysIfNeeded(
-        binArrayIndexes,
-        user
-      );
-      preInstructions.push(...createBinArrayIxs);
-      preInstructions.push(createUserTokenXIx);
-      preInstructions.push(createUserTokenYIx);
-
-      if (this.tokenX.publicKey.equals(NATIVE_MINT) && !totalXAmount.isZero()) {
-        const wrapSOLIx = wrapSOLInstruction(
-          user,
-          userTokenX,
-          BigInt(totalXAmount.toString())
-        );
-
-        preInstructions.push(...wrapSOLIx);
+    const programMethod = this.program.methods.addLiquidityByStrategy2(
+      liquidityParams,
+      {
+        slices,
       }
-
-      if (this.tokenY.publicKey.equals(NATIVE_MINT) && !totalYAmount.isZero()) {
-        const wrapSOLIx = wrapSOLInstruction(
-          user,
-          userTokenY,
-          BigInt(totalYAmount.toString())
-        );
-
-        preInstructions.push(...wrapSOLIx);
-      }
-
-      const postInstructions: Array<TransactionInstruction> = [];
-      if (
-        [
-          this.tokenX.publicKey.toBase58(),
-          this.tokenY.publicKey.toBase58(),
-        ].includes(NATIVE_MINT.toBase58())
-      ) {
-        const closeWrappedSOLIx = await unwrapSOLInstruction(user);
-        closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
-      }
-
-      let chunkedTotalAmountX = new BN(0);
-      let chunkedTotalAmountY = new BN(0);
-
-      for (const { binId, amountX, amountY } of liquidityDistribution) {
-        if (binId >= chunkedMinBinId && binId <= chunkedMaxBinId) {
-          chunkedTotalAmountX = chunkedTotalAmountX.add(amountX);
-          chunkedTotalAmountY = chunkedTotalAmountY.add(amountY);
-        }
-      }
-
-      chunkedTotalAmountX = calculateTransferFeeIncludedAmount(
-        chunkedTotalAmountX,
-        this.tokenX.mint,
-        this.clock.epoch.toNumber()
-      ).amount;
-
-      chunkedTotalAmountY = calculateTransferFeeIncludedAmount(
-        chunkedTotalAmountY,
-        this.tokenY.mint,
-        this.clock.epoch.toNumber()
-      ).amount;
-
-      const liquidityParams: LiquidityParameterByStrategy = {
-        amountX: chunkedTotalAmountX,
-        amountY: chunkedTotalAmountY,
-        activeId: this.lbPair.activeId,
-        maxActiveBinSlippage,
-        strategyParameters,
-      };
-
-      const addLiquidityAccounts = {
-        position: positionPubKey,
-        lbPair: this.pubkey,
-        userTokenX,
-        userTokenY,
-        reserveX: this.lbPair.reserveX,
-        reserveY: this.lbPair.reserveY,
-        tokenXMint: this.lbPair.tokenXMint,
-        tokenYMint: this.lbPair.tokenYMint,
-        binArrayBitmapExtension,
-        sender: user,
-        tokenXProgram: this.tokenX.owner,
-        tokenYProgram: this.tokenY.owner,
-        memoProgram: MEMO_PROGRAM_ID,
-      };
-
-      const programMethod = this.program.methods.addLiquidityByStrategy2(
-        liquidityParams,
-        {
-          slices,
-        }
-      );
-
-      const addLiquidityIx = await programMethod
-        .accountsPartial(addLiquidityAccounts)
-        .remainingAccounts(transferHookAccounts)
-        .remainingAccounts(binArrayAccountsMeta)
-        .instruction();
-
-      const instructions = [
-        ...preInstructions,
-        addLiquidityIx,
-        ...postInstructions,
-      ];
-
-      groupedInstructions.push(instructions);
-    }
-
-    const groupedInstructionsWithCUIx = await Promise.all(
-      groupedInstructions.map(async (ixs) => {
-        const setCUIx = await getEstimatedComputeUnitIxWithBuffer(
-          this.program.provider.connection,
-          ixs,
-          user
-        );
-
-        return [setCUIx, ...ixs];
-      })
     );
+
+    const addLiquidityIx = await programMethod
+      .accounts(addLiquidityAccounts)
+      .remainingAccounts(transferHookAccounts)
+      .remainingAccounts(binArrayAccountsMeta)
+      .instruction();
+
+    const instructions = [
+      ...preInstructions,
+      addLiquidityIx,
+      ...postInstructions,
+    ];
+
+    const setCUIx = await getEstimatedComputeUnitIxWithBuffer(
+      this.program.provider.connection,
+      instructions,
+      user
+    );
+
+    instructions.unshift(setCUIx);
 
     const { blockhash, lastValidBlockHeight } =
       await this.program.provider.connection.getLatestBlockhash("confirmed");
-
-    return groupedInstructionsWithCUIx.map((ixs) => {
-      return new Transaction({
-        blockhash,
-        lastValidBlockHeight,
-        feePayer: user,
-      }).add(...ixs);
-    });
+    return new Transaction({
+      blockhash,
+      lastValidBlockHeight,
+      feePayer: user,
+    }).add(...instructions);
   }
 
   /**

@@ -455,11 +455,7 @@ describe("SDK test", () => {
         slippage: 0,
       });
 
-      await Promise.all(
-        addLiquidityTx.map((tx) =>
-          sendAndConfirmTransaction(connection, tx, [keypair])
-        )
-      );
+      await sendAndConfirmTransaction(connection, addLiquidityTx, [keypair]);
 
       addLiquidityTx = await pair.addLiquidityByStrategy({
         positionPubKey: customFeeOwnerPosition,
@@ -572,11 +568,7 @@ describe("SDK test", () => {
         slippage: 0,
       });
 
-      await Promise.all(
-        addLiquidityTx.map((tx) =>
-          sendAndConfirmTransaction(connection, tx, [keypair])
-        )
-      );
+      await sendAndConfirmTransaction(connection, addLiquidityTx, [keypair]);
 
       const positionAccount = await connection.getAccountInfo(
         normalPosition.publicKey

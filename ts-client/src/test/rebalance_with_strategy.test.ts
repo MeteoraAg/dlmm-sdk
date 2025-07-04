@@ -106,7 +106,7 @@ async function closeAndCreateNewPositionWithSpotLiquidity(
 
   const positionState = await dlmm.program.account.positionV2.fetch(position);
 
-  let rawTxs = await dlmm.addLiquidityByStrategy({
+  rawTx = await dlmm.addLiquidityByStrategy({
     positionPubKey: position,
     totalXAmount: new BN(1_000_000_000),
     totalYAmount: new BN(1_000_000_000),
@@ -119,9 +119,7 @@ async function closeAndCreateNewPositionWithSpotLiquidity(
     slippage: 0,
   });
 
-  await Promise.all(
-    rawTxs.map((tx) => sendAndConfirmTransaction(connection, tx, [keypair]))
-  );
+  await sendAndConfirmTransaction(connection, rawTx, [keypair]);
 }
 
 describe("Rebalance with strategy", () => {
