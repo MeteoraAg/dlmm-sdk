@@ -98,5 +98,5 @@ export const MAX_EXTRA_BIN_ARRAYS = 3;
 export const U64_MAX = new BN("18446744073709551615");
 
 export const MAX_BINS_PER_POSITION = new BN(
-  CONSTANTS.find(([k, v]) => v.name == "MAX_BINS_PER_POSITION")?.[1].value ?? 0
+  CONSTANTS.find(([k, v]) => v.name == "POSITION_MAX_LENGTH")?.[1].value ?? 0
 );

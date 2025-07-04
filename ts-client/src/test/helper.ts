@@ -15,6 +15,10 @@ import babar from "babar";
 import { SCALE_OFFSET } from "../dlmm/constants";
 import { getQPriceFromId } from "../dlmm/helpers/math";
 import Decimal from "decimal.js";
+import {
+  getBinArrayLowerUpperBinId,
+  getPriceOfBinByBinId,
+} from "../dlmm/helpers";
 
 export function createTestProgram(
   connection: Connection,
@@ -225,4 +229,43 @@ export function assertionWithPercentageTolerance(
     const e = `E: ${originalError}. Assertion failed, actual: ${actual.toString()}, expected: ${expected.toString()}, tolerance percentage: ${tolerancePercentage}`;
     throw new Error(e);
   }
+}
+
+export async function logLbPairLiquidities(
+  lbPair: PublicKey,
+  binStep: number,
+  program: Program<LbClmm>
+) {
+  const binArrays = await program.account.binArray.all([
+    {
+      memcmp: {
+        offset: 24,
+        bytes: lbPair.toBase58(),
+      },
+    },
+  ]);
+
+  binArrays.sort((a, b) => a.account.index.cmp(b.account.index));
+
+  const liquidities = [];
+  for (const binArray of binArrays) {
+    const [minBinId] = getBinArrayLowerUpperBinId(binArray.account.index);
+
+    for (const [idx, bin] of binArray.account.bins.entries()) {
+      const binId = minBinId.toNumber() + idx;
+
+      if (bin.liquiditySupply.isZero()) {
+        liquidities.push([binId, 0]);
+        continue;
+      }
+      const liquidityX = new Decimal(bin.amountX.toString()).mul(
+        getPriceOfBinByBinId(binId, binStep)
+      );
+      const liquidityY = new Decimal(bin.amountY.toString());
+      const liquidity = liquidityX.add(liquidityY);
+      liquidities.push([binId, liquidity.toNumber()]);
+    }
+  }
+
+  console.log(babar(liquidities));
 }

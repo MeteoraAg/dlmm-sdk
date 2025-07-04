@@ -206,14 +206,12 @@ export interface TInitializePositionAndAddLiquidityParamsByStrategy {
   slippage?: number;
 }
 
-export interface InitializePositionAndAddLiquidityByStrategyInstructions {
-  initializePositionIx: TransactionInstruction;
-  addLiquidityIxs: TransactionInstruction[];
-  positionKeypair: Keypair;
-}
-
 export interface InitializeMultiplePositionAndAddLiquidityByStrategyResponse {
-  positionInstructions: InitializePositionAndAddLiquidityByStrategyInstructions[];
+  instructionsByPositions: {
+    positionKeypair: Keypair;
+    initializePositionIx: TransactionInstruction;
+    addLiquidityIxs: TransactionInstruction[][];
+  }[];
 }
 
 export interface TInitializeMultiplePositionAndAddLiquidityParamsByStrategy {

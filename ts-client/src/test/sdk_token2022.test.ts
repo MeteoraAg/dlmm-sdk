@@ -55,7 +55,7 @@ import {
   createTransferHookCounterProgram,
   TRANSFER_HOOK_COUNTER_PROGRAM_ID,
 } from "./external/program";
-import { createTestProgram } from "./helper";
+import { createTestProgram, logLbPairLiquidities } from "./helper";
 
 const keypairBuffer = fs.readFileSync(
   "../keys/localnet/admin-bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1.json",
@@ -2383,6 +2383,130 @@ describe("SDK token2022 test", () => {
 
           expect(newWidth).toBe(1);
         }
+      });
+    });
+
+    describe("Initialize multiple extended position and add liquidity to strategy", () => {
+      it("Initialize multiple extended position and add liquidity to strategy", async () => {
+        const dlmm = await DLMM.create(connection, pairKey, opt);
+
+        console.log("🚀 ~ dlmm:", dlmm.pubkey.toBase58());
+
+        const totalXAmount = new BN(1_000_000_000);
+        const totalYAmount = new BN(1_000_000_000);
+        const minBinId = dlmm.lbPair.activeId - 2000;
+        const maxBinId = dlmm.lbPair.activeId + 2000;
+
+        const userTokenX = getAssociatedTokenAddressSync(
+          dlmm.lbPair.tokenXMint,
+          keypair.publicKey,
+          true,
+          dlmm.tokenX.owner
+        );
+        const userTokenY = getAssociatedTokenAddressSync(
+          dlmm.lbPair.tokenYMint,
+          keypair.publicKey,
+          true,
+          dlmm.tokenY.owner
+        );
+
+        const [beforeTokenX, beforeTokenY] = await Promise.all([
+          connection
+            .getTokenAccountBalance(userTokenX)
+            .then((res) => new BN(res.value.amount)),
+          connection
+            .getTokenAccountBalance(userTokenY)
+            .then((res) => new BN(res.value.amount)),
+        ]);
+
+        const { instructionsByPositions } =
+          await dlmm.initializeMultiplePositionAndAddLiquidityByStrategy(
+            async (count) => {
+              const positionKeypairs = [];
+              for (let i = 0; i < count; i++) {
+                const positionKeypair = Keypair.generate();
+                positionKeypairs.push(positionKeypair);
+              }
+              return positionKeypairs;
+            },
+            totalXAmount,
+            totalYAmount,
+            {
+              minBinId,
+              maxBinId,
+              strategyType: StrategyType.Curve,
+            },
+            keypair.publicKey,
+            keypair.publicKey,
+            0
+          );
+
+        const promises = [];
+
+        // Have to execute sequentially due to position auto resize
+        for (const {
+          positionKeypair,
+          initializePositionIx,
+          addLiquidityIxs,
+        } of instructionsByPositions) {
+          const latestBlockhashInfo = await connection.getLatestBlockhash();
+
+          const tx = new Transaction({
+            ...latestBlockhashInfo,
+          }).add(initializePositionIx);
+
+          tx.sign(keypair, positionKeypair);
+
+          const promise = connection
+            .sendRawTransaction(tx.serialize())
+            .then(async (sig) => {
+              await connection.confirmTransaction({
+                ...latestBlockhashInfo,
+                signature: sig,
+              });
+
+              console.log("Init position sig", sig);
+            })
+            .then(async (_) => {
+              for (const addLiquidityIx of addLiquidityIxs) {
+                const latestBlockhashInfo =
+                  await connection.getLatestBlockhash();
+
+                const tx = new Transaction({
+                  ...latestBlockhashInfo,
+                }).add(...addLiquidityIx);
+
+                tx.sign(keypair);
+                const sig = await connection.sendRawTransaction(tx.serialize());
+                await connection.confirmTransaction({
+                  ...latestBlockhashInfo,
+                  signature: sig,
+                });
+                console.log("Add liq sig", sig);
+              }
+            });
+
+          promises.push(promise);
+        }
+
+        await Promise.all(promises);
+        await logLbPairLiquidities(pairKey, dlmm.lbPair.binStep, dlmm.program);
+
+        const [afterTokenX, afterTokenY] = await Promise.all([
+          connection
+            .getTokenAccountBalance(userTokenX)
+            .then((res) => new BN(res.value.amount)),
+          connection
+            .getTokenAccountBalance(userTokenY)
+            .then((res) => new BN(res.value.amount)),
+        ]);
+
+        const consumedTokenX = beforeTokenX.sub(afterTokenX);
+        const consumedTokenY = beforeTokenY.sub(afterTokenY);
+
+        // Due to transfer fee
+        expect(consumedTokenX.gte(totalXAmount)).toBeTruthy();
+        expect(consumedTokenY.lte(totalYAmount)).toBeTruthy();
       });
     });
   });

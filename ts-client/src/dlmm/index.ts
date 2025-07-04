@@ -40,7 +40,6 @@ import {
   MAX_EXTRA_BIN_ARRAYS,
   MAX_FEE_RATE,
   MAX_RESIZE_LENGTH,
-  POSITION_FEE,
   POSITION_FEE_BN,
   POSITION_MAX_LENGTH,
   PRECISION,
@@ -65,23 +64,30 @@ import {
   deriveLbPair2,
   deriveLbPairWithPresetParamWithIndexKey,
   deriveOracle,
+  derivePlaceHolderAccountMeta,
   derivePosition,
   deriveReserve,
   deriveTokenBadge,
   enumerateBins,
   findNextBinArrayIndexWithLiquidity,
   findNextBinArrayWithLiquidity,
+  getAndCapMaxActiveBinSlippage,
   getBinArrayLowerUpperBinId,
+  getBinCount,
   getBinFromBinArray,
   getEstimatedComputeUnitIxWithBuffer,
   getOrCreateATAInstruction,
   getOutAmount,
+  getPositionCountByBinCount,
   getPriceOfBinByBinId,
+  getSlippageMaxAmount,
+  getSlippageMinAmount,
   getTokenProgramId,
   getTotalFee,
   isBinIdWithinBinArray,
   isOverflowDefaultBinArrayBitmap,
   range,
+  resetUninvolvedLiquidityParams,
   swapExactInQuoteAtBin,
   swapExactOutQuoteAtBin,
   toAmountsBothSideByStrategy,
@@ -104,6 +110,7 @@ import {
   DEFAULT_INIT_BIN_ARRAY_CU,
   DEFAULT_INIT_POSITION_CU,
   getDefaultExtendPositionCU,
+  MAX_CU,
 } from "./helpers/computeUnit";
 import {
   Rounding,
@@ -118,7 +125,6 @@ import {
 import {
   IPosition,
   chunkBinRange,
-  chunkBinRangeIntoExtendedPositions,
   getBinArrayAccountMetasCoverage,
   getBinArrayIndexesCoverage,
   getExtendedPositionBinCount,
@@ -129,6 +135,7 @@ import {
   wrapPosition,
 } from "./helpers/positions";
 import {
+  LiquidityStrategyParameters,
   RebalancePosition,
   RebalanceWithDeposit,
   RebalanceWithWithdraw,
@@ -163,10 +170,8 @@ import {
   CompressedBinDepositAmounts,
   EmissionRate,
   FeeInfo,
-  GetOrCreateATAResponse,
   InitCustomizablePermissionlessPairIx,
   InitializeMultiplePositionAndAddLiquidityByStrategyResponse,
-  InitializePositionAndAddLiquidityByStrategyInstructions,
   LbPair,
   LbPairAccount,
   LbPosition,
@@ -199,7 +204,6 @@ import {
   SwapQuote,
   SwapQuoteExactOut,
   SwapWithPriceImpactParams,
-  TInitializeMultiplePositionAndAddLiquidityParamsByStrategy,
   TInitializePositionAndAddLiquidityParams,
   TInitializePositionAndAddLiquidityParamsByStrategy,
   TQuoteCreatePositionParams,
@@ -2497,6 +2501,17 @@ export class DLMM {
     };
   }
 
+  /**
+   * Creates multiple positions and adds liquidity by strategy without chainsaw issues.
+   * @param positionKeypairGenerator A function that generates a specified number of keypairs.
+   * @param totalXAmount The total amount of token X to be added.
+   * @param totalYAmount The total amount of token Y to be added.
+   * @param strategy The strategy for adding liquidity.
+   * @param owner The owner of the position.
+   * @param payer The payer of the transaction.
+   * @param slippagePercentage The slippage percentage for adding liquidity.
+   * @returns An object with two properties: `initPositionIxs` and `addLiquidityIxs`.
+   */
   public async initializeMultiplePositionAndAddLiquidityByStrategy(
     positionKeypairGenerator: (count: number) => Promise<Keypair[]>,
     totalXAmount: BN,
@@ -2506,22 +2521,19 @@ export class DLMM {
     payer: PublicKey,
     slippagePercentage: number
   ): Promise<InitializeMultiplePositionAndAddLiquidityByStrategyResponse> {
-    const maxActiveBinSlippage = slippagePercentage
-      ? Math.ceil(slippagePercentage / (this.lbPair.binStep / 100))
-      : MAX_ACTIVE_BIN_SLIPPAGE;
+    const maxActiveBinSlippage = getAndCapMaxActiveBinSlippage(
+      slippagePercentage,
+      this.lbPair.binStep,
+      MAX_ACTIVE_BIN_SLIPPAGE
+    );
 
     const { minBinId, maxBinId } = strategy;
-    const binCount = maxBinId - minBinId + 1;
-
-    let positionCount = binCount / MAX_BINS_PER_POSITION.toNumber();
-    if (binCount % MAX_BINS_PER_POSITION.toNumber() > 0) {
-      positionCount += 1;
-    }
+    const binCount = getBinCount(minBinId, maxBinId);
+    const positionCount = getPositionCountByBinCount(binCount);
 
     const positionKeypairs = await positionKeypairGenerator(positionCount);
-    let startBinId = minBinId;
 
-    const { x0, y0, deltaX, deltaY } = buildLiquidityStrategyParameters(
+    const liquidityStrategyParameters = buildLiquidityStrategyParameters(
       totalXAmount,
       totalYAmount,
       new BN(strategy.minBinId - this.lbPair.activeId),
@@ -2567,111 +2579,124 @@ export class DLMM {
         this.tokenY.owner
       );
 
-    const positionInstructions: InitializePositionAndAddLiquidityByStrategyInstructions[] =
-      [];
+    const bitmapPubkey = deriveBinArrayBitmapExtension(
+      this.pubkey,
+      this.program.programId
+    )[0];
 
-    for (const position of positionKeypairs) {
-      const endBinId = Math.min(
-        startBinId + MAX_BINS_PER_POSITION.toNumber() - 1,
-        maxBinId
+    const initPositionAndChunkDepositFn = async (
+      position: PublicKey,
+      positionMinBinId: number,
+      positionMaxBinId: number,
+      liquidityStrategyParameters: LiquidityStrategyParameters
+    ) => {
+      let calculatedAddLiquidityCU = 0;
+      const binCount = getBinCount(positionMinBinId, positionMaxBinId);
+      const positionWidth = Math.min(
+        binCount,
+        DEFAULT_BIN_PER_POSITION.toNumber()
       );
 
-      let instructions: InitializePositionAndAddLiquidityByStrategyInstructions =
-        {
-          initializePositionIx: null,
-          addLiquidityIxs: [],
-          positionKeypair: position,
-        };
+      const initPositionIx = await this.program.methods
+        .initializePosition(positionMinBinId, positionWidth)
+        .accountsPartial({
+          position,
+          lbPair: this.pubkey,
+          owner,
+          payer,
+        })
+        .instruction();
 
-      const chunkedBinRange = chunkBinRange(startBinId, endBinId);
+      const chunkedAddLiquidityIx: TransactionInstruction[][] = [];
+      const chunkedBinRange = chunkBinRange(positionMinBinId, positionMaxBinId);
+
+      const binArrayOrBitmapInitTracking = new Set<String>();
+
       for (let i = 0; i < chunkedBinRange.length; i++) {
-        const lowerBinId = chunkedBinRange[i].lowerBinId;
-        const upperBinId = chunkedBinRange[i].upperBinId;
-
-        if (i == 0) {
-          const width = upperBinId - lowerBinId + 1;
-          const initPositionIx = await this.program.methods
-            .initializePosition(lowerBinId, width)
-            .accountsPartial({
-              position: position.publicKey,
-              lbPair: this.pubkey,
-              owner,
-              payer,
-            })
-            .instruction();
-
-          instructions.initializePositionIx = initPositionIx;
-        }
+        const chunkMinBinId = chunkedBinRange[i].lowerBinId;
+        const chunkMaxBinId = chunkedBinRange[i].upperBinId;
 
         const initBinArrayIxs: TransactionInstruction[] = [];
         const initBitmapIxs: TransactionInstruction[] = [];
 
         const binArrayIndexes = getBinArrayIndexesCoverage(
-          new BN(lowerBinId),
-          new BN(upperBinId)
+          new BN(chunkMinBinId),
+          new BN(chunkMaxBinId)
         );
 
-        const binArrayPubkeys = [];
+        const overflowDefaultBinArrayBitmap = binArrayIndexes.reduce(
+          (acc, binArrayIndex) =>
+            acc || isOverflowDefaultBinArrayBitmap(binArrayIndex),
+          false
+        );
 
-        const bitmapPubkey = deriveBinArrayBitmapExtension(
-          this.pubkey,
-          this.program.programId
-        )[0];
-
-        for (const baIndex of binArrayIndexes) {
-          if (
-            isOverflowDefaultBinArrayBitmap(baIndex) &&
-            !this.binArrayBitmapExtension
-          ) {
-            const initBitmapIx = await this.program.methods
-              .initializeBinArrayBitmapExtension()
-              .accountsPartial({
-                binArrayBitmapExtension: bitmapPubkey,
-                lbPair: this.pubkey,
-                funder: payer,
-              })
-              .instruction();
-
-            initBitmapIxs.push(initBitmapIx);
-          }
-
-          const binArrayPubkey = deriveBinArray(
-            this.pubkey,
-            new BN(baIndex),
-            this.program.programId
-          )[0];
-
-          const initBinArrayIx = await this.program.methods
-            .initializeBinArray(baIndex)
+        if (
+          overflowDefaultBinArrayBitmap &&
+          !binArrayOrBitmapInitTracking.has(bitmapPubkey.toBase58())
+        ) {
+          const initBitmapIx = await this.program.methods
+            .initializeBinArrayBitmapExtension()
             .accountsPartial({
-              binArray: binArrayPubkey,
-              funder: payer,
+              binArrayBitmapExtension: bitmapPubkey,
               lbPair: this.pubkey,
+              funder: payer,
             })
             .instruction();
 
-          initBinArrayIxs.push(initBinArrayIx);
-          binArrayPubkeys.push(binArrayPubkey);
+          initBitmapIxs.push(initBitmapIx);
+          binArrayOrBitmapInitTracking.add(bitmapPubkey.toBase58());
         }
 
-        const minDeltaId = new BN(lowerBinId - this.lbPair.activeId);
-        const maxDeltaId = new BN(upperBinId - this.lbPair.activeId);
+        const binArrayPubkeys = binArrayIndexes.map(
+          (index) =>
+            deriveBinArray(this.pubkey, index, this.program.programId)[0]
+        );
 
-        const {
-          x0: adjustedX0,
-          y0: adjustedY0,
-          deltaX: adjustedDeltaX,
-          deltaY: adjustedDeltaY,
-          bitFlag,
-        } = buildBitFlagAndNegateStrategyParameters(x0, y0, deltaX, deltaY);
+        for (const [idx, binArrayPubkey] of binArrayPubkeys.entries()) {
+          if (!binArrayOrBitmapInitTracking.has(binArrayPubkey.toBase58())) {
+            const initBinArrayIx = await this.program.methods
+              .initializeBinArray(binArrayIndexes[idx])
+              .accountsPartial({
+                binArray: binArrayPubkey,
+                funder: payer,
+                lbPair: this.pubkey,
+              })
+              .instruction();
+
+            binArrayOrBitmapInitTracking.add(binArrayPubkey.toBase58());
+            initBinArrayIxs.push(initBinArrayIx);
+
+            calculatedAddLiquidityCU += DEFAULT_INIT_BIN_ARRAY_CU;
+          }
+        }
+
+        const minDeltaId = new BN(chunkMinBinId - this.lbPair.activeId);
+        const maxDeltaId = new BN(chunkMaxBinId - this.lbPair.activeId);
+
+        const { bitFlag, ...baseAndDelta } =
+          buildBitFlagAndNegateStrategyParameters(
+            liquidityStrategyParameters.x0,
+            liquidityStrategyParameters.y0,
+            liquidityStrategyParameters.deltaX,
+            liquidityStrategyParameters.deltaY
+          );
+
+        const { deltaX, deltaY, x0, y0 } = resetUninvolvedLiquidityParams(
+          minDeltaId,
+          maxDeltaId,
+          strategy.singleSidedX,
+          {
+            ...baseAndDelta,
+          }
+        );
 
         const addParam: RebalanceAddLiquidityParam = {
           minDeltaId: minDeltaId.toNumber(),
           maxDeltaId: maxDeltaId.toNumber(),
-          x0: adjustedX0,
-          y0: adjustedY0,
-          deltaX: adjustedDeltaX,
-          deltaY: adjustedDeltaY,
+          x0,
+          y0,
+          deltaX,
+          deltaY,
           bitFlag,
           favorXInActiveId: strategy.singleSidedX,
           padding: Array(36).fill(0),
@@ -2700,13 +2725,29 @@ export class DLMM {
           }
         );
 
-        const maxDepositXAmount = totalXAmount
-          .mul(new BN(100))
-          .div(new BN(100 - slippagePercentage));
+        const totalXAmountIncludeTransferFee =
+          calculateTransferFeeIncludedAmount(
+            totalXAmount,
+            this.tokenX.mint,
+            this.clock.epoch.toNumber()
+          ).amount;
 
-        const maxDepositYAmount = totalYAmount
-          .mul(new BN(100))
-          .div(new BN(100 - slippagePercentage));
+        const totalYAmountIncludeTransferFee =
+          calculateTransferFeeIncludedAmount(
+            totalYAmount,
+            this.tokenY.mint,
+            this.clock.epoch.toNumber()
+          ).amount;
+
+        const maxDepositXAmount = getSlippageMaxAmount(
+          totalXAmountIncludeTransferFee,
+          slippagePercentage
+        );
+
+        const maxDepositYAmount = getSlippageMaxAmount(
+          totalYAmountIncludeTransferFee,
+          slippagePercentage
+        );
 
         const rebalanceIx = await this.program.methods
           .rebalanceLiquidity(
@@ -2729,9 +2770,9 @@ export class DLMM {
           )
           .accountsPartial({
             binArrayBitmapExtension:
-              initBitmapIxs.length > 0 ? bitmapPubkey : this.pubkey,
+              initBitmapIxs.length > 0 ? bitmapPubkey : this.program.programId,
             lbPair: this.pubkey,
-            position: position.publicKey,
+            position,
             owner,
             tokenXMint: this.lbPair.tokenXMint,
             tokenYMint: this.lbPair.tokenYMint,
@@ -2739,6 +2780,7 @@ export class DLMM {
             userTokenY,
             tokenXProgram: this.tokenX.owner,
             tokenYProgram: this.tokenY.owner,
+            rentPayer: payer,
           })
           .remainingAccounts([
             ...transferHookAccounts,
@@ -2747,10 +2789,18 @@ export class DLMM {
               isWritable: true,
               isSigner: false,
             })),
+            derivePlaceHolderAccountMeta(this.program.programId),
           ])
           .instruction();
 
-        instructions.addLiquidityIxs.push(
+        calculatedAddLiquidityCU += DEFAULT_ADD_LIQUIDITY_CU;
+
+        const positionAddLiquidityIxs: TransactionInstruction[] = [];
+
+        positionAddLiquidityIxs.push(
+          ComputeBudgetProgram.setComputeUnitLimit({
+            units: Math.min(calculatedAddLiquidityCU, MAX_CU),
+          }),
           ...initBitmapIxs,
           ...initBinArrayIxs,
           createUserTokenXIx,
@@ -2767,7 +2817,7 @@ export class DLMM {
             BigInt(totalXAmount.toString())
           );
 
-          instructions.addLiquidityIxs.push(...wrapSOLIx);
+          positionAddLiquidityIxs.push(...wrapSOLIx);
         }
 
         if (
@@ -2780,18 +2830,47 @@ export class DLMM {
             BigInt(totalYAmount.toString())
           );
 
-          instructions.addLiquidityIxs.push(...wrapSOLIx);
+          positionAddLiquidityIxs.push(...wrapSOLIx);
         }
 
-        instructions.addLiquidityIxs.push(rebalanceIx);
+        positionAddLiquidityIxs.push(rebalanceIx);
+        chunkedAddLiquidityIx.push(positionAddLiquidityIxs);
       }
 
-      positionInstructions.push(instructions);
+      return {
+        initPositionIx,
+        chunkedAddLiquidityIx,
+      };
+    };
+
+    const instructionsByPositions = [];
+    let startBinId = minBinId;
+
+    for (const position of positionKeypairs) {
+      const endBinId = Math.min(
+        startBinId + MAX_BINS_PER_POSITION.toNumber() - 1,
+        maxBinId
+      );
+
+      const { initPositionIx, chunkedAddLiquidityIx } =
+        await initPositionAndChunkDepositFn(
+          position.publicKey,
+          startBinId,
+          endBinId,
+          liquidityStrategyParameters
+        );
+
+      instructionsByPositions.push({
+        positionKeypair: position,
+        initializePositionIx: initPositionIx,
+        addLiquidityIxs: chunkedAddLiquidityIx,
+      });
+
       startBinId = endBinId + 1;
     }
 
     return {
-      positionInstructions,
+      instructionsByPositions,
     };
   }
 
@@ -6997,29 +7076,22 @@ export class DLMM {
 
     slippage = capSlippagePercentage(slippage);
 
-    const applySlippageMaxAmount = (amount: BN, slippage: number) => {
-      return slippage == 100 ? U64_MAX : amount.muln(100 + slippage).divn(100);
-    };
-
-    const applySlippageMinAmount = (amount: BN, slippage: number) => {
-      return amount.muln(100 - slippage).divn(100);
-    };
-
-    const maxDepositXAmount = applySlippageMaxAmount(
+    const maxDepositXAmount = getSlippageMaxAmount(
       simulationResult.actualAmountXDeposited,
       slippage
     );
 
-    const maxDepositYAmount = applySlippageMaxAmount(
+    const maxDepositYAmount = getSlippageMaxAmount(
       simulationResult.actualAmountYDeposited,
       slippage
     );
 
-    const minWithdrawXAmount = applySlippageMinAmount(
+    const minWithdrawXAmount = getSlippageMinAmount(
       simulationResult.actualAmountXWithdrawn,
       slippage
     );
-    const minWithdrawYAmount = applySlippageMinAmount(
+
+    const minWithdrawYAmount = getSlippageMinAmount(
       simulationResult.actualAmountYWithdrawn,
       slippage
     );

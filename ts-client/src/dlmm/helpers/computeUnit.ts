@@ -19,6 +19,7 @@ export const DEFAULT_INIT_BIN_ARRAY_CU = 350_000;
 
 export const MIN_CU_BUFFER = 50_000;
 export const MAX_CU_BUFFER = 200_000;
+export const MAX_CU = 1_400_000;
 
 // CU estimate is difficult due to the CU estimated is based on current position state. We use hardcoded value ...
 export const getDefaultExtendPositionCU = (side: ResizeSide) => {
