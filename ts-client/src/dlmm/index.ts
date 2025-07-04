@@ -52,6 +52,7 @@ import {
   Opt,
   binIdToBinArrayIndex,
   capSlippagePercentage,
+  chunkDepositWithRebalanceEndpoint,
   chunkedGetMultipleAccountInfos,
   chunks,
   computeFeeFromAmount,
@@ -64,7 +65,6 @@ import {
   deriveLbPair2,
   deriveLbPairWithPresetParamWithIndexKey,
   deriveOracle,
-  derivePlaceHolderAccountMeta,
   derivePosition,
   deriveReserve,
   deriveTokenBadge,
@@ -87,10 +87,8 @@ import {
   isBinIdWithinBinArray,
   isOverflowDefaultBinArrayBitmap,
   range,
-  resetUninvolvedLiquidityParams,
   swapExactInQuoteAtBin,
   swapExactOutQuoteAtBin,
-  toAmountsBothSideByStrategy,
   toStrategyParameters,
   toWeightDistribution,
   unwrapSOLInstruction,
@@ -110,7 +108,6 @@ import {
   DEFAULT_INIT_BIN_ARRAY_CU,
   DEFAULT_INIT_POSITION_CU,
   getDefaultExtendPositionCU,
-  MAX_CU,
 } from "./helpers/computeUnit";
 import {
   Rounding,
@@ -135,15 +132,12 @@ import {
   wrapPosition,
 } from "./helpers/positions";
 import {
-  LiquidityStrategyParameters,
   RebalancePosition,
   RebalanceWithDeposit,
   RebalanceWithWithdraw,
-  buildBitFlagAndNegateStrategyParameters,
   buildLiquidityStrategyParameters,
   getLiquidityStrategyParameterBuilder,
   getRebalanceBinArrayIndexesAndBitmapCoverage,
-  toAmountIntoBins,
 } from "./helpers/rebalance";
 import { RebalanceStrategyBuilder } from "./helpers/rebalance/strategy";
 import { BalancedStrategyBuilder } from "./helpers/rebalance/strategy/balanced";
@@ -2544,305 +2538,6 @@ export class DLMM {
       getLiquidityStrategyParameterBuilder(strategy.strategyType)
     );
 
-    const { slices, accounts: transferHookAccounts } =
-      this.getPotentialToken2022IxDataAndAccounts(ActionType.Liquidity);
-
-    const userTokenX = getAssociatedTokenAddressSync(
-      this.lbPair.tokenXMint,
-      owner,
-      true,
-      this.tokenX.owner
-    );
-
-    const userTokenY = getAssociatedTokenAddressSync(
-      this.lbPair.tokenYMint,
-      owner,
-      true,
-      this.tokenY.owner
-    );
-
-    const createUserTokenXIx =
-      createAssociatedTokenAccountIdempotentInstruction(
-        payer,
-        userTokenX,
-        owner,
-        this.lbPair.tokenXMint,
-        this.tokenX.owner
-      );
-
-    const createUserTokenYIx =
-      createAssociatedTokenAccountIdempotentInstruction(
-        payer,
-        userTokenY,
-        owner,
-        this.lbPair.tokenYMint,
-        this.tokenY.owner
-      );
-
-    const bitmapPubkey = deriveBinArrayBitmapExtension(
-      this.pubkey,
-      this.program.programId
-    )[0];
-
-    const initPositionAndChunkDepositFn = async (
-      position: PublicKey,
-      positionMinBinId: number,
-      positionMaxBinId: number,
-      liquidityStrategyParameters: LiquidityStrategyParameters
-    ) => {
-      let calculatedAddLiquidityCU = 0;
-      const binCount = getBinCount(positionMinBinId, positionMaxBinId);
-      const positionWidth = Math.min(
-        binCount,
-        DEFAULT_BIN_PER_POSITION.toNumber()
-      );
-
-      const initPositionIx = await this.program.methods
-        .initializePosition(positionMinBinId, positionWidth)
-        .accountsPartial({
-          position,
-          lbPair: this.pubkey,
-          owner,
-          payer,
-        })
-        .instruction();
-
-      const chunkedAddLiquidityIx: TransactionInstruction[][] = [];
-      const chunkedBinRange = chunkBinRange(positionMinBinId, positionMaxBinId);
-
-      const binArrayOrBitmapInitTracking = new Set<String>();
-
-      for (let i = 0; i < chunkedBinRange.length; i++) {
-        const chunkMinBinId = chunkedBinRange[i].lowerBinId;
-        const chunkMaxBinId = chunkedBinRange[i].upperBinId;
-
-        const initBinArrayIxs: TransactionInstruction[] = [];
-        const initBitmapIxs: TransactionInstruction[] = [];
-
-        const binArrayIndexes = getBinArrayIndexesCoverage(
-          new BN(chunkMinBinId),
-          new BN(chunkMaxBinId)
-        );
-
-        const overflowDefaultBinArrayBitmap = binArrayIndexes.reduce(
-          (acc, binArrayIndex) =>
-            acc || isOverflowDefaultBinArrayBitmap(binArrayIndex),
-          false
-        );
-
-        if (
-          overflowDefaultBinArrayBitmap &&
-          !binArrayOrBitmapInitTracking.has(bitmapPubkey.toBase58())
-        ) {
-          const initBitmapIx = await this.program.methods
-            .initializeBinArrayBitmapExtension()
-            .accountsPartial({
-              binArrayBitmapExtension: bitmapPubkey,
-              lbPair: this.pubkey,
-              funder: payer,
-            })
-            .instruction();
-
-          initBitmapIxs.push(initBitmapIx);
-          binArrayOrBitmapInitTracking.add(bitmapPubkey.toBase58());
-        }
-
-        const binArrayPubkeys = binArrayIndexes.map(
-          (index) =>
-            deriveBinArray(this.pubkey, index, this.program.programId)[0]
-        );
-
-        for (const [idx, binArrayPubkey] of binArrayPubkeys.entries()) {
-          if (!binArrayOrBitmapInitTracking.has(binArrayPubkey.toBase58())) {
-            const initBinArrayIx = await this.program.methods
-              .initializeBinArray(binArrayIndexes[idx])
-              .accountsPartial({
-                binArray: binArrayPubkey,
-                funder: payer,
-                lbPair: this.pubkey,
-              })
-              .instruction();
-
-            binArrayOrBitmapInitTracking.add(binArrayPubkey.toBase58());
-            initBinArrayIxs.push(initBinArrayIx);
-
-            calculatedAddLiquidityCU += DEFAULT_INIT_BIN_ARRAY_CU;
-          }
-        }
-
-        const minDeltaId = new BN(chunkMinBinId - this.lbPair.activeId);
-        const maxDeltaId = new BN(chunkMaxBinId - this.lbPair.activeId);
-
-        const { bitFlag, ...baseAndDelta } =
-          buildBitFlagAndNegateStrategyParameters(
-            liquidityStrategyParameters.x0,
-            liquidityStrategyParameters.y0,
-            liquidityStrategyParameters.deltaX,
-            liquidityStrategyParameters.deltaY
-          );
-
-        const { deltaX, deltaY, x0, y0 } = resetUninvolvedLiquidityParams(
-          minDeltaId,
-          maxDeltaId,
-          strategy.singleSidedX,
-          {
-            ...baseAndDelta,
-          }
-        );
-
-        const addParam: RebalanceAddLiquidityParam = {
-          minDeltaId: minDeltaId.toNumber(),
-          maxDeltaId: maxDeltaId.toNumber(),
-          x0,
-          y0,
-          deltaX,
-          deltaY,
-          bitFlag,
-          favorXInActiveId: strategy.singleSidedX,
-          padding: Array(36).fill(0),
-        };
-
-        const { totalXAmount, totalYAmount } = toAmountIntoBins(
-          new BN(this.lbPair.activeId),
-          minDeltaId,
-          maxDeltaId,
-          deltaX,
-          deltaY,
-          x0,
-          y0,
-          new BN(this.lbPair.binStep),
-          strategy.singleSidedX
-        ).reduce(
-          (acc, bin) => {
-            return {
-              totalXAmount: acc.totalXAmount.add(bin.amountX),
-              totalYAmount: acc.totalYAmount.add(bin.amountY),
-            };
-          },
-          {
-            totalXAmount: new BN(0),
-            totalYAmount: new BN(0),
-          }
-        );
-
-        const totalXAmountIncludeTransferFee =
-          calculateTransferFeeIncludedAmount(
-            totalXAmount,
-            this.tokenX.mint,
-            this.clock.epoch.toNumber()
-          ).amount;
-
-        const totalYAmountIncludeTransferFee =
-          calculateTransferFeeIncludedAmount(
-            totalYAmount,
-            this.tokenY.mint,
-            this.clock.epoch.toNumber()
-          ).amount;
-
-        const maxDepositXAmount = getSlippageMaxAmount(
-          totalXAmountIncludeTransferFee,
-          slippagePercentage
-        );
-
-        const maxDepositYAmount = getSlippageMaxAmount(
-          totalYAmountIncludeTransferFee,
-          slippagePercentage
-        );
-
-        const rebalanceIx = await this.program.methods
-          .rebalanceLiquidity(
-            {
-              activeId: this.lbPair.activeId,
-              maxActiveBinSlippage,
-              shouldClaimFee: false,
-              shouldClaimReward: false,
-              minWithdrawXAmount: new BN(0),
-              minWithdrawYAmount: new BN(0),
-              maxDepositXAmount,
-              maxDepositYAmount,
-              removes: [],
-              adds: [addParam],
-              padding: Array(32).fill(0),
-            },
-            {
-              slices,
-            }
-          )
-          .accountsPartial({
-            binArrayBitmapExtension:
-              initBitmapIxs.length > 0 ? bitmapPubkey : this.program.programId,
-            lbPair: this.pubkey,
-            position,
-            owner,
-            tokenXMint: this.lbPair.tokenXMint,
-            tokenYMint: this.lbPair.tokenYMint,
-            userTokenX,
-            userTokenY,
-            tokenXProgram: this.tokenX.owner,
-            tokenYProgram: this.tokenY.owner,
-            rentPayer: payer,
-          })
-          .remainingAccounts([
-            ...transferHookAccounts,
-            ...binArrayPubkeys.map((baPubkey) => ({
-              pubkey: baPubkey,
-              isWritable: true,
-              isSigner: false,
-            })),
-            derivePlaceHolderAccountMeta(this.program.programId),
-          ])
-          .instruction();
-
-        calculatedAddLiquidityCU += DEFAULT_ADD_LIQUIDITY_CU;
-
-        const positionAddLiquidityIxs: TransactionInstruction[] = [];
-
-        positionAddLiquidityIxs.push(
-          ComputeBudgetProgram.setComputeUnitLimit({
-            units: Math.min(calculatedAddLiquidityCU, MAX_CU),
-          }),
-          ...initBitmapIxs,
-          ...initBinArrayIxs,
-          createUserTokenXIx,
-          createUserTokenYIx
-        );
-
-        if (
-          this.tokenX.publicKey.equals(NATIVE_MINT) &&
-          !totalXAmount.isZero()
-        ) {
-          const wrapSOLIx = wrapSOLInstruction(
-            owner,
-            userTokenX,
-            BigInt(totalXAmount.toString())
-          );
-
-          positionAddLiquidityIxs.push(...wrapSOLIx);
-        }
-
-        if (
-          this.tokenY.publicKey.equals(NATIVE_MINT) &&
-          !totalYAmount.isZero()
-        ) {
-          const wrapSOLIx = wrapSOLInstruction(
-            owner,
-            userTokenY,
-            BigInt(totalYAmount.toString())
-          );
-
-          positionAddLiquidityIxs.push(...wrapSOLIx);
-        }
-
-        positionAddLiquidityIxs.push(rebalanceIx);
-        chunkedAddLiquidityIx.push(positionAddLiquidityIxs);
-      }
-
-      return {
-        initPositionIx,
-        chunkedAddLiquidityIx,
-      };
-    };
-
     const instructionsByPositions = [];
     let startBinId = minBinId;
 
@@ -2852,13 +2547,35 @@ export class DLMM {
         maxBinId
       );
 
-      const { initPositionIx, chunkedAddLiquidityIx } =
-        await initPositionAndChunkDepositFn(
-          position.publicKey,
-          startBinId,
-          endBinId,
-          liquidityStrategyParameters
-        );
+      const binCount = getBinCount(startBinId, endBinId);
+      const positionWidth = Math.min(
+        binCount,
+        DEFAULT_BIN_PER_POSITION.toNumber()
+      );
+
+      const initPositionIx = await this.program.methods
+        .initializePosition(startBinId, positionWidth)
+        .accountsPartial({
+          position: position.publicKey,
+          lbPair: this.pubkey,
+          owner,
+          payer,
+        })
+        .instruction();
+
+      const chunkedAddLiquidityIx = await chunkDepositWithRebalanceEndpoint(
+        this,
+        strategy,
+        slippagePercentage,
+        maxActiveBinSlippage,
+        position.publicKey,
+        startBinId,
+        endBinId,
+        liquidityStrategyParameters,
+        owner,
+        payer,
+        false
+      );
 
       instructionsByPositions.push({
         positionKeypair: position,
@@ -2873,6 +2590,8 @@ export class DLMM {
       instructionsByPositions,
     };
   }
+
+  public async addLiquidityByStrategyChunkable() {}
 
   /**
    * The function `initializePositionAndAddLiquidityByStrategy` function is used to initializes a position and adds liquidity
@@ -7990,7 +7709,7 @@ export class DLMM {
     return claimFeeTxs;
   }
 
-  private getPotentialToken2022IxDataAndAccounts(
+  public getPotentialToken2022IxDataAndAccounts(
     actionType: ActionType,
     rewardIndex?: number
   ): { slices: RemainingAccountsInfoSlice[]; accounts: AccountMeta[] } {
