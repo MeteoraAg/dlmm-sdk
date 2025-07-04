@@ -38,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `simulateRebalancePositionWithStrategy` function. It return a locally simulated rebalanced position with current price rebalanced to the center of the position.
 - Added `rebalancePosition` function. It return instructions to rebalance a position.
 - Added `initializeMultiplePositionAndAddLiquidityByStrategy` function. It allow user to initialize multiple extendable positions that cover wide bin range without chainsaw issue.
+- Added `addLiquidityByStrategyChunkable` function. It allow user to add liquidity to single extendable positions that cover wide bin range without chainsaw issue.
 
 ### Changed
 

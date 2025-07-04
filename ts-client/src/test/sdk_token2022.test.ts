@@ -2505,6 +2505,103 @@ describe("SDK token2022 test", () => {
         expect(consumedTokenY.lte(totalYAmount)).toBeTruthy();
       });
     });
+
+    describe("Add liquidity chunk", () => {
+      it("Add liquidity chunk", async () => {
+        const dlmm = await DLMM.create(connection, pairKey, opt);
+
+        console.log("🚀 ~ dlmm:", dlmm.pubkey.toBase58());
+
+        const totalXAmount = new BN(1_000_000_000);
+        const totalYAmount = new BN(1_000_000_000);
+
+        const minBinId = dlmm.lbPair.activeId - 400;
+        const maxBinId = dlmm.lbPair.activeId + 400;
+
+        const positionKp = Keypair.generate();
+
+        const initPositionIx = await dlmm.createEmptyPosition({
+          positionPubKey: positionKp.publicKey,
+          minBinId,
+          maxBinId: minBinId + DEFAULT_BIN_PER_POSITION.toNumber() - 1,
+          user: keypair.publicKey,
+        });
+
+        await sendAndConfirmTransaction(connection, initPositionIx, [
+          keypair,
+          positionKp,
+        ]);
+
+        const userTokenX = getAssociatedTokenAddressSync(
+          dlmm.lbPair.tokenXMint,
+          keypair.publicKey,
+          true,
+          dlmm.tokenX.owner
+        );
+        const userTokenY = getAssociatedTokenAddressSync(
+          dlmm.lbPair.tokenYMint,
+          keypair.publicKey,
+          true,
+          dlmm.tokenY.owner
+        );
+
+        const [beforeTokenX, beforeTokenY] = await Promise.all([
+          connection
+            .getTokenAccountBalance(userTokenX)
+            .then((res) => new BN(res.value.amount)),
+          connection
+            .getTokenAccountBalance(userTokenY)
+            .then((res) => new BN(res.value.amount)),
+        ]);
+
+        const addLiquidityTxs = await dlmm.addLiquidityByStrategyChunkable({
+          positionPubKey: positionKp.publicKey,
+          totalXAmount,
+          totalYAmount,
+          strategy: {
+            minBinId,
+            maxBinId,
+            strategyType: StrategyType.Curve,
+          },
+          user: keypair.publicKey,
+          slippage: 1,
+        });
+
+        for (const addLiquidityTx of addLiquidityTxs) {
+          const latestBlockhashInfo = await connection.getLatestBlockhash();
+
+          const tx = new Transaction({
+            ...latestBlockhashInfo,
+          }).add(...addLiquidityTx.instructions);
+
+          tx.sign(keypair);
+
+          const sig = await connection.sendRawTransaction(tx.serialize());
+          await connection.confirmTransaction({
+            ...latestBlockhashInfo,
+            signature: sig,
+          });
+        }
+
+        await logLbPairLiquidities(pairKey, dlmm.lbPair.binStep, dlmm.program);
+
+        const [afterTokenX, afterTokenY] = await Promise.all([
+          connection
+            .getTokenAccountBalance(userTokenX)
+            .then((res) => new BN(res.value.amount)),
+          connection
+            .getTokenAccountBalance(userTokenY)
+            .then((res) => new BN(res.value.amount)),
+        ]);
+
+        const consumedTokenX = beforeTokenX.sub(afterTokenX);
+        const consumedTokenY = beforeTokenY.sub(afterTokenY);
+
+        // Due to transfer fee
+        expect(consumedTokenX.gte(totalXAmount)).toBeTruthy();
+        expect(consumedTokenY.lte(totalYAmount)).toBeTruthy();
+      });
+    });
   });
 
   describe("Position fetcher", () => {

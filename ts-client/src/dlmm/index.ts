@@ -2530,8 +2530,8 @@ export class DLMM {
     const liquidityStrategyParameters = buildLiquidityStrategyParameters(
       totalXAmount,
       totalYAmount,
-      new BN(strategy.minBinId - this.lbPair.activeId),
-      new BN(strategy.maxBinId - this.lbPair.activeId),
+      new BN(minBinId - this.lbPair.activeId),
+      new BN(maxBinId - this.lbPair.activeId),
       new BN(this.lbPair.binStep),
       strategy.singleSidedX,
       new BN(this.lbPair.activeId),
@@ -2591,7 +2591,73 @@ export class DLMM {
     };
   }
 
-  public async addLiquidityByStrategyChunkable() {}
+  /**
+   * Adds liquidity to an existing position using a specified strategy, allowing for chunkable transactions.
+   * If adding liquidity to bin out of position range, it will automatically expand. The limitation is 70 bins.
+   *
+   * @param {TInitializePositionAndAddLiquidityParamsByStrategy} params - The parameters required for adding liquidity.
+   * @param {PublicKey} params.positionPubKey - The public key of the position to which liquidity is being added.
+   * @param {BN} params.totalXAmount - The total amount of token X to be added as liquidity.
+   * @param {BN} params.totalYAmount - The total amount of token Y to be added as liquidity.
+   * @param {StrategyParameters} params.strategy - The strategy parameters for adding liquidity.
+   * @param {PublicKey} params.user - The public key of the user adding liquidity.
+   * @param {number} params.slippage - The slippage percentage allowed for the transaction.
+   *
+   * @returns {Promise<Transaction[]>} A promise that resolves to an array of transactions for adding liquidity.
+   */
+
+  public async addLiquidityByStrategyChunkable({
+    positionPubKey,
+    totalXAmount,
+    totalYAmount,
+    strategy,
+    user,
+    slippage,
+  }: TInitializePositionAndAddLiquidityParamsByStrategy): Promise<
+    Transaction[]
+  > {
+    const maxActiveBinSlippage = getAndCapMaxActiveBinSlippage(
+      slippage,
+      this.lbPair.binStep,
+      MAX_ACTIVE_BIN_SLIPPAGE
+    );
+
+    const { minBinId, maxBinId } = strategy;
+
+    const liquidityStrategyParameters = buildLiquidityStrategyParameters(
+      totalXAmount,
+      totalYAmount,
+      new BN(minBinId - this.lbPair.activeId),
+      new BN(maxBinId - this.lbPair.activeId),
+      new BN(this.lbPair.binStep),
+      strategy.singleSidedX,
+      new BN(this.lbPair.activeId),
+      getLiquidityStrategyParameterBuilder(strategy.strategyType)
+    );
+
+    const chunkedAddLiquidityIx = await chunkDepositWithRebalanceEndpoint(
+      this,
+      strategy,
+      slippage,
+      maxActiveBinSlippage,
+      positionPubKey,
+      minBinId,
+      maxBinId,
+      liquidityStrategyParameters,
+      user,
+      user,
+      true
+    );
+
+    const latestBlockhashInfo =
+      await this.program.provider.connection.getLatestBlockhash();
+
+    return chunkedAddLiquidityIx.map((ixs) => {
+      return new Transaction({
+        ...latestBlockhashInfo,
+      }).add(...ixs);
+    });
+  }
 
   /**
    * The function `initializePositionAndAddLiquidityByStrategy` function is used to initializes a position and adds liquidity
