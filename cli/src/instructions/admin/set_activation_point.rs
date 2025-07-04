@@ -18,19 +18,18 @@ pub async fn execute_set_activation_point<C: Deref<Target = impl Signer> + Clone
         activation_point,
     } = params;
 
-    let accounts: [AccountMeta; SET_ACTIVATION_POINT_IX_ACCOUNTS_LEN] = SetActivationPointKeys {
+    let accounts = dlmm::client::accounts::SetActivationPoint {
         admin: program.payer(),
         lb_pair,
     }
-    .into();
+    .to_account_metas(None);
 
-    let data =
-        SetActivationPointIxData(SetActivationPointIxArgs { activation_point }).try_to_vec()?;
+    let data = dlmm::client::args::SetActivationPoint { activation_point }.data();
 
     let set_activation_point_ix = Instruction {
-        accounts: accounts.to_vec(),
+        accounts,
         data,
-        program_id: dlmm_interface::ID,
+        program_id: dlmm::ID,
     };
 
     let request_builder = program.request();

@@ -1,24 +1,23 @@
-use dlmm_interface::PairStatus;
-use std::ops::Deref;
+use crate::*;
 
-pub struct PairStatusWrapper(PairStatus);
-
-impl Deref for PairStatusWrapper {
-    type Target = PairStatus;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl TryFrom<u8> for PairStatusWrapper {
+impl TryFrom<u8> for PairStatus {
     type Error = anyhow::Error;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
-            0 => Ok(PairStatusWrapper(PairStatus::Enabled)),
-            1 => Ok(PairStatusWrapper(PairStatus::Disabled)),
+            0 => Ok(PairStatus::Enabled),
+            1 => Ok(PairStatus::Disabled),
             _ => Err(anyhow::anyhow!("Invalid PairStatus value: {}", value)),
         }
+    }
+}
+
+impl PartialEq for PairStatus {
+    fn eq(&self, other: &Self) -> bool {
+        matches!(
+            (self, other),
+            (PairStatus::Enabled, PairStatus::Enabled)
+                | (PairStatus::Disabled, PairStatus::Disabled)
+        )
     }
 }

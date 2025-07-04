@@ -16,21 +16,20 @@ pub async fn execute_initialize_token_badge<C: Deref<Target = impl Signer> + Clo
 
     let (token_badge, _bump) = derive_token_badge_pda(mint);
 
-    let accounts: [AccountMeta; INITIALIZE_TOKEN_BADGE_IX_ACCOUNTS_LEN] =
-        InitializeTokenBadgeKeys {
-            admin: program.payer(),
-            token_mint: mint,
-            system_program: system_program::ID,
-            token_badge,
-        }
-        .into();
+    let accounts = dlmm::client::accounts::InitializeTokenBadge {
+        admin: program.payer(),
+        token_mint: mint,
+        system_program: system_program::ID,
+        token_badge,
+    }
+    .to_account_metas(None);
 
-    let data = InitializeTokenBadgeIxData;
+    let data = dlmm::client::args::InitializeTokenBadge {}.data();
 
     let instruction = Instruction {
-        program_id: dlmm_interface::ID,
-        accounts: accounts.to_vec(),
-        data: data.try_to_vec()?,
+        program_id: dlmm::ID,
+        accounts,
+        data,
     };
 
     let request_builder = program.request();

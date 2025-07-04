@@ -1,5 +1,5 @@
 import { BN } from "@coral-xyz/anchor";
-import { Connection, PublicKey } from "@solana/web3.js";
+import { AccountMeta, Connection, PublicKey } from "@solana/web3.js";
 import { DLMM } from "..";
 import { ILM_BASE } from "../constants";
 
@@ -227,4 +227,14 @@ export function deriveRewardVault(
     [lbPair.toBuffer(), rewardIndex.toArrayLike(Buffer, "le", 8)],
     programId
   );
+}
+
+export function derivePlaceHolderAccountMeta(
+  programId: PublicKey
+): AccountMeta {
+  return {
+    pubkey: programId,
+    isWritable: false,
+    isSigner: false,
+  };
 }
