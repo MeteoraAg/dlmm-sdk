@@ -1,6 +1,8 @@
 import BN from "bn.js";
 import {
-  POSITION_V2_DISC,
+  ExtendedPositionBinData,
+  POSITION_BIN_DATA_SIZE,
+  POSITION_MIN_SIZE,
   PositionV2,
   PositionVersion,
   UserFeeInfo,
@@ -9,9 +11,14 @@ import {
 import { AccountInfo, PublicKey } from "@solana/web3.js";
 import { Program } from "@coral-xyz/anchor";
 import { LbClmm } from "../../idl";
-import { getBinArrayKeysCoverage } from ".";
+import {
+  decodeExtendedPosition,
+  getBinArrayIndexesCoverage,
+  getBinArrayKeysCoverage,
+} from ".";
 import { binIdToBinArrayIndex } from "../binArray";
 import { deriveBinArray } from "../derive";
+import { decodeAccount, getAccountDiscriminator } from "..";
 
 export interface IPosition {
   address(): PublicKey;
@@ -32,6 +39,34 @@ export interface IPosition {
   getBinArrayIndexesCoverage(): BN[];
   getBinArrayKeysCoverage(programId: PublicKey): PublicKey[];
   version(): PositionVersion;
+  width(): BN;
+}
+
+interface CombinedPositionBinData {
+  liquidityShares: BN[];
+  rewardInfos: UserRewardInfo[];
+  feeInfos: UserFeeInfo[];
+}
+
+function combineBaseAndExtendedPositionBinData(
+  base: PositionV2,
+  extended: ExtendedPositionBinData[]
+): CombinedPositionBinData {
+  const combinedLiquidityShares = base.liquidityShares;
+  const combinedRewardInfos = base.rewardInfos;
+  const combinedFeeInfos = base.feeInfos;
+
+  for (const binData of extended) {
+    combinedLiquidityShares.push(binData.liquidityShare);
+    combinedRewardInfos.push(binData.rewardInfo);
+    combinedFeeInfos.push(binData.feeInfo);
+  }
+
+  return {
+    liquidityShares: combinedLiquidityShares,
+    rewardInfos: combinedRewardInfos,
+    feeInfos: combinedFeeInfos,
+  };
 }
 
 export function wrapPosition(
@@ -40,12 +75,25 @@ export function wrapPosition(
   account: AccountInfo<Buffer>
 ): IPosition {
   const disc = account.data.subarray(0, 8);
-  if (disc.equals(POSITION_V2_DISC)) {
-    const state = program.coder.accounts.decode(
-      program.account.positionV2.idlAccount.name,
+  if (disc.equals(Buffer.from(getAccountDiscriminator("positionV2")))) {
+    const state = decodeAccount<PositionV2>(
+      program,
+      "positionV2",
       account.data
     );
-    return new PositionV2Wrapper(key, state);
+
+    const extended = decodeExtendedPosition(
+      state,
+      program,
+      account.data.subarray(8 + POSITION_MIN_SIZE)
+    );
+
+    const combinedPositionBinData = combineBaseAndExtendedPositionBinData(
+      state,
+      extended
+    );
+
+    return new PositionV2Wrapper(key, state, extended, combinedPositionBinData);
   } else {
     throw new Error("Unknown position account");
   }
@@ -54,7 +102,9 @@ export function wrapPosition(
 export class PositionV2Wrapper implements IPosition {
   constructor(
     public positionAddress: PublicKey,
-    public inner: PositionV2
+    public inner: PositionV2,
+    public extended: ExtendedPositionBinData[],
+    public combinedPositionBinData: CombinedPositionBinData
   ) {}
 
   address(): PublicKey {
@@ -98,15 +148,15 @@ export class PositionV2Wrapper implements IPosition {
   }
 
   liquidityShares(): BN[] {
-    return this.inner.liquidityShares;
+    return this.combinedPositionBinData.liquidityShares;
   }
 
   rewardInfos(): UserRewardInfo[] {
-    return this.inner.rewardInfos;
+    return this.combinedPositionBinData.rewardInfos;
   }
 
   feeInfos(): UserFeeInfo[] {
-    return this.inner.feeInfos;
+    return this.combinedPositionBinData.feeInfos;
   }
 
   lastUpdatedAt(): BN {
@@ -114,10 +164,14 @@ export class PositionV2Wrapper implements IPosition {
   }
 
   getBinArrayIndexesCoverage(): BN[] {
-    const lowerBinArrayIndex = binIdToBinArrayIndex(this.lowerBinId());
-    const upperBinArrayIndex = lowerBinArrayIndex.add(new BN(1));
-
-    return [lowerBinArrayIndex, upperBinArrayIndex];
+    const isExtended = this.extended.length > 0;
+    if (isExtended) {
+      return getBinArrayIndexesCoverage(this.lowerBinId(), this.upperBinId());
+    } else {
+      const lowerBinArrayIndex = binIdToBinArrayIndex(this.lowerBinId());
+      const upperBinArrayIndex = lowerBinArrayIndex.add(new BN(1));
+      return [lowerBinArrayIndex, upperBinArrayIndex];
+    }
   }
 
   getBinArrayKeysCoverage(programId: PublicKey): PublicKey[] {
@@ -132,5 +186,9 @@ export class PositionV2Wrapper implements IPosition {
 
   owner(): PublicKey {
     return this.inner.owner;
+  }
+
+  width(): BN {
+    return this.upperBinId().sub(this.lowerBinId()).add(new BN(1));
   }
 }

@@ -21,22 +21,22 @@ pub async fn execute_initialize_bin_array<C: Deref<Target = impl Signer> + Clone
 
     let (bin_array, _bump) = derive_bin_array_pda(lb_pair, bin_array_index);
 
-    let accounts: [AccountMeta; INITIALIZE_BIN_ARRAY_IX_ACCOUNTS_LEN] = InitializeBinArrayKeys {
+    let accounts = dlmm::client::accounts::InitializeBinArray {
         bin_array,
         funder: program.payer(),
         lb_pair,
         system_program: solana_sdk::system_program::ID,
     }
-    .into();
+    .to_account_metas(None);
 
-    let data = InitializeBinArrayIxData(InitializeBinArrayIxArgs {
+    let data = dlmm::client::args::InitializeBinArray {
         index: bin_array_index,
-    })
-    .try_to_vec()?;
+    }
+    .data();
 
     let init_bin_array_ix = Instruction {
-        program_id: dlmm_interface::ID,
-        accounts: accounts.to_vec(),
+        program_id: dlmm::ID,
+        accounts,
         data,
     };
 

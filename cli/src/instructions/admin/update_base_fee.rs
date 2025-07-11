@@ -16,34 +16,33 @@ pub async fn execute_update_base_fee<C: Deref<Target = impl Signer> + Clone>(
         base_fee_bps,
     } = params;
 
-    let rpc_client = program.async_rpc();
+    let rpc_client = program.rpc();
 
     let pair_account = rpc_client.get_account(&lb_pair).await?;
 
-    let lb_pair_state = LbPairAccount::deserialize(pair_account.data.as_ref())?.0;
+    let lb_pair_state = LbPair::try_deserialize(&mut pair_account.data.as_ref())?;
 
     let (base_factor, base_fee_power_factor) =
         compute_base_factor_from_fee_bps(lb_pair_state.bin_step, base_fee_bps)?;
 
-    let ix_data = UpdateBaseFeeParametersIxData(UpdateBaseFeeParametersIxArgs {
+    let ix_data = dlmm::client::args::UpdateBaseFeeParameters {
         fee_parameter: BaseFeeParameter {
             protocol_share: lb_pair_state.parameters.protocol_share,
             base_factor,
             base_fee_power_factor,
         },
-    })
-    .try_to_vec()?;
+    }
+    .data();
 
     let event_authority = derive_event_authority_pda().0;
 
-    let accounts: [AccountMeta; UPDATE_BASE_FEE_PARAMETERS_IX_ACCOUNTS_LEN] =
-        UpdateBaseFeeParametersKeys {
-            lb_pair,
-            admin: program.payer(),
-            event_authority,
-            program: dlmm_interface::ID,
-        }
-        .into();
+    let accounts = dlmm::client::accounts::UpdateBaseFeeParameters {
+        lb_pair,
+        admin: program.payer(),
+        event_authority,
+        program: dlmm::ID,
+    }
+    .to_account_metas(None);
 
     let ix = Instruction {
         program_id: program.id(),
