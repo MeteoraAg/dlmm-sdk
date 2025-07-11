@@ -337,7 +337,7 @@ export function createProgram(connection: Connection, opt?: Opt) {
   );
 
   return new Program<LbClmm>(
-    { ...IDL, address: LBCLMM_PROGRAM_IDS[cluster] },
+    { ...IDL, address: opt?.programId ?? LBCLMM_PROGRAM_IDS[cluster] },
     provider
   );
 }
