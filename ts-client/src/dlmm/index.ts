@@ -3867,7 +3867,8 @@ export class DLMM {
         const setCUIx = await getEstimatedComputeUnitIxWithBuffer(
           this.program.provider.connection,
           ixs,
-          user
+          user,
+          0.3 // Extra 30% buffer CU
         );
 
         return [setCUIx, ...ixs];
