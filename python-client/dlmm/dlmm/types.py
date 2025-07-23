@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from enum import Enum
 from solders.pubkey import Pubkey
-from typing import Any, List, TypedDict
+from typing import Any, List, TypedDict, Union
 
 class DlmmHttpError(Exception):
     def __init__(self, message):
@@ -29,7 +29,7 @@ class ActivationType(Enum):
     Timestamp=1,
 
     def __str__(self) -> str:
-        return f"{self.value[1]}
+        return self.value[1]
     
     def __repr__(self) -> str:
         return self.name
@@ -171,16 +171,16 @@ class PositionData():
         self.total_x_amount = data["totalXAmount"]
         self.total_y_amount = data["totalYAmount"]
         self.position_bin_data = [PositionBinData(bin_data) for bin_data in data["positionBinData"]]
-        self.last_updated_at = data["lastUpdatedAt"]
+        self.last_updated_at = int(data["lastUpdatedAt"], 16)
         self.upper_bin_id = data["upperBinId"]
         self.lower_bin_id = data["lowerBinId"]
-        self.fee_X = data["feeX"]
-        self.fee_Y = data["feeY"]
+        self.fee_X = int(data["feeX"], 16)
+        self.fee_Y = int(data["feeY"], 16)
         self.reward_one = data["rewardOne"]
         self.reward_two = data["rewardTwo"]
         self.fee_owner = data["feeOwner"]
-        self.total_claimed_fee_X_amount = data["totalClaimedFeeXAmount"]
-        self.total_claimed_fee_Y_amount = data["totalClaimedFeeYAmount"]
+        self.total_claimed_fee_X_amount = int(data["totalClaimedFeeXAmount"], 16)
+        self.total_claimed_fee_Y_amount = int(data["totalClaimedFeeYAmount"], 16)
     
     def to_json(self) -> dict:
         return {
@@ -265,7 +265,7 @@ class LBPair:
     token_y_mint: str
     padding1: List[int]
     padding2: List[int]
-    fee_owner: Pubkey
+    fee_owner: Union[Pubkey, None]
     base_key: str
 
     def __init__(self, data: dict) -> None:
@@ -281,7 +281,8 @@ class LBPair:
         self.token_y_mint = data["tokenYMint"]
         self.padding1 = data["padding1"]
         self.padding2 = data["padding2"]
-        self.fee_owner = Pubkey.from_string(data["feeOwner"])
+        fee_owner = data.get("feeOwner", None)
+        self.fee_owner = Pubkey.from_string(fee_owner) if fee_owner else fee_owner
         self.base_key = data["baseKey"]
         
 @dataclass
@@ -289,13 +290,14 @@ class TokenReserve():
     public_key: Pubkey
     reserve: Pubkey
     amount: str
-    decimal: int
+    decimal: Union[int, None]
 
     def __init__(self, data: dict) -> None:
         self.public_key = Pubkey.from_string(data["publicKey"])
         self.reserve = Pubkey.from_string(data["reserve"])
         self.amount = data["amount"]
-        self.decimal = data["decimal"]
+        decimal = data.get("decimal", None)
+        self.decimal = decimal
 
 @dataclass
 class PositionInfo():
@@ -369,3 +371,46 @@ class GetBins():
         
         self.active_bin = int(data["activeBin"])
         self.bin_liquidty = [BinLiquidty(bin_data) for bin_data in data["bins"]]
+
+@dataclass
+class Bin:
+    amount_x: int
+    amount_x_in: int
+    amount_y: int
+    amount_y_in: int
+    fee_amount_x_per_token_stored: int
+    fee_amount_y_per_token_stored: int
+    liquidity_supply: int
+    price: int
+    reward_per_token_stored: List[int]
+
+    def __init__(self, data: dict) -> None:
+        self.amount_x = int(data["amountX"], 16)
+        self.amount_x_in = int(data["amountXIn"], 16)
+        self.amount_y = int(data["amountY"], 16)
+        self.amount_y_in = int(data["amountYIn"], 16)
+        self.fee_amount_x_per_token_stored = int(data["feeAmountXPerTokenStored"], 16)
+        self.fee_amount_y_per_token_stored = int(data["feeAmountYPerTokenStored"], 16)
+        self.liquidity_supply = int(data["liquiditySupply"], 16)
+        self.price = int(data["price"], 16)
+        self.reward_per_token_stored = [int(r, 16) for r in data["rewardPerTokenStored"]]
+
+
+@dataclass
+class BinAccount:
+    index: int
+    bins: List[Bin]
+
+    def __init__(self, data: dict) -> None:
+        self.index = int(data["index"], 16)
+        self.bins = [Bin(b) for b in data["bins"]]
+
+
+@dataclass
+class BinArray:
+    public_key: str
+    account: BinAccount
+
+    def __init__(self, data: dict) -> None:
+        self.public_key = data["publicKey"]
+        self.account = BinAccount(data["account"])
