@@ -20,7 +20,7 @@ pub async fn execute_claim_reward<C: Deref<Target = impl Signer> + Clone>(
         position,
     } = params;
 
-    let rpc_client = program.async_rpc();
+    let rpc_client = program.rpc();
     let (reward_vault, _bump) = derive_reward_vault_pda(lb_pair, reward_index);
 
     let lb_pair_state = rpc_client
@@ -71,7 +71,7 @@ pub async fn execute_claim_reward<C: Deref<Target = impl Signer> + Clone>(
     if let Some((slices, transfer_hook_remaining_accounts)) =
         get_potential_token_2022_related_ix_data_and_accounts(
             &lb_pair_state,
-            program.async_rpc(),
+            program.rpc(),
             ActionType::Reward(reward_index as usize),
         )
         .await?

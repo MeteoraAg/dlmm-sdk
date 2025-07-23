@@ -11,7 +11,7 @@ pub async fn execute_show_position<C: Deref<Target = impl Signer> + Clone>(
 ) -> Result<()> {
     let ShowPositionParams { position } = params;
 
-    let rpc_client = program.async_rpc();
+    let rpc_client = program.rpc();
     let position_account = rpc_client.get_account(&position).await?;
 
     let mut disc = [0u8; 8];

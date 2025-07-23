@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::*;
 
 #[derive(Debug, Parser)]
@@ -22,7 +24,7 @@ pub async fn execute_initialize_position<C: Deref<Target = impl Signer> + Clone>
         width,
     } = params;
 
-    let position_keypair = Keypair::new();
+    let position_keypair = Arc::new(Keypair::new());
 
     let (event_authority, _bump) = derive_event_authority_pda();
 
@@ -53,7 +55,7 @@ pub async fn execute_initialize_position<C: Deref<Target = impl Signer> + Clone>
     let request_builder = program.request();
     let signature = request_builder
         .instruction(init_position_ix)
-        .signer(&position_keypair)
+        .signer(position_keypair.clone())
         .send_with_spinner_and_config(transaction_config)
         .await;
 

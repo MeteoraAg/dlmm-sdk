@@ -12,7 +12,7 @@ pub async fn execute_close_position<C: Deref<Target = impl Signer> + Clone>(
 ) -> Result<()> {
     let ClosePositionParams { position } = params;
 
-    let rpc_client = program.async_rpc();
+    let rpc_client = program.rpc();
     let position_state = rpc_client
         .get_account_and_deserialize(&position, |account| {
             Ok(PositionV2Account::deserialize(&account.data)?.0)

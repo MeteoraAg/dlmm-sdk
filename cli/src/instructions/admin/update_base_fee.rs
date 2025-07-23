@@ -16,7 +16,7 @@ pub async fn execute_update_base_fee<C: Deref<Target = impl Signer> + Clone>(
         base_fee_bps,
     } = params;
 
-    let rpc_client = program.async_rpc();
+    let rpc_client = program.rpc();
 
     let pair_account = rpc_client.get_account(&lb_pair).await?;
 

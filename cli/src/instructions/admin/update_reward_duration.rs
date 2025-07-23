@@ -18,7 +18,7 @@ pub async fn execute_update_reward_duration<C: Deref<Target = impl Signer> + Clo
         reward_duration,
     } = params;
 
-    let rpc_client = program.async_rpc();
+    let rpc_client = program.rpc();
     let lb_pair_state = rpc_client
         .get_account_and_deserialize(&lb_pair, |account| {
             Ok(LbPairAccount::deserialize(&account.data)?.0)

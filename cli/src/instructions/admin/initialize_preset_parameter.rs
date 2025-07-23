@@ -44,7 +44,7 @@ pub async fn execute_initialize_preset_parameter<C: Deref<Target = impl Signer> 
         base_fee_power_factor,
     } = params;
 
-    let rpc_client = program.async_rpc();
+    let rpc_client = program.rpc();
 
     let preset_parameter_v2_count = rpc_client
         .get_program_accounts_with_config(
