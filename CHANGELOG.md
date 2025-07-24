@@ -45,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `removeLiquidity` function. It will chunk the bin range into multiple remove liquidity transactions if it exceed max size. The return type changed from `Promise<Transaction>` to `Promise<Transaction[]>`.
 - `claimLMReward` function. It will chunk the bin range into multiple claim reward transactions if it exceed max size. The return type changed from `Promise<Transaction>` to `Promise<Transaction[]>`.
 - `claimSwapFee` function. It will chunk the bin range into multiple claim swap fee transactions if it exceed max size. The return type changed from `Promise<Transaction>` to `Promise<Transaction[]>`.
+- `quoteCreatePosition` function. It return cost for position creation cost, realloc position cost and initialize bitmap extension.
 
 ## cli [0.5.1] - PR #196
 
