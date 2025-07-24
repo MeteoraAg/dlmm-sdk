@@ -758,6 +758,30 @@ export async function chunkDepositWithRebalanceEndpoint(
 
     addLiquidityIxs.push(rebalanceIx);
 
+    if (dlmm.tokenX.publicKey.equals(NATIVE_MINT) && !totalXAmount.isZero()) {
+      addLiquidityIxs.push(
+        createCloseAccountInstruction(
+          userTokenX,
+          owner,
+          owner,
+          [],
+          TOKEN_PROGRAM_ID
+        )
+      );
+    }
+
+    if (dlmm.tokenY.publicKey.equals(NATIVE_MINT) && !totalYAmount.isZero()) {
+      addLiquidityIxs.push(
+        createCloseAccountInstruction(
+          userTokenY,
+          owner,
+          owner,
+          [],
+          TOKEN_PROGRAM_ID
+        )
+      );
+    }
+
     if (simulateCU) {
       const cuIx = await getEstimatedComputeUnitIxWithBuffer(
         dlmm.program.provider.connection,
