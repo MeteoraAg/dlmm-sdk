@@ -42,3 +42,6 @@ pub use close_claim_protocol_fee_operator::*;
 
 pub mod update_base_fee;
 pub use update_base_fee::*;
+
+pub mod initialize_preset_parameters2_from_csv;
+pub use initialize_preset_parameters2_from_csv::*;
