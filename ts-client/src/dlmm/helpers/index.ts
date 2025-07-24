@@ -568,10 +568,7 @@ export async function chunkDepositWithRebalanceEndpoint(
       false
     );
 
-    if (
-      overflowDefaultBinArrayBitmap &&
-      !binArrayOrBitmapInitTracking.has(bitmapPubkey.toBase58())
-    ) {
+    if (overflowDefaultBinArrayBitmap) {
       const initBitmapIx = await dlmm.program.methods
         .initializeBinArrayBitmapExtension()
         .accountsPartial({
