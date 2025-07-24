@@ -40,6 +40,7 @@ import {
   MAX_EXTRA_BIN_ARRAYS,
   MAX_FEE_RATE,
   MAX_RESIZE_LENGTH,
+  POSITION_FEE,
   POSITION_FEE_BN,
   POSITION_MAX_LENGTH,
   PRECISION,
@@ -2355,21 +2356,63 @@ export class DLMM {
   public async quoteCreatePosition({ strategy }: TQuoteCreatePositionParams) {
     const { minBinId, maxBinId } = strategy;
 
+    const binCount = maxBinId - minBinId + 1;
+    const positionCount =
+      Math.floor(binCount / MAX_BINS_PER_POSITION.toNumber()) + 1;
+
+    let positionReallocCost = 0;
+
+    for (let i = 0; i < positionCount; i++) {
+      const lowerBinId = minBinId;
+      const upperBinId = Math.min(
+        maxBinId,
+        lowerBinId + DEFAULT_BIN_PER_POSITION.toNumber() - 1
+      );
+
+      const maxUpperBinId = Math.min(
+        maxBinId,
+        upperBinId + MAX_BINS_PER_POSITION.toNumber() - 1
+      );
+
+      const binToExpand = maxUpperBinId - upperBinId;
+      const { positionExtendCost } = await this.quoteExtendPosition(
+        new BN(lowerBinId),
+        new BN(upperBinId),
+        new BN(binToExpand)
+      );
+
+      positionReallocCost += positionExtendCost.toNumber();
+    }
+
     const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(minBinId));
     const upperBinArrayIndex = BN.max(
       binIdToBinArrayIndex(new BN(maxBinId)),
       lowerBinArrayIndex.add(new BN(1))
     );
 
+    let bitmapExtensionCost = 0;
+    if (
+      isOverflowDefaultBinArrayBitmap(lowerBinArrayIndex) ||
+      isOverflowDefaultBinArrayBitmap(upperBinArrayIndex)
+    ) {
+      bitmapExtensionCost = BIN_ARRAY_BITMAP_FEE;
+    }
+
     const binArraysCount = (
       await this.binArraysToBeCreate(lowerBinArrayIndex, upperBinArrayIndex)
     ).length;
+
     const transactionCount = Math.ceil(
       (maxBinId - minBinId + 1) / DEFAULT_BIN_PER_POSITION.toNumber()
     );
 
     const binArrayCost = binArraysCount * BIN_ARRAY_FEE;
+
     return {
+      positionCount,
+      positionCost: positionCount * POSITION_FEE,
+      positionReallocCost,
+      bitmapExtensionCost,
       binArraysCount,
       binArrayCost,
       transactionCount,
