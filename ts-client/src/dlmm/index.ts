@@ -2362,8 +2362,9 @@ export class DLMM {
 
     let positionReallocCost = 0;
 
+    let lastUpperBinId = minBinId;
     for (let i = 0; i < positionCount; i++) {
-      const lowerBinId = minBinId;
+      const lowerBinId = lastUpperBinId;
       const upperBinId = Math.min(
         maxBinId,
         lowerBinId + DEFAULT_BIN_PER_POSITION.toNumber() - 1
@@ -2382,6 +2383,7 @@ export class DLMM {
       );
 
       positionReallocCost += positionExtendCost.toNumber();
+      lastUpperBinId = upperBinId;
     }
 
     const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(minBinId));
