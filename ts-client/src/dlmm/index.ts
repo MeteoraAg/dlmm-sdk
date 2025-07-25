@@ -2704,6 +2704,7 @@ export class DLMM {
     return chunkedAddLiquidityIx.map((ixs) => {
       return new Transaction({
         ...latestBlockhashInfo,
+        feePayer: user,
       }).add(...ixs);
     });
   }
