@@ -18,20 +18,20 @@ pub async fn execute_set_pair_status<C: Deref<Target = impl Signer> + Clone>(
         pair_status,
     } = params;
 
-    let accounts: [AccountMeta; SET_PAIR_STATUS_IX_ACCOUNTS_LEN] = SetPairStatusKeys {
+    let accounts = dlmm::client::accounts::SetPairStatus {
         admin: program.payer(),
         lb_pair,
     }
-    .into();
+    .to_account_metas(None);
 
-    let data = SetPairStatusIxData(SetPairStatusIxArgs {
+    let data = dlmm::client::args::SetPairStatus {
         status: pair_status,
-    })
-    .try_to_vec()?;
+    }
+    .data();
 
     let instruction = Instruction {
-        program_id: dlmm_interface::ID,
-        accounts: accounts.to_vec(),
+        program_id: dlmm::ID,
+        accounts,
         data,
     };
 

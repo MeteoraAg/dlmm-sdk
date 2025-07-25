@@ -1,7 +1,7 @@
 use crate::*;
 use anchor_spl::associated_token::get_associated_token_address_with_program_id;
 use commitment_config::CommitmentConfig;
-use dlmm_interface::events::SwapEvent;
+use dlmm::events::Swap as SwapEvent;
 use solana_client::rpc_response::{Response, RpcSimulateTransactionResult};
 use solana_sdk::instruction::Instruction;
 use solana_transaction_status::option_serializer::OptionSerializer;

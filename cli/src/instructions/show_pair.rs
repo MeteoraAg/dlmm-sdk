@@ -23,11 +23,11 @@ pub async fn execute_show_pair<C: Deref<Target = impl Signer> + Clone>(
     program: &Program<C>,
 ) -> Result<()> {
     let ShowPairParams { lb_pair } = params;
-    let rpc_client = program.async_rpc();
+    let rpc_client = program.rpc();
 
-    let lb_pair_state = rpc_client
+    let lb_pair_state: LbPair = rpc_client
         .get_account_and_deserialize(&lb_pair, |account| {
-            Ok(LbPairAccount::deserialize(&account.data)?.0)
+            Ok(bytemuck::pod_read_unaligned(&account.data[8..]))
         })
         .await?;
 
@@ -43,12 +43,12 @@ pub async fn execute_show_pair<C: Deref<Target = impl Signer> + Clone>(
     };
 
     let mut bin_arrays: Vec<(Pubkey, BinArray)> = rpc_client
-        .get_program_accounts_with_config(&dlmm_interface::ID, config)
+        .get_program_accounts_with_config(&dlmm::ID, config)
         .await?
         .into_iter()
         .filter_map(|(key, account)| {
-            let bin_array = BinArrayAccount::deserialize(&account.data).ok()?;
-            Some((key, bin_array.0))
+            let bin_array = bytemuck::pod_read_unaligned(&account.data[8..]);
+            Some((key, bin_array))
         })
         .collect();
 

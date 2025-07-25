@@ -1,0 +1,127 @@
+{
+  "address": "abcSyangMHdGzUGKhBhKoQzSFdJKUdkPGf5cbXVHpEw",
+  "metadata": {
+    "name": "transfer_hook_counter",
+    "version": "0.1.0",
+    "spec": "0.1.0"
+  },
+  "instructions": [
+    {
+      "name": "initialize_extra_account_meta_list",
+      "discriminator": [
+        92,
+        197,
+        174,
+        197,
+        41,
+        124,
+        19,
+        3
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "extra_account_meta_list",
+          "writable": true
+        },
+        {
+          "name": "mint"
+        },
+        {
+          "name": "counter_account",
+          "writable": true
+        },
+        {
+          "name": "token_program"
+        },
+        {
+          "name": "associated_token_program"
+        },
+        {
+          "name": "system_program"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "transfer_hook",
+      "discriminator": [
+        220,
+        57,
+        220,
+        152,
+        126,
+        125,
+        97,
+        168
+      ],
+      "accounts": [
+        {
+          "name": "source_token"
+        },
+        {
+          "name": "mint"
+        },
+        {
+          "name": "destination_token"
+        },
+        {
+          "name": "owner"
+        },
+        {
+          "name": "extra_account_meta_list"
+        },
+        {
+          "name": "counter_account",
+          "writable": true
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "CounterAccount",
+      "discriminator": [
+        164,
+        8,
+        153,
+        71,
+        8,
+        44,
+        93,
+        22
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "AmountTooBig",
+      "msg": "The amount is too big"
+    }
+  ],
+  "types": [
+    {
+      "name": "CounterAccount",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "counter",
+            "type": "u32"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -12,7 +12,7 @@ import {
 import {
   Connection,
   Keypair,
-  LAMPORTS_PER_SOL,
+  LAMPORTS_PER_SOL, 
   PublicKey,
   sendAndConfirmTransaction,
   SystemProgram,
@@ -66,9 +66,8 @@ async function createMintWithExtensions(
 ) {
   const extensions = extensionWithIx.map((e) => e.extensionType);
   const mintLen = getMintLen(extensions);
-  const minLamports = await connection.getMinimumBalanceForRentExemption(
-    mintLen
-  );
+  const minLamports =
+    await connection.getMinimumBalanceForRentExemption(mintLen);
 
   const transaction = new Transaction().add(
     SystemProgram.createAccount({

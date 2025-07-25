@@ -1,5 +1,10 @@
+use anchor_lang::prelude::declare_program;
 use anyhow::*;
-use dlmm_interface::*;
+
+declare_program!(dlmm);
+
+use dlmm::accounts::*;
+use dlmm::types::*;
 
 pub mod constants;
 pub use constants::*;

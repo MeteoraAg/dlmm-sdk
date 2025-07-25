@@ -1,6 +1,6 @@
 {
   "name": "@meteora-ag/dlmm",
-  "version": "1.5.5",
+  "version": "1.6.0",
   "description": "",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -12,7 +12,7 @@
   "scripts": {
     "build": "tsup",
     "start": "npm run build -- --watch",
-    "test": "jest 'src/test/(ilm|sdk_token2022|sdk|single_bin|token_2022).test.ts'",
+    "test": "jest 'src/test/(ilm|sdk_token2022|sdk|single_bin|token_2022|rebalance_parameter_builder|rebalance).test.ts'",
     "unit-test": "jest src/test/calculate_distribution.test.ts",
     "example": "dotenv -e .env npx ts-node src/examples/example.ts",
     "start-server": "npx tsc && node dist/src/server/index.js"
@@ -33,8 +33,8 @@
     "typescript": "^5.0.4"
   },
   "dependencies": {
-    "@coral-xyz/anchor": "^0.28.0",
-    "@coral-xyz/borsh": "^0.28.0",
+    "@coral-xyz/anchor": "0.31.0",
+    "@coral-xyz/borsh": "0.31.0",
     "@solana/buffer-layout": "^4.0.1",
     "@solana/spl-token": "^0.4.6",
     "@solana/web3.js": "^1.91.6",

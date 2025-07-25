@@ -18,7 +18,6 @@ log = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
 shellexpand = { workspace = true }
 anyhow = { workspace = true }
-dlmm_interface = { path = "../dlmm_interface" }
 serde_json = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 spl-associated-token-account = { workspace = true }
@@ -30,3 +29,4 @@ solana-account-decoder = { workspace = true }
 itertools = { workspace = true }
 rust_decimal = { workspace = true, features = ["maths"] }
 spl-memo = { workspace = true, features = ["no-entrypoint"] }
+bytemuck = { workspace = true }
