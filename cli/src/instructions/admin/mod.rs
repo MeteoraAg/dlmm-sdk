@@ -39,3 +39,6 @@ pub use create_claim_protocol_fee_operator::*;
 
 pub mod close_claim_protocol_fee_operator;
 pub use close_claim_protocol_fee_operator::*;
+
+pub mod update_base_fee;
+pub use update_base_fee::*;

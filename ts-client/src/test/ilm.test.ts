@@ -11,11 +11,11 @@ import {
   getMintLen,
   getOrCreateAssociatedTokenAccount,
   mintTo,
-  unpackAccount,
 } from "@solana/spl-token";
 import {
   Connection,
   Keypair,
+  LAMPORTS_PER_SOL,
   PublicKey,
   SystemProgram,
   Transaction,
@@ -76,7 +76,7 @@ describe("ILM test", () => {
     let pairKey: web3.PublicKey;
     let pair: DLMM;
 
-    const toLamportMultiplier = new Decimal(10 ** (wenDecimal - usdcDecimal));
+    const toLamportMultiplier = new Decimal(10 ** (usdcDecimal - wenDecimal));
 
     const minPrice = 0.000001;
     const maxPrice = 0.00003;
@@ -372,7 +372,7 @@ describe("ILM test", () => {
     let pair: DLMM;
 
     const toLamportMultiplier = new Decimal(
-      10 ** (sharkyDecimal - usdcDecimal)
+      10 ** (usdcDecimal - sharkyDecimal)
     );
 
     const minPrice = 0.5;
@@ -676,7 +676,7 @@ describe("ILM test", () => {
     let pairKey: web3.PublicKey;
     let pair: DLMM;
 
-    const toLamportMultiplier = new Decimal(10 ** (dummyDecimal - usdcDecimal));
+    const toLamportMultiplier = new Decimal(10 ** (usdcDecimal - dummyDecimal));
 
     const minPrice = 0.5;
     const maxPrice = 1.62;
@@ -697,8 +697,9 @@ describe("ILM test", () => {
       ];
 
       const mintLen = getMintLen(extensions);
-      const minLamports =
-        await connection.getMinimumBalanceForRentExemption(mintLen);
+      const minLamports = await connection.getMinimumBalanceForRentExemption(
+        mintLen
+      );
 
       const createDummyTx = new Transaction()
         .add(
@@ -979,6 +980,317 @@ describe("ILM test", () => {
         .then((i) => new BN(i.value.amount));
 
       const actualDepositedAmount = afterTokenXBalance.sub(beforeTokenXBalance);
+      expect(actualDepositedAmount.toString()).toEqual(seedAmount.toString());
+
+      const positions = await pair.getPositionsByUserAndLbPair(
+        positionOwner.publicKey
+      );
+
+      const positionKeys = positions.userPositions.map((p) => p.publicKey);
+      const positionStates =
+        await pair.program.account.positionV2.fetchMultiple(positionKeys);
+
+      for (const state of positionStates) {
+        expect(state.feeOwner.toBase58()).toBe(feeOwner.publicKey.toBase58());
+        expect(state.owner.toBase58()).toBe(positionOwner.publicKey.toBase58());
+        expect(state.lockReleasePoint.toString()).toBe(
+          lockReleaseSlot.toString()
+        );
+      }
+
+      let binArrays = await pair.getBinArrays();
+      binArrays = binArrays.sort((a, b) =>
+        a.account.index.cmp(b.account.index)
+      );
+
+      const binLiquidities = binArrays
+        .map((ba) => {
+          const [lowerBinId, upperBinId] = getBinArrayLowerUpperBinId(
+            ba.account.index
+          );
+          const binWithLiquidity: [number, number][] = [];
+          for (let i = lowerBinId.toNumber(); i <= upperBinId.toNumber(); i++) {
+            const binAmountX =
+              ba.account.bins[i - lowerBinId.toNumber()].amountX;
+            const binPrice = getPriceOfBinByBinId(i, pair.lbPair.binStep);
+            const liquidity = new Decimal(binAmountX.toString())
+              .mul(binPrice)
+              .floor()
+              .toNumber();
+            binWithLiquidity.push([i, liquidity]);
+          }
+          return binWithLiquidity;
+        })
+        .flat();
+
+      console.log(binLiquidities.filter((b) => b[1] > 0).reverse());
+      console.log(binLiquidities.filter((b) => b[1] > 0));
+      console.log(babar(binLiquidities));
+    });
+  });
+});
+
+describe("Edge test", () => {
+  describe("Thin liquidity at the beginning of the curve", () => {
+    const baseKeypair = Keypair.generate();
+    const feePayerKeypair = Keypair.generate();
+    const tokenDecimal = 8;
+    const usdcDecimal = 6;
+    const feeBps = new BN(500);
+
+    let TOKEN: web3.PublicKey;
+    let USDC: web3.PublicKey;
+    let userTOKEN: web3.PublicKey;
+    let userUSDC: web3.PublicKey;
+    let pairKey: web3.PublicKey;
+    let pair: DLMM;
+
+    const toLamportMultiplier = new Decimal(10 ** (usdcDecimal - tokenDecimal));
+
+    const minPrice = 0.0001;
+    const maxPrice = 0.006966448211669921;
+    const binStep = 100;
+    const curvature = 0.4;
+    const seedAmount = new BN("19600000").mul(new BN(10 ** tokenDecimal));
+
+    const minBinId = DLMM.getBinIdFromPrice(
+      new Decimal(minPrice).mul(toLamportMultiplier),
+      binStep,
+      false
+    );
+
+    beforeAll(async () => {
+      await connection.requestAirdrop(
+        feePayerKeypair.publicKey,
+        10 * LAMPORTS_PER_SOL
+      );
+
+      TOKEN = await createMint(
+        connection,
+        operator,
+        operator.publicKey,
+        null,
+        tokenDecimal,
+        Keypair.generate(),
+        null,
+        TOKEN_PROGRAM_ID
+      );
+
+      USDC = await createMint(
+        connection,
+        operator,
+        operator.publicKey,
+        null,
+        usdcDecimal,
+        Keypair.generate(),
+        null,
+        TOKEN_PROGRAM_ID
+      );
+
+      const userTokenInfo = await getOrCreateAssociatedTokenAccount(
+        connection,
+        operator,
+        TOKEN,
+        operator.publicKey,
+        false,
+        "confirmed",
+        {
+          commitment: "confirmed",
+        },
+        TOKEN_PROGRAM_ID,
+        ASSOCIATED_TOKEN_PROGRAM_ID
+      );
+      userTOKEN = userTokenInfo.address;
+
+      const userUsdcInfo = await getOrCreateAssociatedTokenAccount(
+        connection,
+        operator,
+        USDC,
+        operator.publicKey,
+        false,
+        "confirmed",
+        {
+          commitment: "confirmed",
+        },
+        TOKEN_PROGRAM_ID,
+        ASSOCIATED_TOKEN_PROGRAM_ID
+      );
+      userUSDC = userUsdcInfo.address;
+
+      await mintTo(
+        connection,
+        operator,
+        TOKEN,
+        userTOKEN,
+        operator.publicKey,
+        200_000_000_000 * 10 ** tokenDecimal,
+        [],
+        {
+          commitment: "confirmed",
+        },
+        TOKEN_PROGRAM_ID
+      );
+
+      await mintTo(
+        connection,
+        operator,
+        USDC,
+        userUSDC,
+        operator.publicKey,
+        1_000_000_000 * 10 ** usdcDecimal,
+        [],
+        {
+          commitment: "confirmed",
+        },
+        TOKEN_PROGRAM_ID
+      );
+
+      const slot = await connection.getSlot();
+      const activationPoint = new BN(slot).add(new BN(100));
+
+      let rawTx = await DLMM.createCustomizablePermissionlessLbPair2(
+        connection,
+        new BN(binStep),
+        TOKEN,
+        USDC,
+        new BN(minBinId.toString()),
+        feeBps,
+        ActivationType.Slot,
+        false, // No alpha vault. Set to true the program will deterministically whitelist the alpha vault to swap before the pool start trading. Check: https://github.com/MeteoraAg/alpha-vault-sdk initialize{Prorata|Fcfs}Vault method to create the alpha vault.
+        operator.publicKey,
+        activationPoint,
+        false,
+        {
+          cluster: "localhost",
+        }
+      );
+
+      let txHash = await sendAndConfirmTransaction(connection, rawTx, [
+        operator,
+      ]).catch((e) => {
+        console.error(e);
+        throw e;
+      });
+      console.log("Create customlzable permissionless LB pair 2", txHash);
+
+      [pairKey] = deriveCustomizablePermissionlessLbPair(
+        TOKEN,
+        USDC,
+        programId
+      );
+
+      pair = await DLMM.create(connection, pairKey, {
+        cluster: "localhost",
+      });
+    });
+
+    it("seed liquidity", async () => {
+      const currentSlot = await connection.getSlot();
+
+      const lockReleaseSlot = lockDuration.add(new BN(currentSlot));
+
+      const {
+        sendPositionOwnerTokenProveIxs,
+        initializeBinArraysAndPositionIxs,
+        addLiquidityIxs,
+      } = await pair.seedLiquidity(
+        positionOwner.publicKey,
+        seedAmount,
+        curvature,
+        minPrice,
+        maxPrice,
+        baseKeypair.publicKey,
+        feePayerKeypair.publicKey,
+        feeOwner.publicKey,
+        operator.publicKey,
+        lockReleaseSlot,
+        true
+      );
+
+      // Send token prove
+      {
+        const { blockhash, lastValidBlockHeight } =
+          await connection.getLatestBlockhash("confirmed");
+
+        const transaction = new Transaction({
+          feePayer: operator.publicKey,
+          blockhash,
+          lastValidBlockHeight,
+        }).add(...sendPositionOwnerTokenProveIxs);
+
+        await sendAndConfirmTransaction(connection, transaction, [
+          feePayerKeypair,
+          operator,
+        ]);
+      }
+
+      // Initialize all bin array and position, transaction order can be in sequence or not
+      {
+        const { blockhash, lastValidBlockHeight } =
+          await connection.getLatestBlockhash("confirmed");
+        const transactions = [];
+
+        for (const groupIx of initializeBinArraysAndPositionIxs) {
+          const tx = new Transaction({
+            feePayer: operator.publicKey,
+            blockhash,
+            lastValidBlockHeight,
+          }).add(...groupIx);
+
+          const signers = [feePayerKeypair, operator, baseKeypair];
+
+          transactions.push(sendAndConfirmTransaction(connection, tx, signers));
+        }
+
+        await Promise.all(transactions)
+          .then((txs) => {
+            txs.map(console.log);
+          })
+          .catch((e) => {
+            console.error(e);
+            throw e;
+          });
+      }
+
+      const beforeTokenXBalance = await connection
+        .getTokenAccountBalance(userTOKEN)
+        .then((i) => new BN(i.value.amount));
+
+      {
+        const { blockhash, lastValidBlockHeight } =
+          await connection.getLatestBlockhash("confirmed");
+
+        const transactions = [];
+
+        // Deposit to positions created in above step. The add liquidity order can be in sequence or not.
+        for (const groupIx of addLiquidityIxs) {
+          const tx = new Transaction({
+            feePayer: operator.publicKey,
+            blockhash,
+            lastValidBlockHeight,
+          }).add(...groupIx);
+
+          const signers = [operator];
+
+          transactions.push(sendAndConfirmTransaction(connection, tx, signers));
+        }
+
+        await Promise.all(transactions)
+          .then((txs) => {
+            txs.map(console.log);
+          })
+          .catch((e) => {
+            console.error(e);
+            throw e;
+          });
+      }
+
+      const afterTokenXBalance = await connection
+        .getTokenAccountBalance(userTOKEN)
+        .then((i) => new BN(i.value.amount));
+
+      const actualDepositedAmount = beforeTokenXBalance.sub(afterTokenXBalance);
+      console.log(actualDepositedAmount.toString());
       expect(actualDepositedAmount.toString()).toEqual(seedAmount.toString());
 
       const positions = await pair.getPositionsByUserAndLbPair(

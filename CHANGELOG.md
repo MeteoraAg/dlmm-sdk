@@ -19,7 +19,98 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-## @meteora-ag/dlmm [1.4.3] - PR #162
+## @meteora-ag/dlmm [1.5.5] - PR #227
+
+### Fix
+
+- fix export helpers function for position
+
+## @meteora-ag/dlmm [1.5.4] - PR #220
+
+### Fixed
+
+- fix `swapQuote` price impact should be absolute
+
+## cli [0.5.1] - PR #215
+
+### Fixed
+
+- Fix swap bin array account ordering and account fetching
+
+## common [0.3.1] - PR #215
+
+### Fixed
+
+- Fix swap quote
+
+## @meteora-ag/dlmm [1.5.3] - PR #211
+
+### Fixed
+
+- fix `getBinsBetweenLowerAndUpperBound` when bin Array not found
+
+## @meteora-ag/dlmm [1.5.2] - PR #209
+
+### Fixed
+
+- `seedLiquiditySingle` used wrong token program for token2022
+
+## @meteora-ag/dlmm [1.5.1] - PR #205
+
+### Fixed
+
+- `seedLiquidity` find optimal decompress multiplier
+- Minor bug fix
+
+## @meteora-ag/dlmm [1.5.0] - PR #201
+
+### Changed
+
+- `seedLiquidity` now return `costBreakdown` field for account rental in `SeedLiquidityResponse`.
+- `seedLiquiditySingleBin` now return `SeedLiquiditySingleBinResponse` instead of `TransactionInstruction[]`. `SeedLiquiditySingleBinResponse` has `costBreakdown` field for account rental.
+
+### Fixed
+
+- Fixed `POSITION_FEE` and `BIN_ARRAY_FEE` account rental cost constant.
+
+## @meteora-ag/dlmm [1.4.11] - PR #195
+
+### Fixed
+
+- Fixed all claim method not working if position no liquidity
+
+## @meteora-ag/dlmm [1.4.10] - PR #194
+
+### Fixed
+
+- Fixed `createClaimBuildMethod` return undefined;
+
+## @meteora-ag/dlmm [1.4.9] - PR #193
+
+### Fixed
+
+- Fixed readme `Remove Liquidity` section
+
+## @meteora-ag/dlmm [1.4.8] - PR #192
+
+### Fixed
+
+- Fixed `getPositionsByUserAndLbPair` assertion
+
+## @meteora-ag/dlmm [1.4.7] - PR #191
+
+### Fixed
+
+- Fixed `seedLiquiditySingleBin` create token account for position owner token proof.
+- FIxed `syncWithMarketPrice` not initializing bitmap extensions if needed
+
+## @meteora-ag/dlmm [1.4.6] - PR #190
+
+### Fixed
+
+- Fixed `seedLiquiditySingleBin` function
+
+## @meteora-ag/dlmm [1.4.5] - PR #162
 
 ### Changed
 

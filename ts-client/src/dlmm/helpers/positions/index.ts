@@ -67,3 +67,21 @@ export function getPositionLowerUpperBinIdWithLiquidity(
       }
     : null;
 }
+
+export function isPositionNoFee(
+  position: PositionData
+): boolean {
+  return (
+    position.feeX.isZero() &&
+    position.feeY.isZero()
+  );
+}
+
+export function isPositionNoReward(
+  position: PositionData
+): boolean {
+  return (
+    position.rewardOne.isZero() &&
+    position.rewardTwo.isZero()
+  );
+}

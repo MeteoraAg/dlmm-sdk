@@ -202,7 +202,7 @@ pub fn quote_exact_in(
             .context("Active bin array not found")?;
 
         loop {
-            if !active_bin_array.is_bin_id_within_range(lb_pair.active_id)? || amount_in == 0 {
+            if !active_bin_array.is_bin_id_within_range(lb_pair.active_id)? || amount_left == 0 {
                 break;
             }
 
@@ -229,7 +229,7 @@ pub fn quote_exact_in(
                 total_fee = total_fee.checked_add(fee).context("MathOverflow")?;
             }
 
-            if amount_in > 0 {
+            if amount_left > 0 {
                 lb_pair.advance_active_bin(swap_for_y)?;
             }
         }
