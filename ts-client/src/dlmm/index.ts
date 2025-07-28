@@ -2357,8 +2357,10 @@ export class DLMM {
     const { minBinId, maxBinId } = strategy;
 
     const binCount = maxBinId - minBinId + 1;
-    const positionCount =
-      Math.floor(binCount / MAX_BINS_PER_POSITION.toNumber()) + 1;
+    let positionCount = Math.floor(binCount / MAX_BINS_PER_POSITION.toNumber());
+    if (binCount % MAX_BINS_PER_POSITION.toNumber() > 0) {
+      positionCount++;
+    }
 
     let positionReallocCost = 0;
 
