@@ -1,4 +1,5 @@
 use crate::*;
+use anchor_lang::Discriminator;
 
 #[derive(Debug, Parser)]
 pub struct ClosePresetAccountParams {
@@ -13,20 +14,43 @@ pub async fn execute_close_preset_parameter<C: Deref<Target = impl Signer> + Clo
 ) -> Result<Pubkey> {
     let ClosePresetAccountParams { preset_parameter } = params;
 
-    let accounts: [AccountMeta; CLOSE_PRESET_PARAMETER_IX_ACCOUNTS_LEN] =
-        ClosePresetParameterKeys {
+    let rpc_client = program.rpc();
+    let preset_parameter_account = rpc_client.get_account(&preset_parameter).await?;
+
+    let disc = &preset_parameter_account.data[..8];
+
+    let instruction = if disc == dlmm::accounts::PresetParameter::DISCRIMINATOR {
+        let accounts = dlmm::client::accounts::ClosePresetParameter {
             admin: program.payer(),
             rent_receiver: program.payer(),
             preset_parameter,
         }
-        .into();
+        .to_account_metas(None);
 
-    let data = ClosePresetParameter2IxData;
+        let data = dlmm::client::args::ClosePresetParameter {}.data();
 
-    let instruction = Instruction {
-        program_id: dlmm_interface::ID,
-        accounts: accounts.to_vec(),
-        data: data.try_to_vec()?,
+        Instruction {
+            program_id: dlmm::ID,
+            accounts,
+            data,
+        }
+    } else if disc == dlmm::accounts::PresetParameter2::DISCRIMINATOR {
+        let accounts = dlmm::client::accounts::ClosePresetParameter2 {
+            admin: program.payer(),
+            rent_receiver: program.payer(),
+            preset_parameter,
+        }
+        .to_account_metas(None);
+
+        let data = dlmm::client::args::ClosePresetParameter2 {}.data();
+
+        Instruction {
+            program_id: dlmm::ID,
+            accounts,
+            data,
+        }
+    } else {
+        bail!("Not a valid preset parameter account");
     };
 
     let request_builder = program.request();

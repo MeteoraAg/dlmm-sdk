@@ -1,6 +1,6 @@
 import { LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
-import { IDL } from "../idl";
 import { BN } from "@coral-xyz/anchor";
+import IDL from "../dlmm.json";
 import Decimal from "decimal.js";
 
 export const LBCLMM_PROGRAM_IDS = {
@@ -27,6 +27,7 @@ export const SCALE = new BN(1).shln(SCALE_OFFSET);
 
 export const FEE_PRECISION = new BN(1_000_000_000);
 export const MAX_FEE_RATE = new BN(100_000_000);
+
 // https://solscan.io/tx/5JgHgEiVoqV61p3SASYzP4gnedvYFLhewPchBdFgPQZjHEiitjZCqs8u4rXyDYnGJ9zqAscknv9NoBiodsfDE1qR
 export const BIN_ARRAY_FEE = 0.07143744;
 // https://solscan.io/tx/37yEmHsTU6tKjUc6iGG8GPiEuPHxiyBezwexsnnsqXQQKuDgwsNciEzkQZFWJShcdLpfug5xqNBPJkzit7eWvkDD
@@ -57,8 +58,9 @@ const CONSTANTS = Object.entries(IDL.constants);
 export const MAX_BIN_ARRAY_SIZE = new BN(
   CONSTANTS.find(([k, v]) => v.name == "MAX_BIN_PER_ARRAY")?.[1].value ?? 0
 );
-export const MAX_BIN_PER_POSITION = new BN(
-  CONSTANTS.find(([k, v]) => v.name == "MAX_BIN_PER_POSITION")?.[1].value ?? 0
+export const DEFAULT_BIN_PER_POSITION = new BN(
+  CONSTANTS.find(([k, v]) => v.name == "DEFAULT_BIN_PER_POSITION")?.[1].value ??
+    0
 );
 export const BIN_ARRAY_BITMAP_SIZE = new BN(
   CONSTANTS.find(([k, v]) => v.name == "BIN_ARRAY_BITMAP_SIZE")?.[1].value ?? 0
@@ -68,16 +70,23 @@ export const EXTENSION_BINARRAY_BITMAP_SIZE = new BN(
     .value ?? 0
 );
 
+export const POSITION_MAX_LENGTH = new BN(
+  CONSTANTS.find(([k, v]) => v.name == "POSITION_MAX_LENGTH")?.[1].value ?? 0
+);
+
+export const MAX_RESIZE_LENGTH = new BN(
+  CONSTANTS.find(([k, v]) => v.name == "MAX_RESIZE_LENGTH")?.[1].value ?? 0
+);
+
 export const SIMULATION_USER = new PublicKey(
   "HrY9qR5TiB2xPzzvbBu5KrBorMfYGQXh9osXydz4jy9s"
 );
 
 export const PRECISION = 18446744073709551616;
 
-export const MAX_CLAIM_ALL_ALLOWED = 3;
+export const MAX_CLAIM_ALL_ALLOWED = 2;
 
 export const MAX_BIN_LENGTH_ALLOWED_IN_ONE_TX = 26;
-export const MAX_BIN_PER_TX = 69;
 
 export const MAX_ACTIVE_BIN_SLIPPAGE = 3;
 
@@ -87,3 +96,7 @@ export const ILM_BASE = new PublicKey(
 
 export const MAX_EXTRA_BIN_ARRAYS = 3;
 export const U64_MAX = new BN("18446744073709551615");
+
+export const MAX_BINS_PER_POSITION = new BN(
+  CONSTANTS.find(([k, v]) => v.name == "POSITION_MAX_LENGTH")?.[1].value ?? 0
+);
