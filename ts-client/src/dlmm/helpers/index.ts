@@ -66,6 +66,7 @@ import {
   toAmountIntoBins,
 } from "./rebalance";
 import { calculateTransferFeeIncludedAmount } from "./token_2022";
+import Decimal from "decimal.js";
 
 export * from "./binArray";
 export * from "./derive";
@@ -419,7 +420,21 @@ export function getBinCount(minBinId: number, maxBinId: number) {
  *
  **/
 export function getSlippageMaxAmount(amount: BN, slippage: number) {
-  return slippage == 100 ? U64_MAX : amount.muln(100 + slippage).divn(100);
+  if (slippage == 100) {
+    return U64_MAX;
+  }
+
+  const amountDecimal = new Decimal(amount.toString());
+
+  const slippageAppliedAmount = new BN(
+    amountDecimal
+      .mul(new Decimal(100 + slippage))
+      .div(new Decimal(100))
+      .floor()
+      .toString()
+  );
+
+  return slippageAppliedAmount;
 }
 
 /**
@@ -430,7 +445,14 @@ export function getSlippageMaxAmount(amount: BN, slippage: number) {
  * @returns The minimum amount of tokens after applying slippage.
  */
 export function getSlippageMinAmount(amount: BN, slippage: number) {
-  return amount.muln(100 - slippage).divn(100);
+  const amountDecimal = new Decimal(amount.toString());
+  return new BN(
+    amountDecimal
+      .mul(new Decimal(100 - slippage))
+      .div(new Decimal(100))
+      .ceil()
+      .toString()
+  );
 }
 
 /**
