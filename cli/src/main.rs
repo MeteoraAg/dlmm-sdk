@@ -258,6 +258,10 @@ async fn main() -> Result<()> {
             AdminCommand::UpdateBaseFee(params) => {
                 execute_update_base_fee(params, &program, transaction_config).await?;
             }
+            AdminCommand::InitializePresetParameterFromCsv(params) => {
+                execute_initialize_preset_parameter_from_csv(params, &program, transaction_config)
+                    .await?;
+            }
         },
     };
 

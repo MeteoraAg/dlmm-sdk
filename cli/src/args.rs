@@ -148,4 +148,5 @@ pub enum AdminCommand {
     CreateClaimProtocolFeeOperator(CreateClaimFeeOperatorParams),
     CloseClaimProtocolFeeOperator(CloseClaimFeeOperatorParams),
     UpdateBaseFee(UpdateBaseFeeParams),
+    InitializePresetParameterFromCsv(InitPresetParameterFromCsvParams),
 }
