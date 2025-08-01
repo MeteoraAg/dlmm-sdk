@@ -210,6 +210,7 @@ export interface InitializeMultiplePositionAndAddLiquidityByStrategyResponse {
   instructionsByPositions: {
     positionKeypair: Keypair;
     initializePositionIx: TransactionInstruction;
+    initializeAtaIxs: TransactionInstruction[];
     addLiquidityIxs: TransactionInstruction[][];
   }[];
 }

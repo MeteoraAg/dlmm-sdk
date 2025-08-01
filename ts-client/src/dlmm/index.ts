@@ -2592,6 +2592,44 @@ export class DLMM {
     const instructionsByPositions = [];
     let startBinId = minBinId;
 
+    const initializeAtaIxs = [];
+
+    if (!this.tokenX.publicKey.equals(NATIVE_MINT) && !totalXAmount.isZero()) {
+      const ownerAtaX = getAssociatedTokenAddressSync(
+        this.tokenX.publicKey,
+        owner,
+        true,
+        this.tokenX.owner
+      );
+      initializeAtaIxs.push(
+        createAssociatedTokenAccountIdempotentInstruction(
+          owner,
+          ownerAtaX,
+          owner,
+          this.tokenX.publicKey,
+          this.tokenX.owner
+        )
+      );
+    }
+
+    if (!this.tokenY.publicKey.equals(NATIVE_MINT) && !totalYAmount.isZero()) {
+      const ownerAtaY = getAssociatedTokenAddressSync(
+        this.tokenY.publicKey,
+        owner,
+        true,
+        this.tokenY.owner
+      );
+      initializeAtaIxs.push(
+        createAssociatedTokenAccountIdempotentInstruction(
+          owner,
+          ownerAtaY,
+          owner,
+          this.tokenY.publicKey,
+          this.tokenY.owner
+        )
+      );
+    }
+
     for (const position of positionKeypairs) {
       const endBinId = Math.min(
         startBinId + MAX_BINS_PER_POSITION.toNumber() - 1,
@@ -2631,6 +2669,7 @@ export class DLMM {
       instructionsByPositions.push({
         positionKeypair: position,
         initializePositionIx: initPositionIx,
+
         addLiquidityIxs: chunkedAddLiquidityIx,
       });
 
