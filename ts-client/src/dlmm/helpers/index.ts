@@ -751,30 +751,27 @@ export async function chunkDepositWithRebalanceEndpoint(
 
     const addLiquidityIxs: TransactionInstruction[] = [];
 
-    addLiquidityIxs.push(
-      ...initBitmapIxs,
-      ...initBinArrayIxs,
-      createUserTokenXIx,
-      createUserTokenYIx
-    );
+    addLiquidityIxs.push(...initBitmapIxs, ...initBinArrayIxs);
 
-    if (dlmm.tokenX.publicKey.equals(NATIVE_MINT) && !totalXAmount.isZero()) {
+    if (dlmm.tokenX.publicKey.equals(NATIVE_MINT)) {
       const wrapSOLIx = wrapSOLInstruction(
         owner,
         userTokenX,
         BigInt(totalXAmount.toString())
       );
 
+      addLiquidityIxs.push(createUserTokenXIx);
       addLiquidityIxs.push(...wrapSOLIx);
     }
 
-    if (dlmm.tokenY.publicKey.equals(NATIVE_MINT) && !totalYAmount.isZero()) {
+    if (dlmm.tokenY.publicKey.equals(NATIVE_MINT)) {
       const wrapSOLIx = wrapSOLInstruction(
         owner,
         userTokenY,
         BigInt(totalYAmount.toString())
       );
 
+      addLiquidityIxs.push(createUserTokenYIx);
       addLiquidityIxs.push(...wrapSOLIx);
     }
 

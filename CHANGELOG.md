@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.6.0] - PR #229
+
+### Changed
+
+- update `initializeMultiplePositionAndAddLiquidityByStrategy` to include `initializeAtaIxs` so that create ATA instructions don't need to be include in every rebalance transactions
+
 ## @meteora-ag/dlmm [1.6.0] - PR #196
 
 ### Changed
