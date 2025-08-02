@@ -2592,9 +2592,9 @@ export class DLMM {
     const instructionsByPositions = [];
     let startBinId = minBinId;
 
-    const initializeAtaIxs = [];
+    const initializeAtaIxs: TransactionInstruction[] = [];
 
-    if (!this.tokenX.publicKey.equals(NATIVE_MINT) && !totalXAmount.isZero()) {
+    if (!this.tokenX.publicKey.equals(NATIVE_MINT)) {
       const ownerAtaX = getAssociatedTokenAddressSync(
         this.tokenX.publicKey,
         owner,
@@ -2612,7 +2612,7 @@ export class DLMM {
       );
     }
 
-    if (!this.tokenY.publicKey.equals(NATIVE_MINT) && !totalYAmount.isZero()) {
+    if (!this.tokenY.publicKey.equals(NATIVE_MINT)) {
       const ownerAtaY = getAssociatedTokenAddressSync(
         this.tokenY.publicKey,
         owner,
@@ -2669,7 +2669,7 @@ export class DLMM {
       instructionsByPositions.push({
         positionKeypair: position,
         initializePositionIx: initPositionIx,
-
+        initializeAtaIxs,
         addLiquidityIxs: chunkedAddLiquidityIx,
       });
 

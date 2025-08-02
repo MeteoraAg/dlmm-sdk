@@ -753,7 +753,7 @@ export async function chunkDepositWithRebalanceEndpoint(
 
     addLiquidityIxs.push(...initBitmapIxs, ...initBinArrayIxs);
 
-    if (dlmm.tokenX.publicKey.equals(NATIVE_MINT) && !totalXAmount.isZero()) {
+    if (dlmm.tokenX.publicKey.equals(NATIVE_MINT)) {
       const wrapSOLIx = wrapSOLInstruction(
         owner,
         userTokenX,
@@ -764,7 +764,7 @@ export async function chunkDepositWithRebalanceEndpoint(
       addLiquidityIxs.push(...wrapSOLIx);
     }
 
-    if (dlmm.tokenY.publicKey.equals(NATIVE_MINT) && !totalYAmount.isZero()) {
+    if (dlmm.tokenY.publicKey.equals(NATIVE_MINT)) {
       const wrapSOLIx = wrapSOLInstruction(
         owner,
         userTokenY,
