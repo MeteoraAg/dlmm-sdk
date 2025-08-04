@@ -14,8 +14,14 @@ import { ResizeSide } from "../types";
 export const DEFAULT_ADD_LIQUIDITY_CU = 1_000_000;
 export const DEFAULT_EXTEND_POSITION_HIGH_CU = 1_000_000;
 export const DEFAULT_EXTEND_POSITION_LOW_CU = 30_000;
-export const DEFAULT_INIT_POSITION_CU = 30_000;
-export const DEFAULT_INIT_BIN_ARRAY_CU = 350_000;
+export const DEFAULT_INIT_POSITION_CU = 25_000;
+export const DEFAULT_INIT_BIN_ARRAY_CU = 300_000;
+// https://explorer.solana.com/tx/2M5gDryEQqNfmZHuteUyL6H1yustaz7MsMiQYLi6ZpkWqHh2F3i2pAcmsDjRbqHzBYk7UREmWdCpRJECD14wu4QA?cluster=devnet
+export const DEFAULT_INIT_ATA_CU = 28_000;
+export const DEFAULT_CLOSE_ATA_CU = 5000;
+export const DEFAULT_INIT_BITMAP_EXTENSION_CU = 10_000;
+// https://solscan.io/tx/4zvVUkW8XFHVffpEHARbdfdjdNm9KhitWLD3BntwL8Dr61bGsf2tmXm4npqmxFSRM1RZE4p7MzLpJksmeghPYcWS
+export const DEFAULT_REBALANCE_ADD_LIQUIDITY_CU = 450_000;
 
 export const MIN_CU_BUFFER = 50_000;
 export const MAX_CU_BUFFER = 200_000;

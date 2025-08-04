@@ -1,5 +1,5 @@
 import { BN } from "@coral-xyz/anchor";
-import { PublicKey } from "@solana/web3.js";
+import { AccountInfo, Connection, PublicKey } from "@solana/web3.js";
 import {
   MAX_BIN_ARRAY_SIZE,
   DEFAULT_BIN_PER_POSITION,
@@ -23,6 +23,8 @@ import {
 } from "../constants";
 import { getPositionCount } from "./math";
 import { deriveBinArray } from "./derive";
+import { getBinArrayIndexesCoverage } from "./positions";
+import { chunkedGetMultipleAccountInfos } from ".";
 
 /** private */
 function internalBitmapRange() {
@@ -471,4 +473,39 @@ export function updateBinArray(
   }
 
   return binArrayClone;
+}
+
+export async function fetchBinArrayByBinRange(
+  startBinId: number,
+  endBinId: number,
+  lbPair: PublicKey,
+  programId: PublicKey,
+  connection: Connection
+): Promise<Map<String, AccountInfo<Buffer>>> {
+  const binArrayIndexes = getBinArrayIndexesCoverage(
+    new BN(startBinId),
+    new BN(endBinId)
+  );
+
+  const binArrayAddresses = binArrayIndexes.map(
+    (idx) => deriveBinArray(lbPair, idx, programId)[0]
+  );
+
+  const binArrayAccounts = await chunkedGetMultipleAccountInfos(
+    connection,
+    binArrayAddresses
+  );
+
+  const binArrayMap = new Map<String, AccountInfo<Buffer>>();
+
+  for (let i = 0; i < binArrayAddresses.length; i++) {
+    const binArrayAddress = binArrayAddresses[i];
+    const binArrayAccount = binArrayAccounts[i];
+
+    if (binArrayAccount) {
+      binArrayMap.set(binArrayAddress.toBase58(), binArrayAccount);
+    }
+  }
+
+  return binArrayMap;
 }

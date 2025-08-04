@@ -19,7 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-## @meteora-ag/dlmm [1.6.0] - PR #229
+## @meteora-ag/dlmm [1.6.2] - PR #230
+
+### Changed
+
+- Optimize CU requested on `initializeMultiplePositionAndAddLiquidityByStrategy` and `addLiquidityByStrategyChunkable` function
+
+## @meteora-ag/dlmm [1.6.1] - PR #229
 
 ### Changed
 

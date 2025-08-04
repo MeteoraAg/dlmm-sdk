@@ -51,7 +51,11 @@ import {
 } from "./binArray";
 import {
   DEFAULT_ADD_LIQUIDITY_CU,
+  DEFAULT_CLOSE_ATA_CU,
+  DEFAULT_INIT_ATA_CU,
   DEFAULT_INIT_BIN_ARRAY_CU,
+  DEFAULT_INIT_BITMAP_EXTENSION_CU,
+  DEFAULT_REBALANCE_ADD_LIQUIDITY_CU,
   MAX_CU,
   MAX_CU_BUFFER,
   MIN_CU_BUFFER,
@@ -525,7 +529,7 @@ export async function chunkDepositWithRebalanceEndpoint(
   liquidityStrategyParameters: LiquidityStrategyParameters,
   owner: PublicKey,
   payer: PublicKey,
-  simulateCU: boolean
+  onChainCheckedBinArrays: Set<String>
 ) {
   const { slices, accounts: transferHookAccounts } =
     dlmm.getPotentialToken2022IxDataAndAccounts(ActionType.Liquidity);
@@ -565,7 +569,7 @@ export async function chunkDepositWithRebalanceEndpoint(
     dlmm.program.programId
   )[0];
 
-  let calculatedAddLiquidityCU = 0;
+  let suggestedCU = 0;
 
   const chunkedAddLiquidityIx: TransactionInstruction[][] = [];
   const chunkedBinRange = chunkBinRange(positionMinBinId, positionMaxBinId);
@@ -602,6 +606,8 @@ export async function chunkDepositWithRebalanceEndpoint(
 
       initBitmapIxs.push(initBitmapIx);
       binArrayOrBitmapInitTracking.add(bitmapPubkey.toBase58());
+
+      suggestedCU += DEFAULT_INIT_BITMAP_EXTENSION_CU;
     }
 
     const binArrayPubkeys = binArrayIndexes.map(
@@ -609,7 +615,10 @@ export async function chunkDepositWithRebalanceEndpoint(
     );
 
     for (const [idx, binArrayPubkey] of binArrayPubkeys.entries()) {
-      if (!binArrayOrBitmapInitTracking.has(binArrayPubkey.toBase58())) {
+      if (
+        !binArrayOrBitmapInitTracking.has(binArrayPubkey.toBase58()) &&
+        !onChainCheckedBinArrays.has(binArrayPubkey.toBase58())
+      ) {
         const initBinArrayIx = await dlmm.program.methods
           .initializeBinArray(binArrayIndexes[idx])
           .accountsPartial({
@@ -622,7 +631,7 @@ export async function chunkDepositWithRebalanceEndpoint(
         binArrayOrBitmapInitTracking.add(binArrayPubkey.toBase58());
         initBinArrayIxs.push(initBinArrayIx);
 
-        calculatedAddLiquidityCU += DEFAULT_INIT_BIN_ARRAY_CU;
+        suggestedCU += DEFAULT_INIT_BIN_ARRAY_CU;
       }
     }
 
@@ -747,7 +756,7 @@ export async function chunkDepositWithRebalanceEndpoint(
       ])
       .instruction();
 
-    calculatedAddLiquidityCU += DEFAULT_ADD_LIQUIDITY_CU;
+    suggestedCU += DEFAULT_REBALANCE_ADD_LIQUIDITY_CU;
 
     const addLiquidityIxs: TransactionInstruction[] = [];
 
@@ -762,6 +771,8 @@ export async function chunkDepositWithRebalanceEndpoint(
 
       addLiquidityIxs.push(createUserTokenXIx);
       addLiquidityIxs.push(...wrapSOLIx);
+
+      suggestedCU += DEFAULT_INIT_ATA_CU;
     }
 
     if (dlmm.tokenY.publicKey.equals(NATIVE_MINT)) {
@@ -773,6 +784,8 @@ export async function chunkDepositWithRebalanceEndpoint(
 
       addLiquidityIxs.push(createUserTokenYIx);
       addLiquidityIxs.push(...wrapSOLIx);
+
+      suggestedCU += DEFAULT_INIT_ATA_CU;
     }
 
     addLiquidityIxs.push(rebalanceIx);
@@ -787,6 +800,8 @@ export async function chunkDepositWithRebalanceEndpoint(
           TOKEN_PROGRAM_ID
         )
       );
+
+      suggestedCU += DEFAULT_CLOSE_ATA_CU;
     }
 
     if (dlmm.tokenY.publicKey.equals(NATIVE_MINT) && !totalYAmount.isZero()) {
@@ -799,23 +814,15 @@ export async function chunkDepositWithRebalanceEndpoint(
           TOKEN_PROGRAM_ID
         )
       );
+
+      suggestedCU += DEFAULT_CLOSE_ATA_CU;
     }
 
-    if (simulateCU) {
-      const cuIx = await getEstimatedComputeUnitIxWithBuffer(
-        dlmm.program.provider.connection,
-        addLiquidityIxs,
-        payer
-      );
-
-      addLiquidityIxs.unshift(cuIx);
-    } else {
-      addLiquidityIxs.unshift(
-        ComputeBudgetProgram.setComputeUnitLimit({
-          units: Math.min(calculatedAddLiquidityCU, MAX_CU),
-        })
-      );
-    }
+    addLiquidityIxs.unshift(
+      ComputeBudgetProgram.setComputeUnitLimit({
+        units: Math.min(suggestedCU, MAX_CU),
+      })
+    );
 
     chunkedAddLiquidityIx.push(addLiquidityIxs);
   }
