@@ -29,7 +29,7 @@ class ActivationType(Enum):
     Timestamp=1,
 
     def __str__(self) -> str:
-        return f"{self.value[1]}
+        return f"{self.value[1]}"
     
     def __repr__(self) -> str:
         return self.name
