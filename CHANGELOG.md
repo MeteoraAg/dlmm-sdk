@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.6.1]
+
+### Added
+
+- Added `initializeMultiplePositionAndAddLiquidityByStrategy2` function. It should improve transaction landing by allowing parallel execution of returned transaction's instructions. However, the drawback is the function will only expand position up to 420 bins, and chunk the remaining bins into another position with 420 bins again, and so on. This is due to transaction size limitation.
+
 ## @meteora-ag/dlmm [1.6.0] - PR #229
 
 ### Changed
