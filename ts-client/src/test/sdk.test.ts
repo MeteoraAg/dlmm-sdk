@@ -59,7 +59,7 @@ export const MAX_BIN_PER_ARRAY = new BN(
   CONSTANTS.find(([k, v]) => v.name == "MAX_BIN_PER_ARRAY")[1].value
 );
 
-const ACTIVE_ID_OUT_OF_RANGE = BIN_ARRAY_BITMAP_SIZE.mul(MAX_BIN_PER_ARRAY);
+const ACTIVE_ID_OUT_OF_RANGE = BIN_ARRAY_BITMAP_SIZE.addn(1);
 const DEFAULT_ACTIVE_ID = new BN(5660);
 const DEFAULT_BIN_STEP = new BN(10);
 const DEFAULT_BASE_FACTOR = new BN(10000);
