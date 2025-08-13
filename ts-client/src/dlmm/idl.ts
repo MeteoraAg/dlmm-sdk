@@ -8,7 +8,7 @@ export type LbClmm = {
   address: "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo";
   metadata: {
     name: "lbClmm";
-    version: "0.9.1";
+    version: "0.10.0";
     spec: "0.1.0";
     description: "Created with Anchor";
   };
@@ -1526,6 +1526,25 @@ export type LbClmm = {
       args: [];
     },
     {
+      name: "closeTokenBadge";
+      discriminator: [108, 146, 86, 110, 179, 254, 10, 104];
+      accounts: [
+        {
+          name: "tokenBadge";
+          writable: true;
+        },
+        {
+          name: "rentReceiver";
+          writable: true;
+        },
+        {
+          name: "admin";
+          signer: true;
+        }
+      ];
+      args: [];
+    },
+    {
       name: "createClaimProtocolFeeOperator";
       discriminator: [51, 19, 150, 252, 105, 157, 48, 91];
       accounts: [
@@ -1915,6 +1934,72 @@ export type LbClmm = {
         },
         {
           name: "side";
+          type: "u8";
+        }
+      ];
+    },
+    {
+      name: "increasePositionLength2";
+      discriminator: [255, 210, 204, 71, 115, 137, 225, 113];
+      accounts: [
+        {
+          name: "funder";
+          writable: true;
+          signer: true;
+        },
+        {
+          name: "lbPair";
+          relations: ["position"];
+        },
+        {
+          name: "position";
+          writable: true;
+        },
+        {
+          name: "owner";
+          signer: true;
+          relations: ["position"];
+        },
+        {
+          name: "systemProgram";
+          address: "11111111111111111111111111111111";
+        },
+        {
+          name: "eventAuthority";
+          pda: {
+            seeds: [
+              {
+                kind: "const";
+                value: [
+                  95,
+                  95,
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
+                ];
+              }
+            ];
+          };
+        },
+        {
+          name: "program";
+        }
+      ];
+      args: [
+        {
+          name: "index";
           type: "u8";
         }
       ];
@@ -2773,6 +2858,75 @@ export type LbClmm = {
         {
           name: "rent";
           address: "SysvarRent111111111111111111111111111111111";
+        },
+        {
+          name: "eventAuthority";
+          pda: {
+            seeds: [
+              {
+                kind: "const";
+                value: [
+                  95,
+                  95,
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
+                ];
+              }
+            ];
+          };
+        },
+        {
+          name: "program";
+        }
+      ];
+      args: [
+        {
+          name: "lowerBinId";
+          type: "i32";
+        },
+        {
+          name: "width";
+          type: "i32";
+        }
+      ];
+    },
+    {
+      name: "initializePosition2";
+      discriminator: [143, 19, 242, 145, 213, 15, 104, 115];
+      accounts: [
+        {
+          name: "payer";
+          writable: true;
+          signer: true;
+        },
+        {
+          name: "position";
+          writable: true;
+          signer: true;
+        },
+        {
+          name: "lbPair";
+        },
+        {
+          name: "owner";
+          signer: true;
+        },
+        {
+          name: "systemProgram";
+          address: "11111111111111111111111111111111";
         },
         {
           name: "eventAuthority";
@@ -5286,38 +5440,38 @@ export type LbClmm = {
               {
                 kind: "const";
                 value: [
-                  48,
-                  9,
-                  89,
-                  123,
-                  106,
-                  114,
-                  131,
-                  251,
-                  50,
+                  8,
+                  234,
+                  192,
+                  109,
+                  87,
+                  125,
+                  190,
+                  55,
+                  129,
                   173,
-                  254,
-                  250,
-                  10,
+                  227,
+                  8,
+                  104,
+                  201,
+                  104,
+                  13,
+                  31,
+                  178,
+                  74,
                   80,
-                  160,
-                  84,
-                  143,
-                  100,
-                  81,
-                  249,
-                  134,
-                  112,
-                  30,
-                  213,
-                  50,
-                  166,
-                  239,
+                  54,
+                  14,
+                  77,
                   78,
-                  53,
-                  175,
-                  188,
-                  85
+                  226,
+                  57,
+                  47,
+                  122,
+                  166,
+                  165,
+                  57,
+                  144
                 ];
               },
               {
@@ -5376,38 +5530,38 @@ export type LbClmm = {
               {
                 kind: "const";
                 value: [
-                  48,
-                  9,
-                  89,
-                  123,
-                  106,
-                  114,
-                  131,
-                  251,
-                  50,
+                  8,
+                  234,
+                  192,
+                  109,
+                  87,
+                  125,
+                  190,
+                  55,
+                  129,
                   173,
-                  254,
-                  250,
-                  10,
+                  227,
+                  8,
+                  104,
+                  201,
+                  104,
+                  13,
+                  31,
+                  178,
+                  74,
                   80,
-                  160,
-                  84,
-                  143,
-                  100,
-                  81,
-                  249,
-                  134,
-                  112,
-                  30,
-                  213,
-                  50,
-                  166,
-                  239,
+                  54,
+                  14,
+                  77,
                   78,
-                  53,
-                  175,
-                  188,
-                  85
+                  226,
+                  57,
+                  47,
+                  122,
+                  166,
+                  165,
+                  57,
+                  144
                 ];
               },
               {
@@ -5554,8 +5708,16 @@ export type LbClmm = {
       discriminator: [75, 122, 154, 48, 140, 74, 123, 163];
     },
     {
+      name: "claimFee2";
+      discriminator: [232, 171, 242, 97, 58, 77, 35, 45];
+    },
+    {
       name: "claimReward";
       discriminator: [148, 116, 134, 204, 22, 171, 85, 95];
+    },
+    {
+      name: "claimReward2";
+      discriminator: [27, 143, 244, 33, 80, 43, 110, 146];
     },
     {
       name: "compositionFee";
@@ -6063,6 +6225,31 @@ export type LbClmm = {
       code: 6084;
       name: "invalidRewardAccounts";
       msg: "Invalid reward accounts";
+    },
+    {
+      code: 6085;
+      name: "undeterminedError";
+      msg: "Undetermined error";
+    },
+    {
+      code: 6086;
+      name: "reallocExceedMaxLengthPerInstruction";
+      msg: "Realloc exceed max length per instruction";
+    },
+    {
+      code: 6087;
+      name: "invalidBaseFeeMantissa";
+      msg: "Mantissa cannot more than two significant digits";
+    },
+    {
+      code: 6088;
+      name: "invalidPositionOwner";
+      msg: "Invalid position owner";
+    },
+    {
+      code: 6089;
+      name: "invalidPoolAddress";
+      msg: "Invalid pool address";
     }
   ];
   types: [
@@ -6507,6 +6694,38 @@ export type LbClmm = {
       };
     },
     {
+      name: "claimFee2";
+      type: {
+        kind: "struct";
+        fields: [
+          {
+            name: "lbPair";
+            type: "pubkey";
+          },
+          {
+            name: "position";
+            type: "pubkey";
+          },
+          {
+            name: "owner";
+            type: "pubkey";
+          },
+          {
+            name: "feeX";
+            type: "u64";
+          },
+          {
+            name: "feeY";
+            type: "u64";
+          },
+          {
+            name: "activeBinId";
+            type: "i32";
+          }
+        ];
+      };
+    },
+    {
       name: "claimFeeOperator";
       docs: ["Parameter that set by the protocol"];
       serialization: "bytemuck";
@@ -6555,6 +6774,38 @@ export type LbClmm = {
           {
             name: "totalReward";
             type: "u64";
+          }
+        ];
+      };
+    },
+    {
+      name: "claimReward2";
+      type: {
+        kind: "struct";
+        fields: [
+          {
+            name: "lbPair";
+            type: "pubkey";
+          },
+          {
+            name: "position";
+            type: "pubkey";
+          },
+          {
+            name: "owner";
+            type: "pubkey";
+          },
+          {
+            name: "rewardIndex";
+            type: "u64";
+          },
+          {
+            name: "totalReward";
+            type: "u64";
+          },
+          {
+            name: "activeBinId";
+            type: "i32";
           }
         ];
       };
@@ -8232,10 +8483,15 @@ export type LbClmm = {
             type: "u64";
           },
           {
+            name: "shrinkMode";
+            docs: ["shrink mode"];
+            type: "u8";
+          },
+          {
             name: "padding";
             docs: ["padding 32 bytes for future usage"];
             type: {
-              array: ["u8", 32];
+              array: ["u8", 31];
             };
           },
           {
@@ -8275,6 +8531,14 @@ export type LbClmm = {
           {
             name: "position";
             type: "pubkey";
+          },
+          {
+            name: "owner";
+            type: "pubkey";
+          },
+          {
+            name: "activeBinId";
+            type: "i32";
           },
           {
             name: "xWithdrawnAmount";
@@ -8468,17 +8732,17 @@ export type LbClmm = {
           },
           {
             name: "rewardDuration";
-            docs: ["TODO check whether we need to store it in pool"];
+            docs: ["LM reward duration in seconds."];
             type: "u64";
           },
           {
             name: "rewardDurationEnd";
-            docs: ["TODO check whether we need to store it in pool"];
+            docs: ["LM reward duration end time."];
             type: "u64";
           },
           {
             name: "rewardRate";
-            docs: ["TODO check whether we need to store it in pool"];
+            docs: ["LM reward rate"];
             type: "u128";
           },
           {
