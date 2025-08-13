@@ -2,7 +2,7 @@
   "address": "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo",
   "metadata": {
     "name": "lb_clmm",
-    "version": "0.9.1",
+    "version": "0.10.0",
     "spec": "0.1.0",
     "description": "Created with Anchor"
   },
@@ -1280,6 +1280,25 @@
       "args": []
     },
     {
+      "name": "close_token_badge",
+      "discriminator": [108, 146, 86, 110, 179, 254, 10, 104],
+      "accounts": [
+        {
+          "name": "token_badge",
+          "writable": true
+        },
+        {
+          "name": "rent_receiver",
+          "writable": true
+        },
+        {
+          "name": "admin",
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "create_claim_protocol_fee_operator",
       "discriminator": [51, 19, 150, 252, 105, 157, 48, 91],
       "accounts": [
@@ -1598,6 +1617,57 @@
         },
         {
           "name": "side",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "increase_position_length2",
+      "discriminator": [255, 210, 204, 71, 115, 137, 225, 113],
+      "accounts": [
+        {
+          "name": "funder",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "lb_pair",
+          "relations": ["position"]
+        },
+        {
+          "name": "position",
+          "writable": true
+        },
+        {
+          "name": "owner",
+          "signer": true,
+          "relations": ["position"]
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": [
+        {
+          "name": "index",
           "type": "u8"
         }
       ]
@@ -2381,6 +2451,60 @@
         {
           "name": "rent",
           "address": "SysvarRent111111111111111111111111111111111"
+        },
+        {
+          "name": "event_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111,
+                  114, 105, 116, 121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": [
+        {
+          "name": "lower_bin_id",
+          "type": "i32"
+        },
+        {
+          "name": "width",
+          "type": "i32"
+        }
+      ]
+    },
+    {
+      "name": "initialize_position2",
+      "discriminator": [143, 19, 242, 145, 213, 15, 104, 115],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "position",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "lb_pair"
+        },
+        {
+          "name": "owner",
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
         },
         {
           "name": "event_authority",
@@ -4520,9 +4644,9 @@
               {
                 "kind": "const",
                 "value": [
-                  48, 9, 89, 123, 106, 114, 131, 251, 50, 173, 254, 250, 10, 80,
-                  160, 84, 143, 100, 81, 249, 134, 112, 30, 213, 50, 166, 239,
-                  78, 53, 175, 188, 85
+                  8, 234, 192, 109, 87, 125, 190, 55, 129, 173, 227, 8, 104,
+                  201, 104, 13, 31, 178, 74, 80, 54, 14, 77, 78, 226, 57, 47,
+                  122, 166, 165, 57, 144
                 ]
               },
               {
@@ -4552,9 +4676,9 @@
               {
                 "kind": "const",
                 "value": [
-                  48, 9, 89, 123, 106, 114, 131, 251, 50, 173, 254, 250, 10, 80,
-                  160, 84, 143, 100, 81, 249, 134, 112, 30, 213, 50, 166, 239,
-                  78, 53, 175, 188, 85
+                  8, 234, 192, 109, 87, 125, 190, 55, 129, 173, 227, 8, 104,
+                  201, 104, 13, 31, 178, 74, 80, 54, 14, 77, 78, 226, 57, 47,
+                  122, 166, 165, 57, 144
                 ]
               },
               {
@@ -4672,8 +4796,16 @@
       "discriminator": [75, 122, 154, 48, 140, 74, 123, 163]
     },
     {
+      "name": "ClaimFee2",
+      "discriminator": [232, 171, 242, 97, 58, 77, 35, 45]
+    },
+    {
       "name": "ClaimReward",
       "discriminator": [148, 116, 134, 204, 22, 171, 85, 95]
+    },
+    {
+      "name": "ClaimReward2",
+      "discriminator": [27, 143, 244, 33, 80, 43, 110, 146]
     },
     {
       "name": "CompositionFee",
@@ -5181,6 +5313,31 @@
       "code": 6084,
       "name": "InvalidRewardAccounts",
       "msg": "Invalid reward accounts"
+    },
+    {
+      "code": 6085,
+      "name": "UndeterminedError",
+      "msg": "Undetermined error"
+    },
+    {
+      "code": 6086,
+      "name": "ReallocExceedMaxLengthPerInstruction",
+      "msg": "Realloc exceed max length per instruction"
+    },
+    {
+      "code": 6087,
+      "name": "InvalidBaseFeeMantissa",
+      "msg": "Mantissa cannot more than two significant digits"
+    },
+    {
+      "code": 6088,
+      "name": "InvalidPositionOwner",
+      "msg": "Invalid position owner"
+    },
+    {
+      "code": 6089,
+      "name": "InvalidPoolAddress",
+      "msg": "Invalid pool address"
     }
   ],
   "types": [
@@ -5625,6 +5782,38 @@
       }
     },
     {
+      "name": "ClaimFee2",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "lb_pair",
+            "type": "pubkey"
+          },
+          {
+            "name": "position",
+            "type": "pubkey"
+          },
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "fee_x",
+            "type": "u64"
+          },
+          {
+            "name": "fee_y",
+            "type": "u64"
+          },
+          {
+            "name": "active_bin_id",
+            "type": "i32"
+          }
+        ]
+      }
+    },
+    {
       "name": "ClaimFeeOperator",
       "docs": ["Parameter that set by the protocol"],
       "serialization": "bytemuck",
@@ -5673,6 +5862,38 @@
           {
             "name": "total_reward",
             "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ClaimReward2",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "lb_pair",
+            "type": "pubkey"
+          },
+          {
+            "name": "position",
+            "type": "pubkey"
+          },
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "reward_index",
+            "type": "u64"
+          },
+          {
+            "name": "total_reward",
+            "type": "u64"
+          },
+          {
+            "name": "active_bin_id",
+            "type": "i32"
           }
         ]
       }
@@ -7350,10 +7571,15 @@
             "type": "u64"
           },
           {
+            "name": "shrink_mode",
+            "docs": ["shrink mode"],
+            "type": "u8"
+          },
+          {
             "name": "padding",
             "docs": ["padding 32 bytes for future usage"],
             "type": {
-              "array": ["u8", 32]
+              "array": ["u8", 31]
             }
           },
           {
@@ -7393,6 +7619,14 @@
           {
             "name": "position",
             "type": "pubkey"
+          },
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "active_bin_id",
+            "type": "i32"
           },
           {
             "name": "x_withdrawn_amount",
@@ -7588,17 +7822,17 @@
           },
           {
             "name": "reward_duration",
-            "docs": ["TODO check whether we need to store it in pool"],
+            "docs": ["LM reward duration in seconds."],
             "type": "u64"
           },
           {
             "name": "reward_duration_end",
-            "docs": ["TODO check whether we need to store it in pool"],
+            "docs": ["LM reward duration end time."],
             "type": "u64"
           },
           {
             "name": "reward_rate",
-            "docs": ["TODO check whether we need to store it in pool"],
+            "docs": ["LM reward rate"],
             "type": "u128"
           },
           {

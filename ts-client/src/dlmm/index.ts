@@ -109,6 +109,7 @@ import {
   DEFAULT_INIT_BIN_ARRAY_CU,
   DEFAULT_INIT_POSITION_CU,
   getDefaultExtendPositionCU,
+  getSimulationComputeUnits,
 } from "./helpers/computeUnit";
 import {
   Rounding,
@@ -167,6 +168,7 @@ import {
   FeeInfo,
   InitCustomizablePermissionlessPairIx,
   InitializeMultiplePositionAndAddLiquidityByStrategyResponse,
+  InitializeMultiplePositionAndAddLiquidityByStrategyResponse2,
   LbPair,
   LbPairAccount,
   LbPosition,
@@ -184,6 +186,7 @@ import {
   PositionV2,
   PositionVersion,
   ProgramStrategyParameter,
+  REBALANCE_POSITION_PADDING,
   RebalanceAddLiquidityParam,
   RebalancePositionBinArrayRentalCostQuote,
   RebalancePositionResponse,
@@ -192,6 +195,7 @@ import {
   ResizeSide,
   SeedLiquidityResponse,
   SeedLiquiditySingleBinResponse,
+  ShrinkMode,
   StrategyParameters,
   StrategyType,
   SwapExactOutParams,
@@ -2549,6 +2553,154 @@ export class DLMM {
       ),
       version: position.version(),
     };
+  }
+
+  /**
+   * Creates multiple positions and adds liquidity by strategy. It allow parallel execution of transactions.
+   * @param positionKeypairGenerator A function that generates a specified number of keypairs.
+   * @param totalXAmount The total amount of token X to be added.
+   * @param totalYAmount The total amount of token Y to be added.
+   * @param strategy The strategy for adding liquidity.
+   * @param owner The owner of the position.
+   * @param payer The payer of the transaction.
+   * @param slippagePercentage The slippage percentage for adding liquidity.
+   * @returns An object with two properties: `initPositionIxs` and `addLiquidityIxs`.
+   */
+  public async initializeMultiplePositionAndAddLiquidityByStrategy2(
+    positionKeypairGenerator: (count: number) => Promise<Keypair[]>,
+    totalXAmount: BN,
+    totalYAmount: BN,
+    strategy: StrategyParameters,
+    owner: PublicKey,
+    payer: PublicKey,
+    slippagePercentage: number
+  ): Promise<InitializeMultiplePositionAndAddLiquidityByStrategyResponse2> {
+    const maxActiveBinSlippage = getAndCapMaxActiveBinSlippage(
+      slippagePercentage,
+      this.lbPair.binStep,
+      MAX_ACTIVE_BIN_SLIPPAGE
+    );
+
+    const { minBinId, maxBinId } = strategy;
+
+    const binCount = getBinCount(minBinId, maxBinId);
+
+    const maxBinPerParallelizedPosition =
+      DEFAULT_BIN_PER_POSITION.toNumber() * 6; // 420 bins will not exceed transaction limit
+
+    const positionCount = Math.ceil(binCount / maxBinPerParallelizedPosition);
+
+    const positionKeypairs = await positionKeypairGenerator(positionCount);
+
+    const liquidityStrategyParameters = buildLiquidityStrategyParameters(
+      totalXAmount,
+      totalYAmount,
+      new BN(minBinId - this.lbPair.activeId),
+      new BN(maxBinId - this.lbPair.activeId),
+      new BN(this.lbPair.binStep),
+      strategy.singleSidedX,
+      new BN(this.lbPair.activeId),
+      getLiquidityStrategyParameterBuilder(strategy.strategyType)
+    );
+
+    let startBinId = minBinId;
+
+    const response: InitializeMultiplePositionAndAddLiquidityByStrategyResponse2 =
+      { instructionsByPositions: [] };
+
+    for (const position of positionKeypairs) {
+      const txsIxs: TransactionInstruction[][] = [];
+
+      const endBinId = Math.min(
+        startBinId + maxBinPerParallelizedPosition - 1,
+        maxBinId
+      );
+
+      const finalPositionWidth = endBinId - startBinId + 1;
+
+      const initialPositionWidth =
+        finalPositionWidth > DEFAULT_BIN_PER_POSITION.toNumber()
+          ? DEFAULT_BIN_PER_POSITION.toNumber()
+          : finalPositionWidth;
+
+      const initPositionIx = await this.program.methods
+        .initializePosition2(startBinId, initialPositionWidth)
+        .accountsPartial({
+          position: position.publicKey,
+          lbPair: this.pubkey,
+          owner,
+          payer,
+        })
+        .instruction();
+
+      const extendPositionIxs: TransactionInstruction[] = [];
+      const initialPositionEndBinId = startBinId + initialPositionWidth;
+
+      let index = 0;
+      for (
+        let i = initialPositionEndBinId;
+        i < endBinId;
+        i += DEFAULT_BIN_PER_POSITION.toNumber()
+      ) {
+        const increaseLengthIx = await this.program.methods
+          .increasePositionLength2(index)
+          .accountsPartial({
+            lbPair: this.pubkey,
+            position: position.publicKey,
+            funder: payer,
+            owner,
+          })
+          .instruction();
+
+        extendPositionIxs.push(increaseLengthIx);
+        index++;
+      }
+
+      const addLiquidityIxs = await chunkDepositWithRebalanceEndpoint(
+        this,
+        strategy,
+        slippagePercentage,
+        maxActiveBinSlippage,
+        position.publicKey,
+        startBinId,
+        endBinId,
+        liquidityStrategyParameters,
+        owner,
+        payer,
+        true
+      );
+
+      for (const instructions of addLiquidityIxs) {
+        const txIxs: TransactionInstruction[] = [];
+        txIxs.push(initPositionIx);
+        txIxs.push(...extendPositionIxs);
+        txIxs.push(...instructions);
+
+        const computeUnit = await getSimulationComputeUnits(
+          this.program.provider.connection,
+          txIxs,
+          payer,
+          []
+        );
+
+        txIxs.unshift(
+          ComputeBudgetProgram.setComputeUnitLimit({
+            units: computeUnit,
+          })
+        );
+
+        txsIxs.push(txIxs);
+      }
+
+      response.instructionsByPositions.push({
+        positionKeypair: position,
+        transactionInstructions: txsIxs,
+      });
+
+      startBinId = endBinId + 1;
+    }
+
+    return response;
   }
 
   /**
@@ -6954,7 +7106,8 @@ export class DLMM {
           maxDepositYAmount,
           minWithdrawXAmount,
           minWithdrawYAmount,
-          padding: Array(32).fill(0),
+          shrinkMode: ShrinkMode.ShrinkBoth,
+          padding: REBALANCE_POSITION_PADDING,
         },
         {
           slices,

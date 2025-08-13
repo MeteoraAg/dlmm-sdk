@@ -42,7 +42,9 @@ import {
   PositionV2,
   PresetParameter,
   PresetParameter2,
+  REBALANCE_POSITION_PADDING,
   RebalanceAddLiquidityParam,
+  ShrinkMode,
   StrategyParameters,
 } from "../types";
 import {
@@ -525,7 +527,8 @@ export async function chunkDepositWithRebalanceEndpoint(
   liquidityStrategyParameters: LiquidityStrategyParameters,
   owner: PublicKey,
   payer: PublicKey,
-  simulateCU: boolean
+  // When isParallel = false, instructions must be executed sequentially
+  isParallel: boolean
 ) {
   const { slices, accounts: transferHookAccounts } =
     dlmm.getPotentialToken2022IxDataAndAccounts(ActionType.Liquidity);
@@ -609,19 +612,20 @@ export async function chunkDepositWithRebalanceEndpoint(
     );
 
     for (const [idx, binArrayPubkey] of binArrayPubkeys.entries()) {
-      if (!binArrayOrBitmapInitTracking.has(binArrayPubkey.toBase58())) {
-        const initBinArrayIx = await dlmm.program.methods
-          .initializeBinArray(binArrayIndexes[idx])
-          .accountsPartial({
-            binArray: binArrayPubkey,
-            funder: payer,
-            lbPair: dlmm.pubkey,
-          })
-          .instruction();
+      const initBinArrayIx = await dlmm.program.methods
+        .initializeBinArray(binArrayIndexes[idx])
+        .accountsPartial({
+          binArray: binArrayPubkey,
+          funder: payer,
+          lbPair: dlmm.pubkey,
+        })
+        .instruction();
 
+      if (isParallel) {
+        initBinArrayIxs.push(initBinArrayIx);
+      } else if (!binArrayOrBitmapInitTracking.has(binArrayPubkey.toBase58())) {
         binArrayOrBitmapInitTracking.add(binArrayPubkey.toBase58());
         initBinArrayIxs.push(initBinArrayIx);
-
         calculatedAddLiquidityCU += DEFAULT_INIT_BIN_ARRAY_CU;
       }
     }
@@ -698,6 +702,20 @@ export async function chunkDepositWithRebalanceEndpoint(
       slippagePercentage
     );
 
+    let shrinkMode: ShrinkMode;
+
+    if (isParallel) {
+      if (i == 0) {
+        shrinkMode = ShrinkMode.NoShrinkRight;
+      } else if (i == chunkBinRange.length - 1) {
+        shrinkMode = ShrinkMode.NoShrinkLeft;
+      } else {
+        shrinkMode = ShrinkMode.NoShrinkBoth;
+      }
+    } else {
+      shrinkMode = ShrinkMode.ShrinkBoth;
+    }
+
     const rebalanceIx = await dlmm.program.methods
       .rebalanceLiquidity(
         {
@@ -711,7 +729,8 @@ export async function chunkDepositWithRebalanceEndpoint(
           maxDepositYAmount,
           removes: [],
           adds: [addParam],
-          padding: Array(32).fill(0),
+          shrinkMode,
+          padding: REBALANCE_POSITION_PADDING,
         },
         {
           slices,
@@ -748,6 +767,11 @@ export async function chunkDepositWithRebalanceEndpoint(
 
     addLiquidityIxs.push(...initBitmapIxs, ...initBinArrayIxs);
 
+    if (isParallel) {
+      addLiquidityIxs.push(createUserTokenXIx);
+      addLiquidityIxs.push(createUserTokenYIx);
+    }
+
     if (dlmm.tokenX.publicKey.equals(NATIVE_MINT)) {
       const wrapSOLIx = wrapSOLInstruction(
         owner,
@@ -755,7 +779,9 @@ export async function chunkDepositWithRebalanceEndpoint(
         BigInt(totalXAmount.toString())
       );
 
-      addLiquidityIxs.push(createUserTokenXIx);
+      if (!isParallel) {
+        addLiquidityIxs.push(createUserTokenXIx);
+      }
       addLiquidityIxs.push(...wrapSOLIx);
     }
 
@@ -766,7 +792,9 @@ export async function chunkDepositWithRebalanceEndpoint(
         BigInt(totalYAmount.toString())
       );
 
-      addLiquidityIxs.push(createUserTokenYIx);
+      if (!isParallel) {
+        addLiquidityIxs.push(createUserTokenYIx);
+      }
       addLiquidityIxs.push(...wrapSOLIx);
     }
 
@@ -796,15 +824,7 @@ export async function chunkDepositWithRebalanceEndpoint(
       );
     }
 
-    if (simulateCU) {
-      const cuIx = await getEstimatedComputeUnitIxWithBuffer(
-        dlmm.program.provider.connection,
-        addLiquidityIxs,
-        payer
-      );
-
-      addLiquidityIxs.unshift(cuIx);
-    } else {
+    if (!isParallel) {
       addLiquidityIxs.unshift(
         ComputeBudgetProgram.setComputeUnitLimit({
           units: Math.min(calculatedAddLiquidityCU, MAX_CU),
