@@ -2586,7 +2586,7 @@ export class DLMM {
     const binCount = getBinCount(minBinId, maxBinId);
 
     const maxBinPerParallelizedPosition =
-      DEFAULT_BIN_PER_POSITION.toNumber() * 6; // 420 bins will not exceed transaction limit
+      DEFAULT_BIN_PER_POSITION.toNumber() * 5; // 350 bins will not exceed transaction limit
 
     const positionCount = Math.ceil(binCount / maxBinPerParallelizedPosition);
 
@@ -2676,19 +2676,13 @@ export class DLMM {
         txIxs.push(...extendPositionIxs);
         txIxs.push(...instructions);
 
-        const computeUnit = await getSimulationComputeUnits(
+        const setCuIx = await getEstimatedComputeUnitIxWithBuffer(
           this.program.provider.connection,
           txIxs,
-          payer,
-          []
+          payer
         );
 
-        txIxs.unshift(
-          ComputeBudgetProgram.setComputeUnitLimit({
-            units: computeUnit,
-          })
-        );
-
+        txIxs.unshift(setCuIx);
         txsIxs.push(txIxs);
       }
 
