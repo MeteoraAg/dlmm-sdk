@@ -47,9 +47,9 @@ impl BinExtension for Bin {
 
     fn get_max_amount_in(&self, price: u128, swap_for_y: bool) -> Result<u64> {
         if swap_for_y {
-            safe_shl_div_cast(self.amount_y.into(), price, SCALE_OFFSET, Rounding::Up)
-        } else {
             safe_mul_shr_cast(self.amount_x.into(), price, SCALE_OFFSET, Rounding::Up)
+        } else {
+            safe_shl_div_cast(self.amount_y.into(), price, SCALE_OFFSET, Rounding::Up)
         }
     }
 
