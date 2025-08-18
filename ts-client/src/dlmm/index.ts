@@ -3678,6 +3678,7 @@ export class DLMM {
    *    - `toBinId`: The ID of the ending bin to remove liquidity from. Must within position range.
    *    - `liquiditiesBpsToRemove`: An array of numbers (percentage) that represent the liquidity to remove from each bin.
    *    - `shouldClaimAndClose`: A boolean flag that indicates whether to claim rewards and close the position.
+   *    - `skipUnwrapSOL`: A boolean flag that indicates whether to skip unwrapping SOL. Enable this when using zap-sdk to ensure accuracy in SOL zap out amount when SOL is in token
    * @returns {Promise<Transaction[]>}
    */
   public async removeLiquidity({
@@ -3687,6 +3688,7 @@ export class DLMM {
     toBinId,
     bps,
     shouldClaimAndClose = false,
+    skipUnwrapSOL = false,
   }: {
     user: PublicKey;
     position: PublicKey;
@@ -3694,6 +3696,7 @@ export class DLMM {
     toBinId: number;
     bps: BN;
     shouldClaimAndClose?: boolean;
+    skipUnwrapSOL?: boolean;
   }): Promise<Transaction[]> {
     const positionAccount =
       await this.program.provider.connection.getAccountInfo(position);
@@ -3908,7 +3911,8 @@ export class DLMM {
         [
           this.tokenX.publicKey.toBase58(),
           this.tokenY.publicKey.toBase58(),
-        ].includes(NATIVE_MINT.toBase58())
+        ].includes(NATIVE_MINT.toBase58()) &&
+        !skipUnwrapSOL
       ) {
         const closeWrappedSOLIx = await unwrapSOLInstruction(user);
         closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
