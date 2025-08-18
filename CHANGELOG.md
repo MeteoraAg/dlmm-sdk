@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.7.0] - PR #233
+
+### Changed
+
+- update `removeLiquidity` to have a new `skipUnwrapSOL` boolean flag that indicates whether to skip unwrapping SOL. Enable this when using zap-sdk to ensure accuracy in SOL zap out amount when SOL is the in token
+
 ## @meteora-ag/dlmm [1.6.0] - PR #229
 
 ### Changed
