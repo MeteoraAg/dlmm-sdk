@@ -69,14 +69,14 @@ app.get("/dlmm/create", async (req, res) => {
 //   }
 // })
 
-app.get("/dlmm/get-all-lb-pair-positions-by-user", async (req, res) => {
+app.post("/dlmm/get-all-lb-pair-positions-by-user", async (req, res) => {
   try {
     const userPublicKey = new PublicKey(req.body.user);
     const positions = await DLMM.getAllLbPairPositionsByUser(
       req.connect,
       userPublicKey
     );
-    return res.status(200).send(safeStringify(positions));
+    return res.status(200).send(safeStringify(Object.fromEntries(positions)));
   } catch (error) {
     console.log(error);
     return res.status(400).send(error);
