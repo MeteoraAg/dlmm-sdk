@@ -403,7 +403,7 @@ describe("SDK token2022 test", () => {
     expect(presetParameter2.length).toBeGreaterThan(0);
   });
 
-  describe.only("Pair", () => {
+  describe("Pair", () => {
     it("createLbPair2 with token 2022", async () => {
       const activeId = new BN(0);
 
