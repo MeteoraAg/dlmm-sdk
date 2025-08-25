@@ -939,6 +939,50 @@ describe("Rebalance liquidity parameter builder", () => {
       );
     });
 
+    it("Bid side far away from active bin", () => {
+      const amountX = new BN(0);
+      const amountY = new BN(100_000_000);
+      const minDeltaId = new BN(1200).neg();
+      const maxDeltaId = new BN(1000).neg();
+      const favorXInActiveBin = false;
+
+      const { deltaX, deltaY, x0, y0 } = buildLiquidityStrategyParameters(
+        amountX,
+        amountY,
+        minDeltaId,
+        maxDeltaId,
+        binStep,
+        favorXInActiveBin,
+        activeId,
+        builder
+      );
+
+      const amountInBins = toAmountIntoBins(
+        activeId,
+        minDeltaId,
+        maxDeltaId,
+        deltaX,
+        deltaY,
+        x0,
+        y0,
+        binStep,
+        favorXInActiveBin
+      );
+
+      logLiquidityInfo(amountX, amountY, amountInBins, binStep);
+
+      assertBinDepositResult(
+        activeId,
+        minDeltaId,
+        maxDeltaId,
+        favorXInActiveBin,
+        amountInBins,
+        amountX,
+        amountY,
+        new BN(20_000)
+      );
+    });
+
     it("Bid side suggest ask side parameters", () => {
       let amountX = new BN(0);
       const amountY = new BN(100_000_000);
@@ -1043,6 +1087,50 @@ describe("Rebalance liquidity parameter builder", () => {
         amountX,
         amountY,
         new BN(1000)
+      );
+    });
+
+    it("Ask side far away from active bin", () => {
+      const amountX = new BN(100_000_000);
+      const amountY = new BN(0);
+      const minDeltaId = new BN(1000);
+      const maxDeltaId = new BN(1200);
+      const favorXInActiveBin = false;
+
+      const { deltaX, deltaY, x0, y0 } = buildLiquidityStrategyParameters(
+        amountX,
+        amountY,
+        minDeltaId,
+        maxDeltaId,
+        binStep,
+        favorXInActiveBin,
+        activeId,
+        builder
+      );
+
+      const amountInBins = toAmountIntoBins(
+        activeId,
+        minDeltaId,
+        maxDeltaId,
+        deltaX,
+        deltaY,
+        x0,
+        y0,
+        binStep,
+        favorXInActiveBin
+      );
+
+      logLiquidityInfo(amountX, amountY, amountInBins, binStep);
+
+      assertBinDepositResult(
+        activeId,
+        minDeltaId,
+        maxDeltaId,
+        favorXInActiveBin,
+        amountInBins,
+        amountX,
+        amountY,
+        new BN(20_000)
       );
     });
 

@@ -1,14 +1,12 @@
 import BN from "bn.js";
 import { BidAskParameters, LiquidityStrategyParameterBuilder } from ".";
 import { SCALE_OFFSET } from "../../../constants";
-import { getQPriceBaseFactor, getQPriceFromId } from "../../math";
+import { getQPriceFromId } from "../../math";
 import {
   getAmountInBinsAskSide,
   getAmountInBinsBidSide,
   toAmountIntoBins,
 } from "../rebalancePosition";
-import Decimal from "decimal.js";
-import { getPriceOfBinByBinId } from "../../weight";
 
 function findMinY0(amountY: BN, minDeltaId: BN, maxDeltaId: BN) {
   const binCount = maxDeltaId.sub(minDeltaId).addn(1);
@@ -25,34 +23,27 @@ function findBaseDeltaY(amountY: BN, minDeltaId: BN, maxDeltaId: BN) {
   // active_id - m1 = y0 + delta_y * m1
   //
   // sum(amounts) = y0 * (m1-m2+1) + delta_y * (m1 * (m1+1)/2 - m2 * (m2-1)/2)
-  // ** default formula is, set y0 = -delta_y * m2
-  // set y0 = -delta_y * m2
-  // sum(amounts) = -delta_y * m2 * (m1-m2+1) + delta_y * (m1 * (m1+1)/2 - m2 * (m2-1)/2)
-  // A = -m2 * (m1-m2+1) + (m1 * (m1+1)/2 - m2 * (m2-1)/2)
+  // ** default formula is, set y0 = -delta_y * m2, but we don't want last bin amount is 0
+  // set y0 = -delta_y * (m2 - 1)
+  // sum(amounts) = -delta_y * (m2 - 1) * (m1-m2+1) + delta_y * (m1 * (m1+1)/2 - m2 * (m2-1)/2)
+  // A = (-m2 + 1) * (m1-m2+1) + (m1 * (m1+1)/2 - m2 * (m2-1)/2)
   // delta_y = sum(amounts) / A
   if (minDeltaId.gt(maxDeltaId) || amountY.lte(new BN(0))) {
     return new BN(0);
   }
-
   if (minDeltaId.eq(maxDeltaId)) {
     return amountY;
   }
-
-  // ensure no 0 amount in active bin
-  const m1 = minDeltaId.neg().subn(1);
+  const m1 = minDeltaId.neg();
   const m2 = maxDeltaId.neg();
-
   // A = b + (c - d)
-  // b = -m2 * (m1-m2+1)
+  // b = (-m2 + 1) * (m1-m2+1)
   // c = m1 * (m1+1)/2
   // d =  m2 * (m2-1)/2
-
-  const b = m2.neg().mul(m1.sub(m2).addn(1));
+  const b = m2.neg().addn(1).mul(m1.sub(m2).addn(1));
   const c = m1.mul(m1.addn(1)).divn(2);
   const d = m2.mul(m2.subn(1)).divn(2);
-
   const a = b.add(c.sub(d));
-
   return amountY.div(a);
 }
 
@@ -70,7 +61,7 @@ function findY0AndDeltaY(
   }
 
   let baseDeltaY = findBaseDeltaY(amountY, minDeltaId, maxDeltaId);
-  const y0 = baseDeltaY.neg().mul(maxDeltaId).add(baseDeltaY);
+  const y0 = baseDeltaY.neg().mul(maxDeltaId.neg().subn(1));
 
   while (true) {
     const amountInBins = getAmountInBinsBidSide(
