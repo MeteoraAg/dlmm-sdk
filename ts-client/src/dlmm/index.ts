@@ -7237,19 +7237,23 @@ export class DLMM {
 
       const feeInfo = feeInfos[idx];
 
-      const newFeeX = mulShr(
-        posShares[idx].shrn(SCALE_OFFSET),
-        bin.feeAmountXPerTokenStored.sub(feeInfo.feeXPerTokenComplete),
-        SCALE_OFFSET,
-        Rounding.Down
-      );
+      const newFeeX = posShare.isZero()
+        ? new BN(0)
+        : mulShr(
+            posShares[idx].shrn(SCALE_OFFSET),
+            bin.feeAmountXPerTokenStored.sub(feeInfo.feeXPerTokenComplete),
+            SCALE_OFFSET,
+            Rounding.Down
+          );
 
-      const newFeeY = mulShr(
-        posShares[idx].shrn(SCALE_OFFSET),
-        bin.feeAmountYPerTokenStored.sub(feeInfo.feeYPerTokenComplete),
-        SCALE_OFFSET,
-        Rounding.Down
-      );
+      const newFeeY = posShare.isZero()
+        ? new BN(0)
+        : mulShr(
+            posShares[idx].shrn(SCALE_OFFSET),
+            bin.feeAmountYPerTokenStored.sub(feeInfo.feeYPerTokenComplete),
+            SCALE_OFFSET,
+            Rounding.Down
+          );
 
       const claimableFeeX = newFeeX.add(feeInfo.feeXPending);
       const claimableFeeY = newFeeY.add(feeInfo.feeYPending);
@@ -7290,12 +7294,14 @@ export class DLMM {
             posBinRewardInfo.rewardPerTokenCompletes[j]
           );
 
-          const newReward = mulShr(
-            delta,
-            posShares[idx].shrn(SCALE_OFFSET),
-            SCALE_OFFSET,
-            Rounding.Down
-          );
+          const newReward = posShares[idx].isZero()
+            ? new BN(0)
+            : mulShr(
+                delta,
+                posShares[idx].shrn(SCALE_OFFSET),
+                SCALE_OFFSET,
+                Rounding.Down
+              );
 
           const claimableReward = newReward.add(
             posBinRewardInfo.rewardPendings[j]
