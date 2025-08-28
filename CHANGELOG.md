@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.7.2] - PR #239
+
+### Fixed
+
+- Reduced pending fee / reward value computed due to ghost bin
+
 ## @meteora-ag/dlmm [1.7.1] - PR #237
 
 ### Fixed
