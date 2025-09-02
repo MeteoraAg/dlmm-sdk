@@ -146,4 +146,5 @@ pub enum AdminCommand {
     InitializeTokenBadge(InitializeTokenBadgeParams),
     CreateClaimProtocolFeeOperator(CreateClaimFeeOperatorParams),
     CloseClaimProtocolFeeOperator(CloseClaimFeeOperatorParams),
+    QueryProtocolFeesByTokens(QueryProtocolFeesByTokensParams),
 }

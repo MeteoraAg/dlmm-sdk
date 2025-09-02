@@ -248,6 +248,9 @@ async fn main() -> Result<()> {
                 execute_close_claim_protocol_fee_operator(params, &program, transaction_config)
                     .await?;
             }
+            AdminCommand::QueryProtocolFeesByTokens(params) => {
+                execute_query_protocol_fees_by_tokens(params, &program).await?;
+            }
         },
     };
 
