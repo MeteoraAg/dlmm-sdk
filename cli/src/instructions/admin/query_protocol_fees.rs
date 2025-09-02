@@ -27,9 +27,9 @@ pub struct QueryProtocolFeesByTokensParams {
     #[clap(short, long, default_value = "table")]
     pub output_format: OutputFormat,
 
-    /// Minimum fee threshold to include (in raw token units)
-    #[clap(long)]
-    pub min_fee_threshold: Option<u64>,
+    /// Per-token minimum fee thresholds (format: token_mint:amount,token_mint:amount)
+    #[clap(long, value_parser = parse_token_thresholds)]
+    pub min_fee_threshold: Option<HashMap<String, u64>>,
 
     /// Only show pools with non-zero protocol fees
     #[clap(long)]
@@ -601,8 +601,18 @@ fn filter_and_process_pools(
         let protocol_fee_x = lb_pair.protocol_fee.amount_x;
         let protocol_fee_y = lb_pair.protocol_fee.amount_y;
 
-        if let Some(min_threshold) = params.min_fee_threshold {
-            if protocol_fee_x < min_threshold && protocol_fee_y < min_threshold {
+        if let Some(ref thresholds) = params.min_fee_threshold {
+            let token_x_mint_str = lb_pair.token_x_mint.to_string();
+            let token_y_mint_str = lb_pair.token_y_mint.to_string();
+            
+            let x_threshold = thresholds.get(&token_x_mint_str);
+            let y_threshold = thresholds.get(&token_y_mint_str);
+
+            let x_fails = x_threshold.map_or(false, |&threshold| protocol_fee_x < threshold);
+            let y_fails = y_threshold.map_or(false, |&threshold| protocol_fee_y < threshold);
+            
+            // Skip pool if any specified token fails its threshold
+            if x_fails || y_fails {
                 continue;
             }
         }
