@@ -78,4 +78,4 @@ pub const MAX_BASE_FEE: u128 = 100_000_000; // 10% (10^9 * 10 / 100)
 /// Minimum base fee
 pub const MIN_BASE_FEE: u128 = 100_000; // 0.01% (10^9 * 0.01 / 100)
 
-pub const FEE_OWNER: Pubkey = pubkey!("BJQbRiRWhJCyTYZcAuAL3ngDCx3AyFQGKDq8zhiZAKUw");
+pub const FEE_OWNER: Pubkey = pubkey!("4EWqcx3aNZmMetCnxwLYwyNjan6XLGp3Ca2W316vrSjv");
