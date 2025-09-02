@@ -6,7 +6,9 @@ use serde::Serialize;
 use solana_client::{
     rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig},
     rpc_filter::{Memcmp, RpcFilterType},
+    rpc_request::TokenAccountsFilter,
 };
+use solana_account_decoder::UiAccountEncoding;
 use solana_sdk::pubkey::Pubkey;
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
@@ -16,6 +18,32 @@ use std::str::FromStr;
 const MAX_POOLS_FOR_COMPLEX_ALGORITHM: usize = 20;
 const SELECTION_STRATEGY_LARGEST_FIRST: &str = "largest-first";
 const SELECTION_STRATEGY_SMALLEST_FIRST: &str = "smallest-first";
+
+const DEFAULT_BLACKLISTED_TOKENS: &[&str] = &["Bo9jh3wsmcC2AjakLWzNmKJ3SgtZmXEcSaW7L2FAvUsU"];
+
+fn parse_token_thresholds(s: &str) -> anyhow::Result<HashMap<String, u64>> {
+    let mut map = HashMap::new();
+    for pair in s.split(',') {
+        let pair = pair.trim();
+        let parts: Vec<&str> = pair.split(':').collect();
+        if parts.len() != 2 {
+            return Err(anyhow::anyhow!("Invalid format '{}', expected token_mint:amount", pair));
+        }
+        
+        let token_mint = parts[0].trim();
+        let amount_str = parts[1].trim();
+        
+        let _ = Pubkey::from_str(token_mint)
+            .map_err(|e| anyhow::anyhow!("Invalid token mint '{}': {}", token_mint, e))?;
+            
+        let amount = amount_str.parse::<u64>()
+            .map_err(|e| anyhow::anyhow!("Invalid amount '{}': {}", amount_str, e))?;
+            
+        map.insert(token_mint.to_string(), amount);
+    }
+
+    Ok(map)
+}
 
 #[derive(Debug, Parser)]
 pub struct QueryProtocolFeesByTokensParams {
@@ -54,6 +82,14 @@ pub struct QueryProtocolFeesByTokensParams {
     /// Pool selection strategy: 'largest-first' (default) or 'smallest-first'
     #[clap(long, default_value = SELECTION_STRATEGY_LARGEST_FIRST)]
     pub selection_strategy: String,
+
+    /// Only include pools where treasury wallet has associated token accounts for both tokens
+    #[clap(long)]
+    pub only_ata: bool,
+
+    /// Comma-separated list of token mint addresses to blacklist
+    #[clap(long, value_delimiter = ',')]
+    pub blacklist_tokens: Vec<String>,
 }
 
 #[derive(Debug, Clone, clap::ValueEnum)]
@@ -86,6 +122,58 @@ pub struct PoolRecommendation {
 pub struct TokenTarget {
     pub token_mint: String,
     pub target_amount: u64,
+}
+
+/// Fetch all token accounts for FEE_OWNER and return set of token mints that have ATAs
+async fn fetch_existing_token_mints<C, P>(
+    program: &Program<C>,
+) -> Result<HashSet<Pubkey>>
+where
+    C: std::ops::Deref<Target = P> + Clone,
+    P: anchor_client::solana_sdk::signer::Signer + 'static,
+{
+    let rpc_client = program.async_rpc();
+    let mut existing_mints = HashSet::new();
+
+    let token_programs = vec![anchor_spl::token::spl_token::ID, anchor_spl::token_2022::spl_token_2022::ID];
+    
+    for &token_program in &token_programs {
+        println!("Fetching token accounts for program: {}", token_program);
+        
+        let token_accounts = match rpc_client
+            .get_token_accounts_by_owner(&FEE_OWNER, TokenAccountsFilter::ProgramId(token_program))
+            .await
+        {
+            std::result::Result::Ok(accounts) => accounts,
+            Err(e) => {
+                println!("Warning: Failed to fetch token accounts for program {}: {}", token_program, e);
+                continue;
+            }
+        };
+
+        println!("Found {} token accounts for program {}", token_accounts.len(), token_program);
+
+        for keyed_account in token_accounts {
+            match keyed_account.account.data {
+                solana_account_decoder::UiAccountData::Json(parsed_account) => {
+                    if let Some(info) = parsed_account.parsed.get("info") {
+                        if let Some(mint_str) = info.get("mint").and_then(|v| v.as_str()) {
+                            if let std::result::Result::Ok(mint_pubkey) = Pubkey::from_str(mint_str) {
+                                existing_mints.insert(mint_pubkey);
+                            }
+                        }
+                    }
+                }
+                solana_account_decoder::UiAccountData::Binary(_data, solana_account_decoder::UiAccountEncoding::Base64) => {
+                    println!("Warning: Received binary token account data when JSON was expected");
+                }
+                _ => {}
+            }
+        }
+    }
+
+    println!("Total unique token mints with ATAs: {}", existing_mints.len());
+    Ok(existing_mints)
 }
 
 fn generate_csv_content(results: &[ProtocolFeeInfo]) -> String {
@@ -386,11 +474,22 @@ where
         token_filter.insert(pubkey);
     }
 
-    println!("Fetching all LB pair accounts...");
+    println!(">>> Fetching all LB pair accounts...");
     let accounts = fetch_lb_pair_accounts(program).await?;
-    println!("Found {} LB pair accounts, filtering...", accounts.len());
+    println!(" Found {} LB pair accounts, filtering...", accounts.len());
 
-    let results = filter_and_process_pools(accounts, &token_filter, &params);
+    // Fetch all token accounts for FEE_OWNER if ATA filtering is enabled
+    let existing_ata_mints = if params.only_ata {
+        println!(">>> Fetching all token accounts for FEE_OWNER to optimize ATA filtering...");
+        Some(fetch_existing_token_mints(program).await?)
+    } else {
+        None
+    };
+    
+    // Filter and process pools with optional ATA pre-filtering
+    let final_results = filter_and_process_pools(accounts, &token_filter, &params, existing_ata_mints.as_ref());
+
+    let results = final_results;
 
     let (token_totals, sorted_totals) = calculate_token_totals(&results, &params.token_mints);
     
@@ -587,15 +686,47 @@ fn filter_and_process_pools(
     accounts: Vec<(Pubkey, LbPair)>,
     token_filter: &HashSet<Pubkey>,
     params: &QueryProtocolFeesByTokensParams,
+    ata_filter: Option<&HashSet<Pubkey>>,
 ) -> Vec<ProtocolFeeInfo> {
     let mut results = Vec::new();
+    let mut excluded_ata_count = 0;
+
+    // Create blacklist from default and CLI tokens
+    let mut blacklist = HashSet::new();
+    for token in DEFAULT_BLACKLISTED_TOKENS {
+        if let std::result::Result::Ok(pubkey) = Pubkey::from_str(token) {
+            blacklist.insert(pubkey);
+        }
+    }
+    for token in &params.blacklist_tokens {
+        if let std::result::Result::Ok(pubkey) = Pubkey::from_str(token) {
+            blacklist.insert(pubkey);
+        }
+    }
 
     for (pubkey, lb_pair) in accounts {
+        // Skip if either token is blacklisted
+        if blacklist.contains(&lb_pair.token_x_mint) || blacklist.contains(&lb_pair.token_y_mint) {
+            continue;
+        }
+
         let token_x_matches = token_filter.contains(&lb_pair.token_x_mint);
         let token_y_matches = token_filter.contains(&lb_pair.token_y_mint);
 
         if !token_x_matches && !token_y_matches {
             continue;
+        }
+
+        // Apply ATA filter if --only-ata flag is set
+        if let Some(existing_ata_mints) = ata_filter {
+            let x_has_ata = existing_ata_mints.contains(&lb_pair.token_x_mint);
+            let y_has_ata = existing_ata_mints.contains(&lb_pair.token_y_mint);
+            
+            // Only include pools where both tokens have ATAs
+            if !x_has_ata || !y_has_ata {
+                excluded_ata_count += 1;
+                continue;
+            }
         }
 
         let protocol_fee_x = lb_pair.protocol_fee.amount_x;
@@ -631,6 +762,11 @@ fn filter_and_process_pools(
             protocol_fee_y,
             total_fee_value,
         });
+    }
+
+    // Show ATA filtering summary if enabled
+    if ata_filter.is_some() && excluded_ata_count > 0 {
+        println!("ATA filtering: excluded {} pools due to missing token accounts", excluded_ata_count);
     }
 
     results.sort_by(|a, b| b.total_fee_value.cmp(&a.total_fee_value));
