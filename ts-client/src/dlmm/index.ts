@@ -70,6 +70,7 @@ import {
   deriveReserve,
   deriveTokenBadge,
   enumerateBins,
+  fetchBinArrayByBinRange,
   findNextBinArrayIndexWithLiquidity,
   findNextBinArrayWithLiquidity,
   getAndCapMaxActiveBinSlippage,
@@ -106,9 +107,11 @@ import {
 } from "./helpers/accountFilters";
 import {
   DEFAULT_ADD_LIQUIDITY_CU,
+  DEFAULT_INIT_ATA_CU,
   DEFAULT_INIT_BIN_ARRAY_CU,
   DEFAULT_INIT_POSITION_CU,
   getDefaultExtendPositionCU,
+  MAX_CU,
 } from "./helpers/computeUnit";
 import {
   Rounding,
@@ -2652,6 +2655,16 @@ export class DLMM {
         })
         .instruction();
 
+      const binArraysMap = await fetchBinArrayByBinRange(
+        startBinId,
+        endBinId,
+        this.pubkey,
+        this.program.programId,
+        this.program.provider.connection
+      );
+
+      const binArraySet = new Set<String>(binArraysMap.keys());
+
       const chunkedAddLiquidityIx = await chunkDepositWithRebalanceEndpoint(
         this,
         strategy,
@@ -2663,13 +2676,20 @@ export class DLMM {
         liquidityStrategyParameters,
         owner,
         payer,
-        false
+        binArraySet
       );
+
+      let suggestedCU = DEFAULT_INIT_POSITION_CU;
+      suggestedCU = suggestedCU + initializeAtaIxs.length * DEFAULT_INIT_ATA_CU;
 
       instructionsByPositions.push({
         positionKeypair: position,
         initializePositionIx: initPositionIx,
         initializeAtaIxs,
+        suggestedCuIxForInitializePositionAndAta:
+          ComputeBudgetProgram.setComputeUnitLimit({
+            units: Math.min(suggestedCU, MAX_CU),
+          }),
         addLiquidityIxs: chunkedAddLiquidityIx,
       });
 
@@ -2725,6 +2745,16 @@ export class DLMM {
       getLiquidityStrategyParameterBuilder(strategy.strategyType)
     );
 
+    const binArraysMap = await fetchBinArrayByBinRange(
+      minBinId,
+      maxBinId,
+      this.pubkey,
+      this.program.programId,
+      this.program.provider.connection
+    );
+
+    const binArraySet = new Set<String>(binArraysMap.keys());
+
     const chunkedAddLiquidityIx = await chunkDepositWithRebalanceEndpoint(
       this,
       strategy,
@@ -2736,7 +2766,7 @@ export class DLMM {
       liquidityStrategyParameters,
       user,
       user,
-      true
+      binArraySet
     );
 
     const latestBlockhashInfo =

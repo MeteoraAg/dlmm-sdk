@@ -211,6 +211,7 @@ export interface InitializeMultiplePositionAndAddLiquidityByStrategyResponse {
     positionKeypair: Keypair;
     initializePositionIx: TransactionInstruction;
     initializeAtaIxs: TransactionInstruction[];
+    suggestedCuIxForInitializePositionAndAta: TransactionInstruction[];
     addLiquidityIxs: TransactionInstruction[][];
   }[];
 }
