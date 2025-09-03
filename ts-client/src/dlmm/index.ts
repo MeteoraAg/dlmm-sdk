@@ -1603,7 +1603,7 @@ export class DLMM {
       tokenY,
       new BN(presetParameterState.binStep),
       new BN(presetParameterState.baseFactor),
-      new BN(presetParameterState.baseFactor),
+      new BN(presetParameterState.baseFeePowerFactor),
       {
         cluster: opt?.cluster,
         programId: opt?.programId,
