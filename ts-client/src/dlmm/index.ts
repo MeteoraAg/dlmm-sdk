@@ -328,7 +328,6 @@ export class DLMM {
 
       return null;
     } catch (error) {
-      console.error(error);
       return null;
     }
   }
