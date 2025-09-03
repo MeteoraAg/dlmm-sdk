@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.7.3] - PR 240
+
+### Fixed
+
+- Fixed `getPairPubkeyIfExists` return same pair pubkey for different baseFeeFactor
+
 ## @meteora-ag/dlmm [1.7.2] - PR #239
 
 ### Fixed
