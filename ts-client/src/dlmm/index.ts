@@ -262,74 +262,70 @@ export class DLMM {
   ): Promise<PublicKey | null> {
     const program = createProgram(connection, opt);
 
-    try {
-      const [lbPair2Key] = deriveLbPair2(
-        tokenX,
-        tokenY,
-        binStep,
-        baseFactor,
-        program.programId
+    const [lbPair2Key] = deriveLbPair2(
+      tokenX,
+      tokenY,
+      binStep,
+      baseFactor,
+      program.programId
+    );
+    const account2 = await program.account.lbPair.fetchNullable(lbPair2Key);
+    if (
+      account2 &&
+      account2.parameters.baseFeePowerFactor == baseFeePowerFactor.toNumber()
+    ) {
+      return lbPair2Key;
+    }
+
+    const [lbPairKey] = deriveLbPair(
+      tokenX,
+      tokenY,
+      binStep,
+      program.programId
+    );
+
+    const account = await program.account.lbPair.fetchNullable(lbPairKey);
+    if (
+      account &&
+      account.parameters.baseFactor === baseFactor.toNumber() &&
+      account.parameters.baseFeePowerFactor === baseFeePowerFactor.toNumber()
+    ) {
+      return lbPairKey;
+    }
+
+    const presetParametersWithIndex =
+      await program.account.presetParameter2.all([
+        presetParameter2BinStepFilter(binStep),
+        presetParameter2BaseFactorFilter(baseFactor),
+        presetParameter2BaseFeePowerFactor(baseFeePowerFactor),
+      ]);
+
+    if (presetParametersWithIndex.length > 0) {
+      const possibleLbPairKeys = presetParametersWithIndex.map((account) => {
+        return deriveLbPairWithPresetParamWithIndexKey(
+          account.publicKey,
+          tokenX,
+          tokenY,
+          program.programId
+        )[0];
+      });
+
+      const accounts = await chunkedGetMultipleAccountInfos(
+        program.provider.connection,
+        possibleLbPairKeys
       );
-      const account2 = await program.account.lbPair.fetchNullable(lbPair2Key);
-      if (
-        account2 &&
-        account2.parameters.baseFeePowerFactor == baseFeePowerFactor.toNumber()
-      ) {
-        return lbPair2Key;
-      }
 
-      const [lbPairKey] = deriveLbPair(
-        tokenX,
-        tokenY,
-        binStep,
-        program.programId
-      );
+      for (let i = 0; i < possibleLbPairKeys.length; i++) {
+        const pairKey = possibleLbPairKeys[i];
+        const account = accounts[i];
 
-      const account = await program.account.lbPair.fetchNullable(lbPairKey);
-      if (
-        account &&
-        account.parameters.baseFactor === baseFactor.toNumber() &&
-        account.parameters.baseFeePowerFactor === baseFeePowerFactor.toNumber()
-      ) {
-        return lbPairKey;
-      }
-
-      const presetParametersWithIndex =
-        await program.account.presetParameter2.all([
-          presetParameter2BinStepFilter(binStep),
-          presetParameter2BaseFactorFilter(baseFactor),
-          presetParameter2BaseFeePowerFactor(baseFeePowerFactor),
-        ]);
-
-      if (presetParametersWithIndex.length > 0) {
-        const possibleLbPairKeys = presetParametersWithIndex.map((account) => {
-          return deriveLbPairWithPresetParamWithIndexKey(
-            account.publicKey,
-            tokenX,
-            tokenY,
-            program.programId
-          )[0];
-        });
-
-        const accounts = await chunkedGetMultipleAccountInfos(
-          program.provider.connection,
-          possibleLbPairKeys
-        );
-
-        for (let i = 0; i < possibleLbPairKeys.length; i++) {
-          const pairKey = possibleLbPairKeys[i];
-          const account = accounts[i];
-
-          if (account) {
-            return pairKey;
-          }
+        if (account) {
+          return pairKey;
         }
       }
-
-      return null;
-    } catch (error) {
-      return null;
     }
+
+    return null;
   }
 
   public static async getCustomizablePermissionlessLbPairIfExists(
