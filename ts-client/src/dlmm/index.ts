@@ -241,7 +241,7 @@ export class DLMM {
   }
 
   /**
-   * Retrieves the public key of a LB pair if it exists.
+   * Retrieves the public key of a LB pair if it exists. This function expect the RPC have getProgramAccounts RPC method enabled.
    * @param connection The connection to the Solana cluster.
    * @param tokenX The mint address of token X.
    * @param tokenY The mint address of token Y.
@@ -271,7 +271,12 @@ export class DLMM {
         program.programId
       );
       const account2 = await program.account.lbPair.fetchNullable(lbPair2Key);
-      if (account2) return lbPair2Key;
+      if (
+        account2 &&
+        account2.parameters.baseFeePowerFactor == baseFeePowerFactor.toNumber()
+      ) {
+        return lbPair2Key;
+      }
 
       const [lbPairKey] = deriveLbPair(
         tokenX,
@@ -281,7 +286,11 @@ export class DLMM {
       );
 
       const account = await program.account.lbPair.fetchNullable(lbPairKey);
-      if (account && account.parameters.baseFactor === baseFactor.toNumber()) {
+      if (
+        account &&
+        account.parameters.baseFactor === baseFactor.toNumber() &&
+        account.parameters.baseFeePowerFactor === baseFeePowerFactor.toNumber()
+      ) {
         return lbPairKey;
       }
 
@@ -319,6 +328,7 @@ export class DLMM {
 
       return null;
     } catch (error) {
+      console.error(error);
       return null;
     }
   }
