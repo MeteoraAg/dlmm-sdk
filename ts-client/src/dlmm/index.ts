@@ -225,11 +225,13 @@ export class DLMM {
   /**
    * The function `getLbPairs` retrieves a list of LB pair accounts using a connection and optional
    * parameters.
+   *
    * @param {Connection} connection - The `connection` parameter is an instance of the `Connection`
    * class, which represents the connection to the Solana blockchain network.
    * @param {Opt} [opt] - The `opt` parameter is an optional object that contains additional options
    * for the function. It can have the following properties:
-   * @returns The function `getLbPairs` returns a Promise that resolves to an array of
+   *
+   * @returns {Promise<LbPairAccount[]>} The function `getLbPairs` returns a Promise that resolves to an array of
    * `LbPairAccount` objects.
    */
   public static async getLbPairs(
@@ -242,14 +244,16 @@ export class DLMM {
 
   /**
    * Retrieves the public key of a LB pair if it exists. This function expect the RPC have getProgramAccounts RPC method enabled.
-   * @param connection The connection to the Solana cluster.
-   * @param tokenX The mint address of token X.
-   * @param tokenY The mint address of token Y.
-   * @param binStep The bin step of the LB pair.
-   * @param baseFactor The base factor of the LB pair.
-   * @param baseFeePowerFactor The base fee power factor of the LB pair. It allow small bin step to have bigger fee rate.
-   * @param opt Optional parameters.
-   * @returns The public key of the LB pair if it exists, or null.
+   * 
+   * @param {Connection} connection - The connection to the Solana cluster.
+   * @param {PublicKey} tokenX - The mint address of token X.
+   * @param {PublicKey} tokenY - The mint address of token Y.
+   * @param {BN} binStep - The bin step of the LB pair.
+   * @param {BN} baseFactor - The base factor of the LB pair.
+   * @param {BN} baseFeePowerFactor - The base fee power factor of the LB pair. It allow small bin step to have bigger fee rate.
+   * @param {Opt} [opt] - Optional parameters.
+   * 
+   * @returns {Promise<PublicKey | null>} The public key of the LB pair if it exists, or null.
    */
   public static async getPairPubkeyIfExists(
     connection: Connection,
@@ -353,12 +357,14 @@ export class DLMM {
 
   /**
    * The `create` function is a static method that creates a new instance of the `DLMM` class
+   * 
    * @param {Connection} connection - The `connection` parameter is an instance of the `Connection`
    * class, which represents the connection to the Solana blockchain network.
    * @param {PublicKey} dlmm - The PublicKey of LB Pair.
    * @param {Opt} [opt] - The `opt` parameter is an optional object that can contain additional options
    * for the `create` function. It has the following properties:
-   * @returns The `create` function returns a `Promise` that resolves to a `DLMM` object.
+   * 
+   * @returns {Promise<DLMM>} The `create` function returns a `Promise` that resolves to a `DLMM` object.
    */
   static async create(
     connection: Connection,
@@ -554,11 +560,13 @@ export class DLMM {
 
   /**
    * Similar to `create` function, but it accept multiple lbPairs to be initialized.
+   * 
    * @param {Connection} connection - The `connection` parameter is an instance of the `Connection`
    * class, which represents the connection to the Solana blockchain network.
-   * @param dlmmList - An Array of PublicKey of LB Pairs.
+   * @param {Array<PublicKey>} dlmmList - An Array of PublicKey of LB Pairs.
    * @param {Opt} [opt] - An optional parameter of type `Opt`.
-   * @returns The function `createMultiple` returns a Promise that resolves to an array of `DLMM`
+   * 
+   * @returns {Promise<DLMM[]>} The function `createMultiple` returns a Promise that resolves to an array of `DLMM`
    * objects.
    */
   static async createMultiple(
@@ -839,12 +847,15 @@ export class DLMM {
    * @param {Connection} connection - The connection to the Solana cluster.
    * @param {Opt} [opt] - The optional parameters for the function.
    *
-   * @returns A promise that resolves to an object containing the preset parameter
-   * accounts, with the following properties:
+   * @returns {Promise<{presetParameter: any[]; presetParameter2: any[]}>} A promise that resolves
+   * to an object containing the preset parameter accounts, with the following properties:
    * - `presetParameter`: The preset parameter accounts for the original `PresetParameter` struct.
    * - `presetParameter2`: The preset parameter accounts for the `PresetParameter2` struct.
    */
-  static async getAllPresetParameters(connection: Connection, opt?: Opt) {
+  static async getAllPresetParameters(
+    connection: Connection,
+     opt?: Opt
+  ): Promise<{presetParameter: any[]; presetParameter2: any[]}> {
     const program = createProgram(connection, opt);
 
     const [presetParameter, presetParameter2] = await Promise.all([
@@ -861,11 +872,13 @@ export class DLMM {
   /**
    * The function `getAllLbPairPositionsByUser` retrieves all liquidity pool pair positions for a given
    * user.
+   * 
    * @param {Connection} connection - The `connection` parameter is an instance of the `Connection`
    * class, which represents the connection to the Solana blockchain.
    * @param {PublicKey} userPubKey - The user's wallet public key.
    * @param {Opt} [opt] - An optional object that contains additional options for the function.
-   * @returns The function `getAllLbPairPositionsByUser` returns a `Promise` that resolves to a `Map`
+   * 
+   * @returns {Promise<Map<string, PositionInfo>>} The function `getAllLbPairPositionsByUser` returns a `Promise` that resolves to a `Map`
    * object. The `Map` object contains key-value pairs, where the key is a string representing the LB
    * Pair account, and the value is an object of PositionInfo
    */
@@ -1154,9 +1167,11 @@ export class DLMM {
 
   /**
    * The function `getLbPairLockInfo` retrieves all pair positions that has locked liquidity.
+   * 
    * @param {number} [lockDurationOpt] - An optional value indicating the minimum position lock duration that the function should return.
    * Depending on the lbPair activationType, the param should be a number of seconds or a number of slots.
-   * @returns The function `getLbPairLockInfo` returns a `Promise` that resolves to a `PairLockInfo`
+   * 
+   * @returns {Promise<PairLockInfo>} The function `getLbPairLockInfo` returns a `Promise` that resolves to a `PairLockInfo`
    * object. The `PairLockInfo` object contains an array of `PositionLockInfo` objects.
    */
   public async getLbPairLockInfo(
@@ -1269,18 +1284,21 @@ export class DLMM {
 
   /**
    * Create a new customizable permissionless pair. Support both token and token 2022.
-   * @param connection A connection to the Solana cluster.
-   * @param binStep The bin step for the pair.
-   * @param tokenX The mint of the first token.
-   * @param tokenY The mint of the second token.
-   * @param activeId The ID of the initial active bin. Represent the starting price.
-   * @param feeBps The fee rate for swaps in the pair, in basis points.
-   * @param activationType The type of activation for the pair.
-   * @param hasAlphaVault Whether the pair has an alpha vault.
-   * @param creatorKey The public key of the creator of the pair.
-   * @param activationPoint The timestamp at which the pair will be activated.
-   * @param opt An options object.
-   * @returns A transaction that creates the pair.
+   * 
+   * @param {Connection} connection - A connection to the Solana cluster.
+   * @param {BN} binStep - The bin step for the pair.
+   * @param {PublicKey} tokenX - The mint of the first token.
+   * @param {PublicKey} tokenY - The mint of the second token.
+   * @param {BN} activeId - The ID of the initial active bin. Represent the starting price.
+   * @param {BN} feeBps - The fee rate for swaps in the pair, in basis points.
+   * @param {ActivationType} activationType - The type of activation for the pair.
+   * @param {boolean} hasAlphaVault - Whether the pair has an alpha vault.
+   * @param {PublicKey} creatorKey - The public key of the creator of the pair.
+   * @param {BN} [activationPoint] - The timestamp at which the pair will be activated.
+   * @param {boolean} [creatorPoolOnOffControl] - Whether the creator has control over turning the pool on or off.
+   * @param {Opt} [opt] - An options object.
+   * 
+   * @returns {Promise<Transaction>} A transaction that creates the pair.
    */
   public static async createCustomizablePermissionlessLbPair2(
     connection: Connection,
@@ -1387,18 +1405,21 @@ export class DLMM {
 
   /**
    * Create a new customizable permissionless pair. Support only token program.
-   * @param connection A connection to the Solana cluster.
-   * @param binStep The bin step for the pair.
-   * @param tokenX The mint of the first token.
-   * @param tokenY The mint of the second token.
-   * @param activeId The ID of the initial active bin. Represent the starting price.
-   * @param feeBps The fee rate for swaps in the pair, in basis points.
-   * @param activationType The type of activation for the pair.
-   * @param hasAlphaVault Whether the pair has an alpha vault.
-   * @param creatorKey The public key of the creator of the pair.
-   * @param activationPoint The timestamp at which the pair will be activated.
-   * @param opt An options object.
-   * @returns A transaction that creates the pair.
+   * 
+   * @param {PublicKey} connection - A connection to the Solana cluster.
+   * @param {BN} binStep - The bin step for the pair.
+   * @param {PublicKey} tokenX - The mint of the first token.
+   * @param {PublicKey} tokenY - The mint of the second token.
+   * @param {BN} activeId - The ID of the initial active bin. Represent the starting price.
+   * @param {BN} feeBps - The fee rate for swaps in the pair, in basis points.
+   * @param {ActivationType} activationType - The type of activation for the pair.
+   * @param {boolean} hasAlphaVault - Whether the pair has an alpha vault.
+   * @param {PublicKey} creatorKey - The public key of the creator of the pair.
+   * @param {BN} [activationPoint] - The timestamp at which the pair will be activated.
+   * @param {boolean} [creatorPoolOnOffControl] - Whether the creator has control over turning the pool on or off.
+   * @param {Opt} [opt] - An options object.
+   *
+   * @returns {Promise<Transaction>} A transaction that creates the pair.
    */
   public static async createCustomizablePermissionlessLbPair(
     connection: Connection,
@@ -1479,16 +1500,18 @@ export class DLMM {
 
   /**
    * Create a new liquidity pair. Support only token program.
-   * @param connection A connection to the Solana cluster.
-   * @param funder The public key of the funder of the pair.
-   * @param tokenX The mint of the first token.
-   * @param tokenY The mint of the second token.
-   * @param binStep The bin step for the pair.
-   * @param baseFactor The base factor for the pair.
-   * @param presetParameter The public key of the preset parameter account.
-   * @param activeId The ID of the initial active bin. Represent the starting price.
-   * @param opt An options object.
-   * @returns A transaction that creates the pair.
+   * 
+   * @param {Connection} connection - A connection to the Solana cluster.
+   * @param {PublicKey} funder - The public key of the funder of the pair.
+   * @param {PublicKey} tokenX - The mint of the first token.
+   * @param {PublicKey} tokenY - The mint of the second token.
+   * @param {BN} binStep - The bin step for the pair.
+   * @param {BN} baseFactor - The base factor for the pair.
+   * @param {PublicKey} presetParameter - The public key of the preset parameter account.
+   * @param {BN} activeId - The ID of the initial active bin. Represent the starting price.
+   * @param {Opt} opt - An options object.
+   * 
+   * @returns {Promise<Transaction>} A transaction that creates the pair.
    * @throws If the pair already exists.
    */
   public static async createLbPair(
@@ -1557,14 +1580,16 @@ export class DLMM {
 
   /**
    * Create a new liquidity pair. Support both token and token2022 program.
-   * @param connection A connection to the Solana cluster.
-   * @param funder The public key of the funder of the pair.
-   * @param tokenX The mint of the first token.
-   * @param tokenY The mint of the second token.
-   * @param presetParameter The public key of the preset parameter account.
-   * @param activeId The ID of the initial active bin. Represent the starting price.
-   * @param opt An options object.
-   * @returns A transaction that creates the pair.
+   * 
+   * @param {Connection} connection - A connection to the Solana cluster.
+   * @param {PublicKey} funder - The public key of the funder of the pair.
+   * @param {PublicKey} tokenX - The mint of the first token.
+   * @param {PublicKey} tokenY - The mint of the second token.
+   * @param {PublicKey} presetParameter - The public key of the preset parameter account.
+   * @param {BN} activeId - The ID of the initial active bin. Represent the starting price.
+   * @param {Opt} [opt] - An options object.
+   * 
+   * @returns {Promise<Transaction>} A transaction that creates the pair.
    * @throws If the pair already exists.
    */
   public static async createLbPair2(
@@ -1659,6 +1684,8 @@ export class DLMM {
   /**
    * The function `refetchStates` retrieves and updates various states and data related to bin arrays
    * and lb pairs.
+   * 
+   * @returns {Promise<void>} A promise that resolves to void.
    */
   public async refetchStates(): Promise<void> {
     const binArrayBitmapExtensionPubkey = deriveBinArrayBitmapExtension(
@@ -1821,14 +1848,16 @@ export class DLMM {
    * Set the status of a permissionless LB pair to either enabled or disabled. This require pool field `creator_pool_on_off_control` to be true and type `CustomizablePermissionless`.
    * Pool creator can enable/disable the pair anytime before the pool is opened / activated. Once the pool activation time is passed, the pool creator can only enable the pair.
    * Useful for token launches which do not have fixed activation time.
-   * @param enable If true, the pair will be enabled. If false, the pair will be disabled.
-   * @param creator The public key of the pool creator.
-   * @returns a Promise that resolves to the transaction.
+   * 
+   * @param {boolean} enable If true, the pair will be enabled. If false, the pair will be disabled.
+   * @param {PublicKey} creator The public key of the pool creator.
+   * 
+   * @returns {Promise<Transaction>} a Promise that resolves to the transaction.
    */
   public async setPairStatusPermissionless(
     enable: boolean,
     creator: PublicKey
-  ) {
+  ): Promise<Transaction> {
     const status: PairStatus = enable ? 0 : 1; // 0 = enable, 1 = disable
 
     const tx = await this.program.methods
@@ -1851,7 +1880,8 @@ export class DLMM {
 
   /**
    * The function `getBinArrays` returns an array of `BinArrayAccount` objects
-   * @returns a Promise that resolves to an array of BinArrayAccount objects.
+   * 
+   * @returns {Promise<BinArrayAccount[]>} a Promise that resolves to an array of BinArrayAccount objects.
    */
   public async getBinArrays(): Promise<BinArrayAccount[]> {
     return this.program.account.binArray.all([
@@ -1862,14 +1892,15 @@ export class DLMM {
   /**
    * The function `getBinArrayAroundActiveBin` retrieves a specified number of `BinArrayAccount`
    * objects from the blockchain, based on the active bin and its surrounding bin arrays.
-   * @param
-   *    swapForY - The `swapForY` parameter is a boolean value that indicates whether the swap is using quote token as input.
-   *    [count=4] - The `count` parameter is the number of bin arrays to retrieve on left and right respectively. By default, it is set to 4.
-   * @returns an array of `BinArrayAccount` objects.
+   * 
+   * @param {boolean} swapForY - The `swapForY` parameter is a boolean value that indicates whether the swap is using quote token as input.
+   * @param {number} [count=4] - The `count` parameter is the number of bin arrays to retrieve on left and right respectively. By default, it is set to 4.
+   * 
+   * @returns {Promise<BinArrayAccount[]>} an array of `BinArrayAccount` objects.
    */
   public async getBinArrayForSwap(
     swapForY: boolean,
-    count = 4
+    count: number = 4
   ): Promise<BinArrayAccount[]> {
     await this.refetchStates();
 
@@ -1934,10 +1965,12 @@ export class DLMM {
   /**
    * The function `calculateFeeInfo` calculates the base fee rate percentage and maximum fee rate percentage
    * given the base factor, bin step, and optional base fee power factor.
-   * @param baseFactor - The base factor of the pair.
-   * @param binStep - The bin step of the pair.
-   * @param baseFeePowerFactor - Optional parameter to allow small bin step to have bigger fee rate. Default to 0.
-   * @returns an object of type `Omit<FeeInfo, "protocolFeePercentage">` with the following properties: baseFeeRatePercentage and maxFeeRatePercentage.
+   * 
+   * @param {number|string} baseFactor - The base factor of the pair.
+   * @param {number|string} binStep - The bin step of the pair.
+   * @param {number|string} baseFeePowerFactor - Optional parameter to allow small bin step to have bigger fee rate. Default to 0.
+   * 
+   * @returns {Omit<FeeInfo, "protocolFeePercentage">} an object of type `Omit<FeeInfo, "protocolFeePercentage">` with the following properties: baseFeeRatePercentage and maxFeeRatePercentage.
    */
   public static calculateFeeInfo(
     baseFactor: number | string,
@@ -1964,7 +1997,8 @@ export class DLMM {
   /**
    * The function `getFeeInfo` calculates and returns the base fee rate percentage, maximum fee rate
    * percentage, and protocol fee percentage.
-   * @returns an object of type `FeeInfo` with the following properties: baseFeeRatePercentage, maxFeeRatePercentage, and protocolFeePercentage.
+   * 
+   * @returns {FeeInfo} an object of type `FeeInfo` with the following properties: baseFeeRatePercentage, maxFeeRatePercentage, and protocolFeePercentage.
    */
   public getFeeInfo(): FeeInfo {
     const { baseFactor, protocolShare } = this.lbPair.parameters;
@@ -1989,7 +2023,8 @@ export class DLMM {
 
   /**
    * The function calculates and returns a dynamic fee
-   * @returns a Decimal value representing the dynamic fee.
+   * 
+   * @returns {Decimal} a Decimal value representing the dynamic fee.
    */
   public getDynamicFee(): Decimal {
     let vParameterClone = Object.assign({}, this.lbPair.vParameters);
@@ -2021,7 +2056,8 @@ export class DLMM {
 
   /**
    * The function `getEmissionRate` returns the emission rates for two rewards.
-   * @returns an object of type `EmissionRate`. The object has two properties: `rewardOne` and
+   * 
+   * @returns {EmissionRate} an object of type `EmissionRate`. The object has two properties: `rewardOne` and
    * `rewardTwo`, both of which are of type `Decimal`.
    */
   public getEmissionRate(): EmissionRate {
@@ -2044,12 +2080,14 @@ export class DLMM {
   /**
    * The function `getBinsAroundActiveBin` retrieves a specified number of bins to the left and right
    * of the active bin and returns them along with the active bin ID.
+   * 
    * @param {number} numberOfBinsToTheLeft - The parameter `numberOfBinsToTheLeft` represents the
    * number of bins to the left of the active bin that you want to retrieve. It determines how many
    * bins you want to include in the result that are positioned to the left of the active bin.
    * @param {number} numberOfBinsToTheRight - The parameter `numberOfBinsToTheRight` represents the
    * number of bins to the right of the active bin that you want to retrieve.
-   * @returns an object with two properties: "activeBin" and "bins". The value of "activeBin" is the
+   * 
+   * @returns {Promise<{ activeBin: number; bins: BinLiquidity[] }>} an object with two properties: "activeBin" and "bins". The value of "activeBin" is the
    * value of "this.lbPair.activeId", and the value of "bins" is the result of calling the "getBins"
    * function with the specified parameters.
    */
@@ -2074,10 +2112,12 @@ export class DLMM {
   /**
    * The function `getBinsBetweenMinAndMaxPrice` retrieves a list of bins within a specified price
    * range.
+   * 
    * @param {number} minPrice - The minimum price value for filtering the bins.
    * @param {number} maxPrice - The `maxPrice` parameter is the maximum price value that you want to
    * use for filtering the bins.
-   * @returns an object with two properties: "activeBin" and "bins". The value of "activeBin" is the
+   * 
+   * @returns {Promise<{ activeBin: number; bins: BinLiquidity[] }>} an object with two properties: "activeBin" and "bins". The value of "activeBin" is the
    * active bin ID of the lbPair, and the value of "bins" is an array of BinLiquidity objects.
    */
   public async getBinsBetweenMinAndMaxPrice(
@@ -2101,6 +2141,7 @@ export class DLMM {
   /**
    * The function `getBinsBetweenLowerAndUpperBound` retrieves a list of bins between a lower and upper
    * bin ID and returns the active bin ID and the list of bins.
+   * 
    * @param {number} lowerBinId - The lowerBinId parameter is a number that represents the ID of the
    * lowest bin.
    * @param {number} upperBinId - The upperBinID parameter is a number that represents the ID of the
@@ -2109,7 +2150,8 @@ export class DLMM {
    * type `BinArray`. It represents an array of bins that are below the lower bin ID.
    * @param {BinArray} [upperBinArrays] - The parameter `upperBinArrays` is an optional parameter of
    * type `BinArray`. It represents an array of bins that are above the upper bin ID.
-   * @returns an object with two properties: "activeBin" and "bins". The value of "activeBin" is the
+   * 
+   * @returns {Promise<{ activeBin: number; bins: BinLiquidity[] }>} an object with two properties: "activeBin" and "bins". The value of "activeBin" is the
    * active bin ID of the lbPair, and the value of "bins" is an array of BinLiquidity objects.
    */
   public async getBinsBetweenLowerAndUpperBound(
@@ -2133,7 +2175,9 @@ export class DLMM {
 
   /**
    * The function converts a real price of bin to a lamport value
+   * 
    * @param {number} price - The `price` parameter is a number representing the price of a token.
+   * 
    * @returns {string} price per Lamport of bin
    */
   public toPricePerLamport(price: number): string {
@@ -2146,8 +2190,10 @@ export class DLMM {
 
   /**
    * The function converts a price per lamport value to a real price of bin
+   * 
    * @param {number} pricePerLamport - The parameter `pricePerLamport` is a number representing the
    * price per lamport.
+   * 
    * @returns {string} real price of bin
    */
   public fromPricePerLamport(pricePerLamport: number): string {
@@ -2162,7 +2208,8 @@ export class DLMM {
 
   /**
    * The function retrieves the active bin ID and its corresponding price.
-   * @returns an object with two properties: "binId" which is a number, and "price" which is a string.
+   * 
+   * @returns {Promise<BinLiquidity>} an object with two properties: "binId" which is a number, and "price" which is a string.
    */
   public async getActiveBin(): Promise<BinLiquidity> {
     const { activeId } = await this.program.account.lbPair.fetch(this.pubkey);
@@ -2179,10 +2226,12 @@ export class DLMM {
   /**
    * The function get bin ID based on a given price and a boolean flag indicating whether to
    * round down or up.
+   * 
    * @param {number} price - The price parameter is a number that represents the price value.
    * @param {boolean} min - The "min" parameter is a boolean value that determines whether to round
    * down or round up the calculated binId. If "min" is true, the binId will be rounded down (floor),
    * otherwise it will be rounded up (ceil).
+   * 
    * @returns {number} which is the binId calculated based on the given price and whether the minimum
    * value should be used.
    */
@@ -2193,11 +2242,14 @@ export class DLMM {
   /**
    * The function `getPositionsByUserAndLbPair` retrieves positions by user and LB pair, including
    * active bin and user positions.
+   * 
    * @param {PublicKey} [userPubKey] - The `userPubKey` parameter is an optional parameter of type
    * `PublicKey`. It represents the public key of a user. If no `userPubKey` is provided, the function
    * will return an object with an empty `userPositions` array and the active bin information obtained
    * from the `getActive
-   * @returns The function `getPositionsByUserAndLbPair` returns a Promise that resolves to an object
+   * 
+   * @returns {Promise<{activeBin: BinLiquidity, userPositions: LbPosition[]}>}
+   * The function `getPositionsByUserAndLbPair` returns a Promise that resolves to an object
    * with two properties:
    *    - "activeBin" which is an object with two properties: "binId" and "price". The value of "binId"
    *     is the active bin ID of the lbPair, and the value of "price" is the price of the active bin.
@@ -2319,9 +2371,10 @@ export class DLMM {
    * The function calculates the rent cost required to expand a position and the cost
    * to create necessary bin arrays for the new position range.
    *
-   * @param currentMinBinId - The current minimum bin ID of the position.
-   * @param currentMaxBinId - The current maximum bin ID of the position.
-   * @param binCountToExpand - The number of bins to expand the position by.
+   * @param {BN} currentMinBinId - The current minimum bin ID of the position.
+   * @param {BN} currentMaxBinId - The current maximum bin ID of the position.
+   * @param {BN} binCountToExpand - The number of bins to expand the position by.
+   * 
    * @returns An object containing:
    *   - positionExtendCost: The estimated rent cost in lamports for extending the position.
    *   - binArrayCost: The estimated cost for creating necessary bin arrays.
@@ -2430,8 +2483,14 @@ export class DLMM {
 
   /**
    * Creates an empty position and initializes the corresponding bin arrays if needed.
-   * @param param0 The settings of the requested new position.
-   * @returns A promise that resolves into a transaction for creating the requested position.
+   * 
+   * @param {Object} params - The settings for the new position.
+   * @param {PublicKey} params.positionPubKey - The public key of the position to create.
+   * @param {number} params.minBinId - The minimum bin ID for the position.
+   * @param {number} params.maxBinId - The maximum bin ID for the position.
+   * @param {PublicKey} params.user - The public key of the user creating the position.
+   * 
+   * @returns {Promise<Transaction>} A promise that resolves into a transaction for creating the requested position.
    */
   public async createEmptyPosition({
     positionPubKey,
@@ -2443,7 +2502,7 @@ export class DLMM {
     minBinId: number;
     maxBinId: number;
     user: PublicKey;
-  }) {
+  }): Promise<Transaction> {
     const createPositionIx = await this.program.methods
       .initializePosition(minBinId, maxBinId - minBinId + 1)
       .accountsPartial({
@@ -2483,9 +2542,11 @@ export class DLMM {
   /**
    * The function `getPosition` retrieves position information for a given public key and processes it
    * using various data to return a `LbPosition` object.
+   * 
    * @param {PublicKey} positionPubKey - The `getPosition` function you provided is an asynchronous
    * function that fetches position information based on a given public key. Here's a breakdown of the
    * parameters used in the function:
+   * 
    * @returns The `getPosition` function returns a Promise that resolves to an object of type
    * `LbPosition`. The object contains the following properties:
    * - `publicKey`: The public key of the position account
@@ -2553,13 +2614,15 @@ export class DLMM {
 
   /**
    * Creates multiple positions and adds liquidity by strategy without chainsaw issues.
-   * @param positionKeypairGenerator A function that generates a specified number of keypairs.
-   * @param totalXAmount The total amount of token X to be added.
-   * @param totalYAmount The total amount of token Y to be added.
-   * @param strategy The strategy for adding liquidity.
-   * @param owner The owner of the position.
-   * @param payer The payer of the transaction.
-   * @param slippagePercentage The slippage percentage for adding liquidity.
+   *
+   * @param {(count: number) => Promise<Keypair[]>} positionKeypairGenerator - A function that generates a specified number of keypairs.
+   * @param {BN} totalXAmount - The total amount of token X to be added across all positions.
+   * @param {BN} totalYAmount - The total amount of token Y to be added across all positions.
+   * @param {StrategyParameters} strategy - The strategy parameters for adding liquidity.
+   * @param {PublicKey} owner - The public key of the positions owner.
+   * @param {PublicKey} payer - The public key paying for the transactions.
+   * @param {number} slippagePercentage - The allowed slippage percentage when adding liquidity.
+   * 
    * @returns An object with two properties: `initPositionIxs` and `addLiquidityIxs`.
    */
   public async initializeMultiplePositionAndAddLiquidityByStrategy(
@@ -2757,6 +2820,7 @@ export class DLMM {
 
   /**
    * The function `initializePositionAndAddLiquidityByStrategy` function is used to initializes a position and adds liquidity
+   * 
    * @param {TInitializePositionAndAddLiquidityParamsByStrategy}
    *    - `positionPubKey`: The public key of the position account. (usually use `new Keypair()`)
    *    - `totalXAmount`: The total amount of token X to be added to the liquidity pool.
@@ -2764,6 +2828,7 @@ export class DLMM {
    *    - `strategy`: The strategy parameters to be used for the liquidity pool (Can use `calculateStrategyParameter` to calculate).
    *    - `user`: The public key of the user account.
    *    - `slippage`: The slippage percentage to be used for the liquidity pool.
+   * 
    * @returns {Promise<Transaction>} The function `initializePositionAndAddLiquidityByStrategy` returns a `Promise` that
    * resolves to either a single `Transaction` object.
    */
@@ -2944,6 +3009,7 @@ export class DLMM {
   /**
    * @deprecated Use `initializePositionAndAddLiquidityByStrategy` instead which support both token and token2022.
    * The function `initializePositionAndAddLiquidityByWeight` function is used to initializes a position and adds liquidity
+   * 
    * @param {TInitializePositionAndAddLiquidityParams}
    *    - `positionPubKey`: The public key of the position account. (usually use `new Keypair()`)
    *    - `totalXAmount`: The total amount of token X to be added to the liquidity pool.
@@ -2951,6 +3017,7 @@ export class DLMM {
    *    - `xYAmountDistribution`: An array of objects of type `XYAmountDistribution` that represents (can use `calculateSpotDistribution`, `calculateBidAskDistribution` & `calculateNormalDistribution`)
    *    - `user`: The public key of the user account.
    *    - `slippage`: The slippage percentage to be used for the liquidity pool.
+   * 
    * @returns {Promise<Transaction|Transaction[]>} The function `initializePositionAndAddLiquidityByWeight` returns a `Promise` that
    * resolves to either a single `Transaction` object (if less than 26bin involved) or an array of `Transaction` objects.
    */
@@ -3224,6 +3291,7 @@ export class DLMM {
 
   /**
    * The `addLiquidityByStrategy` function is used to add liquidity to existing position
+   * 
    * @param {TInitializePositionAndAddLiquidityParamsByStrategy}
    *    - `positionPubKey`: The public key of the position account. (usually use `new Keypair()`)
    *    - `totalXAmount`: The total amount of token X to be added to the liquidity pool.
@@ -3231,6 +3299,7 @@ export class DLMM {
    *    - `strategy`: The strategy parameters to be used for the liquidity pool (Can use `calculateStrategyParameter` to calculate).
    *    - `user`: The public key of the user account.
    *    - `slippage`: The slippage percentage to be used for the liquidity pool.
+   * 
    * @returns {Promise<Transaction>} The function `addLiquidityByWeight` returns a `Promise` that resolves to either a single
    * `Transaction` object
    */
@@ -3400,6 +3469,7 @@ export class DLMM {
   /**
    * @deprecated Use `addLiquidityByStrategy` instead which support both token and token2022.
    * The `addLiquidityByWeight` function is used to add liquidity to existing position
+   * 
    * @param {TInitializePositionAndAddLiquidityParams}
    *    - `positionPubKey`: The public key of the position account. (usually use `new Keypair()`)
    *    - `totalXAmount`: The total amount of token X to be added to the liquidity pool.
@@ -3407,6 +3477,7 @@ export class DLMM {
    *    - `xYAmountDistribution`: An array of objects of type `XYAmountDistribution` that represents (can use `calculateSpotDistribution`, `calculateBidAskDistribution` & `calculateNormalDistribution`)
    *    - `user`: The public key of the user account.
    *    - `slippage`: The slippage percentage to be used for the liquidity pool.
+   * 
    * @returns {Promise<Transaction|Transaction[]>} The function `addLiquidityByWeight` returns a `Promise` that resolves to either a single
    * `Transaction` object (if less than 26bin involved) or an array of `Transaction` objects.
    */
@@ -3676,14 +3747,16 @@ export class DLMM {
   /**
    * The `removeLiquidity` function is used to remove liquidity from a position,
    * with the option to claim rewards and close the position.
+   * 
    * @param
    *    - `user`: The public key of the user account.
    *    - `position`: The public key of the position account.
    *    - `fromBinId`: The ID of the starting bin to remove liquidity from. Must within position range.
    *    - `toBinId`: The ID of the ending bin to remove liquidity from. Must within position range.
-   *    - `liquiditiesBpsToRemove`: An array of numbers (percentage) that represent the liquidity to remove from each bin.
+   *    - `bps`: number (percentage) the liquidity to remove.
    *    - `shouldClaimAndClose`: A boolean flag that indicates whether to claim rewards and close the position.
    *    - `skipUnwrapSOL`: A boolean flag that indicates whether to skip unwrapping SOL. Enable this when using zap-sdk to ensure accuracy in SOL zap out amount when SOL is in token
+   * 
    * @returns {Promise<Transaction[]>}
    */
   public async removeLiquidity({
@@ -3989,6 +4062,12 @@ export class DLMM {
 
   /**
    * The `closePositionIfEmpty` function closes a position if it is empty. Else, it does nothing.
+   * 
+   * @param
+   *    - `owner`: The public key of the owner of the position.
+   *    - `position`: Objects of type `LbPosition` that represent the position to close.
+   * 
+   * @returns {Promise<Transaction>}
    */
   public async closePositionIfEmpty({
     owner,
@@ -4024,9 +4103,11 @@ export class DLMM {
 
   /**
    * The `closePosition` function closes a position
+   * 
    * @param
    *    - `owner`: The public key of the owner of the position.
-   *    - `position`: The public key of the position account.
+   *    - `position`: Objects of type `LbPosition` that represent the position to close.
+   * 
    * @returns {Promise<Transaction>}
    */
   public async closePosition({
@@ -4063,20 +4144,22 @@ export class DLMM {
 
   /**
    * The `swapQuoteExactOut` function returns a quote for a swap
-   * @param
-   *    - `outAmount`: Amount of lamport to swap out
-   *    - `swapForY`: Swap token X to Y when it is true, else reversed.
-   *    - `allowedSlippage`: Allowed slippage for the swap. Expressed in BPS. To convert from slippage percentage to BPS unit: SLIPPAGE_PERCENTAGE * 100
-   *    - `maxExtraBinArrays`: Maximum number of extra binArrays to return
-   * @returns {SwapQuote}
+   * 
+   * @param {BN} outAmount - The amount of lamports to swap out.
+   * @param {boolean} swapForY - If true, swap token X for token Y; otherwise, swap Y for X.
+   * @param {BN} allowedSlippage - The allowed slippage for the swap, expressed in BPS. To convert from percentage to BPS: `slippagePercentage * 100`.
+   * @param {BinArrayAccount[]} binArrays - The array of bin arrays to use for the swap.
+   * @param {number} [maxExtraBinArrays=0] - Maximum number of extra bin arrays to return.
+   * 
+   * @returns {SwapQuoteExactOut}
    *    - `inAmount`: Amount of lamport to swap in
    *    - `outAmount`: Amount of lamport to swap out
    *    - `fee`: Fee amount
    *    - `protocolFee`: Protocol fee amount
    *    - `maxInAmount`: Maximum amount of lamport to swap in
    *    - `binArraysPubkey`: Array of bin arrays involved in the swap
+   * 
    * @throws {DlmmSdkError}
-   *
    */
   public swapQuoteExactOut(
     outAmount: BN,
@@ -4267,13 +4350,14 @@ export class DLMM {
 
   /**
    * The `swapQuote` function returns a quote for a swap
-   * @param
-   *    - `inAmount`: Amount of lamport to swap in
-   *    - `swapForY`: Swap token X to Y when it is true, else reversed.
-   *    - `allowedSlippage`: Allowed slippage for the swap. Expressed in BPS. To convert from slippage percentage to BPS unit: SLIPPAGE_PERCENTAGE * 100
-   *    - `binArrays`: binArrays for swapQuote.
-   *    - `isPartialFill`: Flag to check whether the the swapQuote is partial fill, default = false.
-   *    - `maxExtraBinArrays`: Maximum number of extra binArrays to return
+   *
+   * @param {BN} inAmount - The amount of lamports to swap in.
+   * @param {boolean} swapForY - Swap token X to Y when it is true, else reversed.
+   * @param {BN} allowedSlippage - Allowed slippage for the swap. Expressed in BPS. To convert from slippage percentage to BPS unit: SLIPPAGE_PERCENTAGE * 100
+   * @param {BinArrayAccount[]} binArrays - The bin arrays to use for the swap quote.
+   * @param {boolean} [isPartialFill=false] - Flag to check whether the the swapQuote is partial fill, default = false.
+   * @param {number} [maxExtraBinArrays=0] - Maximum number of extra bin arrays to return.
+   * 
    * @returns {SwapQuote}
    *    - `consumedInAmount`: Amount of lamport to swap in
    *    - `outAmount`: Amount of lamport to swap out
@@ -4282,6 +4366,7 @@ export class DLMM {
    *    - `minOutAmount`: Minimum amount of lamport to swap out
    *    - `priceImpact`: Price impact of the swap
    *    - `binArraysPubkey`: Array of bin arrays involved in the swap
+   * 
    * @throws {DlmmSdkError}
    */
   public swapQuote(
@@ -4289,7 +4374,7 @@ export class DLMM {
     swapForY: boolean,
     allowedSlippage: BN,
     binArrays: BinArrayAccount[],
-    isPartialFill?: boolean,
+    isPartialFill: boolean = false,
     maxExtraBinArrays: number = 0
   ): SwapQuote {
     const currentTimestamp = Date.now() / 1000;
@@ -4513,6 +4598,20 @@ export class DLMM {
     };
   }
 
+  /**
+   * Returns a transaction to be signed and sent by user performing swap.
+   * 
+   * @param {SwapExactOutParams}
+   *    - `inToken`: The public key of the token to be swapped in.
+   *    - `outToken`: The public key of the token to be swapped out.
+   *    - `outAmount`: The amount of token to be swapped out.
+   *    - `maxInAmount`: The maximum amount of token to be swapped in.
+   *    - `lbPair`: The public key of the liquidity pool.
+   *    - `user`: The public key of the user account.
+   *    - `binArraysPubkey`: Array of bin arrays involved in the swap
+   * 
+   * @returns {Promise<Transaction>}
+   */
   public async swapExactOut({
     inToken,
     outToken,
@@ -4630,14 +4729,16 @@ export class DLMM {
 
   /**
    * Returns a transaction to be signed and sent by user performing swap.
+   * 
    * @param {SwapWithPriceImpactParams}
    *    - `inToken`: The public key of the token to be swapped in.
    *    - `outToken`: The public key of the token to be swapped out.
    *    - `inAmount`: The amount of token to be swapped in.
-   *    - `priceImpact`: Accepted price impact bps.
    *    - `lbPair`: The public key of the liquidity pool.
    *    - `user`: The public key of the user account.
+   *    - `priceImpact`: Accepted price impact bps.
    *    - `binArraysPubkey`: Array of bin arrays involved in the swap
+   * 
    * @returns {Promise<Transaction>}
    */
   public async swapWithPriceImpact({
@@ -4751,6 +4852,7 @@ export class DLMM {
 
   /**
    * Returns a transaction to be signed and sent by user performing swap.
+   * 
    * @param {SwapParams}
    *    - `inToken`: The public key of the token to be swapped in.
    *    - `outToken`: The public key of the token to be swapped out.
@@ -4759,6 +4861,7 @@ export class DLMM {
    *    - `lbPair`: The public key of the liquidity pool.
    *    - `user`: The public key of the user account.
    *    - `binArraysPubkey`: Array of bin arrays involved in the swap
+   * 
    * @returns {Promise<Transaction>}
    */
   public async swap({
@@ -4873,9 +4976,11 @@ export class DLMM {
 
   /**
    * The claimLMReward function is used to claim rewards for a specific position owned by a specific owner.
+   * 
    * @param
    *    - `owner`: The public key of the owner of the position.
-   *    - `position`: The public key of the position account.
+   *    - `position`: Objects of type `LbPosition` that represent the position to claim reward from.
+   * 
    * @returns {Promise<Transaction[]>} Claim LM reward transactions.
    */
   public async claimLMReward({
@@ -4923,9 +5028,11 @@ export class DLMM {
   /**
    * The `claimAllLMRewards` function is used to claim all liquidity mining rewards for a given owner
    * and their positions.
+   * 
    * @param
    *    - `owner`: The public key of the owner of the positions.
-   *    - `positions`: An array of objects of type `PositionData` that represents the positions to claim rewards from.
+   *    - `positions`: An array of objects of type `LbPosition` that represents the positions to claim rewards from.
+   * 
    * @returns {Promise<Transaction[]>} Array of claim LM reward and fees transactions.
    */
   public async claimAllLMRewards({
@@ -4988,7 +5095,14 @@ export class DLMM {
     );
   }
 
-  public async setActivationPoint(activationPoint: BN) {
+  /**
+   * Returns a transaction to be signed and sent by the admin to set a new activation point for the LBPair.
+   * 
+   * @param {BN} activationPoint - The new activation point to be set.
+   * 
+   * @returns {Promise<Transaction>} Transaction to set the new activation point.
+   */
+  public async setActivationPoint(activationPoint: BN): Promise<Transaction> {
     const setActivationPointTx = await this.program.methods
       .setActivationPoint(activationPoint)
       .accountsPartial({
@@ -5007,6 +5121,13 @@ export class DLMM {
     }).add(setActivationPointTx);
   }
 
+  /**
+   * Sets the status of the LBPair (enabled/disabled).
+   * 
+   * @param {boolean} enabled - true to enable the pair, false to disable
+   * 
+   * @returns {Promise<Transaction>} Transaction to set the pair status.
+   */
   public async setPairStatus(enabled: boolean): Promise<Transaction> {
     const pairStatus = enabled ? 0 : 1;
     const tx = await this.program.methods
@@ -5031,8 +5152,7 @@ export class DLMM {
    * The function `claimSwapFee` is used to claim swap fees for a specific position owned by a specific owner.
    * @param
    *    - `owner`: The public key of the owner of the position.
-   *    - `position`: The public key of the position account.
-   *    - `binRange`: The bin range to claim swap fees for. If not provided, the function claim swap fees for full range.
+   *    - `position`: Objects of type `LbPosition` that represent the position to claim swap fees from.
    * @returns {Promise<Transaction[]>} Claim swap fee transactions.
    */
   public async claimSwapFee({
@@ -5077,9 +5197,11 @@ export class DLMM {
 
   /**
    * The `claimAllSwapFee` function to claim swap fees for multiple positions owned by a specific owner.
+   * 
    * @param
    *    - `owner`: The public key of the owner of the positions.
-   *    - `positions`: An array of objects of type `PositionData` that represents the positions to claim swap fees from.
+   *    - `positions`: An array of objects of type `LbPosition` that represents the positions to claim swap fees from.
+   * 
    * @returns {Promise<Transaction[]>} Array of claim swap fee transactions.
    */
   public async claimAllSwapFee({
@@ -5146,7 +5268,8 @@ export class DLMM {
    * position.
    * @param
    *    - `owner`: The public key of the owner of the position.
-   *    - `position`: The public key of the position account.
+   *    - `position`: Objects of type `LbPosition` that represent the position to claim all rewards from.
+   * 
    * @returns {Promise<Transaction[]>} Array of claim reward transactions.
    */
   public async claimAllRewardsByPosition({
@@ -5204,17 +5327,22 @@ export class DLMM {
 
   /**
    * The `seedLiquidity` function create multiple grouped instructions. The grouped instructions will be [init ata + send lamport for token provde], [initialize bin array + initialize position instructions] and [deposit instruction]. Each grouped instructions can be executed parallelly.
-   * @param
-   *    - `owner`: The public key of the positions owner.
-   *    - `seedAmount`: Lamport amount to be seeded to the pool.
-   *    - `minPrice`: Start price in UI format
-   *    - `maxPrice`: End price in UI format
-   *    - `base`: Base key
-   *    - `txPayer`: Account rental fee payer
-   *    - `feeOwner`: Fee owner key. Default to position owner
-   *    - `operator`: Operator key
-   *    - `lockReleasePoint`: Timelock. Point (slot/timestamp) the position can withdraw the liquidity,
-   *    - `shouldSeedPositionOwner` (optional): Whether to send 1 lamport amount of token X to the position owner to prove ownership.
+   * 
+   * @param {PublicKey} owner - The public key of the position owner.
+   * @param {BN} seedAmount - Amount (in lamports) to seed into the pool.
+   * @param {number} curvature - The curvature factor for price distribution.
+   * @param {number} minPrice - The starting price in UI format.
+   * @param {number} maxPrice - The ending price in UI format.
+   * @param {PublicKey} base - Liquidity pool public key.
+   * @param {PublicKey} payer - Payer public key.
+   * @param {PublicKey} feeOwner - The account that will receive fees for the position.
+   *   Defaults to the position owner.
+   * @param {PublicKey} operator - The operator authorized to manage the position 
+   *   on behalf of the owner.
+   * @param {BN} lockReleasePoint - Timelock point (slot/timestamp) when liquidity can be withdrawn.
+   * @param {boolean} [shouldSeedPositionOwner=false] - Whether to send 1 lamport of token X to the 
+   *   position owner to prove ownership.
+   * 
    * @returns {Promise<SeedLiquidityResponse>}
    */
   public async seedLiquidity(
@@ -5652,20 +5780,21 @@ export class DLMM {
 
   /**
    * The `seedLiquiditySingleBin` function seed liquidity into a single bin.
-   * @param
-   *    - `payer`: The public key of the tx payer.
-   *    - `base`: Base key
-   *    - `seedAmount`: Token X lamport amount to be seeded to the pool.
-   *    - `price`: TokenX/TokenY Price in UI format
-   *    - `roundingUp`: Whether to round up the price
-   *    - `positionOwner`: The owner of the position
-   *    - `feeOwner`: Position fee owner
-   *    - `operator`: Operator of the position. Operator able to manage the position on behalf of the position owner. However, liquidity withdrawal issue by the operator can only send to the position owner.
-   *    - `lockReleasePoint`: The lock release point of the position.
-   *    - `shouldSeedPositionOwner` (optional): Whether to send 1 lamport amount of token X to the position owner to prove ownership.
+   * 
+   * @param {PublicKey} payer -  Payer public key.
+   * @param {PublicKey} base - Liquidity pool public key.
+   * @param {BN} seedAmount - Amount of token X (in lamports) to seed into the pool.
+   * @param {number} price - The TokenX/TokenY price in UI format.
+   * @param {boolean} roundingUp - Whether to round up the price.
+   * @param {PublicKey} positionOwner - The owner of the liquidity position.
+   * @param {PublicKey} feeOwner - The account that will receive fees for the position.
+   * @param {PublicKey} operator - An operator authorized to manage the position on behalf of the owner.
+   *   Liquidity withdrawals initiated by the operator can only be sent to the position owner.
+   * @param {BN} lockReleasePoint - The lock release point of the position.
+   * @param {boolean} [shouldSeedPositionOwner=false] - Whether to send 1 lamport of token X to the position owner 
+   *   to prove ownership.
    *
-   * The returned instructions need to be executed sequentially if it was separated into multiple transactions.
-   * @returns {Promise<SeedLiquiditySingleBinResponse>}
+   * @returns {Promise<SeedLiquiditySingleBinResponse>} The returned instructions need to be executed sequentially if it was separated into multiple transactions.
    */
   public async seedLiquiditySingleBin(
     payer: PublicKey,
@@ -5969,6 +6098,7 @@ export class DLMM {
    *
    * @param {BN[]} binArrayIndexes - An array of bin array indexes to initialize.
    * @param {PublicKey} funder - The public key of the funder.
+   * 
    * @return {Promise<TransactionInstruction[]>} An array of transaction instructions to initialize the bin arrays.
    */
   public async initializeBinArrays(binArrayIndexes: BN[], funder: PublicKey) {
@@ -6011,17 +6141,19 @@ export class DLMM {
   }
 
   /**
-   *
+   * The `initializePositionByOperator` function to initialize a new liquidity position in the specified liquidity pool by an operator on behalf of the position owner.
+   * 
    * @param
    *    - `lowerBinId`: Lower bin ID of the position. This represent the lowest price of the position
    *    - `positionWidth`: Width of the position. This will decide the upper bin id of the position, which represents the highest price of the position. UpperBinId = lowerBinId + positionWidth
    *    - `owner`: Owner of the position.
-   *    - `operator`: Operator of the position. Operator able to manage the position on behalf of the position owner. However, liquidity withdrawal issue by the operator can only send to the position owner.
-   *    - `base`: Base key
    *    - `feeOwner`: Owner of the fees earned by the position.
-   *    - `payer`: Payer for the position account rental.
+   *    - `base`: Liquidity pool public key.
+   *    - `operator`: The public key of the position operator. The operator can manage the position on behalf of the owner, but any liquidity withdrawals initiated by the operator must be sent directly to the position owner.
+   *    - `payer`: Payer public key for the position account rental.
    *    - `lockReleasePoint`: The lock release point of the position.
-   * @returns
+   * 
+   * @returns {Promise<Transaction>} The transaction to initialize the position.
    */
   public async initializePositionByOperator({
     lowerBinId,
@@ -6094,9 +6226,11 @@ export class DLMM {
 
   /**
    * The `claimAllRewards` function to claim swap fees and LM rewards for multiple positions owned by a specific owner.
+   * 
    * @param
-   *    - `owner`: The public key of the owner of the positions.
-   *    - `positions`: An array of objects of type `PositionData` that represents the positions to claim swap fees and LM rewards from.
+   *    - `owner` - The public key of the owner of the positions.
+   *    - `positions` - An array of objects of type `LbPosition` that represents the positions to claim swap fees and LM rewards from.
+   * 
    * @returns {Promise<Transaction[]>} Array of claim swap fee and LM reward transactions.
    */
   public async claimAllRewards({
@@ -6198,9 +6332,9 @@ export class DLMM {
 
   /**
    * The `syncWithMarketPrice` function is used to sync the liquidity pool with the market price.
-   * @param
-   *    - `marketPrice`: The market price to sync with.
-   *    - `owner`: The public key of the owner of the liquidity pool.
+   * @param {number} marketPrice - The market price to sync with.
+   * @param {PublicKey} owner - The public key of the owner of the liquidity pool.
+   * 
    * @returns {Promise<Transaction>}
    */
   public async syncWithMarketPrice(marketPrice: number, owner: PublicKey) {
@@ -6348,11 +6482,13 @@ export class DLMM {
   }
 
   /**
-   *
-   * @param swapInitiator Address of the swap initiator
-   * @returns
+   * Check if swap is disabled.
+   * 
+   * @param {PublicKey} swapInitiator - Address of the swap initiator
+   * 
+   * @returns {boolean} indicating if swap is disabled
    */
-  public isSwapDisabled(swapInitiator: PublicKey) {
+  public isSwapDisabled(swapInitiator: PublicKey): boolean {
     if (this.lbPair.status == PairStatus.Disabled) {
       return true;
     }
@@ -6384,18 +6520,19 @@ export class DLMM {
   /**
    * Decrease the length of a position. The segment of the position to be decreased must be empty.
    *
-   * @param position The public key of the position to decrease.
-   * @param side The side of the position to decrease.
-   * @param length The amount of length to decrease.
-   * @param allowParallelExecution If true, the instructions will be grouped to allow parallel execution. Otherwise, the instructions will be executed sequentially.
-   * @returns An array of transactions if allowParallelExecution is true. Otherwise, an empty array.
+   * @param {PublicKey} position - The public key of the position to decrease.
+   * @param {ResizeSide} side - The side of the position to decrease.
+   * @param {BN} length - The amount of length to decrease.
+   * @param {boolean} [allowParallelExecution = true] - If true, the instructions will be grouped to allow parallel execution. Otherwise, the instructions will be executed sequentially.
+   * 
+   * @returns {Promise<Transaction[]>} An array of transactions if allowParallelExecution is true. Otherwise, an empty array.
    */
   public async decreasePositionLength(
     position: PublicKey,
     side: ResizeSide,
     length: BN,
-    allowParallelExecution = true
-  ) {
+    allowParallelExecution: boolean = true
+  ): Promise<Transaction[]> {
     const positionAccount =
       await this.program.provider.connection.getAccountInfo(position);
 
@@ -6463,21 +6600,21 @@ export class DLMM {
   /**
    * Expand the position bin range to the left or right (lower or upper).
    *
-   * @param position The address of the position to increase the length of.
-   * @param side The side of the position to increase the length of. Must be either
-   *             ResizeSide.Lower or ResizeSide.Upper.
-   * @param length The number of bins to increase the length of. Position length after increase must be <= 1400.
-   * @param funder The address to account rental and transaction fee.
-   * @param allowParallelExecution Whether to allow parallel execution of the transaction.
-   * @returns The transaction to execute this instruction.
+   * @param {PublicKey} position - The address of the position to increase the length of.
+   * @param {ResizeSide} side - The side of the position to increase the length of. Must be either ResizeSide.Lower or ResizeSide.Upper.
+   * @param {BN} length - The number of bins to increase the length of. Position length after increase must be <= 1400.
+   * @param {PublicKey} funder - The address to account rental and transaction fee.
+   * @param {boolean} [allowParallelExecution = true] - Whether to allow parallel execution of the transaction.
+   * 
+   * @returns {Promise<Transaction[]>} An array of transactions if there are any instructions to execute. Otherwise, undefined.
    */
   public async increasePositionLength(
     position: PublicKey,
     side: ResizeSide,
     length: BN,
     funder: PublicKey,
-    allowParallelExecution = true
-  ) {
+    allowParallelExecution: boolean = true
+  ): Promise<Transaction[]> {
     const positionAccount =
       await this.program.provider.connection.getAccountInfo(position);
 
@@ -6514,6 +6651,20 @@ export class DLMM {
     }
   }
 
+  /**
+   * Simulates a rebalance operation on a position using a balanced strategy.
+   *
+   * @param {PublicKey} positionAddress - The address of the position to simulate rebalancing.
+   * @param {PositionData} positionData - The PositionData object associated with the position.
+   * @param {StrategyType} strategy - The strategy to use for rebalancing. It can be either StrategyType.Balanced or StrategyType.BalancedWithLimit.
+   * @param {BN} topUpAmountX - The amount of token X to top up during rebalancing.
+   * @param {BN} topUpAmountY - The amount of token Y to top up during rebalancing.
+   * @param {BN} xWithdrawBps - The basis points of token X to withdraw during rebalancing.
+   * @param {BN} yWithdrawBps - The basis points of token Y to withdraw during rebalancing.
+   * 
+   * @returns {Promise<RebalancePositionResponse & RebalancePositionBinArrayRentalCostQuote>} 
+   * A promise that resolves to an object containing the rebalance position, simulation result, and bin array rental cost quote.
+   */
   public async simulateRebalancePositionWithBalancedStrategy(
     positionAddress: PublicKey,
     positionData: PositionData,
@@ -6653,12 +6804,15 @@ export class DLMM {
   /**
    * Simulates a rebalance operation on a position without actually executing it. It's recommended to use simulateRebalancePositionWithXStrategy instead unless you know what you're doing.
    *
-   * @param positionAddress The address of the position to simulate rebalancing.
-   * @param positionData The PositionData object associated with the position.
-   * @param shouldClaimFee True if the fee should be claimed during rebalancing.
-   * @param shouldClaimReward True if the reward should be claimed during rebalancing.
-   * @param deposits An array of RebalanceWithDeposit objects representing the deposits to simulate.
-   * @param withdraws An array of RebalanceWithWithdraw objects representing the withdraws to simulate.
+   * @param {PublicKey} positionAddress - The address of the position to simulate rebalancing.
+   * @param {PositionData} positionData - The PositionData object associated with the position.
+   * @param {boolean} shouldClaimFee - True if the fee should be claimed during rebalancing.
+   * @param {boolean} shouldClaimReward - True if the reward should be claimed during rebalancing.
+   * @param {RebalanceWithDeposit[]} deposits - An array of RebalanceWithDeposit objects representing the deposits to simulate.
+   * @param {RebalanceWithWithdraw[]} withdraws - An array of RebalanceWithWithdraw objects representing the withdraws to simulate.
+   * 
+   * @returns {Promise<RebalancePositionResponse & RebalancePositionBinArrayRentalCostQuote>}
+   * An object containing the rebalance position, simulation result, and bin array rental cost quote.
    */
   public async simulateRebalancePosition(
     positionAddress: PublicKey,
@@ -6704,9 +6858,10 @@ export class DLMM {
   /**
    * Rebalances a position and claim rewards if specified.
    *
-   * @param rebalancePositionResponse The result of `simulateRebalancePosition`.
-   * @param maxActiveBinSlippage The maximum slippage allowed for active bin selection.
-   * @param slippage The slippage tolerance percentage for rebalncing.
+   * @param {RebalancePositionResponse} rebalancePositionResponse - The result of `simulateRebalancePosition`.
+   * @param {BN} maxActiveBinSlippage - The maximum slippage allowed for active bin selection.
+   * @param {PublicKey} [rentPayer] - The public key rent payer.
+   * @param {number}slippage - The slippage tolerance percentage for rebalncing.
    *
    * @returns An object containing the instructions to initialize new bin arrays and the instruction to rebalance the position.
    */
@@ -7010,10 +7165,11 @@ export class DLMM {
   /**
    * Create an extended empty position.
    *
-   * @param lowerBinid The lowest bin of the position.
-   * @param upperBinId The highest bin of the position.
-   * @param position The public key of the position.
-   * @param owner The owner of the position.
+   * @param {number} lowerBinid - The lowest bin of the position.
+   * @param {number} upperBinId - The highest bin of the position.
+   * @param {PublicKey} position - The public key of the position.
+   * @param {PublicKey} owner - The owner of the position.
+   * 
    * @returns The instructions to create the extended empty position.
    */
   public async createExtendedEmptyPosition(
