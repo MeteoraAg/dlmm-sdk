@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.7.5] - PR 241
+
+### Added
+
+- Update parameter descriptions in DLMM class methods for clarity
+
 ## @meteora-ag/dlmm [1.7.4] - PR 235
 
 ### Added
