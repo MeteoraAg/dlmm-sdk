@@ -117,7 +117,7 @@ pub async fn get_or_create_ata<C: Deref<Target = impl Signer> + Clone>(
     wallet_address: Pubkey,
     compute_unit_price: Option<Instruction>,
 ) -> Result<Pubkey> {
-    let rpc_client = program.async_rpc();
+    let rpc_client = program.rpc();
     let token_mint_owner = rpc_client.get_account(&token_mint).await?.owner;
 
     let user_ata = get_associated_token_address_with_program_id(
@@ -180,7 +180,7 @@ pub async fn fetch_quote_required_accounts(
         .get(index)
         .and_then(ToOwned::to_owned)
         .context("Failed to fetch lb pair account")?;
-    let lb_pair_state = LbPairAccount::deserialize(&lb_pair_account.data)?.0;
+    let lb_pair_state = LbPair::try_deserialize(&mut lb_pair_account.data.as_ref())?;
 
     index.inc();
     let clock_account = accounts
@@ -213,7 +213,7 @@ pub async fn fetch_quote_required_accounts(
             let account = account?;
             Some((
                 key,
-                BinArrayAccount::deserialize(account.data.as_ref()).ok()?.0,
+                BinArray::try_deserialize(&mut account.data.as_ref()).ok()?,
             ))
         })
         .collect::<Vec<_>>();

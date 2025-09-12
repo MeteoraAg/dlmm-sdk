@@ -2,9 +2,6 @@
 seeds = false
 skip-lint = false
 
-[programs.localnet]
-lb_clmm = { address = "GrAkKfEpTKQuVHG2Y97Y2FF4i7y7Q5AHLK94JBy7Y5yv", idl = "target/idl/id.json" }
-
 [registry]
 url = "https://api.apr.dev"
 
@@ -26,11 +23,7 @@ program = "./artifacts/transfer_hook_counter.so"
 
 [scripts]
 test = "yarn run ts-mocha --sort --type-check --bail -p ./tsconfig.json -t 1000000 tests/*.ts"
-build-local = "anchor build"
-deploy-local = "solana program deploy target/deploy/lb_clmm.so --keypair keys/localnet/admin-bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1.json --program-id keys/localnet/program-LbVRzDTvBDEcrthxfZ4RL6yiq3uZw8bS6MwtdY6UhFQ.json"
-
-[test]
-startup_wait = 50000
 
 [toolchain]
-anchor_version = "0.29.0"
+solana_version = "2.1.0"
+anchor_version = "0.31.0"

@@ -58,7 +58,7 @@ pub async fn execute_initialize_customizable_permissionless_lb_pair<
         creator_pool_on_off_control,
     } = params;
 
-    let rpc_client = program.async_rpc();
+    let rpc_client = program.rpc();
     let mut accounts = rpc_client
         .get_multiple_accounts(&[token_mint_x, token_mint_y])
         .await?;
@@ -87,7 +87,7 @@ pub async fn execute_initialize_customizable_permissionless_lb_pair<
 
     let (lb_pair, _bump) = derive_customizable_permissionless_lb_pair(token_mint_x, token_mint_y);
 
-    if program.rpc().get_account_data(&lb_pair).is_ok() {
+    if program.rpc().get_account_data(&lb_pair).await.is_ok() {
         return Ok(lb_pair);
     }
 
@@ -115,48 +115,47 @@ pub async fn execute_initialize_customizable_permissionless_lb_pair<
     )
     .await?;
 
-    let accounts: [AccountMeta; INITIALIZE_CUSTOMIZABLE_PERMISSIONLESS_LB_PAIR_IX_ACCOUNTS_LEN] =
-        InitializeCustomizablePermissionlessLbPairKeys {
-            lb_pair,
-            bin_array_bitmap_extension: dlmm_interface::ID,
-            reserve_x,
-            reserve_y,
-            token_mint_x,
-            token_mint_y,
-            oracle,
-            funder: program.payer(),
-            system_program: solana_sdk::system_program::ID,
-            token_program: token_mint_base_account.owner,
-            event_authority,
-            user_token_x,
-            user_token_y,
-            program: dlmm_interface::ID,
-        }
-        .into();
+    let accounts = dlmm::client::accounts::InitializeCustomizablePermissionlessLbPair {
+        lb_pair,
+        bin_array_bitmap_extension: Some(dlmm::ID),
+        reserve_x,
+        reserve_y,
+        token_mint_x,
+        token_mint_y,
+        oracle,
+        funder: program.payer(),
+        system_program: solana_sdk::system_program::ID,
+        token_program: token_mint_base_account.owner,
+        event_authority,
+        user_token_x,
+        user_token_y,
+        program: dlmm::ID,
+    }
+    .to_account_metas(None);
 
     let (base_factor, base_fee_power_factor) =
         compute_base_factor_from_fee_bps(bin_step, base_fee_bps)?;
 
-    let data = InitializeCustomizablePermissionlessLbPairIxData(
-        InitializeCustomizablePermissionlessLbPairIxArgs {
-            params: CustomizableParams {
-                active_id: computed_active_id,
-                bin_step,
-                base_factor,
-                activation_type,
-                activation_point,
-                has_alpha_vault,
-                base_fee_power_factor,
-                creator_pool_on_off_control,
-                padding: [0u8; 62],
-            },
+    assert!(base_fee_power_factor == 0);
+
+    let data = dlmm::client::args::InitializeCustomizablePermissionlessLbPair {
+        params: CustomizableParams {
+            active_id: computed_active_id,
+            bin_step,
+            base_factor,
+            activation_type,
+            activation_point,
+            has_alpha_vault,
+            base_fee_power_factor,
+            creator_pool_on_off_control,
+            padding: [0u8; 62],
         },
-    )
-    .try_to_vec()?;
+    }
+    .data();
 
     let init_pair_ix = Instruction {
-        program_id: dlmm_interface::ID,
-        accounts: accounts.to_vec(),
+        program_id: dlmm::ID,
+        accounts,
         data,
     };
 

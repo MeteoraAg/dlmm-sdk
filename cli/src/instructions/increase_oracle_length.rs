@@ -20,22 +20,20 @@ pub async fn execute_increase_oracle_length<C: Deref<Target = impl Signer> + Clo
     let (oracle, _) = derive_oracle_pda(lb_pair);
     let (event_authority, _bump) = derive_event_authority_pda();
 
-    let accounts: [AccountMeta; INCREASE_ORACLE_LENGTH_IX_ACCOUNTS_LEN] =
-        IncreaseOracleLengthKeys {
-            funder: program.payer(),
-            oracle,
-            system_program: solana_sdk::system_program::ID,
-            event_authority,
-            program: dlmm_interface::ID,
-        }
-        .into();
+    let accounts = dlmm::client::accounts::IncreaseOracleLength {
+        funder: program.payer(),
+        oracle,
+        system_program: solana_sdk::system_program::ID,
+        event_authority,
+        program: dlmm::ID,
+    }
+    .to_account_metas(None);
 
-    let data =
-        IncreaseOracleLengthIxData(IncreaseOracleLengthIxArgs { length_to_add }).try_to_vec()?;
+    let data = dlmm::client::args::IncreaseOracleLength { length_to_add }.data();
 
     let increase_length_ix = Instruction {
-        program_id: dlmm_interface::ID,
-        accounts: accounts.to_vec(),
+        program_id: dlmm::ID,
+        accounts,
         data,
     };
 

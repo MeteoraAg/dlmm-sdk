@@ -1,26 +1,27 @@
-use dlmm_interface::PairType;
-use std::ops::Deref;
+use crate::*;
 
-pub struct PairTypeWrapper(PairType);
-
-impl Deref for PairTypeWrapper {
-    type Target = PairType;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl TryFrom<u8> for PairTypeWrapper {
+impl TryFrom<u8> for PairType {
     type Error = anyhow::Error;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
-            0 => Ok(PairTypeWrapper(PairType::Permissionless)),
-            1 => Ok(PairTypeWrapper(PairType::Permission)),
-            2 => Ok(PairTypeWrapper(PairType::CustomizablePermissionless)),
-            3 => Ok(PairTypeWrapper(PairType::PermissionlessV2)),
+            0 => Ok(PairType::Permissionless),
+            1 => Ok(PairType::Permission),
+            2 => Ok(PairType::CustomizablePermissionless),
+            3 => Ok(PairType::PermissionlessV2),
             _ => Err(anyhow::anyhow!("Invalid PairType value: {}", value)),
+        }
+    }
+}
+
+impl PartialEq for PairType {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (&PairType::Permissionless, &PairType::Permissionless) => true,
+            (&PairType::Permission, &PairType::Permission) => true,
+            (&PairType::CustomizablePermissionless, &PairType::CustomizablePermissionless) => true,
+            (&PairType::PermissionlessV2, &PairType::PermissionlessV2) => true,
+            _ => false,
         }
     }
 }

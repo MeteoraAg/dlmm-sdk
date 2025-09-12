@@ -115,6 +115,7 @@ pub enum DLMMCommand {
     SeedLiquiditySingleBinByOperator(SeedLiquiditySingleBinByOperatorParameters),
     SetPairStatusPermissionless(SetPairStatusPermissionlessParams),
     GetAllPositionsForAnOwner(GetAllPositionsParams),
+    SyncPrice(SyncPriceParams),
     #[clap(flatten)]
     Admin(AdminCommand),
 }

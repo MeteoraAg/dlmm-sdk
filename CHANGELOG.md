@@ -19,6 +19,80 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.7.4] - PR 235
+
+### Added
+
+- Added exports for `accountFilters`
+
+## @meteora-ag/dlmm [1.7.3] - PR 240
+
+### Fixed
+
+- Fixed `getPairPubkeyIfExists` return same pair pubkey for different baseFeeFactor
+
+## @meteora-ag/dlmm [1.7.2] - PR #239
+
+### Fixed
+
+- Reduced pending fee / reward value computed due to ghost bin
+
+## @meteora-ag/dlmm [1.7.1] - PR #237
+
+### Fixed
+
+- Inconsistent bid ask liquidity shape
+
+## @meteora-ag/dlmm [1.7.0] - PR #233
+
+### Changed
+
+- update `removeLiquidity` to have a new `skipUnwrapSOL` boolean flag that indicates whether to skip unwrapping SOL. Enable this when using zap-sdk to ensure accuracy in SOL zap out amount when SOL is the in token
+
+## @meteora-ag/dlmm [1.6.0] - PR #229
+
+### Changed
+
+- update `initializeMultiplePositionAndAddLiquidityByStrategy` to include `initializeAtaIxs` so that create ATA instructions don't need to be include in every rebalance transactions
+
+## @meteora-ag/dlmm [1.6.0] - PR #196
+
+### Changed
+
+- Update anchor to `0.31.0`
+- Decreased `MAX_CLAIM_ALL_ALLOWED` from `3` to `2`. This decreased the chunked claim instruction from 3 to 2 per transaction.
+
+### Added
+
+- Added `getPositionRentExemption` function. It return minimum balance required to pay for a position account for rent exemption.
+- Added `getPositionExpandRentExemption` function. It return minimum balance required to pay for a position account expansion for rent exemption.
+- Added `quoteExtendPosition` function. It return minimum balance required to pay for rent exemption for the given position expansion and bin array accounts to cover the expanded position range.
+- Added `decreasePositionLength` function. It return transaction to shrink an expanded position. The rent is not returned upon decrement, but returned when the position is closed.
+- Added `increasePositionLength` function. It return transaction to expand a position up to maximum 1400 bins.
+- Added `simulateRebalancePosition` function. It return a locally simulated rebalanced position, and required parameters for on chain rebalancing.
+- Added `createExtendedEmptyPosition` function. It return transaction to create an empty position with maximum 1400 bins.
+- Added `simulateRebalancePositionWithStrategy` function. It return a locally simulated rebalanced position with current price rebalanced to the center of the position.
+- Added `rebalancePosition` function. It return instructions to rebalance a position.
+- Added `initializeMultiplePositionAndAddLiquidityByStrategy` function. It allow user to initialize multiple extendable positions that cover wide bin range without chainsaw issue.
+- Added `addLiquidityByStrategyChunkable` function. It allow user to add liquidity to single extendable positions that cover wide bin range without chainsaw issue.
+
+### Changed
+
+- `removeLiquidity` function. It will chunk the bin range into multiple remove liquidity transactions if it exceed max size. The return type changed from `Promise<Transaction>` to `Promise<Transaction[]>`.
+- `claimLMReward` function. It will chunk the bin range into multiple claim reward transactions if it exceed max size. The return type changed from `Promise<Transaction>` to `Promise<Transaction[]>`.
+- `claimSwapFee` function. It will chunk the bin range into multiple claim swap fee transactions if it exceed max size. The return type changed from `Promise<Transaction>` to `Promise<Transaction[]>`.
+- `quoteCreatePosition` function. It return cost for position creation cost, realloc position cost and initialize bitmap extension.
+
+## cli [0.5.1] - PR #196
+
+- Added `sync_price` command.
+
+## dlmm_interface [Removed]
+
+- Removed since anchor now support generation of program CPI types using `declare_program!`.
+- For integrators using lower version of anchor, you may use [anchor_gen](https://github.com/saber-hq/anchor-gen) to generate program CPI types.
+- For rust client, you may import the types generated using `declare_program!` from `commons`.
+
 ## @meteora-ag/dlmm [1.5.5] - PR #227
 
 ### Fix

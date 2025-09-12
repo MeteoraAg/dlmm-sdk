@@ -1,9 +1,9 @@
 import { AnchorProvider, Program } from "@coral-xyz/anchor";
 import { Cluster, Connection, PublicKey } from "@solana/web3.js";
-import { IDL } from "../idl";
 import { LBCLMM_PROGRAM_IDS } from "../constants";
 import { LbPair } from "../types";
 import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { createProgram } from ".";
 
 /**
  * It fetches the pool account from the AMM program, and returns the mint addresses for the two tokens
@@ -19,16 +19,7 @@ export async function getTokensMintFromPoolAddress(
     programId?: PublicKey;
   }
 ) {
-  const provider = new AnchorProvider(
-    connection,
-    {} as any,
-    AnchorProvider.defaultOptions()
-  );
-  const program = new Program(
-    IDL,
-    opt.programId ?? LBCLMM_PROGRAM_IDS[opt?.cluster ?? "mainnet-beta"],
-    provider
-  );
+  const program = createProgram(connection, opt);
 
   const poolAccount = await program.account.lbPair.fetchNullable(
     new PublicKey(poolAddress)

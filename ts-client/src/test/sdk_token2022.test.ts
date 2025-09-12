@@ -1,4 +1,4 @@
-import { AnchorProvider, Program, Wallet } from "@coral-xyz/anchor";
+import { Wallet } from "@coral-xyz/anchor";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   createInitializeMintInstruction,
@@ -26,9 +26,15 @@ import {
   Transaction,
 } from "@solana/web3.js";
 import BN from "bn.js";
+import Decimal from "decimal.js";
 import fs from "fs";
 import { DLMM } from "../dlmm";
-import { BASIS_POINT_MAX, LBCLMM_PROGRAM_IDS } from "../dlmm/constants";
+import {
+  BASIS_POINT_MAX,
+  DEFAULT_BIN_PER_POSITION,
+  LBCLMM_PROGRAM_IDS,
+  POSITION_MAX_LENGTH,
+} from "../dlmm/constants";
 import {
   binIdToBinArrayIndex,
   deriveBinArray,
@@ -43,13 +49,13 @@ import {
   calculateTransferFeeExcludedAmount,
   getExtraAccountMetasForTransferHook,
 } from "../dlmm/helpers/token_2022";
-import { IDL } from "../dlmm/idl";
-import { ActivationType, StrategyType } from "../dlmm/types";
+import { ActivationType, ResizeSide, StrategyType } from "../dlmm/types";
 import { createExtraAccountMetaListAndCounter } from "./external/helper";
 import {
   createTransferHookCounterProgram,
   TRANSFER_HOOK_COUNTER_PROGRAM_ID,
 } from "./external/program";
+import { createTestProgram, logLbPairLiquidities } from "./helper";
 
 const keypairBuffer = fs.readFileSync(
   "../keys/localnet/admin-bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1.json",
@@ -78,15 +84,19 @@ const maxFee = BigInt(100_000) * BigInt(10 ** btcDecimal);
 let presetParameter2Key: PublicKey;
 let pairKey: PublicKey;
 
-const provider = new AnchorProvider(
+const program = createTestProgram(
   connection,
-  new Wallet(keypair),
-  AnchorProvider.defaultOptions()
+  new PublicKey(LBCLMM_PROGRAM_IDS["localhost"]),
+  keypair
 );
-const program = new Program(IDL, LBCLMM_PROGRAM_IDS["localhost"], provider);
 
-const positionKeypair0 = Keypair.generate();
-const positionKeypair1 = Keypair.generate();
+const nonExtendedPositionKeypair0 = Keypair.generate();
+const nonExtendedPositionKeypair1 = Keypair.generate();
+
+const extendedPositionKeypair0 = Keypair.generate();
+const extendedPositionKeypair1 = Keypair.generate();
+
+const MAX_ALLOWED_LAMPORT_LOSS = 500;
 
 type Opt = {
   cluster?: Cluster | "localhost";
@@ -348,7 +358,7 @@ describe("SDK token2022 test", () => {
         maxVolatilityAccumulator: 350000,
         baseFeePowerFactor: 1,
       })
-      .accounts({
+      .accountsPartial({
         presetParameter: presetParameter2Key,
         admin: keypair.publicKey,
         systemProgram: SystemProgram.programId,
@@ -359,7 +369,7 @@ describe("SDK token2022 test", () => {
 
     await program.methods
       .initializeTokenBadge()
-      .accounts({
+      .accountsPartial({
         tokenBadge: btcTokenBadge,
         admin: keypair.publicKey,
         systemProgram: SystemProgram.programId,
@@ -371,7 +381,7 @@ describe("SDK token2022 test", () => {
 
     await program.methods
       .initializeTokenBadge()
-      .accounts({
+      .accountsPartial({
         tokenBadge: metTokenBadge,
         admin: keypair.publicKey,
         systemProgram: SystemProgram.programId,
@@ -523,7 +533,7 @@ describe("SDK token2022 test", () => {
 
       await program.methods
         .initializeReward(rewardIndex, rewardDuration, funder)
-        .accounts({
+        .accountsPartial({
           lbPair: pairKey,
           rewardMint: MET2022,
           rewardVault,
@@ -584,7 +594,7 @@ describe("SDK token2022 test", () => {
             },
           ],
         })
-        .accounts({
+        .accountsPartial({
           lbPair: pairKey,
           rewardMint: MET2022,
           rewardVault,
@@ -604,7 +614,7 @@ describe("SDK token2022 test", () => {
       const maxBinId = 30;
 
       const createPositionAndBinArraysTx = await dlmm.createEmptyPosition({
-        positionPubKey: positionKeypair0.publicKey,
+        positionPubKey: nonExtendedPositionKeypair0.publicKey,
         minBinId,
         maxBinId,
         user: keypair.publicKey,
@@ -613,12 +623,14 @@ describe("SDK token2022 test", () => {
       await sendAndConfirmTransaction(
         connection,
         createPositionAndBinArraysTx,
-        [keypair, positionKeypair0]
+        [keypair, nonExtendedPositionKeypair0]
       );
 
-      const position = await dlmm.getPosition(positionKeypair0.publicKey);
+      const position = await dlmm.getPosition(
+        nonExtendedPositionKeypair0.publicKey
+      );
       expect(position.publicKey.toBase58()).toBe(
-        positionKeypair0.publicKey.toBase58()
+        nonExtendedPositionKeypair0.publicKey.toBase58()
       );
 
       const { positionData } = position;
@@ -628,640 +640,98 @@ describe("SDK token2022 test", () => {
       const binCount = maxBinId - minBinId + 1;
       expect(positionData.positionBinData.length).toBe(binCount);
     });
-  });
 
-  describe("Add liquidity", () => {
-    it("Add liquidity by strategy", async () => {
-      const totalXAmount = new BN(100_000).mul(new BN(10 ** btcDecimal));
-      const totalYAmount = new BN(100_000).mul(new BN(10 ** usdcDecimal));
-
-      const dlmm = await DLMM.create(connection, pairKey, opt);
-      let position = await dlmm.getPosition(positionKeypair0.publicKey);
-
-      const activeBinInfo = await dlmm.getActiveBin();
-
-      const computedInBinAmount = toAmountsBothSideByStrategy(
-        dlmm.lbPair.activeId,
-        dlmm.lbPair.binStep,
-        position.positionData.lowerBinId,
-        position.positionData.upperBinId,
-        totalXAmount,
-        totalYAmount,
-        activeBinInfo.xAmount,
-        activeBinInfo.yAmount,
-        StrategyType.Spot,
-        dlmm.tokenX.mint,
-        dlmm.tokenY.mint,
-        dlmm.clock
-      );
-
-      const addLiquidityTx = await dlmm.addLiquidityByStrategy({
-        positionPubKey: positionKeypair0.publicKey,
-        totalXAmount,
-        totalYAmount,
-        user: keypair.publicKey,
-        strategy: {
-          strategyType: StrategyType.Spot,
-          minBinId: position.positionData.lowerBinId,
-          maxBinId: position.positionData.upperBinId,
-        },
-        slippage: 0,
-      });
-
-      const [beforeReserveXAccount, beforeReserveYAccount] =
-        await connection.getMultipleAccountsInfo([
-          dlmm.tokenX.reserve,
-          dlmm.tokenY.reserve,
-        ]);
-
-      await sendAndConfirmTransaction(connection, addLiquidityTx, [keypair]);
-      position = await dlmm.getPosition(positionKeypair0.publicKey);
-
-      const [afterReserveXAccount, afterReserveYAccount] =
-        await connection.getMultipleAccountsInfo([
-          dlmm.tokenX.reserve,
-          dlmm.tokenY.reserve,
-        ]);
-
-      const [computedInAmountX, computedInAmountY] = computedInBinAmount.reduce(
-        ([totalXAmount, totalYAmount], { amountX, amountY }) => {
-          return [totalXAmount.add(amountX), totalYAmount.add(amountY)];
-        },
-        [new BN(0), new BN(0)]
-      );
-
-      expect(computedInAmountX.lte(totalXAmount)).toBeTruthy();
-      expect(computedInAmountY.lte(totalYAmount)).toBeTruthy();
-
-      const beforeReserveX = unpackAccount(
-        dlmm.tokenX.reserve,
-        beforeReserveXAccount,
-        beforeReserveXAccount.owner
-      );
-
-      const beforeReserveY = unpackAccount(
-        dlmm.tokenY.reserve,
-        beforeReserveYAccount,
-        beforeReserveYAccount.owner
-      );
-
-      const afterReserveX = unpackAccount(
-        dlmm.tokenX.reserve,
-        afterReserveXAccount,
-        afterReserveXAccount.owner
-      );
-
-      const afterReserveY = unpackAccount(
-        dlmm.tokenY.reserve,
-        afterReserveYAccount,
-        afterReserveYAccount.owner
-      );
-
-      const reserveXReceivedAmount =
-        afterReserveX.amount - beforeReserveX.amount;
-
-      const reserveYReceivedAmount =
-        afterReserveY.amount - beforeReserveY.amount;
-
-      expect(new BN(reserveXReceivedAmount.toString()).toString()).toBe(
-        computedInAmountX.toString()
-      );
-
-      expect(new BN(reserveYReceivedAmount.toString()).toString()).toBe(
-        computedInAmountY.toString()
-      );
-
-      const positionXAmount = new BN(position.positionData.totalXAmount);
-      const positionYAmount = new BN(position.positionData.totalYAmount);
-
-      const xDiff = computedInAmountX.sub(positionXAmount);
-      const yDiff = computedInAmountY.sub(positionYAmount);
-
-      expect(xDiff.lte(new BN(1))).toBeTruthy();
-      expect(yDiff.lte(new BN(1))).toBeTruthy();
-
-      expect(positionXAmount.add(xDiff).toString()).toBe(
-        computedInAmountX.toString()
-      );
-
-      expect(positionYAmount.add(yDiff).toString()).toBe(
-        computedInAmountY.toString()
-      );
-    });
-
-    it("Initialize position and add liquidity by strategy", async () => {
-      const totalXAmount = new BN(100_000).mul(new BN(10 ** btcDecimal));
-      const totalYAmount = new BN(100_000).mul(new BN(10 ** usdcDecimal));
-
+    it("createExtendedEmptyPosition", async () => {
+      const positionKp = Keypair.generate();
       const dlmm = await DLMM.create(connection, pairKey, opt);
 
-      const minBinId = dlmm.lbPair.activeId - 30;
-      const maxBinId = dlmm.lbPair.activeId + 30;
+      const minBinId = -30;
+      const maxBinId = minBinId + 1400 - 1;
 
-      const activeBinInfo = await dlmm.getActiveBin();
-
-      const computedInBinAmount = toAmountsBothSideByStrategy(
-        dlmm.lbPair.activeId,
-        dlmm.lbPair.binStep,
+      const createAndExtendPositionTx = await dlmm.createExtendedEmptyPosition(
         minBinId,
         maxBinId,
-        totalXAmount,
-        totalYAmount,
-        activeBinInfo.xAmount,
-        activeBinInfo.yAmount,
-        StrategyType.Spot,
-        dlmm.tokenX.mint,
-        dlmm.tokenY.mint,
-        dlmm.clock
+        positionKp.publicKey,
+        keypair.publicKey
       );
 
-      const initAndAddLiquidityTx =
-        await dlmm.initializePositionAndAddLiquidityByStrategy({
-          positionPubKey: positionKeypair1.publicKey,
-          totalXAmount,
-          totalYAmount,
-          strategy: {
-            strategyType: StrategyType.Spot,
-            minBinId,
-            maxBinId,
-          },
-          slippage: 0,
-          user: keypair.publicKey,
+      createAndExtendPositionTx.sign(keypair, positionKp);
+
+      await connection
+        .sendRawTransaction(createAndExtendPositionTx.serialize())
+        .then((sig) => {
+          return connection.confirmTransaction(sig);
         });
 
-      const [beforeReserveXAccount, beforeReserveYAccount] =
-        await connection.getMultipleAccountsInfo([
-          dlmm.tokenX.reserve,
-          dlmm.tokenY.reserve,
-        ]);
+      const position = await dlmm.getPosition(positionKp.publicKey);
+      expect(position.publicKey.toBase58()).toBe(
+        positionKp.publicKey.toBase58()
+      );
 
-      await sendAndConfirmTransaction(connection, initAndAddLiquidityTx, [
+      const { positionData } = position;
+      expect(positionData.lowerBinId).toBe(minBinId);
+      expect(positionData.upperBinId).toBe(maxBinId);
+
+      const binCount = maxBinId - minBinId + 1;
+      expect(positionData.positionBinData.length).toBe(binCount);
+    });
+
+    it("quote extend position", async () => {
+      const dlmm = await DLMM.create(connection, pairKey, opt);
+
+      const minBinId =
+        dlmm.lbPair.activeId - POSITION_MAX_LENGTH.toNumber() / 2;
+      const maxBinId = minBinId + DEFAULT_BIN_PER_POSITION.toNumber() - 1;
+      const extendedMaxBinId = minBinId + POSITION_MAX_LENGTH.toNumber() - 1;
+
+      const initPositionTx = await dlmm.createEmptyPosition({
+        positionPubKey: extendedPositionKeypair0.publicKey,
+        minBinId,
+        maxBinId,
+        user: keypair.publicKey,
+      });
+
+      await sendAndConfirmTransaction(connection, initPositionTx, [
+        extendedPositionKeypair0,
         keypair,
-        positionKeypair1,
       ]);
 
-      const [afterReserveXAccount, afterReserveYAccount] =
-        await connection.getMultipleAccountsInfo([
-          dlmm.tokenX.reserve,
-          dlmm.tokenY.reserve,
-        ]);
+      const lengthToIncrease = new BN(extendedMaxBinId - maxBinId);
 
-      await dlmm.refetchStates();
+      const beforePositionRental = await connection
+        .getAccountInfo(extendedPositionKeypair0.publicKey)
+        .then((account) =>
+          new Decimal(account.lamports).div(new Decimal(LAMPORTS_PER_SOL))
+        );
 
-      const position = await dlmm.getPosition(positionKeypair1.publicKey);
-      expect(position.positionData.lowerBinId).toBe(minBinId);
-      expect(position.positionData.upperBinId).toBe(maxBinId);
-
-      const [computedInAmountX, computedInAmountY] = computedInBinAmount.reduce(
-        ([totalXAmount, totalYAmount], { amountX, amountY }) => {
-          return [totalXAmount.add(amountX), totalYAmount.add(amountY)];
-        },
-        [new BN(0), new BN(0)]
+      const { positionExtendCost } = await dlmm.quoteExtendPosition(
+        new BN(minBinId),
+        new BN(maxBinId),
+        lengthToIncrease
       );
 
-      expect(computedInAmountX.lte(totalXAmount)).toBeTruthy();
-      expect(computedInAmountY.lte(totalYAmount)).toBeTruthy();
-
-      const beforeReserveX = unpackAccount(
-        dlmm.tokenX.reserve,
-        beforeReserveXAccount,
-        beforeReserveXAccount.owner
+      const extendPositionTxs = await dlmm.increasePositionLength(
+        extendedPositionKeypair0.publicKey,
+        ResizeSide.Upper,
+        lengthToIncrease,
+        keypair.publicKey,
+        true
       );
 
-      const beforeReserveY = unpackAccount(
-        dlmm.tokenY.reserve,
-        beforeReserveYAccount,
-        beforeReserveYAccount.owner
+      await Promise.all(
+        extendPositionTxs.map((tx) =>
+          sendAndConfirmTransaction(connection, tx, [keypair])
+        )
       );
 
-      const afterReserveX = unpackAccount(
-        dlmm.tokenX.reserve,
-        afterReserveXAccount,
-        afterReserveXAccount.owner
-      );
+      const afterPositionRental = await connection
+        .getAccountInfo(extendedPositionKeypair0.publicKey)
+        .then((account) =>
+          new Decimal(account.lamports).div(new Decimal(LAMPORTS_PER_SOL))
+        );
 
-      const afterReserveY = unpackAccount(
-        dlmm.tokenY.reserve,
-        afterReserveYAccount,
-        afterReserveYAccount.owner
-      );
-
-      const reserveXReceivedAmount =
-        afterReserveX.amount - beforeReserveX.amount;
-
-      const reserveYReceivedAmount =
-        afterReserveY.amount - beforeReserveY.amount;
-
-      expect(new BN(reserveXReceivedAmount.toString()).toString()).toBe(
-        computedInAmountX.toString()
-      );
-
-      expect(new BN(reserveYReceivedAmount.toString()).toString()).toBe(
-        computedInAmountY.toString()
-      );
-
-      const positionXAmount = new BN(position.positionData.totalXAmount);
-      const positionYAmount = new BN(position.positionData.totalYAmount);
-
-      const xDiff = computedInAmountX.sub(positionXAmount);
-      const yDiff = computedInAmountY.sub(positionYAmount);
-
-      expect(xDiff.lte(new BN(1))).toBeTruthy();
-      expect(yDiff.lte(new BN(1))).toBeTruthy();
-
-      expect(positionXAmount.add(xDiff).toString()).toBe(
-        computedInAmountX.toString()
-      );
-
-      expect(positionYAmount.add(yDiff).toString()).toBe(
-        computedInAmountY.toString()
-      );
-    });
-  });
-
-  describe("Swap", () => {
-    it("SwapExactIn quote X into Y and execute swap", async () => {
-      const dlmm = await DLMM.create(connection, pairKey, opt);
-      const inAmount = new BN(100_000).mul(new BN(10 ** btcDecimal));
-      const swapForY = true;
-
-      const bidBinArrays = await dlmm.getBinArrayForSwap(swapForY, 3);
-      const quoteResult = dlmm.swapQuote(
-        inAmount,
-        swapForY,
-        new BN(0),
-        bidBinArrays,
-        false
-      );
-
-      const swapTx = await dlmm.swap({
-        inAmount,
-        inToken: dlmm.tokenX.publicKey,
-        outToken: dlmm.tokenY.publicKey,
-        minOutAmount: quoteResult.minOutAmount,
-        lbPair: pairKey,
-        user: keypair.publicKey,
-        binArraysPubkey: bidBinArrays.map((b) => b.publicKey),
-      });
-
-      const [beforeUserXAccount, beforeUserYAccount] =
-        await connection.getMultipleAccountsInfo([
-          getAssociatedTokenAddressSync(
-            dlmm.tokenX.publicKey,
-            keypair.publicKey,
-            true,
-            dlmm.tokenX.owner
-          ),
-          getAssociatedTokenAddressSync(
-            dlmm.tokenY.publicKey,
-            keypair.publicKey,
-            true,
-            dlmm.tokenY.owner
-          ),
-        ]);
-
-      await sendAndConfirmTransaction(connection, swapTx, [keypair]);
-
-      const [afterUserXAccount, afterUserYAccount] =
-        await connection.getMultipleAccountsInfo([
-          getAssociatedTokenAddressSync(
-            dlmm.tokenX.publicKey,
-            keypair.publicKey,
-            true,
-            dlmm.tokenX.owner
-          ),
-          getAssociatedTokenAddressSync(
-            dlmm.tokenY.publicKey,
-            keypair.publicKey,
-            true,
-            dlmm.tokenY.owner
-          ),
-        ]);
-
-      const beforeUserX = unpackAccount(
-        dlmm.tokenX.publicKey,
-        beforeUserXAccount,
-        beforeUserXAccount.owner
-      );
-
-      const beforeUserY = unpackAccount(
-        dlmm.tokenY.publicKey,
-        beforeUserYAccount,
-        beforeUserYAccount.owner
-      );
-
-      const afterUserX = unpackAccount(
-        dlmm.tokenX.publicKey,
-        afterUserXAccount,
-        afterUserXAccount.owner
-      );
-
-      const afterUserY = unpackAccount(
-        dlmm.tokenY.publicKey,
-        afterUserYAccount,
-        afterUserYAccount.owner
-      );
-
-      const consumedXAmount = new BN(
-        (beforeUserX.amount - afterUserX.amount).toString()
-      );
-      const receivedYAmount = new BN(
-        (afterUserY.amount - beforeUserY.amount).toString()
-      );
-
-      expect(consumedXAmount.toString()).toBe(
-        quoteResult.consumedInAmount.toString()
-      );
-      expect(receivedYAmount.toString()).toBe(quoteResult.outAmount.toString());
-    });
-
-    it("SwapExactOut quote Y into X and execute swap", async () => {
-      const dlmm = await DLMM.create(connection, pairKey, opt);
-      const outAmount = new BN(100_000).mul(new BN(10 ** btcDecimal));
-      const swapForY = false;
-
-      const askBinArrays = await dlmm.getBinArrayForSwap(swapForY, 3);
-      const quoteResult = dlmm.swapQuoteExactOut(
-        outAmount,
-        swapForY,
-        new BN(0),
-        askBinArrays
-      );
-
-      console.log(
-        quoteResult.inAmount.toString(),
-        quoteResult.outAmount.toString()
-      );
-
-      const swapTx = await dlmm.swapExactOut({
-        outAmount,
-        inToken: dlmm.tokenY.publicKey,
-        outToken: dlmm.tokenX.publicKey,
-        maxInAmount: quoteResult.maxInAmount,
-        lbPair: pairKey,
-        user: keypair.publicKey,
-        binArraysPubkey: askBinArrays.map((b) => b.publicKey),
-      });
-
-      const [beforeUserXAccount, beforeUserYAccount] =
-        await connection.getMultipleAccountsInfo([
-          getAssociatedTokenAddressSync(
-            dlmm.tokenX.publicKey,
-            keypair.publicKey,
-            true,
-            dlmm.tokenX.owner
-          ),
-          getAssociatedTokenAddressSync(
-            dlmm.tokenY.publicKey,
-            keypair.publicKey,
-            true,
-            dlmm.tokenY.owner
-          ),
-        ]);
-
-      await sendAndConfirmTransaction(connection, swapTx, [keypair]);
-
-      const [afterUserXAccount, afterUserYAccount] =
-        await connection.getMultipleAccountsInfo([
-          getAssociatedTokenAddressSync(
-            dlmm.tokenX.publicKey,
-            keypair.publicKey,
-            true,
-            dlmm.tokenX.owner
-          ),
-          getAssociatedTokenAddressSync(
-            dlmm.tokenY.publicKey,
-            keypair.publicKey,
-            true,
-            dlmm.tokenY.owner
-          ),
-        ]);
-
-      const beforeUserX = unpackAccount(
-        dlmm.tokenX.publicKey,
-        beforeUserXAccount,
-        beforeUserXAccount.owner
-      );
-
-      const beforeUserY = unpackAccount(
-        dlmm.tokenY.publicKey,
-        beforeUserYAccount,
-        beforeUserYAccount.owner
-      );
-
-      const afterUserX = unpackAccount(
-        dlmm.tokenX.publicKey,
-        afterUserXAccount,
-        afterUserXAccount.owner
-      );
-
-      const afterUserY = unpackAccount(
-        dlmm.tokenY.publicKey,
-        afterUserYAccount,
-        afterUserYAccount.owner
-      );
-
-      const consumedYAmount = new BN(
-        (beforeUserY.amount - afterUserY.amount).toString()
-      );
-      const receivedXAmount = new BN(
-        (afterUserX.amount - beforeUserX.amount).toString()
-      );
-
-      expect(consumedYAmount.toString()).toBe(quoteResult.inAmount.toString());
-      expect(receivedXAmount.toString()).toBe(quoteResult.outAmount.toString());
-    });
-
-    it("SwapExactOut quote X into Y and execute swap", async () => {
-      const dlmm = await DLMM.create(connection, pairKey, opt);
-      const outAmount = new BN(100_000).mul(new BN(10 ** usdcDecimal));
-      const swapForY = true;
-
-      const bidBinArrays = await dlmm.getBinArrayForSwap(swapForY, 3);
-      const quoteResult = dlmm.swapQuoteExactOut(
-        outAmount,
-        swapForY,
-        new BN(0),
-        bidBinArrays
-      );
-
-      console.log(
-        quoteResult.inAmount.toString(),
-        quoteResult.outAmount.toString()
-      );
-
-      const swapTx = await dlmm.swapExactOut({
-        outAmount,
-        inToken: dlmm.tokenX.publicKey,
-        outToken: dlmm.tokenY.publicKey,
-        maxInAmount: quoteResult.maxInAmount,
-        lbPair: pairKey,
-        user: keypair.publicKey,
-        binArraysPubkey: bidBinArrays.map((b) => b.publicKey),
-      });
-
-      const [beforeUserXAccount, beforeUserYAccount] =
-        await connection.getMultipleAccountsInfo([
-          getAssociatedTokenAddressSync(
-            dlmm.tokenX.publicKey,
-            keypair.publicKey,
-            true,
-            dlmm.tokenX.owner
-          ),
-          getAssociatedTokenAddressSync(
-            dlmm.tokenY.publicKey,
-            keypair.publicKey,
-            true,
-            dlmm.tokenY.owner
-          ),
-        ]);
-
-      await sendAndConfirmTransaction(connection, swapTx, [keypair]);
-
-      const [afterUserXAccount, afterUserYAccount] =
-        await connection.getMultipleAccountsInfo([
-          getAssociatedTokenAddressSync(
-            dlmm.tokenX.publicKey,
-            keypair.publicKey,
-            true,
-            dlmm.tokenX.owner
-          ),
-          getAssociatedTokenAddressSync(
-            dlmm.tokenY.publicKey,
-            keypair.publicKey,
-            true,
-            dlmm.tokenY.owner
-          ),
-        ]);
-
-      const beforeUserX = unpackAccount(
-        dlmm.tokenX.publicKey,
-        beforeUserXAccount,
-        beforeUserXAccount.owner
-      );
-
-      const beforeUserY = unpackAccount(
-        dlmm.tokenY.publicKey,
-        beforeUserYAccount,
-        beforeUserYAccount.owner
-      );
-
-      const afterUserX = unpackAccount(
-        dlmm.tokenX.publicKey,
-        afterUserXAccount,
-        afterUserXAccount.owner
-      );
-
-      const afterUserY = unpackAccount(
-        dlmm.tokenY.publicKey,
-        afterUserYAccount,
-        afterUserYAccount.owner
-      );
-
-      const consumedXAmount = new BN(
-        (beforeUserX.amount - afterUserX.amount).toString()
-      );
-      const receivedYAmount = new BN(
-        (afterUserY.amount - beforeUserY.amount).toString()
-      );
-
-      expect(consumedXAmount.toString()).toBe(quoteResult.inAmount.toString());
-      expect(receivedYAmount.toString()).toBe(quoteResult.outAmount.toString());
-    });
-
-    it("SwapExactIn quote Y into X and execute swap", async () => {
-      const dlmm = await DLMM.create(connection, pairKey, opt);
-      const inAmount = new BN(100_000).mul(new BN(10 ** usdcDecimal));
-      const swapForY = false;
-
-      const askBinArrays = await dlmm.getBinArrayForSwap(swapForY, 3);
-      const quoteResult = dlmm.swapQuote(
-        inAmount,
-        swapForY,
-        new BN(0),
-        askBinArrays,
-        false
-      );
-
-      const swapTx = await dlmm.swap({
-        inAmount,
-        inToken: dlmm.tokenY.publicKey,
-        outToken: dlmm.tokenX.publicKey,
-        minOutAmount: quoteResult.minOutAmount,
-        lbPair: pairKey,
-        user: keypair.publicKey,
-        binArraysPubkey: askBinArrays.map((b) => b.publicKey),
-      });
-
-      const [beforeUserXAccount, beforeUserYAccount] =
-        await connection.getMultipleAccountsInfo([
-          getAssociatedTokenAddressSync(
-            dlmm.tokenX.publicKey,
-            keypair.publicKey,
-            true,
-            dlmm.tokenX.owner
-          ),
-          getAssociatedTokenAddressSync(
-            dlmm.tokenY.publicKey,
-            keypair.publicKey,
-            true,
-            dlmm.tokenY.owner
-          ),
-        ]);
-
-      await sendAndConfirmTransaction(connection, swapTx, [keypair]);
-
-      const [afterUserXAccount, afterUserYAccount] =
-        await connection.getMultipleAccountsInfo([
-          getAssociatedTokenAddressSync(
-            dlmm.tokenX.publicKey,
-            keypair.publicKey,
-            true,
-            dlmm.tokenX.owner
-          ),
-          getAssociatedTokenAddressSync(
-            dlmm.tokenY.publicKey,
-            keypair.publicKey,
-            true,
-            dlmm.tokenY.owner
-          ),
-        ]);
-
-      const beforeUserX = unpackAccount(
-        dlmm.tokenX.publicKey,
-        beforeUserXAccount,
-        beforeUserXAccount.owner
-      );
-
-      const beforeUserY = unpackAccount(
-        dlmm.tokenY.publicKey,
-        beforeUserYAccount,
-        beforeUserYAccount.owner
-      );
-
-      const afterUserX = unpackAccount(
-        dlmm.tokenX.publicKey,
-        afterUserXAccount,
-        afterUserXAccount.owner
-      );
-
-      const afterUserY = unpackAccount(
-        dlmm.tokenY.publicKey,
-        afterUserYAccount,
-        afterUserYAccount.owner
-      );
-
-      const consumedYAmount = new BN(
-        (beforeUserY.amount - afterUserY.amount).toString()
-      );
-      const receivedXAmount = new BN(
-        (afterUserX.amount - beforeUserX.amount).toString()
-      );
-
-      expect(consumedYAmount.toString()).toBe(
-        quoteResult.consumedInAmount.toString()
-      );
-      expect(receivedXAmount.toString()).toBe(quoteResult.outAmount.toString());
+      const rentalCost = afterPositionRental.sub(beforePositionRental);
+      expect(rentalCost.toString()).toBe(positionExtendCost.toString());
     });
   });
 
@@ -1293,141 +763,804 @@ describe("SDK token2022 test", () => {
     }
   };
 
-  describe("Claim fees and rewards", () => {
-    let userXAta: PublicKey, userYAta: PublicKey, userRewardAta: PublicKey;
+  const assertUserTokenBalanceWithDelta = (
+    beforeAccount: AccountInfo<Buffer>,
+    afterAccount: AccountInfo<Buffer>,
+    expectedAmount: BN,
+    allowedLamportLoss?: number
+  ) => {
+    const before = unpackAccount(
+      PublicKey.default,
+      beforeAccount,
+      beforeAccount.owner
+    );
 
-    beforeEach(async () => {
+    const after = unpackAccount(
+      PublicKey.default,
+      afterAccount,
+      afterAccount.owner
+    );
+
+    const delta =
+      before.amount > after.amount
+        ? before.amount - after.amount
+        : after.amount - before.amount;
+
+    const deltaBn = new BN(delta.toString());
+    if (allowedLamportLoss) {
+      const diff = expectedAmount.sub(deltaBn);
+      expect(diff.lt(new BN(allowedLamportLoss))).toBeTruthy();
+    } else {
+      expect(deltaBn.toString()).toBe(expectedAmount.toString());
+    }
+  };
+
+  describe("Non extended position", () => {
+    afterAll(async () => {
       const dlmm = await DLMM.create(connection, pairKey, opt);
-      await generateSwapFees();
 
-      userXAta = getAssociatedTokenAddressSync(
-        dlmm.tokenX.publicKey,
-        keypair.publicKey,
-        true,
-        dlmm.tokenX.owner
+      const positions = await Promise.all(
+        [nonExtendedPositionKeypair0, nonExtendedPositionKeypair1].map(
+          (positionKeypairs) => {
+            return dlmm.getPosition(positionKeypairs.publicKey).catch((e) => {
+              // console.error(e);
+              return null;
+            });
+          }
+        )
       );
 
-      userYAta = getAssociatedTokenAddressSync(
-        dlmm.tokenY.publicKey,
-        keypair.publicKey,
-        true,
-        dlmm.tokenY.owner
-      );
+      const nonEmptyPositions = positions.filter(Boolean).filter((position) => {
+        const amountX = new BN(position.positionData.totalXAmount.toString());
+        const amountY = new BN(position.positionData.totalYAmount.toString());
+        return !amountX.isZero() || !amountY.isZero();
+      });
 
-      userRewardAta = getAssociatedTokenAddressSync(
-        dlmm.rewards[0].publicKey,
-        keypair.publicKey,
-        true,
-        dlmm.rewards[0].owner
+      const withdrawAll = nonEmptyPositions.map((position) => {
+        return dlmm.removeLiquidity({
+          user: position.positionData.owner,
+          position: position.publicKey,
+          fromBinId: position.positionData.lowerBinId,
+          toBinId: position.positionData.upperBinId,
+          bps: new BN(BASIS_POINT_MAX),
+        });
+      });
+
+      const withdrawAllTx = await Promise.all(withdrawAll);
+
+      await Promise.all(
+        withdrawAllTx.flat().map((tx) => {
+          return sendAndConfirmTransaction(connection, tx, [keypair]);
+        })
       );
     });
 
-    const assertUserTokenBalanceWithDelta = (
-      beforeAccount: AccountInfo<Buffer>,
-      afterAccount: AccountInfo<Buffer>,
-      expectedAmount: BN
-    ) => {
-      const before = unpackAccount(
-        PublicKey.default,
-        beforeAccount,
-        beforeAccount.owner
-      );
+    describe("Add liquidity", () => {
+      it("Add liquidity by strategy", async () => {
+        const totalXAmount = new BN(100_000).mul(new BN(10 ** btcDecimal));
+        const totalYAmount = new BN(100_000).mul(new BN(10 ** usdcDecimal));
 
-      const after = unpackAccount(
-        PublicKey.default,
-        afterAccount,
-        afterAccount.owner
-      );
-
-      const delta =
-        before.amount > after.amount
-          ? before.amount - after.amount
-          : after.amount - before.amount;
-
-      const deltaBn = new BN(delta.toString());
-      expect(deltaBn.toString()).toBe(expectedAmount.toString());
-    };
-
-    describe("Claim swap fee", () => {
-      it("Claim all swap fees", async () => {
         const dlmm = await DLMM.create(connection, pairKey, opt);
+        let position = await dlmm.getPosition(
+          nonExtendedPositionKeypair0.publicKey
+        );
 
-        const [beforeUserXAccount, beforeUserYAccount] =
-          await connection.getMultipleAccountsInfo([userXAta, userYAta]);
+        const activeBinInfo = await dlmm.getActiveBin();
 
-        const [beforeWidePosition, beforeTightPosition] = await Promise.all([
-          dlmm.getPosition(positionKeypair0.publicKey),
-          dlmm.getPosition(positionKeypair1.publicKey),
-        ]);
+        const computedInBinAmount = toAmountsBothSideByStrategy(
+          dlmm.lbPair.activeId,
+          dlmm.lbPair.binStep,
+          position.positionData.lowerBinId,
+          position.positionData.upperBinId,
+          totalXAmount,
+          totalYAmount,
+          activeBinInfo.xAmount,
+          activeBinInfo.yAmount,
+          StrategyType.Spot,
+          dlmm.tokenX.mint,
+          dlmm.tokenY.mint,
+          dlmm.clock
+        );
 
-        const totalClaimableFeeX =
-          beforeWidePosition.positionData.feeXExcludeTransferFee.add(
-            beforeTightPosition.positionData.feeXExcludeTransferFee
-          );
-
-        const totalClaimableFeeY =
-          beforeWidePosition.positionData.feeYExcludeTransferFee.add(
-            beforeTightPosition.positionData.feeYExcludeTransferFee
-          );
-
-        const claimFeeTxs = await dlmm.claimAllSwapFee({
-          owner: keypair.publicKey,
-          positions: [beforeWidePosition, beforeTightPosition],
+        const addLiquidityTx = await dlmm.addLiquidityByStrategy({
+          positionPubKey: nonExtendedPositionKeypair0.publicKey,
+          totalXAmount,
+          totalYAmount,
+          user: keypair.publicKey,
+          strategy: {
+            strategyType: StrategyType.Spot,
+            minBinId: position.positionData.lowerBinId,
+            maxBinId: position.positionData.upperBinId,
+          },
+          slippage: 0,
         });
 
-        expect(claimFeeTxs.length).toBeGreaterThanOrEqual(1);
+        const [beforeReserveXAccount, beforeReserveYAccount] =
+          await connection.getMultipleAccountsInfo([
+            dlmm.tokenX.reserve,
+            dlmm.tokenY.reserve,
+          ]);
 
-        await Promise.all(
-          claimFeeTxs.map((tx) =>
-            sendAndConfirmTransaction(connection, tx, [keypair])
-          )
+        await sendAndConfirmTransaction(connection, addLiquidityTx, [keypair]);
+
+        position = await dlmm.getPosition(
+          nonExtendedPositionKeypair0.publicKey
         );
 
-        const [afterUserXAccount, afterUserYAccount] =
-          await connection.getMultipleAccountsInfo([userXAta, userYAta]);
+        const [afterReserveXAccount, afterReserveYAccount] =
+          await connection.getMultipleAccountsInfo([
+            dlmm.tokenX.reserve,
+            dlmm.tokenY.reserve,
+          ]);
 
-        assertUserTokenBalanceWithDelta(
-          beforeUserXAccount,
-          afterUserXAccount,
-          totalClaimableFeeX
+        const [computedInAmountX, computedInAmountY] =
+          computedInBinAmount.reduce(
+            ([totalXAmount, totalYAmount], { amountX, amountY }) => {
+              return [totalXAmount.add(amountX), totalYAmount.add(amountY)];
+            },
+            [new BN(0), new BN(0)]
+          );
+
+        expect(computedInAmountX.lte(totalXAmount)).toBeTruthy();
+        expect(computedInAmountY.lte(totalYAmount)).toBeTruthy();
+
+        const beforeReserveX = unpackAccount(
+          dlmm.tokenX.reserve,
+          beforeReserveXAccount,
+          beforeReserveXAccount.owner
         );
 
-        assertUserTokenBalanceWithDelta(
-          beforeUserYAccount,
-          afterUserYAccount,
-          totalClaimableFeeY
+        const beforeReserveY = unpackAccount(
+          dlmm.tokenY.reserve,
+          beforeReserveYAccount,
+          beforeReserveYAccount.owner
         );
 
-        const [afterWidePosition, afterTightPosition] = await Promise.all([
-          dlmm.getPosition(positionKeypair0.publicKey),
-          dlmm.getPosition(positionKeypair1.publicKey),
-        ]);
+        const afterReserveX = unpackAccount(
+          dlmm.tokenX.reserve,
+          afterReserveXAccount,
+          afterReserveXAccount.owner
+        );
 
-        expect(afterWidePosition.positionData.feeX.isZero()).toBeTruthy();
-        expect(afterWidePosition.positionData.feeY.isZero()).toBeTruthy();
+        const afterReserveY = unpackAccount(
+          dlmm.tokenY.reserve,
+          afterReserveYAccount,
+          afterReserveYAccount.owner
+        );
 
-        expect(afterTightPosition.positionData.feeX.isZero()).toBeTruthy();
-        expect(afterTightPosition.positionData.feeY.isZero()).toBeTruthy();
+        const reserveXReceivedAmount =
+          afterReserveX.amount - beforeReserveX.amount;
+
+        const reserveYReceivedAmount =
+          afterReserveY.amount - beforeReserveY.amount;
+
+        // There will be some loss due to:
+        // 1. SDK distribute amounts based on strategy (will have loss where total amount in bin <= deposit amount)
+        // 2. Chunk the amounts into smaller bin range
+        // 3. For each chunk, sum the amounts as deposit amount for the chunk
+        // Due to amount feed into step 3 have loss (step 1), the deposit amount passed into the program will be lesser
+        let diffX = computedInAmountX.sub(
+          new BN(reserveXReceivedAmount.toString())
+        );
+
+        let diffY = computedInAmountY.sub(
+          new BN(reserveYReceivedAmount.toString())
+        );
+
+        expect(diffX.toNumber()).toBeLessThan(MAX_ALLOWED_LAMPORT_LOSS);
+        expect(diffY.toNumber()).toBeLessThan(MAX_ALLOWED_LAMPORT_LOSS);
+
+        const positionXAmount = new BN(position.positionData.totalXAmount);
+        const positionYAmount = new BN(position.positionData.totalYAmount);
+
+        diffX = computedInAmountX.sub(positionXAmount);
+        diffY = computedInAmountY.sub(positionYAmount);
+
+        expect(diffX.toNumber()).toBeLessThan(MAX_ALLOWED_LAMPORT_LOSS);
+        expect(diffY.toNumber()).toBeLessThan(MAX_ALLOWED_LAMPORT_LOSS);
+
+        expect(positionXAmount.toString()).toBe(
+          reserveXReceivedAmount.toString()
+        );
+        expect(positionYAmount.toString()).toBe(
+          reserveYReceivedAmount.toString()
+        );
       });
 
-      it("Claim swap fee", async () => {
+      it("Initialize position and add liquidity by strategy", async () => {
+        const totalXAmount = new BN(100_000).mul(new BN(10 ** btcDecimal));
+        const totalYAmount = new BN(100_000).mul(new BN(10 ** usdcDecimal));
+
         const dlmm = await DLMM.create(connection, pairKey, opt);
 
-        for (const positionKey of [
-          positionKeypair0.publicKey,
-          positionKeypair1.publicKey,
-        ]) {
-          const beforePosition = await dlmm.getPosition(positionKey);
+        const minBinId = dlmm.lbPair.activeId - 30;
+        const maxBinId = dlmm.lbPair.activeId + 30;
+
+        const activeBinInfo = await dlmm.getActiveBin();
+
+        const computedInBinAmount = toAmountsBothSideByStrategy(
+          dlmm.lbPair.activeId,
+          dlmm.lbPair.binStep,
+          minBinId,
+          maxBinId,
+          totalXAmount,
+          totalYAmount,
+          activeBinInfo.xAmount,
+          activeBinInfo.yAmount,
+          StrategyType.Spot,
+          dlmm.tokenX.mint,
+          dlmm.tokenY.mint,
+          dlmm.clock
+        );
+
+        const initAndAddLiquidityTx =
+          await dlmm.initializePositionAndAddLiquidityByStrategy({
+            positionPubKey: nonExtendedPositionKeypair1.publicKey,
+            totalXAmount,
+            totalYAmount,
+            strategy: {
+              strategyType: StrategyType.Spot,
+              minBinId,
+              maxBinId,
+            },
+            slippage: 0,
+            user: keypair.publicKey,
+          });
+
+        const [beforeReserveXAccount, beforeReserveYAccount] =
+          await connection.getMultipleAccountsInfo([
+            dlmm.tokenX.reserve,
+            dlmm.tokenY.reserve,
+          ]);
+
+        await sendAndConfirmTransaction(connection, initAndAddLiquidityTx, [
+          keypair,
+          nonExtendedPositionKeypair1,
+        ]);
+
+        const [afterReserveXAccount, afterReserveYAccount] =
+          await connection.getMultipleAccountsInfo([
+            dlmm.tokenX.reserve,
+            dlmm.tokenY.reserve,
+          ]);
+
+        await dlmm.refetchStates();
+
+        const position = await dlmm.getPosition(
+          nonExtendedPositionKeypair1.publicKey
+        );
+        expect(position.positionData.lowerBinId).toBe(minBinId);
+        expect(position.positionData.upperBinId).toBe(maxBinId);
+
+        const [computedInAmountX, computedInAmountY] =
+          computedInBinAmount.reduce(
+            ([totalXAmount, totalYAmount], { amountX, amountY }) => {
+              return [totalXAmount.add(amountX), totalYAmount.add(amountY)];
+            },
+            [new BN(0), new BN(0)]
+          );
+
+        expect(computedInAmountX.lte(totalXAmount)).toBeTruthy();
+        expect(computedInAmountY.lte(totalYAmount)).toBeTruthy();
+
+        const beforeReserveX = unpackAccount(
+          dlmm.tokenX.reserve,
+          beforeReserveXAccount,
+          beforeReserveXAccount.owner
+        );
+
+        const beforeReserveY = unpackAccount(
+          dlmm.tokenY.reserve,
+          beforeReserveYAccount,
+          beforeReserveYAccount.owner
+        );
+
+        const afterReserveX = unpackAccount(
+          dlmm.tokenX.reserve,
+          afterReserveXAccount,
+          afterReserveXAccount.owner
+        );
+
+        const afterReserveY = unpackAccount(
+          dlmm.tokenY.reserve,
+          afterReserveYAccount,
+          afterReserveYAccount.owner
+        );
+
+        const reserveXReceivedAmount =
+          afterReserveX.amount - beforeReserveX.amount;
+
+        const reserveYReceivedAmount =
+          afterReserveY.amount - beforeReserveY.amount;
+
+        expect(new BN(reserveXReceivedAmount.toString()).toString()).toBe(
+          computedInAmountX.toString()
+        );
+
+        expect(new BN(reserveYReceivedAmount.toString()).toString()).toBe(
+          computedInAmountY.toString()
+        );
+
+        const positionXAmount = new BN(position.positionData.totalXAmount);
+        const positionYAmount = new BN(position.positionData.totalYAmount);
+
+        const xDiff = computedInAmountX.sub(positionXAmount);
+        const yDiff = computedInAmountY.sub(positionYAmount);
+
+        expect(xDiff.lte(new BN(1))).toBeTruthy();
+        expect(yDiff.lte(new BN(1))).toBeTruthy();
+
+        expect(positionXAmount.add(xDiff).toString()).toBe(
+          computedInAmountX.toString()
+        );
+
+        expect(positionYAmount.add(yDiff).toString()).toBe(
+          computedInAmountY.toString()
+        );
+      });
+    });
+
+    describe("Swap", () => {
+      it("SwapExactIn quote X into Y and execute swap", async () => {
+        const dlmm = await DLMM.create(connection, pairKey, opt);
+        const inAmount = new BN(100_000).mul(new BN(10 ** btcDecimal));
+        const swapForY = true;
+
+        const bidBinArrays = await dlmm.getBinArrayForSwap(swapForY, 3);
+        const quoteResult = dlmm.swapQuote(
+          inAmount,
+          swapForY,
+          new BN(0),
+          bidBinArrays,
+          false
+        );
+
+        const swapTx = await dlmm.swap({
+          inAmount,
+          inToken: dlmm.tokenX.publicKey,
+          outToken: dlmm.tokenY.publicKey,
+          minOutAmount: quoteResult.minOutAmount,
+          lbPair: pairKey,
+          user: keypair.publicKey,
+          binArraysPubkey: bidBinArrays.map((b) => b.publicKey),
+        });
+
+        const [beforeUserXAccount, beforeUserYAccount] =
+          await connection.getMultipleAccountsInfo([
+            getAssociatedTokenAddressSync(
+              dlmm.tokenX.publicKey,
+              keypair.publicKey,
+              true,
+              dlmm.tokenX.owner
+            ),
+            getAssociatedTokenAddressSync(
+              dlmm.tokenY.publicKey,
+              keypair.publicKey,
+              true,
+              dlmm.tokenY.owner
+            ),
+          ]);
+
+        await sendAndConfirmTransaction(connection, swapTx, [keypair]);
+
+        const [afterUserXAccount, afterUserYAccount] =
+          await connection.getMultipleAccountsInfo([
+            getAssociatedTokenAddressSync(
+              dlmm.tokenX.publicKey,
+              keypair.publicKey,
+              true,
+              dlmm.tokenX.owner
+            ),
+            getAssociatedTokenAddressSync(
+              dlmm.tokenY.publicKey,
+              keypair.publicKey,
+              true,
+              dlmm.tokenY.owner
+            ),
+          ]);
+
+        const beforeUserX = unpackAccount(
+          dlmm.tokenX.publicKey,
+          beforeUserXAccount,
+          beforeUserXAccount.owner
+        );
+
+        const beforeUserY = unpackAccount(
+          dlmm.tokenY.publicKey,
+          beforeUserYAccount,
+          beforeUserYAccount.owner
+        );
+
+        const afterUserX = unpackAccount(
+          dlmm.tokenX.publicKey,
+          afterUserXAccount,
+          afterUserXAccount.owner
+        );
+
+        const afterUserY = unpackAccount(
+          dlmm.tokenY.publicKey,
+          afterUserYAccount,
+          afterUserYAccount.owner
+        );
+
+        const consumedXAmount = new BN(
+          (beforeUserX.amount - afterUserX.amount).toString()
+        );
+        const receivedYAmount = new BN(
+          (afterUserY.amount - beforeUserY.amount).toString()
+        );
+
+        expect(consumedXAmount.toString()).toBe(
+          quoteResult.consumedInAmount.toString()
+        );
+        expect(receivedYAmount.toString()).toBe(
+          quoteResult.outAmount.toString()
+        );
+      });
+
+      it("SwapExactOut quote Y into X and execute swap", async () => {
+        const dlmm = await DLMM.create(connection, pairKey, opt);
+        const outAmount = new BN(100_000).mul(new BN(10 ** btcDecimal));
+        const swapForY = false;
+
+        const askBinArrays = await dlmm.getBinArrayForSwap(swapForY, 3);
+        const quoteResult = dlmm.swapQuoteExactOut(
+          outAmount,
+          swapForY,
+          new BN(0),
+          askBinArrays
+        );
+
+        console.log(
+          quoteResult.inAmount.toString(),
+          quoteResult.outAmount.toString()
+        );
+
+        const swapTx = await dlmm.swapExactOut({
+          outAmount,
+          inToken: dlmm.tokenY.publicKey,
+          outToken: dlmm.tokenX.publicKey,
+          maxInAmount: quoteResult.maxInAmount,
+          lbPair: pairKey,
+          user: keypair.publicKey,
+          binArraysPubkey: askBinArrays.map((b) => b.publicKey),
+        });
+
+        const [beforeUserXAccount, beforeUserYAccount] =
+          await connection.getMultipleAccountsInfo([
+            getAssociatedTokenAddressSync(
+              dlmm.tokenX.publicKey,
+              keypair.publicKey,
+              true,
+              dlmm.tokenX.owner
+            ),
+            getAssociatedTokenAddressSync(
+              dlmm.tokenY.publicKey,
+              keypair.publicKey,
+              true,
+              dlmm.tokenY.owner
+            ),
+          ]);
+
+        await sendAndConfirmTransaction(connection, swapTx, [keypair]);
+
+        const [afterUserXAccount, afterUserYAccount] =
+          await connection.getMultipleAccountsInfo([
+            getAssociatedTokenAddressSync(
+              dlmm.tokenX.publicKey,
+              keypair.publicKey,
+              true,
+              dlmm.tokenX.owner
+            ),
+            getAssociatedTokenAddressSync(
+              dlmm.tokenY.publicKey,
+              keypair.publicKey,
+              true,
+              dlmm.tokenY.owner
+            ),
+          ]);
+
+        const beforeUserX = unpackAccount(
+          dlmm.tokenX.publicKey,
+          beforeUserXAccount,
+          beforeUserXAccount.owner
+        );
+
+        const beforeUserY = unpackAccount(
+          dlmm.tokenY.publicKey,
+          beforeUserYAccount,
+          beforeUserYAccount.owner
+        );
+
+        const afterUserX = unpackAccount(
+          dlmm.tokenX.publicKey,
+          afterUserXAccount,
+          afterUserXAccount.owner
+        );
+
+        const afterUserY = unpackAccount(
+          dlmm.tokenY.publicKey,
+          afterUserYAccount,
+          afterUserYAccount.owner
+        );
+
+        const consumedYAmount = new BN(
+          (beforeUserY.amount - afterUserY.amount).toString()
+        );
+        const receivedXAmount = new BN(
+          (afterUserX.amount - beforeUserX.amount).toString()
+        );
+
+        expect(consumedYAmount.toString()).toBe(
+          quoteResult.inAmount.toString()
+        );
+        expect(receivedXAmount.toString()).toBe(
+          quoteResult.outAmount.toString()
+        );
+      });
+
+      it("SwapExactOut quote X into Y and execute swap", async () => {
+        const dlmm = await DLMM.create(connection, pairKey, opt);
+        const outAmount = new BN(100_000).mul(new BN(10 ** usdcDecimal));
+        const swapForY = true;
+
+        const bidBinArrays = await dlmm.getBinArrayForSwap(swapForY, 3);
+        const quoteResult = dlmm.swapQuoteExactOut(
+          outAmount,
+          swapForY,
+          new BN(0),
+          bidBinArrays
+        );
+
+        console.log(
+          quoteResult.inAmount.toString(),
+          quoteResult.outAmount.toString()
+        );
+
+        const swapTx = await dlmm.swapExactOut({
+          outAmount,
+          inToken: dlmm.tokenX.publicKey,
+          outToken: dlmm.tokenY.publicKey,
+          maxInAmount: quoteResult.maxInAmount,
+          lbPair: pairKey,
+          user: keypair.publicKey,
+          binArraysPubkey: bidBinArrays.map((b) => b.publicKey),
+        });
+
+        const [beforeUserXAccount, beforeUserYAccount] =
+          await connection.getMultipleAccountsInfo([
+            getAssociatedTokenAddressSync(
+              dlmm.tokenX.publicKey,
+              keypair.publicKey,
+              true,
+              dlmm.tokenX.owner
+            ),
+            getAssociatedTokenAddressSync(
+              dlmm.tokenY.publicKey,
+              keypair.publicKey,
+              true,
+              dlmm.tokenY.owner
+            ),
+          ]);
+
+        await sendAndConfirmTransaction(connection, swapTx, [keypair]);
+
+        const [afterUserXAccount, afterUserYAccount] =
+          await connection.getMultipleAccountsInfo([
+            getAssociatedTokenAddressSync(
+              dlmm.tokenX.publicKey,
+              keypair.publicKey,
+              true,
+              dlmm.tokenX.owner
+            ),
+            getAssociatedTokenAddressSync(
+              dlmm.tokenY.publicKey,
+              keypair.publicKey,
+              true,
+              dlmm.tokenY.owner
+            ),
+          ]);
+
+        const beforeUserX = unpackAccount(
+          dlmm.tokenX.publicKey,
+          beforeUserXAccount,
+          beforeUserXAccount.owner
+        );
+
+        const beforeUserY = unpackAccount(
+          dlmm.tokenY.publicKey,
+          beforeUserYAccount,
+          beforeUserYAccount.owner
+        );
+
+        const afterUserX = unpackAccount(
+          dlmm.tokenX.publicKey,
+          afterUserXAccount,
+          afterUserXAccount.owner
+        );
+
+        const afterUserY = unpackAccount(
+          dlmm.tokenY.publicKey,
+          afterUserYAccount,
+          afterUserYAccount.owner
+        );
+
+        const consumedXAmount = new BN(
+          (beforeUserX.amount - afterUserX.amount).toString()
+        );
+        const receivedYAmount = new BN(
+          (afterUserY.amount - beforeUserY.amount).toString()
+        );
+
+        expect(consumedXAmount.toString()).toBe(
+          quoteResult.inAmount.toString()
+        );
+        expect(receivedYAmount.toString()).toBe(
+          quoteResult.outAmount.toString()
+        );
+      });
+
+      it("SwapExactIn quote Y into X and execute swap", async () => {
+        const dlmm = await DLMM.create(connection, pairKey, opt);
+        const inAmount = new BN(100_000).mul(new BN(10 ** usdcDecimal));
+        const swapForY = false;
+
+        const askBinArrays = await dlmm.getBinArrayForSwap(swapForY, 3);
+        const quoteResult = dlmm.swapQuote(
+          inAmount,
+          swapForY,
+          new BN(0),
+          askBinArrays,
+          false
+        );
+
+        const swapTx = await dlmm.swap({
+          inAmount,
+          inToken: dlmm.tokenY.publicKey,
+          outToken: dlmm.tokenX.publicKey,
+          minOutAmount: quoteResult.minOutAmount,
+          lbPair: pairKey,
+          user: keypair.publicKey,
+          binArraysPubkey: askBinArrays.map((b) => b.publicKey),
+        });
+
+        const [beforeUserXAccount, beforeUserYAccount] =
+          await connection.getMultipleAccountsInfo([
+            getAssociatedTokenAddressSync(
+              dlmm.tokenX.publicKey,
+              keypair.publicKey,
+              true,
+              dlmm.tokenX.owner
+            ),
+            getAssociatedTokenAddressSync(
+              dlmm.tokenY.publicKey,
+              keypair.publicKey,
+              true,
+              dlmm.tokenY.owner
+            ),
+          ]);
+
+        await sendAndConfirmTransaction(connection, swapTx, [keypair]);
+
+        const [afterUserXAccount, afterUserYAccount] =
+          await connection.getMultipleAccountsInfo([
+            getAssociatedTokenAddressSync(
+              dlmm.tokenX.publicKey,
+              keypair.publicKey,
+              true,
+              dlmm.tokenX.owner
+            ),
+            getAssociatedTokenAddressSync(
+              dlmm.tokenY.publicKey,
+              keypair.publicKey,
+              true,
+              dlmm.tokenY.owner
+            ),
+          ]);
+
+        const beforeUserX = unpackAccount(
+          dlmm.tokenX.publicKey,
+          beforeUserXAccount,
+          beforeUserXAccount.owner
+        );
+
+        const beforeUserY = unpackAccount(
+          dlmm.tokenY.publicKey,
+          beforeUserYAccount,
+          beforeUserYAccount.owner
+        );
+
+        const afterUserX = unpackAccount(
+          dlmm.tokenX.publicKey,
+          afterUserXAccount,
+          afterUserXAccount.owner
+        );
+
+        const afterUserY = unpackAccount(
+          dlmm.tokenY.publicKey,
+          afterUserYAccount,
+          afterUserYAccount.owner
+        );
+
+        const consumedYAmount = new BN(
+          (beforeUserY.amount - afterUserY.amount).toString()
+        );
+        const receivedXAmount = new BN(
+          (afterUserX.amount - beforeUserX.amount).toString()
+        );
+
+        expect(consumedYAmount.toString()).toBe(
+          quoteResult.consumedInAmount.toString()
+        );
+        expect(receivedXAmount.toString()).toBe(
+          quoteResult.outAmount.toString()
+        );
+      });
+    });
+
+    describe("Claim fees and rewards", () => {
+      let userXAta: PublicKey, userYAta: PublicKey, userRewardAta: PublicKey;
+
+      beforeEach(async () => {
+        const dlmm = await DLMM.create(connection, pairKey, opt);
+        await generateSwapFees();
+
+        userXAta = getAssociatedTokenAddressSync(
+          dlmm.tokenX.publicKey,
+          keypair.publicKey,
+          true,
+          dlmm.tokenX.owner
+        );
+
+        userYAta = getAssociatedTokenAddressSync(
+          dlmm.tokenY.publicKey,
+          keypair.publicKey,
+          true,
+          dlmm.tokenY.owner
+        );
+
+        userRewardAta = getAssociatedTokenAddressSync(
+          dlmm.rewards[0].publicKey,
+          keypair.publicKey,
+          true,
+          dlmm.rewards[0].owner
+        );
+      });
+
+      describe("Claim swap fee", () => {
+        it("Claim all swap fees", async () => {
+          const dlmm = await DLMM.create(connection, pairKey, opt);
 
           const [beforeUserXAccount, beforeUserYAccount] =
             await connection.getMultipleAccountsInfo([userXAta, userYAta]);
 
-          const claimFeeTxs = await dlmm.claimSwapFee({
+          const [beforeP0, beforeP1] = await Promise.all([
+            dlmm.getPosition(nonExtendedPositionKeypair0.publicKey),
+            dlmm.getPosition(nonExtendedPositionKeypair1.publicKey),
+          ]);
+
+          const totalClaimableFeeX =
+            beforeP0.positionData.feeXExcludeTransferFee.add(
+              beforeP1.positionData.feeXExcludeTransferFee
+            );
+
+          const totalClaimableFeeY =
+            beforeP0.positionData.feeYExcludeTransferFee.add(
+              beforeP1.positionData.feeYExcludeTransferFee
+            );
+
+          const claimFeeTxs = await dlmm.claimAllSwapFee({
             owner: keypair.publicKey,
-            position: beforePosition,
+            positions: [beforeP0, beforeP1],
           });
 
-          await sendAndConfirmTransaction(connection, claimFeeTxs, [keypair]);
+          expect(claimFeeTxs.length).toBeGreaterThanOrEqual(1);
+
+          await Promise.all(
+            claimFeeTxs.map((tx) =>
+              sendAndConfirmTransaction(connection, tx, [keypair])
+            )
+          );
 
           const [afterUserXAccount, afterUserYAccount] =
             await connection.getMultipleAccountsInfo([userXAta, userYAta]);
@@ -1435,46 +1568,158 @@ describe("SDK token2022 test", () => {
           assertUserTokenBalanceWithDelta(
             beforeUserXAccount,
             afterUserXAccount,
-            beforePosition.positionData.feeXExcludeTransferFee
+            totalClaimableFeeX
           );
 
           assertUserTokenBalanceWithDelta(
             beforeUserYAccount,
             afterUserYAccount,
-            beforePosition.positionData.feeYExcludeTransferFee
+            totalClaimableFeeY
           );
 
-          const afterPosition = await dlmm.getPosition(positionKey);
-          expect(afterPosition.positionData.feeX.isZero()).toBeTruthy();
-          expect(afterPosition.positionData.feeY.isZero()).toBeTruthy();
-        }
-      });
-    });
+          const [afterP0, afterP1] = await Promise.all([
+            dlmm.getPosition(nonExtendedPositionKeypair0.publicKey),
+            dlmm.getPosition(nonExtendedPositionKeypair1.publicKey),
+          ]);
 
-    describe("Claim rewards", () => {
-      beforeEach(async () => {
-        // Generate some fees
-        await new Promise((res) => setTimeout(res, 1000));
-      });
+          expect(afterP0.positionData.feeX.isZero()).toBeTruthy();
+          expect(afterP0.positionData.feeY.isZero()).toBeTruthy();
 
-      it("Claim reward", async () => {
-        for (const positionKey of [
-          positionKeypair0.publicKey,
-          positionKeypair1.publicKey,
-        ]) {
+          expect(afterP1.positionData.feeX.isZero()).toBeTruthy();
+          expect(afterP1.positionData.feeY.isZero()).toBeTruthy();
+        });
+
+        it("Claim swap fee", async () => {
           const dlmm = await DLMM.create(connection, pairKey, opt);
-          const position = await dlmm.getPosition(positionKey);
+
+          for (const positionKey of [
+            nonExtendedPositionKeypair0.publicKey,
+            nonExtendedPositionKeypair1.publicKey,
+          ]) {
+            const beforePosition = await dlmm.getPosition(positionKey);
+
+            const [beforeUserXAccount, beforeUserYAccount] =
+              await connection.getMultipleAccountsInfo([userXAta, userYAta]);
+
+            const claimFeeTxs = await dlmm.claimSwapFee({
+              owner: keypair.publicKey,
+              position: beforePosition,
+            });
+
+            await Promise.all(
+              claimFeeTxs.map((tx) =>
+                sendAndConfirmTransaction(connection, tx, [keypair])
+              )
+            );
+
+            const [afterUserXAccount, afterUserYAccount] =
+              await connection.getMultipleAccountsInfo([userXAta, userYAta]);
+
+            assertUserTokenBalanceWithDelta(
+              beforeUserXAccount,
+              afterUserXAccount,
+              beforePosition.positionData.feeXExcludeTransferFee
+            );
+
+            assertUserTokenBalanceWithDelta(
+              beforeUserYAccount,
+              afterUserYAccount,
+              beforePosition.positionData.feeYExcludeTransferFee
+            );
+
+            const afterPosition = await dlmm.getPosition(positionKey);
+            expect(afterPosition.positionData.feeX.isZero()).toBeTruthy();
+            expect(afterPosition.positionData.feeY.isZero()).toBeTruthy();
+          }
+        });
+      });
+
+      describe("Claim rewards", () => {
+        beforeEach(async () => {
+          // Generate some fees
+          await new Promise((res) => setTimeout(res, 1000));
+        });
+
+        it("Claim reward", async () => {
+          for (const positionKey of [
+            nonExtendedPositionKeypair0.publicKey,
+            nonExtendedPositionKeypair1.publicKey,
+          ]) {
+            const dlmm = await DLMM.create(connection, pairKey, opt);
+            const position = await dlmm.getPosition(positionKey);
+
+            const beforeUserRewardAccount = await connection.getAccountInfo(
+              userRewardAta
+            );
+
+            const claimTxs = await dlmm.claimLMReward({
+              owner: keypair.publicKey,
+              position,
+            });
+
+            await Promise.all(
+              claimTxs.map((tx) =>
+                sendAndConfirmTransaction(connection, tx, [keypair])
+              )
+            );
+
+            const afterUserRewardAccount = await connection.getAccountInfo(
+              userRewardAta
+            );
+
+            const beforeUserReward = unpackAccount(
+              userRewardAta,
+              beforeUserRewardAccount,
+              beforeUserRewardAccount.owner
+            );
+
+            const afterUserReward = unpackAccount(
+              userRewardAta,
+              afterUserRewardAccount,
+              afterUserRewardAccount.owner
+            );
+
+            const claimedReward = new BN(
+              (afterUserReward.amount - beforeUserReward.amount).toString()
+            );
+
+            expect(
+              claimedReward.gte(
+                position.positionData.rewardOneExcludeTransferFee
+              )
+            ).toBeTruthy();
+          }
+        });
+
+        it("Claim all rewards", async () => {
+          const dlmm = await DLMM.create(connection, pairKey, opt);
 
           const beforeUserRewardAccount = await connection.getAccountInfo(
             userRewardAta
           );
 
-          const claimTxs = await dlmm.claimLMReward({
+          const [beforeP0, beforeP1] = await Promise.all([
+            dlmm.getPosition(nonExtendedPositionKeypair0.publicKey),
+            dlmm.getPosition(nonExtendedPositionKeypair1.publicKey),
+          ]);
+
+          const totalClaimableReward0 =
+            beforeP0.positionData.rewardOneExcludeTransferFee.add(
+              beforeP1.positionData.rewardOneExcludeTransferFee
+            );
+
+          const claimTxs = await dlmm.claimAllLMRewards({
             owner: keypair.publicKey,
-            position,
+            positions: [beforeP0, beforeP1],
           });
 
-          await sendAndConfirmTransaction(connection, claimTxs, [keypair]);
+          expect(claimTxs.length).toBeGreaterThanOrEqual(1);
+
+          await Promise.all(
+            claimTxs.map((tx) =>
+              sendAndConfirmTransaction(connection, tx, [keypair])
+            )
+          );
 
           const afterUserRewardAccount = await connection.getAccountInfo(
             userRewardAta
@@ -1492,101 +1737,154 @@ describe("SDK token2022 test", () => {
             afterUserRewardAccount.owner
           );
 
-          const claimedReward = new BN(
-            (afterUserReward.amount - beforeUserReward.amount).toString()
+          const claimedAmount = new BN(
+            (
+              BigInt(afterUserReward.amount) - BigInt(beforeUserReward.amount)
+            ).toString()
           );
+
+          expect(claimedAmount.gte(totalClaimableReward0)).toBeTruthy();
+
+          const [afterP0, afterP1] = await Promise.all([
+            dlmm.getPosition(nonExtendedPositionKeypair0.publicKey),
+            dlmm.getPosition(nonExtendedPositionKeypair1.publicKey),
+          ]);
 
           expect(
-            claimedReward.gte(position.positionData.rewardOneExcludeTransferFee)
+            afterP0.positionData.rewardOneExcludeTransferFee.lt(
+              beforeP0.positionData.rewardOneExcludeTransferFee
+            )
           ).toBeTruthy();
-        }
+          expect(
+            afterP1.positionData.rewardOneExcludeTransferFee.lt(
+              beforeP1.positionData.rewardOneExcludeTransferFee
+            )
+          ).toBeTruthy();
+        });
       });
 
-      it("Claim all rewards", async () => {
-        const dlmm = await DLMM.create(connection, pairKey, opt);
-
-        const beforeUserRewardAccount = await connection.getAccountInfo(
-          userRewardAta
-        );
-
-        const [beforeWidePosition, beforeTightPosition] = await Promise.all([
-          dlmm.getPosition(positionKeypair0.publicKey),
-          dlmm.getPosition(positionKeypair1.publicKey),
-        ]);
-
-        const totalClaimableReward0 =
-          beforeWidePosition.positionData.rewardOneExcludeTransferFee.add(
-            beforeTightPosition.positionData.rewardOneExcludeTransferFee
-          );
-
-        const claimTxs = await dlmm.claimAllLMRewards({
-          owner: keypair.publicKey,
-          positions: [beforeWidePosition, beforeTightPosition],
+      describe("Claim fees and rewards together", () => {
+        beforeEach(async () => {
+          // Generate some fees
+          await new Promise((res) => setTimeout(res, 1000));
         });
 
-        expect(claimTxs.length).toBeGreaterThanOrEqual(1);
+        it("Claim fee and reward by position", async () => {
+          for (const positionKey of [
+            nonExtendedPositionKeypair0.publicKey,
+            nonExtendedPositionKeypair1.publicKey,
+          ]) {
+            const dlmm = await DLMM.create(connection, pairKey, opt);
+            const beforePositionState = await dlmm.getPosition(positionKey);
 
-        await Promise.all(
-          claimTxs.map((tx) =>
-            sendAndConfirmTransaction(connection, tx, [keypair])
-          )
-        );
+            const [
+              beforeUserRewardAccount,
+              beforeUserXAccount,
+              beforeUserYAccount,
+            ] = await connection.getMultipleAccountsInfo([
+              userRewardAta,
+              userXAta,
+              userYAta,
+            ]);
 
-        const afterUserRewardAccount = await connection.getAccountInfo(
-          userRewardAta
-        );
+            const claimTxs = await dlmm.claimAllRewardsByPosition({
+              position: beforePositionState,
+              owner: keypair.publicKey,
+            });
 
-        const beforeUserReward = unpackAccount(
-          userRewardAta,
-          beforeUserRewardAccount,
-          beforeUserRewardAccount.owner
-        );
+            expect(claimTxs.length).toBeGreaterThanOrEqual(1);
 
-        const afterUserReward = unpackAccount(
-          userRewardAta,
-          afterUserRewardAccount,
-          afterUserRewardAccount.owner
-        );
+            await Promise.all(
+              claimTxs.map((tx) => {
+                return sendAndConfirmTransaction(connection, tx, [keypair]);
+              })
+            );
 
-        const claimedAmount = new BN(
-          (
-            BigInt(afterUserReward.amount) - BigInt(beforeUserReward.amount)
-          ).toString()
-        );
+            const afterPositionState = await dlmm.getPosition(positionKey);
+            expect(afterPositionState.positionData.feeX.isZero()).toBeTruthy();
+            expect(afterPositionState.positionData.feeY.isZero()).toBeTruthy();
 
-        expect(claimedAmount.gte(totalClaimableReward0)).toBeTruthy();
+            const [
+              afterUserRewardAccount,
+              afterUserXAccount,
+              afterUserYAccount,
+            ] = await connection.getMultipleAccountsInfo([
+              userRewardAta,
+              userXAta,
+              userYAta,
+            ]);
 
-        const [afterWidePosition, afterTightPosition] = await Promise.all([
-          dlmm.getPosition(positionKeypair0.publicKey),
-          dlmm.getPosition(positionKeypair1.publicKey),
-        ]);
+            const beforeUserReward = unpackAccount(
+              userRewardAta,
+              beforeUserRewardAccount,
+              beforeUserRewardAccount.owner
+            );
 
-        expect(
-          afterWidePosition.positionData.rewardOneExcludeTransferFee.lt(
-            beforeWidePosition.positionData.rewardOneExcludeTransferFee
-          )
-        ).toBeTruthy();
-        expect(
-          afterTightPosition.positionData.rewardOneExcludeTransferFee.lt(
-            beforeTightPosition.positionData.rewardOneExcludeTransferFee
-          )
-        ).toBeTruthy();
-      });
-    });
+            const afterUserReward = unpackAccount(
+              userRewardAta,
+              afterUserRewardAccount,
+              afterUserRewardAccount.owner
+            );
 
-    describe("Claim fees and rewards together", () => {
-      beforeEach(async () => {
-        // Generate some fees
-        await new Promise((res) => setTimeout(res, 1000));
-      });
+            const actualClaimedReward = new BN(
+              (afterUserReward.amount - beforeUserReward.amount).toString()
+            );
 
-      it("Claim fee and reward by position", async () => {
-        for (const positionKey of [
-          positionKeypair0.publicKey,
-          positionKeypair1.publicKey,
-        ]) {
+            expect(
+              actualClaimedReward.gte(
+                beforePositionState.positionData.rewardOneExcludeTransferFee
+              )
+            ).toBeTruthy();
+
+            const beforeUserX = unpackAccount(
+              userXAta,
+              beforeUserXAccount,
+              beforeUserXAccount.owner
+            );
+
+            const afterUserX = unpackAccount(
+              userXAta,
+              afterUserXAccount,
+              afterUserXAccount.owner
+            );
+
+            const claimedFeeX = new BN(
+              (afterUserX.amount - beforeUserX.amount).toString()
+            );
+
+            expect(claimedFeeX.toString()).toBe(
+              beforePositionState.positionData.feeXExcludeTransferFee.toString()
+            );
+
+            const beforeUserY = unpackAccount(
+              userYAta,
+              beforeUserYAccount,
+              beforeUserYAccount.owner
+            );
+
+            const afterUserY = unpackAccount(
+              userYAta,
+              afterUserYAccount,
+              afterUserYAccount.owner
+            );
+
+            const claimedFeeY = new BN(
+              (afterUserY.amount - beforeUserY.amount).toString()
+            );
+
+            expect(claimedFeeY.toString()).toBe(
+              beforePositionState.positionData.feeYExcludeTransferFee.toString()
+            );
+          }
+        });
+
+        it("Claim all positions fees and rewards", async () => {
           const dlmm = await DLMM.create(connection, pairKey, opt);
-          const beforePositionState = await dlmm.getPosition(positionKey);
+
+          const [beforeP0, beforeP1] = await Promise.all([
+            dlmm.getPosition(nonExtendedPositionKeypair0.publicKey),
+            dlmm.getPosition(nonExtendedPositionKeypair1.publicKey),
+          ]);
 
           const [
             beforeUserRewardAccount,
@@ -1598,9 +1896,24 @@ describe("SDK token2022 test", () => {
             userYAta,
           ]);
 
-          const claimTxs = await dlmm.claimAllRewardsByPosition({
-            position: beforePositionState,
+          const totalClaimableFeeX =
+            beforeP0.positionData.feeXExcludeTransferFee.add(
+              beforeP1.positionData.feeXExcludeTransferFee
+            );
+
+          const totalClaimableFeeY =
+            beforeP0.positionData.feeYExcludeTransferFee.add(
+              beforeP1.positionData.feeYExcludeTransferFee
+            );
+
+          const totalClaimableReward =
+            beforeP0.positionData.rewardOneExcludeTransferFee.add(
+              beforeP1.positionData.rewardOneExcludeTransferFee
+            );
+
+          const claimTxs = await dlmm.claimAllRewards({
             owner: keypair.publicKey,
+            positions: [beforeP0, beforeP1],
           });
 
           expect(claimTxs.length).toBeGreaterThanOrEqual(1);
@@ -1611,16 +1924,23 @@ describe("SDK token2022 test", () => {
             })
           );
 
-          const afterPositionState = await dlmm.getPosition(positionKey);
-          expect(afterPositionState.positionData.feeX.isZero()).toBeTruthy();
-          expect(afterPositionState.positionData.feeY.isZero()).toBeTruthy();
-
           const [afterUserRewardAccount, afterUserXAccount, afterUserYAccount] =
             await connection.getMultipleAccountsInfo([
               userRewardAta,
               userXAta,
               userYAta,
             ]);
+
+          const [afterP0, afterP1] = await Promise.all([
+            dlmm.getPosition(nonExtendedPositionKeypair0.publicKey),
+            dlmm.getPosition(nonExtendedPositionKeypair1.publicKey),
+          ]);
+
+          expect(afterP0.positionData.feeX.isZero()).toBeTruthy();
+          expect(afterP0.positionData.feeY.isZero()).toBeTruthy();
+
+          expect(afterP1.positionData.feeX.isZero()).toBeTruthy();
+          expect(afterP1.positionData.feeY.isZero()).toBeTruthy();
 
           const beforeUserReward = unpackAccount(
             userRewardAta,
@@ -1638,11 +1958,7 @@ describe("SDK token2022 test", () => {
             (afterUserReward.amount - beforeUserReward.amount).toString()
           );
 
-          expect(
-            actualClaimedReward.gte(
-              beforePositionState.positionData.rewardOneExcludeTransferFee
-            )
-          ).toBeTruthy();
+          expect(actualClaimedReward.gte(totalClaimableReward)).toBeTruthy();
 
           const beforeUserX = unpackAccount(
             userXAta,
@@ -1660,9 +1976,7 @@ describe("SDK token2022 test", () => {
             (afterUserX.amount - beforeUserX.amount).toString()
           );
 
-          expect(claimedFeeX.toString()).toBe(
-            beforePositionState.positionData.feeXExcludeTransferFee.toString()
-          );
+          expect(claimedFeeX.toString()).toBe(totalClaimableFeeX.toString());
 
           const beforeUserY = unpackAccount(
             userYAta,
@@ -1680,98 +1994,102 @@ describe("SDK token2022 test", () => {
             (afterUserY.amount - beforeUserY.amount).toString()
           );
 
-          expect(claimedFeeY.toString()).toBe(
-            beforePositionState.positionData.feeYExcludeTransferFee.toString()
-          );
-        }
+          expect(claimedFeeY.toString()).toBe(totalClaimableFeeY.toString());
+        });
+      });
+    });
+
+    describe("Remove liquidity", () => {
+      beforeAll(async () => {
+        await generateSwapFees();
+        // Generate some reward
+        await new Promise((res) => setTimeout(res, 1000));
       });
 
-      it("Claim all positions fees and rewards", async () => {
+      it("Remove liquidity without claim and close successfully", async () => {
         const dlmm = await DLMM.create(connection, pairKey, opt);
 
-        const [beforeWidePosition, beforeTightPosition] = await Promise.all([
-          dlmm.getPosition(positionKeypair0.publicKey),
-          dlmm.getPosition(positionKeypair1.publicKey),
-        ]);
+        const beforePosition = await dlmm.getPosition(
+          nonExtendedPositionKeypair0.publicKey
+        );
 
-        const [
-          beforeUserRewardAccount,
-          beforeUserXAccount,
-          beforeUserYAccount,
-        ] = await connection.getMultipleAccountsInfo([
-          userRewardAta,
-          userXAta,
-          userYAta,
-        ]);
+        const fromBinId = dlmm.lbPair.activeId - 1;
+        const toBinId = dlmm.lbPair.activeId + 1;
 
-        const totalClaimableFeeX =
-          beforeWidePosition.positionData.feeXExcludeTransferFee.add(
-            beforeTightPosition.positionData.feeXExcludeTransferFee
-          );
+        let expectedAmountX = new BN(0);
+        let expectedAmountY = new BN(0);
 
-        const totalClaimableFeeY =
-          beforeWidePosition.positionData.feeYExcludeTransferFee.add(
-            beforeTightPosition.positionData.feeYExcludeTransferFee
-          );
+        const userXAta = getAssociatedTokenAddressSync(
+          dlmm.tokenX.publicKey,
+          keypair.publicKey,
+          true,
+          dlmm.tokenX.owner
+        );
 
-        const totalClaimableReward =
-          beforeWidePosition.positionData.rewardOneExcludeTransferFee.add(
-            beforeTightPosition.positionData.rewardOneExcludeTransferFee
-          );
+        const userYAta = getAssociatedTokenAddressSync(
+          dlmm.tokenY.publicKey,
+          keypair.publicKey,
+          true,
+          dlmm.tokenY.owner
+        );
 
-        const claimTxs = await dlmm.claimAllRewards({
-          owner: keypair.publicKey,
-          positions: [beforeWidePosition, beforeTightPosition],
+        const [beforeUserXAccount, beforeUserYAccount] =
+          await connection.getMultipleAccountsInfo([userXAta, userYAta]);
+
+        for (const binData of beforePosition.positionData.positionBinData) {
+          if (binData.binId >= fromBinId && binData.binId <= toBinId) {
+            expect(new BN(binData.positionLiquidity).isZero()).toBeFalsy();
+            expectedAmountX = expectedAmountX.add(
+              new BN(binData.positionXAmount)
+            );
+
+            expectedAmountY = expectedAmountY.add(
+              new BN(binData.positionYAmount)
+            );
+          }
+        }
+
+        const expectedAmountXExcludeTranferFee =
+          calculateTransferFeeExcludedAmount(
+            expectedAmountX,
+            dlmm.tokenX.mint,
+            dlmm.clock.epoch.toNumber()
+          ).amount;
+
+        const expectedAmountYExcludeTranferFee =
+          calculateTransferFeeExcludedAmount(
+            expectedAmountY,
+            dlmm.tokenY.mint,
+            dlmm.clock.epoch.toNumber()
+          ).amount;
+
+        const removeLiquidityTxs = await dlmm.removeLiquidity({
+          position: nonExtendedPositionKeypair0.publicKey,
+          fromBinId,
+          toBinId,
+          bps: new BN(BASIS_POINT_MAX),
+          user: keypair.publicKey,
+          shouldClaimAndClose: false,
         });
 
-        expect(claimTxs.length).toBeGreaterThanOrEqual(1);
-
         await Promise.all(
-          claimTxs.map((tx) => {
-            return sendAndConfirmTransaction(connection, tx, [keypair]);
-          })
+          removeLiquidityTxs.map((tx) =>
+            sendAndConfirmTransaction(connection, tx, [keypair])
+          )
         );
 
-        const [afterUserRewardAccount, afterUserXAccount, afterUserYAccount] =
-          await connection.getMultipleAccountsInfo([
-            userRewardAta,
-            userXAta,
-            userYAta,
-          ]);
-
-        const [afterWidePosition, afterTightPosition] = await Promise.all([
-          dlmm.getPosition(positionKeypair0.publicKey),
-          dlmm.getPosition(positionKeypair1.publicKey),
-        ]);
-
-        expect(afterWidePosition.positionData.feeX.isZero()).toBeTruthy();
-        expect(afterWidePosition.positionData.feeY.isZero()).toBeTruthy();
-
-        expect(afterTightPosition.positionData.feeX.isZero()).toBeTruthy();
-        expect(afterTightPosition.positionData.feeY.isZero()).toBeTruthy();
-
-        const beforeUserReward = unpackAccount(
-          userRewardAta,
-          beforeUserRewardAccount,
-          beforeUserRewardAccount.owner
-        );
-
-        const afterUserReward = unpackAccount(
-          userRewardAta,
-          afterUserRewardAccount,
-          afterUserRewardAccount.owner
-        );
-
-        const actualClaimedReward = new BN(
-          (afterUserReward.amount - beforeUserReward.amount).toString()
-        );
-
-        expect(actualClaimedReward.gte(totalClaimableReward)).toBeTruthy();
+        const [afterUserXAccount, afterUserYAccount] =
+          await connection.getMultipleAccountsInfo([userXAta, userYAta]);
 
         const beforeUserX = unpackAccount(
           userXAta,
           beforeUserXAccount,
           beforeUserXAccount.owner
+        );
+        const beforeUserY = unpackAccount(
+          userYAta,
+          beforeUserYAccount,
+          beforeUserYAccount.owner
         );
 
         const afterUserX = unpackAccount(
@@ -1780,16 +2098,117 @@ describe("SDK token2022 test", () => {
           afterUserXAccount.owner
         );
 
-        const claimedFeeX = new BN(
-          (afterUserX.amount - beforeUserX.amount).toString()
+        const afterUserY = unpackAccount(
+          userYAta,
+          afterUserYAccount,
+          afterUserYAccount.owner
         );
 
-        expect(claimedFeeX.toString()).toBe(totalClaimableFeeX.toString());
+        const amountX = new BN(
+          (afterUserX.amount - beforeUserX.amount).toString()
+        );
+        const amountY = new BN(
+          (afterUserY.amount - beforeUserY.amount).toString()
+        );
 
+        expect(amountX.toString()).toBe(
+          expectedAmountXExcludeTranferFee.toString()
+        );
+        expect(amountY.toString()).toBe(
+          expectedAmountYExcludeTranferFee.toString()
+        );
+      });
+
+      it("Remove liquidity with claim and close successfully", async () => {
+        const dlmm = await DLMM.create(connection, pairKey, opt);
+
+        const beforePosition = await dlmm.getPosition(
+          nonExtendedPositionKeypair0.publicKey
+        );
+
+        const fromBinId = beforePosition.positionData.lowerBinId;
+        const toBinId = beforePosition.positionData.upperBinId;
+
+        let expectedAmountX = new BN(0);
+        let expectedAmountY = new BN(0);
+
+        const userXAta = getAssociatedTokenAddressSync(
+          dlmm.tokenX.publicKey,
+          keypair.publicKey,
+          true,
+          dlmm.tokenX.owner
+        );
+
+        const userYAta = getAssociatedTokenAddressSync(
+          dlmm.tokenY.publicKey,
+          keypair.publicKey,
+          true,
+          dlmm.tokenY.owner
+        );
+
+        const [beforeUserXAccount, beforeUserYAccount] =
+          await connection.getMultipleAccountsInfo([userXAta, userYAta]);
+
+        for (const binData of beforePosition.positionData.positionBinData) {
+          if (binData.binId >= fromBinId && binData.binId <= toBinId) {
+            expectedAmountX = expectedAmountX
+              .add(new BN(binData.positionXAmount))
+              .add(new BN(binData.positionFeeXAmount));
+
+            expectedAmountY = expectedAmountY
+              .add(new BN(binData.positionYAmount))
+              .add(new BN(binData.positionFeeYAmount));
+          }
+        }
+
+        const expectedAmountXExcludeTranferFee =
+          calculateTransferFeeExcludedAmount(
+            expectedAmountX,
+            dlmm.tokenX.mint,
+            dlmm.clock.epoch.toNumber()
+          ).amount;
+
+        const expectedAmountYExcludeTranferFee =
+          calculateTransferFeeExcludedAmount(
+            expectedAmountY,
+            dlmm.tokenY.mint,
+            dlmm.clock.epoch.toNumber()
+          ).amount;
+
+        const removeLiquidityTxs = (await dlmm.removeLiquidity({
+          position: nonExtendedPositionKeypair0.publicKey,
+          fromBinId,
+          toBinId,
+          bps: new BN(BASIS_POINT_MAX),
+          user: keypair.publicKey,
+          shouldClaimAndClose: true,
+        })) as Transaction[];
+
+        expect(Array.isArray(removeLiquidityTxs)).toBeTruthy();
+        expect(removeLiquidityTxs.length).toBeGreaterThanOrEqual(1);
+
+        for (const tx of removeLiquidityTxs) {
+          await sendAndConfirmTransaction(connection, tx, [keypair]);
+        }
+
+        const [afterUserXAccount, afterUserYAccount] =
+          await connection.getMultipleAccountsInfo([userXAta, userYAta]);
+
+        const beforeUserX = unpackAccount(
+          userXAta,
+          beforeUserXAccount,
+          beforeUserXAccount.owner
+        );
         const beforeUserY = unpackAccount(
           userYAta,
           beforeUserYAccount,
           beforeUserYAccount.owner
+        );
+
+        const afterUserX = unpackAccount(
+          userXAta,
+          afterUserXAccount,
+          afterUserXAccount.owner
         );
 
         const afterUserY = unpackAccount(
@@ -1798,11 +2217,389 @@ describe("SDK token2022 test", () => {
           afterUserYAccount.owner
         );
 
-        const claimedFeeY = new BN(
+        const amountX = new BN(
+          (afterUserX.amount - beforeUserX.amount).toString()
+        );
+        const amountY = new BN(
           (afterUserY.amount - beforeUserY.amount).toString()
         );
 
-        expect(claimedFeeY.toString()).toBe(totalClaimableFeeY.toString());
+        // LTE due to multiple transfer fee round down precision loss
+        expect(amountX.lte(expectedAmountXExcludeTranferFee)).toBeTruthy();
+        expect(amountY.lte(expectedAmountYExcludeTranferFee)).toBeTruthy();
+
+        const positionAccount = await connection.getAccountInfo(
+          nonExtendedPositionKeypair0.publicKey
+        );
+
+        expect(positionAccount).toBeNull();
+      });
+    });
+  });
+
+  describe("Extend / Shrink position", () => {
+    describe("Extended position", () => {
+      it("Increase from 1 to 1400 max length", async () => {
+        const dlmm = await DLMM.create(connection, pairKey, opt);
+        const sides = [ResizeSide.Lower, ResizeSide.Upper];
+
+        for (const side of sides) {
+          const positionKp = Keypair.generate();
+
+          const initPositionTx = await dlmm.createEmptyPosition({
+            positionPubKey: positionKp.publicKey,
+            minBinId: dlmm.lbPair.activeId,
+            maxBinId: dlmm.lbPair.activeId,
+            user: keypair.publicKey,
+          });
+
+          await sendAndConfirmTransaction(connection, initPositionTx, [
+            positionKp,
+            keypair,
+          ]);
+
+          const beforePositionState = await dlmm.getPosition(
+            positionKp.publicKey
+          );
+
+          const width =
+            beforePositionState.positionData.upperBinId -
+            beforePositionState.positionData.lowerBinId +
+            1;
+
+          const expandPositionTxs = await dlmm.increasePositionLength(
+            positionKp.publicKey,
+            side,
+            POSITION_MAX_LENGTH.sub(new BN(width)),
+            keypair.publicKey
+          );
+
+          await Promise.all(
+            expandPositionTxs.map((tx) => {
+              return sendAndConfirmTransaction(connection, tx, [keypair]);
+            })
+          );
+
+          const afterPositionState = await dlmm.getPosition(
+            positionKp.publicKey
+          );
+
+          const newWidth =
+            afterPositionState.positionData.upperBinId -
+            afterPositionState.positionData.lowerBinId +
+            1;
+
+          expect(newWidth).toBe(POSITION_MAX_LENGTH.toNumber());
+
+          switch (side) {
+            case ResizeSide.Lower: {
+              expect(afterPositionState.positionData.lowerBinId).toBeLessThan(
+                beforePositionState.positionData.lowerBinId
+              );
+              break;
+            }
+            case ResizeSide.Upper: {
+              expect(
+                afterPositionState.positionData.upperBinId
+              ).toBeGreaterThan(beforePositionState.positionData.upperBinId);
+              break;
+            }
+          }
+        }
+      });
+
+      it("Decrease from 1400 max length to 1", async () => {
+        const dlmm = await DLMM.create(connection, pairKey, opt);
+        const sides = [ResizeSide.Lower, ResizeSide.Upper];
+
+        for (const side of sides) {
+          const positionKp = Keypair.generate();
+
+          const initPositionTx = await dlmm.createEmptyPosition({
+            positionPubKey: positionKp.publicKey,
+            minBinId: dlmm.lbPair.activeId,
+            maxBinId: dlmm.lbPair.activeId,
+            user: keypair.publicKey,
+          });
+
+          await sendAndConfirmTransaction(connection, initPositionTx, [
+            positionKp,
+            keypair,
+          ]);
+
+          const beforePositionState = await dlmm.getPosition(
+            positionKp.publicKey
+          );
+
+          const width =
+            beforePositionState.positionData.upperBinId -
+            beforePositionState.positionData.lowerBinId +
+            1;
+
+          const expandPositionTxs = await dlmm.increasePositionLength(
+            positionKp.publicKey,
+            side,
+            POSITION_MAX_LENGTH.sub(new BN(width)),
+            keypair.publicKey
+          );
+
+          await Promise.all(
+            expandPositionTxs.map((tx) => {
+              return sendAndConfirmTransaction(connection, tx, [keypair]);
+            })
+          );
+
+          let afterPositionState = await dlmm.getPosition(positionKp.publicKey);
+
+          let newWidth =
+            afterPositionState.positionData.upperBinId -
+            afterPositionState.positionData.lowerBinId +
+            1;
+
+          expect(newWidth).toBe(POSITION_MAX_LENGTH.toNumber());
+
+          const shrinkPositionTxs = await dlmm.decreasePositionLength(
+            positionKp.publicKey,
+            side,
+            POSITION_MAX_LENGTH,
+            true
+          );
+
+          await Promise.all(
+            shrinkPositionTxs.map((tx) => {
+              return sendAndConfirmTransaction(connection, tx, [keypair]);
+            })
+          );
+
+          afterPositionState = await dlmm.getPosition(positionKp.publicKey);
+          newWidth =
+            afterPositionState.positionData.upperBinId -
+            afterPositionState.positionData.lowerBinId +
+            1;
+
+          expect(newWidth).toBe(1);
+        }
+      });
+    });
+
+    describe("Initialize multiple extended position and add liquidity to strategy", () => {
+      it("Initialize multiple extended position and add liquidity to strategy", async () => {
+        const dlmm = await DLMM.create(connection, pairKey, opt);
+
+        console.log("🚀 ~ dlmm:", dlmm.pubkey.toBase58());
+
+        const totalXAmount = new BN(1_000_000_000);
+        const totalYAmount = new BN(1_000_000_000);
+        const minBinId = dlmm.lbPair.activeId - 2000;
+        const maxBinId = dlmm.lbPair.activeId + 2000;
+
+        const userTokenX = getAssociatedTokenAddressSync(
+          dlmm.lbPair.tokenXMint,
+          keypair.publicKey,
+          true,
+          dlmm.tokenX.owner
+        );
+        const userTokenY = getAssociatedTokenAddressSync(
+          dlmm.lbPair.tokenYMint,
+          keypair.publicKey,
+          true,
+          dlmm.tokenY.owner
+        );
+
+        const [beforeTokenX, beforeTokenY] = await Promise.all([
+          connection
+            .getTokenAccountBalance(userTokenX)
+            .then((res) => new BN(res.value.amount)),
+          connection
+            .getTokenAccountBalance(userTokenY)
+            .then((res) => new BN(res.value.amount)),
+        ]);
+
+        const { instructionsByPositions } =
+          await dlmm.initializeMultiplePositionAndAddLiquidityByStrategy(
+            async (count) => {
+              const positionKeypairs = [];
+              for (let i = 0; i < count; i++) {
+                const positionKeypair = Keypair.generate();
+                positionKeypairs.push(positionKeypair);
+              }
+              return positionKeypairs;
+            },
+            totalXAmount,
+            totalYAmount,
+            {
+              minBinId,
+              maxBinId,
+              strategyType: StrategyType.Curve,
+            },
+            keypair.publicKey,
+            keypair.publicKey,
+            0
+          );
+
+        const promises = [];
+
+        // Have to execute sequentially due to position auto resize
+        for (const {
+          positionKeypair,
+          initializePositionIx,
+          addLiquidityIxs,
+        } of instructionsByPositions) {
+          const latestBlockhashInfo = await connection.getLatestBlockhash();
+
+          const tx = new Transaction({
+            ...latestBlockhashInfo,
+          }).add(initializePositionIx);
+
+          tx.sign(keypair, positionKeypair);
+
+          const promise = connection
+            .sendRawTransaction(tx.serialize())
+            .then(async (sig) => {
+              await connection.confirmTransaction({
+                ...latestBlockhashInfo,
+                signature: sig,
+              });
+
+              console.log("Init position sig", sig);
+            })
+            .then(async (_) => {
+              for (const addLiquidityIx of addLiquidityIxs) {
+                const latestBlockhashInfo =
+                  await connection.getLatestBlockhash();
+
+                const tx = new Transaction({
+                  ...latestBlockhashInfo,
+                }).add(...addLiquidityIx);
+
+                tx.sign(keypair);
+                const sig = await connection.sendRawTransaction(tx.serialize());
+                await connection.confirmTransaction({
+                  ...latestBlockhashInfo,
+                  signature: sig,
+                });
+                console.log("Add liq sig", sig);
+              }
+            });
+
+          promises.push(promise);
+        }
+
+        await Promise.all(promises);
+        await logLbPairLiquidities(pairKey, dlmm.lbPair.binStep, dlmm.program);
+
+        const [afterTokenX, afterTokenY] = await Promise.all([
+          connection
+            .getTokenAccountBalance(userTokenX)
+            .then((res) => new BN(res.value.amount)),
+          connection
+            .getTokenAccountBalance(userTokenY)
+            .then((res) => new BN(res.value.amount)),
+        ]);
+
+        const consumedTokenX = beforeTokenX.sub(afterTokenX);
+        const consumedTokenY = beforeTokenY.sub(afterTokenY);
+
+        // Due to transfer fee
+        expect(consumedTokenX.gte(totalXAmount)).toBeTruthy();
+        expect(consumedTokenY.lte(totalYAmount)).toBeTruthy();
+      });
+    });
+
+    describe("Add liquidity chunk", () => {
+      it("Add liquidity chunk", async () => {
+        const dlmm = await DLMM.create(connection, pairKey, opt);
+
+        console.log("🚀 ~ dlmm:", dlmm.pubkey.toBase58());
+
+        const totalXAmount = new BN(1_000_000_000);
+        const totalYAmount = new BN(1_000_000_000);
+
+        const minBinId = dlmm.lbPair.activeId - 400;
+        const maxBinId = dlmm.lbPair.activeId + 400;
+
+        const positionKp = Keypair.generate();
+
+        const initPositionIx = await dlmm.createEmptyPosition({
+          positionPubKey: positionKp.publicKey,
+          minBinId,
+          maxBinId: minBinId + DEFAULT_BIN_PER_POSITION.toNumber() - 1,
+          user: keypair.publicKey,
+        });
+
+        await sendAndConfirmTransaction(connection, initPositionIx, [
+          keypair,
+          positionKp,
+        ]);
+
+        const userTokenX = getAssociatedTokenAddressSync(
+          dlmm.lbPair.tokenXMint,
+          keypair.publicKey,
+          true,
+          dlmm.tokenX.owner
+        );
+        const userTokenY = getAssociatedTokenAddressSync(
+          dlmm.lbPair.tokenYMint,
+          keypair.publicKey,
+          true,
+          dlmm.tokenY.owner
+        );
+
+        const [beforeTokenX, beforeTokenY] = await Promise.all([
+          connection
+            .getTokenAccountBalance(userTokenX)
+            .then((res) => new BN(res.value.amount)),
+          connection
+            .getTokenAccountBalance(userTokenY)
+            .then((res) => new BN(res.value.amount)),
+        ]);
+
+        const addLiquidityTxs = await dlmm.addLiquidityByStrategyChunkable({
+          positionPubKey: positionKp.publicKey,
+          totalXAmount,
+          totalYAmount,
+          strategy: {
+            minBinId,
+            maxBinId,
+            strategyType: StrategyType.Curve,
+          },
+          user: keypair.publicKey,
+          slippage: 1,
+        });
+
+        for (const addLiquidityTx of addLiquidityTxs) {
+          const latestBlockhashInfo = await connection.getLatestBlockhash();
+
+          const tx = new Transaction({
+            ...latestBlockhashInfo,
+          }).add(...addLiquidityTx.instructions);
+
+          tx.sign(keypair);
+
+          const sig = await connection.sendRawTransaction(tx.serialize());
+          await connection.confirmTransaction({
+            ...latestBlockhashInfo,
+            signature: sig,
+          });
+        }
+
+        await logLbPairLiquidities(pairKey, dlmm.lbPair.binStep, dlmm.program);
+
+        const [afterTokenX, afterTokenY] = await Promise.all([
+          connection
+            .getTokenAccountBalance(userTokenX)
+            .then((res) => new BN(res.value.amount)),
+          connection
+            .getTokenAccountBalance(userTokenY)
+            .then((res) => new BN(res.value.amount)),
+        ]);
+
+        const consumedTokenX = beforeTokenX.sub(afterTokenX);
+        const consumedTokenY = beforeTokenY.sub(afterTokenY);
+
+        // Due to transfer fee
+        expect(consumedTokenX.gte(totalXAmount)).toBeTruthy();
+        expect(consumedTokenY.lte(totalYAmount)).toBeTruthy();
       });
     });
   });
@@ -1886,241 +2683,6 @@ describe("SDK token2022 test", () => {
           position.positionData.owner.equals(keypair.publicKey)
         ).toBeTruthy();
       }
-    });
-  });
-
-  describe("Remove liquidity", () => {
-    beforeAll(async () => {
-      await generateSwapFees();
-      // Generate some reward
-      await new Promise((res) => setTimeout(res, 1000));
-    });
-
-    it("Remove liquidity without claim and close successfully", async () => {
-      const dlmm = await DLMM.create(connection, pairKey, opt);
-
-      const beforePosition = await dlmm.getPosition(positionKeypair0.publicKey);
-
-      const fromBinId = dlmm.lbPair.activeId - 1;
-      const toBinId = dlmm.lbPair.activeId + 1;
-
-      let expectedAmountX = new BN(0);
-      let expectedAmountY = new BN(0);
-
-      const userXAta = getAssociatedTokenAddressSync(
-        dlmm.tokenX.publicKey,
-        keypair.publicKey,
-        true,
-        dlmm.tokenX.owner
-      );
-
-      const userYAta = getAssociatedTokenAddressSync(
-        dlmm.tokenY.publicKey,
-        keypair.publicKey,
-        true,
-        dlmm.tokenY.owner
-      );
-
-      const [beforeUserXAccount, beforeUserYAccount] =
-        await connection.getMultipleAccountsInfo([userXAta, userYAta]);
-
-      for (const binData of beforePosition.positionData.positionBinData) {
-        if (binData.binId >= fromBinId && binData.binId <= toBinId) {
-          expect(new BN(binData.positionLiquidity).isZero()).toBeFalsy();
-          expectedAmountX = expectedAmountX.add(
-            new BN(binData.positionXAmount)
-          );
-
-          expectedAmountY = expectedAmountY.add(
-            new BN(binData.positionYAmount)
-          );
-        }
-      }
-
-      const expectedAmountXExcludeTranferFee =
-        calculateTransferFeeExcludedAmount(
-          expectedAmountX,
-          dlmm.tokenX.mint,
-          dlmm.clock.epoch.toNumber()
-        ).amount;
-
-      const expectedAmountYExcludeTranferFee =
-        calculateTransferFeeExcludedAmount(
-          expectedAmountY,
-          dlmm.tokenY.mint,
-          dlmm.clock.epoch.toNumber()
-        ).amount;
-
-      const removeLiquidityTxs = await dlmm.removeLiquidity({
-        position: positionKeypair0.publicKey,
-        fromBinId,
-        toBinId,
-        bps: new BN(BASIS_POINT_MAX),
-        user: keypair.publicKey,
-        shouldClaimAndClose: false,
-      });
-
-      expect(Array.isArray(removeLiquidityTxs)).toBeFalsy();
-
-      await sendAndConfirmTransaction(
-        connection,
-        removeLiquidityTxs as Transaction,
-        [keypair]
-      );
-
-      const [afterUserXAccount, afterUserYAccount] =
-        await connection.getMultipleAccountsInfo([userXAta, userYAta]);
-
-      const beforeUserX = unpackAccount(
-        userXAta,
-        beforeUserXAccount,
-        beforeUserXAccount.owner
-      );
-      const beforeUserY = unpackAccount(
-        userYAta,
-        beforeUserYAccount,
-        beforeUserYAccount.owner
-      );
-
-      const afterUserX = unpackAccount(
-        userXAta,
-        afterUserXAccount,
-        afterUserXAccount.owner
-      );
-
-      const afterUserY = unpackAccount(
-        userYAta,
-        afterUserYAccount,
-        afterUserYAccount.owner
-      );
-
-      const amountX = new BN(
-        (afterUserX.amount - beforeUserX.amount).toString()
-      );
-      const amountY = new BN(
-        (afterUserY.amount - beforeUserY.amount).toString()
-      );
-
-      expect(amountX.toString()).toBe(
-        expectedAmountXExcludeTranferFee.toString()
-      );
-      expect(amountY.toString()).toBe(
-        expectedAmountYExcludeTranferFee.toString()
-      );
-    });
-
-    it("Remove liquidity with claim and close successfully", async () => {
-      const dlmm = await DLMM.create(connection, pairKey, opt);
-
-      const beforePosition = await dlmm.getPosition(positionKeypair0.publicKey);
-
-      const fromBinId = beforePosition.positionData.lowerBinId;
-      const toBinId = beforePosition.positionData.upperBinId;
-
-      let expectedAmountX = new BN(0);
-      let expectedAmountY = new BN(0);
-
-      const userXAta = getAssociatedTokenAddressSync(
-        dlmm.tokenX.publicKey,
-        keypair.publicKey,
-        true,
-        dlmm.tokenX.owner
-      );
-
-      const userYAta = getAssociatedTokenAddressSync(
-        dlmm.tokenY.publicKey,
-        keypair.publicKey,
-        true,
-        dlmm.tokenY.owner
-      );
-
-      const [beforeUserXAccount, beforeUserYAccount] =
-        await connection.getMultipleAccountsInfo([userXAta, userYAta]);
-
-      for (const binData of beforePosition.positionData.positionBinData) {
-        if (binData.binId >= fromBinId && binData.binId <= toBinId) {
-          expectedAmountX = expectedAmountX
-            .add(new BN(binData.positionXAmount))
-            .add(new BN(binData.positionFeeXAmount));
-
-          expectedAmountY = expectedAmountY
-            .add(new BN(binData.positionYAmount))
-            .add(new BN(binData.positionFeeYAmount));
-        }
-      }
-
-      const expectedAmountXExcludeTranferFee =
-        calculateTransferFeeExcludedAmount(
-          expectedAmountX,
-          dlmm.tokenX.mint,
-          dlmm.clock.epoch.toNumber()
-        ).amount;
-
-      const expectedAmountYExcludeTranferFee =
-        calculateTransferFeeExcludedAmount(
-          expectedAmountY,
-          dlmm.tokenY.mint,
-          dlmm.clock.epoch.toNumber()
-        ).amount;
-
-      const removeLiquidityTxs = (await dlmm.removeLiquidity({
-        position: positionKeypair0.publicKey,
-        fromBinId,
-        toBinId,
-        bps: new BN(BASIS_POINT_MAX),
-        user: keypair.publicKey,
-        shouldClaimAndClose: true,
-      })) as Transaction[];
-
-      expect(Array.isArray(removeLiquidityTxs)).toBeTruthy();
-      expect(removeLiquidityTxs.length).toBeGreaterThan(1);
-
-      for (const tx of removeLiquidityTxs) {
-        await sendAndConfirmTransaction(connection, tx, [keypair]);
-      }
-
-      const [afterUserXAccount, afterUserYAccount] =
-        await connection.getMultipleAccountsInfo([userXAta, userYAta]);
-
-      const beforeUserX = unpackAccount(
-        userXAta,
-        beforeUserXAccount,
-        beforeUserXAccount.owner
-      );
-      const beforeUserY = unpackAccount(
-        userYAta,
-        beforeUserYAccount,
-        beforeUserYAccount.owner
-      );
-
-      const afterUserX = unpackAccount(
-        userXAta,
-        afterUserXAccount,
-        afterUserXAccount.owner
-      );
-
-      const afterUserY = unpackAccount(
-        userYAta,
-        afterUserYAccount,
-        afterUserYAccount.owner
-      );
-
-      const amountX = new BN(
-        (afterUserX.amount - beforeUserX.amount).toString()
-      );
-      const amountY = new BN(
-        (afterUserY.amount - beforeUserY.amount).toString()
-      );
-
-      // LTE due to multiple transfer fee round down precision loss
-      expect(amountX.lte(expectedAmountXExcludeTranferFee)).toBeTruthy();
-      expect(amountY.lte(expectedAmountYExcludeTranferFee)).toBeTruthy();
-
-      const positionAccount = await connection.getAccountInfo(
-        positionKeypair0.publicKey
-      );
-
-      expect(positionAccount).toBeNull();
     });
   });
 });

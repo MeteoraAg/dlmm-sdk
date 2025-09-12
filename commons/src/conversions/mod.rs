@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 pub mod status;
 pub use status::*;
 

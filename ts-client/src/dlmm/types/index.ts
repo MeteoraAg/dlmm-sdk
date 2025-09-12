@@ -10,12 +10,15 @@ import { LbClmm } from "../idl";
 import { getPriceOfBinByBinId } from "../helpers";
 import {
   AccountMeta,
+  Keypair,
   PublicKey,
   TransactionInstruction,
 } from "@solana/web3.js";
 import Decimal from "decimal.js";
-import { u64, i64, struct } from "@coral-xyz/borsh";
+import { u64, i64, struct, rustEnum } from "@coral-xyz/borsh";
 import { Mint } from "@solana/spl-token";
+import { AllAccountsMap } from "@coral-xyz/anchor/dist/cjs/program/namespace/types";
+import { RebalancePosition, SimulateRebalanceResp } from "../helpers/rebalance";
 
 export interface FeeInfo {
   baseFeeRatePercentage: Decimal;
@@ -43,7 +46,9 @@ export type ClmmProgram = Program<LbClmm>;
 export type LbPair = IdlAccounts<LbClmm>["lbPair"];
 export type LbPairAccount = ProgramAccount<IdlAccounts<LbClmm>["lbPair"]>;
 
-export type Bin = IdlTypes<LbClmm>["Bin"];
+export type AccountName = keyof AllAccountsMap<LbClmm>;
+
+export type Bin = IdlTypes<LbClmm>["bin"];
 export type BinArray = IdlAccounts<LbClmm>["binArray"];
 export type BinArrayAccount = ProgramAccount<IdlAccounts<LbClmm>["binArray"]>;
 
@@ -55,17 +60,22 @@ export type PresetParameter2 = IdlAccounts<LbClmm>["presetParameter2"];
 
 export type vParameters = IdlAccounts<LbClmm>["lbPair"]["vParameters"];
 export type sParameters = IdlAccounts<LbClmm>["lbPair"]["parameters"];
+export type RewardInfos = IdlAccounts<LbClmm>["lbPair"]["rewardInfos"];
+export type RewardInfo = IdlTypes<LbClmm>["rewardInfo"];
 
-export type UserRewardInfo = IdlTypes<LbClmm>["UserRewardInfo"];
-export type UserFeeInfo = IdlTypes<LbClmm>["FeeInfo"];
+export type UserRewardInfo = IdlTypes<LbClmm>["userRewardInfo"];
+export type UserFeeInfo = IdlTypes<LbClmm>["feeInfo"];
+export type RebalanceAddLiquidityParam = IdlTypes<LbClmm>["addLiquidityParams"];
+export type RebalanceRemoveLiquidityParam =
+  IdlTypes<LbClmm>["removeLiquidityParams"];
 
-export type InitPermissionPairIx = IdlTypes<LbClmm>["InitPermissionPairIx"];
+export type InitPermissionPairIx = IdlTypes<LbClmm>["initPermissionPairIx"];
 export type InitCustomizablePermissionlessPairIx =
-  IdlTypes<LbClmm>["CustomizableParams"];
+  IdlTypes<LbClmm>["customizableParams"];
 
 export type BinLiquidityDistribution =
-  IdlTypes<LbClmm>["BinLiquidityDistribution"];
-export type BinLiquidityReduction = IdlTypes<LbClmm>["BinLiquidityReduction"];
+  IdlTypes<LbClmm>["binLiquidityDistribution"];
+export type BinLiquidityReduction = IdlTypes<LbClmm>["binLiquidityReduction"];
 
 export type BinArrayBitmapExtensionAccount = ProgramAccount<
   IdlAccounts<LbClmm>["binArrayBitmapExtension"]
@@ -74,29 +84,29 @@ export type BinArrayBitmapExtension =
   IdlAccounts<LbClmm>["binArrayBitmapExtension"];
 
 export type LiquidityParameterByWeight =
-  IdlTypes<LbClmm>["LiquidityParameterByWeight"];
+  IdlTypes<LbClmm>["liquidityParameterByWeight"];
 export type LiquidityOneSideParameter =
-  IdlTypes<LbClmm>["LiquidityOneSideParameter"];
+  IdlTypes<LbClmm>["liquidityOneSideParameter"];
 
 export type LiquidityParameterByStrategy =
-  IdlTypes<LbClmm>["LiquidityParameterByStrategy"];
+  IdlTypes<LbClmm>["liquidityParameterByStrategy"];
 export type LiquidityParameterByStrategyOneSide =
-  IdlTypes<LbClmm>["LiquidityParameterByStrategyOneSide"];
-export type LiquidityParameter = IdlTypes<LbClmm>["LiquidityParameter"];
+  IdlTypes<LbClmm>["liquidityParameterByStrategyOneSide"];
+export type LiquidityParameter = IdlTypes<LbClmm>["liquidityParameter"];
 
-export type ProgramStrategyParameter = IdlTypes<LbClmm>["StrategyParameters"];
-export type ProgramStrategyType = IdlTypes<LbClmm>["StrategyType"];
+export type ProgramStrategyParameter = IdlTypes<LbClmm>["strategyParameters"];
+export type ProgramStrategyType = IdlTypes<LbClmm>["strategyType"];
 
-export type RemainingAccountInfo = IdlTypes<LbClmm>["RemainingAccountsInfo"];
+export type RemainingAccountInfo = IdlTypes<LbClmm>["remainingAccountsInfo"];
 export type RemainingAccountsInfoSlice =
-  IdlTypes<LbClmm>["RemainingAccountsSlice"];
+  IdlTypes<LbClmm>["remainingAccountsSlice"];
 
 export type CompressedBinDepositAmount =
-  IdlTypes<LbClmm>["CompressedBinDepositAmount"];
+  IdlTypes<LbClmm>["compressedBinDepositAmount"];
 export type CompressedBinDepositAmounts = CompressedBinDepositAmount[];
 
-export const POSITION_V2_DISC =
-  BorshAccountsCoder.accountDiscriminator("positionV2");
+export type ResizeSideEnum = IdlTypes<LbClmm>["resizeSide"];
+export type ExtendedPositionBinData = IdlTypes<LbClmm>["positionBinData"];
 
 export interface LbPosition {
   publicKey: PublicKey;
@@ -136,7 +146,6 @@ export interface LMRewards {
 export enum PositionVersion {
   V1,
   V2,
-  V3,
 }
 
 export enum PairType {
@@ -163,6 +172,10 @@ export enum ActivationType {
   Slot,
   Timestamp,
 }
+
+// This is position struct size, it doesn't include the discriminator bytes
+export const POSITION_MIN_SIZE = 8112;
+export const POSITION_BIN_DATA_SIZE = 112;
 
 export interface StrategyParameters {
   maxBinId: number;
@@ -191,6 +204,24 @@ export interface TInitializePositionAndAddLiquidityParamsByStrategy {
   strategy: StrategyParameters;
   user: PublicKey;
   slippage?: number;
+}
+
+export interface InitializeMultiplePositionAndAddLiquidityByStrategyResponse {
+  instructionsByPositions: {
+    positionKeypair: Keypair;
+    initializePositionIx: TransactionInstruction;
+    initializeAtaIxs: TransactionInstruction[];
+    addLiquidityIxs: TransactionInstruction[][];
+  }[];
+}
+
+export interface TInitializeMultiplePositionAndAddLiquidityParamsByStrategy {
+  totalXAmount: BN;
+  totalYAmount: BN;
+  strategy: StrategyParameters;
+  user: PublicKey;
+  slippage?: number;
+  customKeyPairGenerator?: () => Promise<Keypair>;
 }
 
 export interface BinLiquidity {
@@ -474,6 +505,23 @@ export enum ActionType {
   Reward,
 }
 
+export enum ResizeSide {
+  Lower,
+  Upper,
+}
+
 export const MEMO_PROGRAM_ID = new PublicKey(
   "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"
 );
+
+export interface RebalancePositionResponse {
+  rebalancePosition: RebalancePosition;
+  simulationResult: SimulateRebalanceResp;
+}
+
+export interface RebalancePositionBinArrayRentalCostQuote {
+  binArrayExistence: Set<string>;
+  binArrayCount: number;
+  binArrayCost: number;
+  bitmapExtensionCost: number;
+}

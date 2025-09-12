@@ -1,80 +1,89 @@
+/**
+ * Program IDL in camelCase format in order to be used in JS/TS.
+ *
+ * Note that this is only a type helper and is not the actual IDL. The original
+ * IDL can be found at `target/idl/transfer_hook_counter.json`.
+ */
 export type TransferHookCounter = {
-  "version": "0.1.0",
-  "name": "transfer_hook_counter",
+  "address": "abcSyangMHdGzUGKhBhKoQzSFdJKUdkPGf5cbXVHpEw",
+  "metadata": {
+    "name": "transferHookCounter",
+    "version": "0.1.0",
+    "spec": "0.1.0"
+  },
   "instructions": [
     {
       "name": "initializeExtraAccountMetaList",
+      "discriminator": [
+        92,
+        197,
+        174,
+        197,
+        41,
+        124,
+        19,
+        3
+      ],
       "accounts": [
         {
           "name": "payer",
-          "isMut": true,
-          "isSigner": true
+          "writable": true,
+          "signer": true
         },
         {
           "name": "extraAccountMetaList",
-          "isMut": true,
-          "isSigner": false
+          "writable": true
         },
         {
-          "name": "mint",
-          "isMut": false,
-          "isSigner": false
+          "name": "mint"
         },
         {
           "name": "counterAccount",
-          "isMut": true,
-          "isSigner": false
+          "writable": true
         },
         {
-          "name": "tokenProgram",
-          "isMut": false,
-          "isSigner": false
+          "name": "tokenProgram"
         },
         {
-          "name": "associatedTokenProgram",
-          "isMut": false,
-          "isSigner": false
+          "name": "associatedTokenProgram"
         },
         {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
+          "name": "systemProgram"
         }
       ],
       "args": []
     },
     {
       "name": "transferHook",
+      "discriminator": [
+        220,
+        57,
+        220,
+        152,
+        126,
+        125,
+        97,
+        168
+      ],
       "accounts": [
         {
-          "name": "sourceToken",
-          "isMut": false,
-          "isSigner": false
+          "name": "sourceToken"
         },
         {
-          "name": "mint",
-          "isMut": false,
-          "isSigner": false
+          "name": "mint"
         },
         {
-          "name": "destinationToken",
-          "isMut": false,
-          "isSigner": false
+          "name": "destinationToken"
         },
         {
-          "name": "owner",
-          "isMut": false,
-          "isSigner": false
+          "name": "owner"
         },
         {
-          "name": "extraAccountMetaList",
-          "isMut": false,
-          "isSigner": false
+          "name": "extraAccountMetaList"
         },
         {
           "name": "counterAccount",
-          "isMut": true,
-          "isSigner": false
+          "writable": true
         }
       ],
       "args": [
@@ -88,114 +97,26 @@ export type TransferHookCounter = {
   "accounts": [
     {
       "name": "counterAccount",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "counter",
-            "type": "u32"
-          }
-        ]
-      }
+      "discriminator": [
+        164,
+        8,
+        153,
+        71,
+        8,
+        44,
+        93,
+        22
+      ]
     }
   ],
   "errors": [
     {
       "code": 6000,
-      "name": "AmountTooBig",
+      "name": "amountTooBig",
       "msg": "The amount is too big"
     }
-  ]
-};
-
-export const IDL: TransferHookCounter = {
-  "version": "0.1.0",
-  "name": "transfer_hook_counter",
-  "instructions": [
-    {
-      "name": "initializeExtraAccountMetaList",
-      "accounts": [
-        {
-          "name": "payer",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "extraAccountMetaList",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "mint",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "counterAccount",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "tokenProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "associatedTokenProgram",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": []
-    },
-    {
-      "name": "transferHook",
-      "accounts": [
-        {
-          "name": "sourceToken",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "mint",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "destinationToken",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "owner",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "extraAccountMetaList",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "counterAccount",
-          "isMut": true,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "amount",
-          "type": "u64"
-        }
-      ]
-    }
   ],
-  "accounts": [
+  "types": [
     {
       "name": "counterAccount",
       "type": {
@@ -207,13 +128,6 @@ export const IDL: TransferHookCounter = {
           }
         ]
       }
-    }
-  ],
-  "errors": [
-    {
-      "code": 6000,
-      "name": "AmountTooBig",
-      "msg": "The amount is too big"
     }
   ]
 };

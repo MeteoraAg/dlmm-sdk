@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::*;
 
 #[derive(Debug, Parser)]
@@ -22,11 +24,11 @@ pub async fn execute_initialize_position<C: Deref<Target = impl Signer> + Clone>
         width,
     } = params;
 
-    let position_keypair = Keypair::new();
+    let position_keypair = Arc::new(Keypair::new());
 
     let (event_authority, _bump) = derive_event_authority_pda();
 
-    let accounts: [AccountMeta; INITIALIZE_POSITION_IX_ACCOUNTS_LEN] = InitializePositionKeys {
+    let accounts = dlmm::client::accounts::InitializePosition {
         lb_pair,
         payer: program.payer(),
         position: position_keypair.pubkey(),
@@ -34,26 +36,26 @@ pub async fn execute_initialize_position<C: Deref<Target = impl Signer> + Clone>
         rent: solana_sdk::sysvar::rent::ID,
         system_program: solana_sdk::system_program::ID,
         event_authority,
-        program: dlmm_interface::ID,
+        program: dlmm::ID,
     }
-    .into();
+    .to_account_metas(None);
 
-    let data = InitializePositionIxData(InitializePositionIxArgs {
+    let data = dlmm::client::args::InitializePosition {
         lower_bin_id,
         width,
-    })
-    .try_to_vec()?;
+    }
+    .data();
 
     let init_position_ix = Instruction {
-        program_id: dlmm_interface::ID,
+        program_id: dlmm::ID,
         data,
-        accounts: accounts.to_vec(),
+        accounts,
     };
 
     let request_builder = program.request();
     let signature = request_builder
         .instruction(init_position_ix)
-        .signer(&position_keypair)
+        .signer(position_keypair.clone())
         .send_with_spinner_and_config(transaction_config)
         .await;
 
