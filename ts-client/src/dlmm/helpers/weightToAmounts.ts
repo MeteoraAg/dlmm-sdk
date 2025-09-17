@@ -39,7 +39,7 @@ export function toAmountBidSide(
   }, new Decimal(0));
 
   if (totalWeight.cmp(new Decimal(0)) != 1) {
-    throw Error("Invalid parameteres");
+    throw Error("Invalid parameters");
   }
   return distributions.map((bin) => {
     if (bin.binId > activeId) {

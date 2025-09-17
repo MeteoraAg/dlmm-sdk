@@ -36,7 +36,7 @@ import {
   MAX_BINS_PER_POSITION,
   MAX_BIN_ARRAY_SIZE,
   MAX_BIN_LENGTH_ALLOWED_IN_ONE_TX,
-  MAX_CLAIM_ALL_ALLOWED,
+  DEFAULT_CLAIM_ALL_ALLOWED,
   MAX_EXTRA_BIN_ARRAYS,
   MAX_FEE_RATE,
   MAX_RESIZE_LENGTH,
@@ -3713,14 +3713,14 @@ export class DLMM {
     const feeOwner = positionState.feeOwner();
     const liquidityShares = positionState.liquidityShares();
 
-    const liqudityShareWithBinId = liquidityShares.map((share, i) => {
+    const liquidityShareWithBinId = liquidityShares.map((share, i) => {
       return {
         share,
         binId: positionState.lowerBinId().add(new BN(i)),
       };
     });
 
-    const binIdsWithLiquidity = liqudityShareWithBinId.filter((bin) => {
+    const binIdsWithLiquidity = liquidityShareWithBinId.filter((bin) => {
       return !bin.share.isZero();
     });
 
@@ -4926,14 +4926,17 @@ export class DLMM {
    * @param
    *    - `owner`: The public key of the owner of the positions.
    *    - `positions`: An array of objects of type `PositionData` that represents the positions to claim rewards from.
+   *    - `claimChunkSize`: A chunk size to bundle the claim transactions into groups.
    * @returns {Promise<Transaction[]>} Array of claim LM reward and fees transactions.
    */
   public async claimAllLMRewards({
     owner,
     positions,
+    claimChunkSize = DEFAULT_CLAIM_ALL_ALLOWED,
   }: {
     owner: PublicKey;
     positions: LbPosition[];
+    claimChunkSize?: number,
   }): Promise<Transaction[]> {
     if (
       positions.every((position) => isPositionNoReward(position.positionData))
@@ -4957,7 +4960,7 @@ export class DLMM {
       )
     ).flat();
 
-    const chunkedClaimAllTx = chunks(claimAllTxs, MAX_CLAIM_ALL_ALLOWED);
+    const chunkedClaimAllTx = chunks(claimAllTxs, claimChunkSize);
 
     if (chunkedClaimAllTx.length === 0) return [];
 
@@ -5080,14 +5083,17 @@ export class DLMM {
    * @param
    *    - `owner`: The public key of the owner of the positions.
    *    - `positions`: An array of objects of type `PositionData` that represents the positions to claim swap fees from.
+   *    - `claimChunkSize`: A chunk size to bundle the claim transactions into groups.
    * @returns {Promise<Transaction[]>} Array of claim swap fee transactions.
    */
   public async claimAllSwapFee({
     owner,
     positions,
+    claimChunkSize = DEFAULT_CLAIM_ALL_ALLOWED,
   }: {
     owner: PublicKey;
     positions: LbPosition[];
+    claimChunkSize?: number,
   }): Promise<Transaction[]> {
     if (positions.every((position) => isPositionNoFee(position.positionData))) {
       throw new Error("No fee to claim");
@@ -5109,7 +5115,7 @@ export class DLMM {
       )
     ).flat();
 
-    const chunkedClaimAllTx = chunks(claimAllTxs, MAX_CLAIM_ALL_ALLOWED);
+    const chunkedClaimAllTx = chunks(claimAllTxs, claimChunkSize);
 
     if (chunkedClaimAllTx.length === 0) return [];
 
@@ -5147,14 +5153,17 @@ export class DLMM {
    * @param
    *    - `owner`: The public key of the owner of the position.
    *    - `position`: The public key of the position account.
+   *    - `claimChunkSize`: A chunk size to bundle the claim transactions into groups.
    * @returns {Promise<Transaction[]>} Array of claim reward transactions.
    */
   public async claimAllRewardsByPosition({
     owner,
     position,
+    claimChunkSize = DEFAULT_CLAIM_ALL_ALLOWED,
   }: {
     owner: PublicKey;
     position: LbPosition;
+    claimChunkSize?: number;
   }): Promise<Transaction[]> {
     if (
       isPositionNoFee(position.positionData) &&
@@ -5175,7 +5184,7 @@ export class DLMM {
 
     const claimAllTxs = chunks(
       [...claimAllSwapFeeTxs, ...claimAllLMTxs],
-      MAX_CLAIM_ALL_ALLOWED
+      claimChunkSize
     );
 
     const { blockhash, lastValidBlockHeight } =
@@ -5203,7 +5212,7 @@ export class DLMM {
   }
 
   /**
-   * The `seedLiquidity` function create multiple grouped instructions. The grouped instructions will be [init ata + send lamport for token provde], [initialize bin array + initialize position instructions] and [deposit instruction]. Each grouped instructions can be executed parallelly.
+   * The `seedLiquidity` function create multiple grouped instructions. The grouped instructions will be [init ata + send lamport for token provide], [initialize bin array + initialize position instructions] and [deposit instruction]. Each grouped instructions can be executed parallelly.
    * @param
    *    - `owner`: The public key of the positions owner.
    *    - `seedAmount`: Lamport amount to be seeded to the pool.
@@ -6097,14 +6106,17 @@ export class DLMM {
    * @param
    *    - `owner`: The public key of the owner of the positions.
    *    - `positions`: An array of objects of type `PositionData` that represents the positions to claim swap fees and LM rewards from.
+   *    - `claimChunkSize`: A chunk size to bundle the claim transactions into groups.
    * @returns {Promise<Transaction[]>} Array of claim swap fee and LM reward transactions.
    */
   public async claimAllRewards({
     owner,
     positions,
+    claimChunkSize = DEFAULT_CLAIM_ALL_ALLOWED,
   }: {
     owner: PublicKey;
     positions: LbPosition[];
+    claimChunkSize?: number;
   }): Promise<Transaction[]> {
     // Filter only position with fees and/or rewards
     positions = positions.filter(
@@ -6139,7 +6151,7 @@ export class DLMM {
 
     const transactions = chunks(
       [...claimAllSwapFeeTxs, ...claimAllLMTxs],
-      MAX_CLAIM_ALL_ALLOWED
+      claimChunkSize
     );
 
     const { blockhash, lastValidBlockHeight } =
@@ -6706,7 +6718,7 @@ export class DLMM {
    *
    * @param rebalancePositionResponse The result of `simulateRebalancePosition`.
    * @param maxActiveBinSlippage The maximum slippage allowed for active bin selection.
-   * @param slippage The slippage tolerance percentage for rebalncing.
+   * @param slippage The slippage tolerance percentage for rebalancing.
    *
    * @returns An object containing the instructions to initialize new bin arrays and the instruction to rebalance the position.
    */
@@ -7010,26 +7022,26 @@ export class DLMM {
   /**
    * Create an extended empty position.
    *
-   * @param lowerBinid The lowest bin of the position.
+   * @param lowerBinId The lowest bin of the position.
    * @param upperBinId The highest bin of the position.
    * @param position The public key of the position.
    * @param owner The owner of the position.
    * @returns The instructions to create the extended empty position.
    */
   public async createExtendedEmptyPosition(
-    lowerBinid: number,
+    lowerBinId: number,
     upperBinId: number,
     position: PublicKey,
     owner: PublicKey
   ) {
-    const positionWidth = upperBinId - lowerBinid + 1;
+    const positionWidth = upperBinId - lowerBinId + 1;
     const basePositionWidth = Math.min(
       positionWidth,
       DEFAULT_BIN_PER_POSITION.toNumber()
     );
 
     const ixs = await this.createInitAndExtendPositionIx(
-      lowerBinid,
+      lowerBinId,
       upperBinId,
       basePositionWidth,
       owner,
