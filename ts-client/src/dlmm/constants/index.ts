@@ -84,7 +84,7 @@ export const SIMULATION_USER = new PublicKey(
 
 export const PRECISION = 18446744073709551616;
 
-export const MAX_CLAIM_ALL_ALLOWED = 2;
+export const DEFAULT_CLAIM_ALL_ALLOWED = 2;
 
 export const MAX_BIN_LENGTH_ALLOWED_IN_ONE_TX = 26;
 
