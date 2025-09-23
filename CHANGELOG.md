@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.7.5] - PR 244
+
+### Fixed
+
+- Fixed wrapping more SOL than required during add liquidity
+
 ## @meteora-ag/dlmm [1.7.4] - PR 235
 
 ### Added
