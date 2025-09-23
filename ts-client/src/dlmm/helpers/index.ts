@@ -629,30 +629,25 @@ export async function chunkDepositWithRebalanceEndpoint(
     const minDeltaId = new BN(chunkMinBinId - dlmm.lbPair.activeId);
     const maxDeltaId = new BN(chunkMaxBinId - dlmm.lbPair.activeId);
 
-    const { bitFlag, ...baseAndDelta } =
-      buildBitFlagAndNegateStrategyParameters(
-        liquidityStrategyParameters.x0,
-        liquidityStrategyParameters.y0,
-        liquidityStrategyParameters.deltaX,
-        liquidityStrategyParameters.deltaY
-      );
-
     const { deltaX, deltaY, x0, y0 } = resetUninvolvedLiquidityParams(
       minDeltaId,
       maxDeltaId,
       strategy.singleSidedX,
       {
-        ...baseAndDelta,
+        ...liquidityStrategyParameters,
       }
     );
+
+    const { bitFlag, ...baseAndDelta } =
+      buildBitFlagAndNegateStrategyParameters(x0, y0, deltaX, deltaY);
 
     const addParam: RebalanceAddLiquidityParam = {
       minDeltaId: minDeltaId.toNumber(),
       maxDeltaId: maxDeltaId.toNumber(),
-      x0,
-      y0,
-      deltaX,
-      deltaY,
+      x0: baseAndDelta.x0,
+      y0: baseAndDelta.y0,
+      deltaX: baseAndDelta.deltaX,
+      deltaY: baseAndDelta.deltaY,
       bitFlag,
       favorXInActiveId: strategy.singleSidedX,
       padding: Array(36).fill(0),
