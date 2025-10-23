@@ -76,7 +76,15 @@ pub fn quote_exact_out(
     amount_out =
         calculate_transfer_fee_included_amount(out_mint_account, amount_out, epoch)?.amount;
 
+    // Prevent infinite loops: Maximum number of bin array iterations
+    const MAX_BIN_ARRAY_ITERATIONS: u32 = 50;
+    let mut bin_array_iterations = 0;
+
     while amount_out > 0 {
+        bin_array_iterations += 1;
+        if bin_array_iterations > MAX_BIN_ARRAY_ITERATIONS {
+            anyhow::bail!("Quote exceeded maximum bin array iterations ({}), pool may lack sufficient liquidity", MAX_BIN_ARRAY_ITERATIONS);
+        }
         let active_bin_array_pubkey = get_bin_array_pubkeys_for_swap(
             lb_pair_pubkey,
             &lb_pair,
@@ -185,7 +193,15 @@ pub fn quote_exact_in(
 
     let mut amount_left = transfer_fee_excluded_amount_in;
 
+    // Prevent infinite loops: Maximum number of bin array iterations
+    const MAX_BIN_ARRAY_ITERATIONS: u32 = 50;
+    let mut bin_array_iterations = 0;
+
     while amount_left > 0 {
+        bin_array_iterations += 1;
+        if bin_array_iterations > MAX_BIN_ARRAY_ITERATIONS {
+            anyhow::bail!("Quote exceeded maximum bin array iterations ({}), pool may lack sufficient liquidity", MAX_BIN_ARRAY_ITERATIONS);
+        }
         let active_bin_array_pubkey = get_bin_array_pubkeys_for_swap(
             lb_pair_pubkey,
             &lb_pair,
