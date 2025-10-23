@@ -77,7 +77,7 @@ pub fn quote_exact_out(
         calculate_transfer_fee_included_amount(out_mint_account, amount_out, epoch)?.amount;
 
     // Prevent infinite loops: Maximum number of bin array iterations
-    const MAX_BIN_ARRAY_ITERATIONS: u32 = 50;
+    const MAX_BIN_ARRAY_ITERATIONS: u32 = 210;
     let mut bin_array_iterations = 0;
 
     while amount_out > 0 {
@@ -194,7 +194,7 @@ pub fn quote_exact_in(
     let mut amount_left = transfer_fee_excluded_amount_in;
 
     // Prevent infinite loops: Maximum number of bin array iterations
-    const MAX_BIN_ARRAY_ITERATIONS: u32 = 50;
+    const MAX_BIN_ARRAY_ITERATIONS: u32 = 210;
     let mut bin_array_iterations = 0;
 
     while amount_left > 0 {
