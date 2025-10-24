@@ -100,7 +100,16 @@ pub fn quote_exact_out(
             .cloned()
             .context("Active bin array not found")?;
 
+        // Prevent infinite loops within a single bin array (max bins per array is typically 70)
+        const MAX_BIN_ITERATIONS: u32 = 200;
+        let mut bin_iterations = 0;
+
         loop {
+            bin_iterations += 1;
+            if bin_iterations > MAX_BIN_ITERATIONS {
+                anyhow::bail!("Quote exceeded maximum bin iterations ({}), possible infinite loop in bin traversal", MAX_BIN_ITERATIONS);
+            }
+
             if !active_bin_array.is_bin_id_within_range(lb_pair.active_id)? || amount_out == 0 {
                 break;
             }
@@ -217,7 +226,16 @@ pub fn quote_exact_in(
             .cloned()
             .context("Active bin array not found")?;
 
+        // Prevent infinite loops within a single bin array (max bins per array is typically 70)
+        const MAX_BIN_ITERATIONS: u32 = 200;
+        let mut bin_iterations = 0;
+
         loop {
+            bin_iterations += 1;
+            if bin_iterations > MAX_BIN_ITERATIONS {
+                anyhow::bail!("Quote exceeded maximum bin iterations ({}), possible infinite loop in bin traversal", MAX_BIN_ITERATIONS);
+            }
+
             if !active_bin_array.is_bin_id_within_range(lb_pair.active_id)? || amount_left == 0 {
                 break;
             }
@@ -271,7 +289,16 @@ pub fn get_bin_array_pubkeys_for_swap(
     let mut bin_array_idx = vec![];
     let increment = if swap_for_y { -1 } else { 1 };
 
+    // Prevent infinite loops in bin array lookup
+    const MAX_BIN_ARRAY_LOOKUP_ITERATIONS: u32 = 1000;
+    let mut lookup_iterations = 0;
+
     loop {
+        lookup_iterations += 1;
+        if lookup_iterations > MAX_BIN_ARRAY_LOOKUP_ITERATIONS {
+            anyhow::bail!("Bin array lookup exceeded maximum iterations ({}), possible infinite loop in bitmap traversal", MAX_BIN_ARRAY_LOOKUP_ITERATIONS);
+        }
+
         if bin_array_idx.len() == take_count as usize {
             break;
         }
