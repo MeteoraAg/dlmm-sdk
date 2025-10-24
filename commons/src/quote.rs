@@ -77,7 +77,7 @@ pub fn quote_exact_out(
         calculate_transfer_fee_included_amount(out_mint_account, amount_out, epoch)?.amount;
 
     // Prevent infinite loops: Maximum number of bin array iterations
-    const MAX_BIN_ARRAY_ITERATIONS: u32 = 210;
+    const MAX_BIN_ARRAY_ITERATIONS: u32 = 3;
     let mut bin_array_iterations = 0;
 
     while amount_out > 0 {
@@ -101,7 +101,7 @@ pub fn quote_exact_out(
             .context("Active bin array not found")?;
 
         // Prevent infinite loops within a single bin array (max bins per array is typically 70)
-        const MAX_BIN_ITERATIONS: u32 = 200;
+        const MAX_BIN_ITERATIONS: u32 = 70;
         let mut bin_iterations = 0;
 
         loop {
@@ -203,7 +203,7 @@ pub fn quote_exact_in(
     let mut amount_left = transfer_fee_excluded_amount_in;
 
     // Prevent infinite loops: Maximum number of bin array iterations
-    const MAX_BIN_ARRAY_ITERATIONS: u32 = 210;
+    const MAX_BIN_ARRAY_ITERATIONS: u32 = 3;
     let mut bin_array_iterations = 0;
 
     while amount_left > 0 {
@@ -227,7 +227,7 @@ pub fn quote_exact_in(
             .context("Active bin array not found")?;
 
         // Prevent infinite loops within a single bin array (max bins per array is typically 70)
-        const MAX_BIN_ITERATIONS: u32 = 200;
+        const MAX_BIN_ITERATIONS: u32 = 70;
         let mut bin_iterations = 0;
 
         loop {
@@ -290,7 +290,7 @@ pub fn get_bin_array_pubkeys_for_swap(
     let increment = if swap_for_y { -1 } else { 1 };
 
     // Prevent infinite loops in bin array lookup
-    const MAX_BIN_ARRAY_LOOKUP_ITERATIONS: u32 = 1000;
+    const MAX_BIN_ARRAY_LOOKUP_ITERATIONS: u32 = 210;
     let mut lookup_iterations = 0;
 
     loop {
