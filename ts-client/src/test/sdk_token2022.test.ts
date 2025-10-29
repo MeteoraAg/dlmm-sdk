@@ -2584,6 +2584,27 @@ describe("SDK token2022 test", () => {
 
         await logLbPairLiquidities(pairKey, dlmm.lbPair.binStep, dlmm.program);
 
+        const positions = await Promise.all(
+          instructionsByPositions.map(({ positionKeypair }) =>
+            dlmm.getPosition(positionKeypair.publicKey)
+          )
+        );
+
+        let positionMinBinId = Number.MAX_SAFE_INTEGER;
+        let positionMaxBinId = Number.MIN_SAFE_INTEGER;
+
+        for (const position of positions) {
+          if (position.positionData.lowerBinId < positionMinBinId) {
+            positionMinBinId = position.positionData.lowerBinId;
+          }
+          if (position.positionData.upperBinId > positionMaxBinId) {
+            positionMaxBinId = position.positionData.upperBinId;
+          }
+        }
+
+        expect(positionMinBinId).toBe(minBinId);
+        expect(positionMaxBinId).toBe(maxBinId);
+
         const [afterTokenX, afterTokenY] = await Promise.all([
           connection
             .getTokenAccountBalance(userTokenX)

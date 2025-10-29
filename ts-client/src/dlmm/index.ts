@@ -12,6 +12,7 @@ import {
 } from "@solana/spl-token";
 import {
   AccountMeta,
+  ComputeBudgetInstruction,
   ComputeBudgetProgram,
   Connection,
   Keypair,
@@ -2585,8 +2586,7 @@ export class DLMM {
 
     const binCount = getBinCount(minBinId, maxBinId);
 
-    const maxBinPerParallelizedPosition =
-      DEFAULT_BIN_PER_POSITION.toNumber() * 5; // 350 bins will not exceed transaction limit
+    const maxBinPerParallelizedPosition = MAX_RESIZE_LENGTH.toNumber() * 3; // 270 bins will not exceed transaction limit
 
     const positionCount = Math.ceil(binCount / maxBinPerParallelizedPosition);
 
@@ -2634,16 +2634,18 @@ export class DLMM {
         .instruction();
 
       const extendPositionIxs: TransactionInstruction[] = [];
-      const initialPositionEndBinId = startBinId + initialPositionWidth;
 
-      let index = 0;
-      for (
-        let i = initialPositionEndBinId;
-        i < endBinId;
-        i += DEFAULT_BIN_PER_POSITION.toNumber()
-      ) {
+      let currentEndBinId = startBinId + initialPositionWidth - 1;
+      while (true) {
+        if (currentEndBinId == endBinId) break;
+
+        currentEndBinId = Math.min(
+          currentEndBinId + MAX_RESIZE_LENGTH.toNumber(),
+          endBinId
+        );
+
         const increaseLengthIx = await this.program.methods
-          .increasePositionLength2(index)
+          .increasePositionLength2(currentEndBinId)
           .accountsPartial({
             lbPair: this.pubkey,
             position: position.publicKey,
@@ -2653,7 +2655,6 @@ export class DLMM {
           .instruction();
 
         extendPositionIxs.push(increaseLengthIx);
-        index++;
       }
 
       const addLiquidityIxs = await chunkDepositWithRebalanceEndpoint(

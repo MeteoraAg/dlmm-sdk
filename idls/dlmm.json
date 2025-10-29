@@ -2,7 +2,7 @@
   "address": "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo",
   "metadata": {
     "name": "lb_clmm",
-    "version": "0.10.0",
+    "version": "0.10.1",
     "spec": "0.1.0",
     "description": "Created with Anchor"
   },
@@ -1667,8 +1667,8 @@
       ],
       "args": [
         {
-          "name": "index",
-          "type": "u8"
+          "name": "minimum_upper_bin_id",
+          "type": "i32"
         }
       ]
     },
@@ -8398,7 +8398,7 @@
     {
       "name": "MAX_RESIZE_LENGTH",
       "type": "u64",
-      "value": "70"
+      "value": "91"
     },
     {
       "name": "MAX_REWARD_BIN_SPLIT",
