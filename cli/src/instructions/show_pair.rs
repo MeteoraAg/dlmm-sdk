@@ -108,3 +108,37 @@ pub async fn execute_show_pair<C: Deref<Target = impl Signer> + Clone>(
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use anchor_client::solana_client::nonblocking::rpc_client::RpcClient;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn test_deserialization_fail() {
+        // Pool reported with deserialization issue
+        // https://solscan.io/tx/4NyuVH8w9KSqvuYq3ViLNYjA9nsh6dcDq2tGVv8mHWZuoZWarazm3Mq38yp2GLNCuzHejxL7QZ8qu5WVmvN5zp4q
+        let pair_address = Pubkey::from_str_const("HTvjzsfX3yU6BUodCjZ5vZkUrAxMDTrBs3CJaq43ashR");
+
+        let rpc_client = RpcClient::new(Cluster::Mainnet.url().to_string());
+        let lb_pair_state: LbPair = rpc_client
+            .get_account_and_deserialize(&pair_address, |account| {
+                Ok(bytemuck::pod_read_unaligned(&account.data[8..]))
+            })
+            .await
+            .expect("Deserialization should succeed");
+
+        println!("{:#?}", lb_pair_state);
+
+        let (bitmap_extension, _bump) = derive_bin_array_bitmap_extension(pair_address);
+        let bitmap_extension_state: BinArrayBitmapExtension = rpc_client
+            .get_account_and_deserialize(&bitmap_extension, |account| {
+                Ok(bytemuck::pod_read_unaligned(&account.data[8..]))
+            })
+            .await
+            .expect("Deserialization should succeed");
+
+        println!("{:#?}", bitmap_extension_state);
+    }
+}
