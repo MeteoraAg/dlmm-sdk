@@ -2574,7 +2574,8 @@ export class DLMM {
     strategy: StrategyParameters,
     owner: PublicKey,
     payer: PublicKey,
-    slippagePercentage: number
+    slippagePercentage: number,
+    altAddress?: PublicKey
   ): Promise<InitializeMultiplePositionAndAddLiquidityByStrategyResponse2> {
     const maxActiveBinSlippage = getAndCapMaxActiveBinSlippage(
       slippagePercentage,
@@ -2586,7 +2587,8 @@ export class DLMM {
 
     const binCount = getBinCount(minBinId, maxBinId);
 
-    const maxBinPerParallelizedPosition = MAX_RESIZE_LENGTH.toNumber() * 3; // 270 bins will not exceed transaction limit
+    const maxBinPerParallelizedPosition =
+      DEFAULT_BIN_PER_POSITION.toNumber() + MAX_RESIZE_LENGTH.toNumber() * 5; // 525 bins will not exceed transaction limit
 
     const positionCount = Math.ceil(binCount / maxBinPerParallelizedPosition);
 
@@ -2668,7 +2670,8 @@ export class DLMM {
         liquidityStrategyParameters,
         owner,
         payer,
-        true
+        true,
+        this.opt?.skipSolWrappingOperation
       );
 
       for (const instructions of addLiquidityIxs) {
@@ -2680,7 +2683,9 @@ export class DLMM {
         const setCuIx = await getEstimatedComputeUnitIxWithBuffer(
           this.program.provider.connection,
           txIxs,
-          payer
+          payer,
+          0.1,
+          altAddress
         );
 
         txIxs.unshift(setCuIx);
@@ -2815,7 +2820,8 @@ export class DLMM {
         liquidityStrategyParameters,
         owner,
         payer,
-        false
+        false,
+        this.opt?.skipSolWrappingOperation
       );
 
       instructionsByPositions.push({
@@ -2888,7 +2894,8 @@ export class DLMM {
       liquidityStrategyParameters,
       user,
       user,
-      true
+      true,
+      this.opt?.skipSolWrappingOperation
     );
 
     const latestBlockhashInfo =
@@ -2978,7 +2985,11 @@ export class DLMM {
     createPayerTokenXIx && preInstructions.push(createPayerTokenXIx);
     createPayerTokenYIx && preInstructions.push(createPayerTokenYIx);
 
-    if (this.tokenX.publicKey.equals(NATIVE_MINT) && !totalXAmount.isZero()) {
+    if (
+      this.tokenX.publicKey.equals(NATIVE_MINT) &&
+      !totalXAmount.isZero() &&
+      !this.opt?.skipSolWrappingOperation
+    ) {
       const wrapSOLIx = wrapSOLInstruction(
         user,
         userTokenX,
@@ -2988,7 +2999,11 @@ export class DLMM {
       preInstructions.push(...wrapSOLIx);
     }
 
-    if (this.tokenY.publicKey.equals(NATIVE_MINT) && !totalYAmount.isZero()) {
+    if (
+      this.tokenY.publicKey.equals(NATIVE_MINT) &&
+      !totalYAmount.isZero() &&
+      !this.opt?.skipSolWrappingOperation
+    ) {
       const wrapSOLIx = wrapSOLInstruction(
         user,
         userTokenY,
@@ -3003,7 +3018,8 @@ export class DLMM {
       [
         this.tokenX.publicKey.toBase58(),
         this.tokenY.publicKey.toBase58(),
-      ].includes(NATIVE_MINT.toBase58())
+      ].includes(NATIVE_MINT.toBase58()) &&
+      !this.opt?.skipSolWrappingOperation
     ) {
       const closeWrappedSOLIx = await unwrapSOLInstruction(user);
       closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
@@ -3179,7 +3195,11 @@ export class DLMM {
     createPayerTokenXIx && preInstructions.push(createPayerTokenXIx);
     createPayerTokenYIx && preInstructions.push(createPayerTokenYIx);
 
-    if (this.tokenX.publicKey.equals(NATIVE_MINT) && !totalXAmount.isZero()) {
+    if (
+      this.tokenX.publicKey.equals(NATIVE_MINT) &&
+      !totalXAmount.isZero() &&
+      !this.opt?.skipSolWrappingOperation
+    ) {
       const wrapSOLIx = wrapSOLInstruction(
         user,
         userTokenX,
@@ -3189,7 +3209,11 @@ export class DLMM {
       preInstructions.push(...wrapSOLIx);
     }
 
-    if (this.tokenY.publicKey.equals(NATIVE_MINT) && !totalYAmount.isZero()) {
+    if (
+      this.tokenY.publicKey.equals(NATIVE_MINT) &&
+      !totalYAmount.isZero() &&
+      !this.opt?.skipSolWrappingOperation
+    ) {
       const wrapSOLIx = wrapSOLInstruction(
         user,
         userTokenY,
@@ -3204,7 +3228,8 @@ export class DLMM {
       [
         this.tokenX.publicKey.toBase58(),
         this.tokenY.publicKey.toBase58(),
-      ].includes(NATIVE_MINT.toBase58())
+      ].includes(NATIVE_MINT.toBase58()) &&
+      !this.opt?.skipSolWrappingOperation
     ) {
       const closeWrappedSOLIx = await unwrapSOLInstruction(user);
       closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
@@ -3450,7 +3475,11 @@ export class DLMM {
     createPayerTokenXIx && preInstructions.push(createPayerTokenXIx);
     createPayerTokenYIx && preInstructions.push(createPayerTokenYIx);
 
-    if (this.tokenX.publicKey.equals(NATIVE_MINT) && !totalXAmount.isZero()) {
+    if (
+      this.tokenX.publicKey.equals(NATIVE_MINT) &&
+      !totalXAmount.isZero() &&
+      !this.opt?.skipSolWrappingOperation
+    ) {
       const wrapSOLIx = wrapSOLInstruction(
         user,
         userTokenX,
@@ -3460,7 +3489,11 @@ export class DLMM {
       preInstructions.push(...wrapSOLIx);
     }
 
-    if (this.tokenY.publicKey.equals(NATIVE_MINT) && !totalYAmount.isZero()) {
+    if (
+      this.tokenY.publicKey.equals(NATIVE_MINT) &&
+      !totalYAmount.isZero() &&
+      !this.opt?.skipSolWrappingOperation
+    ) {
       const wrapSOLIx = wrapSOLInstruction(
         user,
         userTokenY,
@@ -3475,7 +3508,8 @@ export class DLMM {
       [
         this.tokenX.publicKey.toBase58(),
         this.tokenY.publicKey.toBase58(),
-      ].includes(NATIVE_MINT.toBase58())
+      ].includes(NATIVE_MINT.toBase58()) &&
+      !this.opt?.skipSolWrappingOperation
     ) {
       const closeWrappedSOLIx = await unwrapSOLInstruction(user);
       closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
@@ -3664,7 +3698,11 @@ export class DLMM {
     createPayerTokenXIx && preInstructions.push(createPayerTokenXIx);
     createPayerTokenYIx && preInstructions.push(createPayerTokenYIx);
 
-    if (this.tokenX.publicKey.equals(NATIVE_MINT) && !totalXAmount.isZero()) {
+    if (
+      this.tokenX.publicKey.equals(NATIVE_MINT) &&
+      !totalXAmount.isZero() &&
+      !this.opt?.skipSolWrappingOperation
+    ) {
       const wrapSOLIx = wrapSOLInstruction(
         user,
         userTokenX,
@@ -3674,7 +3712,11 @@ export class DLMM {
       preInstructions.push(...wrapSOLIx);
     }
 
-    if (this.tokenY.publicKey.equals(NATIVE_MINT) && !totalYAmount.isZero()) {
+    if (
+      this.tokenY.publicKey.equals(NATIVE_MINT) &&
+      !totalYAmount.isZero() &&
+      !this.opt?.skipSolWrappingOperation
+    ) {
       const wrapSOLIx = wrapSOLInstruction(
         user,
         userTokenY,
@@ -3689,7 +3731,8 @@ export class DLMM {
       [
         this.tokenX.publicKey.toBase58(),
         this.tokenY.publicKey.toBase58(),
-      ].includes(NATIVE_MINT.toBase58())
+      ].includes(NATIVE_MINT.toBase58()) &&
+      !this.opt?.skipSolWrappingOperation
     ) {
       const closeWrappedSOLIx = await unwrapSOLInstruction(user);
       closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
@@ -4064,7 +4107,7 @@ export class DLMM {
           this.tokenX.publicKey.toBase58(),
           this.tokenY.publicKey.toBase58(),
         ].includes(NATIVE_MINT.toBase58()) &&
-        !skipUnwrapSOL
+        (!skipUnwrapSOL || !this.opt?.skipSolWrappingOperation)
       ) {
         const closeWrappedSOLIx = await unwrapSOLInstruction(user);
         closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
@@ -4698,7 +4741,7 @@ export class DLMM {
     createInTokenAccountIx && preInstructions.push(createInTokenAccountIx);
     createOutTokenAccountIx && preInstructions.push(createOutTokenAccountIx);
 
-    if (inToken.equals(NATIVE_MINT)) {
+    if (inToken.equals(NATIVE_MINT) && !this.opt?.skipSolWrappingOperation) {
       const wrapSOLIx = wrapSOLInstruction(
         user,
         userTokenIn,
@@ -4706,11 +4749,12 @@ export class DLMM {
       );
 
       preInstructions.push(...wrapSOLIx);
+
       const closeWrappedSOLIx = await unwrapSOLInstruction(user);
       closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
     }
 
-    if (outToken.equals(NATIVE_MINT)) {
+    if (outToken.equals(NATIVE_MINT) && !this.opt?.skipSolWrappingOperation) {
       const closeWrappedSOLIx = await unwrapSOLInstruction(user);
       closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
     }
@@ -4819,7 +4863,7 @@ export class DLMM {
     createInTokenAccountIx && preInstructions.push(createInTokenAccountIx);
     createOutTokenAccountIx && preInstructions.push(createOutTokenAccountIx);
 
-    if (inToken.equals(NATIVE_MINT)) {
+    if (inToken.equals(NATIVE_MINT) && !this.opt?.skipSolWrappingOperation) {
       const wrapSOLIx = wrapSOLInstruction(
         user,
         userTokenIn,
@@ -4827,11 +4871,12 @@ export class DLMM {
       );
 
       preInstructions.push(...wrapSOLIx);
+
       const closeWrappedSOLIx = await unwrapSOLInstruction(user);
       closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
     }
 
-    if (outToken.equals(NATIVE_MINT)) {
+    if (outToken.equals(NATIVE_MINT) && !this.opt?.skipSolWrappingOperation) {
       const closeWrappedSOLIx = await unwrapSOLInstruction(user);
       closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
     }
@@ -4946,7 +4991,7 @@ export class DLMM {
     createInTokenAccountIx && preInstructions.push(createInTokenAccountIx);
     createOutTokenAccountIx && preInstructions.push(createOutTokenAccountIx);
 
-    if (inToken.equals(NATIVE_MINT)) {
+    if (inToken.equals(NATIVE_MINT) && !this.opt?.skipSolWrappingOperation) {
       const wrapSOLIx = wrapSOLInstruction(
         user,
         userTokenIn,
@@ -4954,11 +4999,12 @@ export class DLMM {
       );
 
       preInstructions.push(...wrapSOLIx);
+
       const closeWrappedSOLIx = await unwrapSOLInstruction(user);
       closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
     }
 
-    if (outToken.equals(NATIVE_MINT)) {
+    if (outToken.equals(NATIVE_MINT) && !this.opt?.skipSolWrappingOperation) {
       const closeWrappedSOLIx = await unwrapSOLInstruction(user);
       closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
     }
@@ -7057,7 +7103,8 @@ export class DLMM {
     // Add wrapSOL instructions if tokenX or tokenY is NATIVE_MINT
     if (
       this.tokenX.publicKey.equals(NATIVE_MINT) &&
-      simulationResult.actualAmountXDeposited.gtn(0)
+      simulationResult.actualAmountXDeposited.gtn(0) &&
+      !this.opt?.skipSolWrappingOperation
     ) {
       const wrapSOLIx = wrapSOLInstruction(
         owner,
@@ -7069,7 +7116,8 @@ export class DLMM {
 
     if (
       this.tokenY.publicKey.equals(NATIVE_MINT) &&
-      simulationResult.actualAmountYDeposited.gtn(0)
+      simulationResult.actualAmountYDeposited.gtn(0) &&
+      !this.opt?.skipSolWrappingOperation
     ) {
       const wrapSOLIx = wrapSOLInstruction(
         owner,
@@ -7081,8 +7129,9 @@ export class DLMM {
 
     // Add unwrapSOL instructions if tokenX or tokenY is NATIVE_MINT
     if (
-      this.tokenX.publicKey.equals(NATIVE_MINT) ||
-      this.tokenY.publicKey.equals(NATIVE_MINT)
+      (this.tokenX.publicKey.equals(NATIVE_MINT) ||
+        this.tokenY.publicKey.equals(NATIVE_MINT)) &&
+      !this.opt?.skipSolWrappingOperation
     ) {
       const closeWrappedSOLIx = await unwrapSOLInstruction(owner);
       closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
@@ -7991,7 +8040,8 @@ export class DLMM {
         [
           this.tokenX.publicKey.toBase58(),
           this.tokenY.publicKey.toBase58(),
-        ].includes(NATIVE_MINT.toBase58())
+        ].includes(NATIVE_MINT.toBase58()) &&
+        !this.opt?.skipSolWrappingOperation
       ) {
         const closeWrappedSOLIx = await unwrapSOLInstruction(owner);
         closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
