@@ -43,6 +43,28 @@ fn validate_swap_activation(
     Ok(())
 }
 
+fn shift_active_bin_if_empty_gap(
+    lb_pair: &mut LbPair,
+    active_bin_array: &BinArray,
+    swap_for_y: bool,
+) -> Result<()> {
+    let lb_pair_bin_array_index = BinArray::bin_id_to_bin_array_index(lb_pair.active_id)?;
+
+    if i64::from(lb_pair_bin_array_index) != active_bin_array.index {
+        if swap_for_y {
+            let (_, upper_bin_id) =
+                BinArray::get_bin_array_lower_upper_bin_id(active_bin_array.index as i32)?;
+            lb_pair.active_id = upper_bin_id;
+        } else {
+            let (lower_bin_id, _) =
+                BinArray::get_bin_array_lower_upper_bin_id(active_bin_array.index as i32)?;
+            lb_pair.active_id = lower_bin_id;
+        }
+    }
+
+    Ok(())
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn quote_exact_out(
     lb_pair_pubkey: Pubkey,
@@ -91,6 +113,8 @@ pub fn quote_exact_out(
             .get(&active_bin_array_pubkey)
             .cloned()
             .context("Active bin array not found")?;
+
+        shift_active_bin_if_empty_gap(&mut lb_pair, &active_bin_array, swap_for_y)?;
 
         loop {
             if !active_bin_array.is_bin_id_within_range(lb_pair.active_id)? || amount_out == 0 {
@@ -201,6 +225,8 @@ pub fn quote_exact_in(
             .cloned()
             .context("Active bin array not found")?;
 
+        shift_active_bin_if_empty_gap(&mut lb_pair, &active_bin_array, swap_for_y)?;
+
         loop {
             if !active_bin_array.is_bin_id_within_range(lb_pair.active_id)? || amount_left == 0 {
                 break;
@@ -304,10 +330,14 @@ pub fn get_bin_array_pubkeys_for_swap(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use anchor_client::solana_client::rpc_response::RpcKeyedAccount;
     use anchor_client::solana_sdk::clock::Clock;
     use anchor_client::{
         solana_client::nonblocking::rpc_client::RpcClient, solana_sdk::pubkey::Pubkey, Cluster,
     };
+    use litesvm::LiteSVM;
+
+    pub const DLMM_PROGRAM_FILE_PATH: &str = "../artifacts/lb_clmm.so";
 
     /// Get on chain clock
     async fn get_clock(rpc_client: RpcClient) -> Result<Clock> {
@@ -508,7 +538,7 @@ mod tests {
             .collect::<HashMap<_, _>>();
 
         // 1 SOL -> USDC
-        let in_sol_amount = 1_000_000_000;
+        let in_sol_amount = 5_000_000_000;
 
         let clock = get_clock(rpc_client).await.unwrap();
 
@@ -550,5 +580,122 @@ mod tests {
             "100 USDC -> {:?} SOL",
             quote_result.amount_out as f64 / 1_000_000_000.0
         );
+    }
+
+    #[test]
+    fn test_swap_quote_infinite_loop() {
+        let test_pair = Pubkey::from_str_const("FJbEo74c2W4QLBBVUfUvi8VBWXtMdJVPuFpq2f6UV1iB");
+        let associated_accounts_folder_path = format!("../artifacts/{}", test_pair);
+
+        let mut svm = LiteSVM::new().with_sysvars();
+        let program_bytes = std::fs::read(DLMM_PROGRAM_FILE_PATH).unwrap();
+        svm.add_program(dlmm::ID, &program_bytes);
+
+        let accounts_dir = std::fs::read_dir(associated_accounts_folder_path).unwrap();
+        for entry in accounts_dir {
+            let account_data = std::fs::read_to_string(entry.unwrap().path()).unwrap();
+            let rpc_account: RpcKeyedAccount =
+                serde_json::from_str(&account_data).expect("Failed to deserialize account data");
+            let account: anchor_client::solana_sdk::account::Account =
+                rpc_account.account.decode().unwrap();
+            let account_pubkey = Pubkey::from_str_const(&rpc_account.pubkey);
+
+            svm.set_account(account_pubkey, account.clone()).unwrap();
+        }
+
+        let lb_pair_account = svm.get_account(&test_pair).unwrap();
+        let lb_pair: LbPair = bytemuck::pod_read_unaligned(&lb_pair_account.data[8..]);
+
+        let left_bin_array_pubkeys =
+            get_bin_array_pubkeys_for_swap(test_pair, &lb_pair, None, true, 3).unwrap();
+
+        let right_bin_array_pubkeys =
+            get_bin_array_pubkeys_for_swap(test_pair, &lb_pair, None, false, 3).unwrap();
+
+        let bin_array_pubkeys = [left_bin_array_pubkeys, right_bin_array_pubkeys].concat();
+
+        let mut bin_arrays = HashMap::new();
+
+        for bin_array_pubkey in bin_array_pubkeys {
+            let bin_array_account = svm.get_account(&bin_array_pubkey).unwrap();
+            let bin_array: BinArray = bytemuck::pod_read_unaligned(&bin_array_account.data[8..]);
+            bin_arrays.insert(bin_array_pubkey, bin_array);
+        }
+
+        let in_base_amount = 5_000_000_000;
+        let clock: Clock = svm.get_sysvar();
+
+        let mint_x_account = svm.get_account(&lb_pair.token_x_mint).unwrap();
+        let mint_y_account = svm.get_account(&lb_pair.token_y_mint).unwrap();
+
+        // 1. Quote in ask
+        let quote_result = quote_exact_in(
+            test_pair,
+            &lb_pair,
+            in_base_amount,
+            true,
+            bin_arrays.clone(),
+            None,
+            &clock,
+            &mint_x_account,
+            &mint_y_account,
+        );
+
+        assert!(quote_result.is_err());
+        let err = quote_result.unwrap_err();
+        assert_eq!(err.to_string(), "Pool out of liquidity");
+
+        // 2. Quote in bid
+        let in_quote_amount = 5_000_000_000;
+        let quote_result = quote_exact_in(
+            test_pair,
+            &lb_pair,
+            in_quote_amount,
+            false,
+            bin_arrays.clone(),
+            None,
+            &clock,
+            &mint_x_account,
+            &mint_y_account,
+        );
+        assert!(quote_result.is_err());
+        let err = quote_result.unwrap_err();
+        assert_eq!(err.to_string(), "Pool out of liquidity");
+
+        // 3. Quote out ask
+        let out_quote_amount = 5_000_000_000;
+        let quote_result = quote_exact_out(
+            test_pair,
+            &lb_pair,
+            out_quote_amount,
+            true,
+            bin_arrays.clone(),
+            None,
+            &clock,
+            &mint_x_account,
+            &mint_y_account,
+        );
+
+        assert!(quote_result.is_err());
+        let err = quote_result.unwrap_err();
+        assert_eq!(err.to_string(), "Pool out of liquidity");
+
+        // 4. Quote out bid
+        let out_base_amount = 5_000_000_000;
+        let quote_result = quote_exact_out(
+            test_pair,
+            &lb_pair,
+            out_base_amount,
+            false,
+            bin_arrays.clone(),
+            None,
+            &clock,
+            &mint_x_account,
+            &mint_y_account,
+        );
+
+        assert!(quote_result.is_err());
+        let err = quote_result.unwrap_err();
+        assert_eq!(err.to_string(), "Pool out of liquidity");
     }
 }

@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## commons [0.3.2] - PR 249
+
+### Fixed
+
+- Fix rust quote infinite loop
+
 ## @meteora-ag/dlmm [1.7.5] - PR 244
 
 ### Fixed
