@@ -51,6 +51,7 @@ import {
 import { DlmmSdkError } from "./error";
 import {
   Opt,
+  adjustMinMaxBinId,
   binIdToBinArrayIndex,
   capSlippagePercentage,
   chunkDepositWithRebalanceEndpoint,
@@ -2577,7 +2578,16 @@ export class DLMM {
       MAX_ACTIVE_BIN_SLIPPAGE
     );
 
-    const { minBinId, maxBinId } = strategy;
+    const { adjustedMinBinId: minBinId, adjustedMaxBinId: maxBinId } =
+      adjustMinMaxBinId(
+        strategy.minBinId,
+        strategy.maxBinId,
+        totalXAmount,
+        totalYAmount,
+        this.lbPair.activeId,
+        strategy.singleSidedX
+      );
+
     const binCount = getBinCount(minBinId, maxBinId);
     const positionCount = getPositionCountByBinCount(binCount);
 
@@ -2717,7 +2727,15 @@ export class DLMM {
       MAX_ACTIVE_BIN_SLIPPAGE
     );
 
-    const { minBinId, maxBinId } = strategy;
+    const { adjustedMaxBinId: maxBinId, adjustedMinBinId: minBinId } =
+      adjustMinMaxBinId(
+        strategy.minBinId,
+        strategy.maxBinId,
+        totalXAmount,
+        totalYAmount,
+        this.lbPair.activeId,
+        strategy.singleSidedX
+      );
 
     const liquidityStrategyParameters = buildLiquidityStrategyParameters(
       totalXAmount,
