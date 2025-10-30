@@ -2587,8 +2587,11 @@ export class DLMM {
 
     const binCount = getBinCount(minBinId, maxBinId);
 
+    const maxResizeIxAllowed = altAddress ? 5 : 3; // 525:343 bins will not exceed transaction limit. This is based on worst case where tokens are SOL + token 2022 with hook (1 account)
+
     const maxBinPerParallelizedPosition =
-      DEFAULT_BIN_PER_POSITION.toNumber() + MAX_RESIZE_LENGTH.toNumber() * 5; // 525 bins will not exceed transaction limit
+      DEFAULT_BIN_PER_POSITION.toNumber() +
+      MAX_RESIZE_LENGTH.toNumber() * maxResizeIxAllowed;
 
     const positionCount = Math.ceil(binCount / maxBinPerParallelizedPosition);
 
