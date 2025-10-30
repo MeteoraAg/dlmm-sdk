@@ -180,7 +180,7 @@ pub async fn fetch_quote_required_accounts(
         .get(index)
         .and_then(ToOwned::to_owned)
         .context("Failed to fetch lb pair account")?;
-    let lb_pair_state = LbPair::try_deserialize(&mut lb_pair_account.data.as_ref())?;
+    let lb_pair_state = bytemuck::pod_read_unaligned(&mut lb_pair_account.data[8..].as_ref());
 
     index.inc();
     let clock_account = accounts
@@ -213,7 +213,7 @@ pub async fn fetch_quote_required_accounts(
             let account = account?;
             Some((
                 key,
-                BinArray::try_deserialize(&mut account.data.as_ref()).ok()?,
+                bytemuck::pod_read_unaligned(&account.data[8..].as_ref()),
             ))
         })
         .collect::<Vec<_>>();
