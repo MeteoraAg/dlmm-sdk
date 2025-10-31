@@ -1,6 +1,6 @@
 import DLMM from "../../dist";
 
-describe("module system compatibility tests", () => {
+describe("ESM module compatibility tests", () => {
   describe("esm module resolution tests", () => {
     test("should support ES6 default import", () => {
       expect(DLMM).toBeDefined();
@@ -19,13 +19,13 @@ describe("module system compatibility tests", () => {
     });
   });
 
-  describe("cjs compatibility tests", () => {
-    test("should be compatible with CJS require pattern", () => {
+  describe("esm api surface tests", () => {
+    test("should not have double-wrapping in ESM import", () => {
       expect(DLMM).toBeDefined();
       expect(typeof DLMM).toBe("function"); // not double-wrapped
     });
 
-    test("should provide consistent API across module systems", () => {
+    test("should provide consistent API for ESM consumers", () => {
       const requiredMethods = [
         "createLbPair",
         "createCustomizablePermissionlessLbPair",

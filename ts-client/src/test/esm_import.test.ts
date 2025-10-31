@@ -1,6 +1,6 @@
 import DLMM from "../../dist";
 
-describe("esm default import tests", () => {
+describe("ESM default import tests", () => {
   describe("default import structure tests", () => {
     test("should import DLMM as a direct reference, not a namespace", () => {
       expect(DLMM).toBeDefined();
