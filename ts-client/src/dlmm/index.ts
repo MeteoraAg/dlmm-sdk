@@ -2588,9 +2588,14 @@ export class DLMM {
 
     const binCount = getBinCount(minBinId, maxBinId);
 
-    const defaultAltAddress = altAddress ?? ALT_ADDRESS[this.opt?.cluster];
+    const defaultAltAddressString =
+      altAddress ?? ALT_ADDRESS[this.opt?.cluster];
 
-    const maxResizeIxAllowed = defaultAltAddress ? 5 : 3; // 525:343 bins will not exceed transaction limit. This is based on worst case where tokens are SOL + token 2022 with hook (1 account)
+    if (defaultAltAddressString) {
+      altAddress = new PublicKey(defaultAltAddressString);
+    }
+
+    const maxResizeIxAllowed = altAddress ? 5 : 3; // 525:343 bins will not exceed transaction limit. This is based on worst case where tokens are SOL + token 2022 with hook (1 account)
 
     const maxBinPerParallelizedPosition =
       DEFAULT_BIN_PER_POSITION.toNumber() +
@@ -2614,7 +2619,7 @@ export class DLMM {
     let startBinId = minBinId;
 
     const response: InitializeMultiplePositionAndAddLiquidityByStrategyResponse2 =
-      { instructionsByPositions: [] };
+      { instructionsByPositions: [], lookupTableAddress: altAddress };
 
     for (const position of positionKeypairs) {
       const txsIxs: TransactionInstruction[][] = [];
@@ -2691,7 +2696,7 @@ export class DLMM {
           txIxs,
           payer,
           0.1,
-          defaultAltAddress
+          altAddress
         );
 
         txIxs.unshift(setCuIx);

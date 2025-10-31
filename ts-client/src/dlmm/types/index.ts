@@ -227,6 +227,7 @@ export interface InitializeMultiplePositionAndAddLiquidityByStrategyResponse2 {
     positionKeypair: Keypair;
     transactionInstructions: TransactionInstruction[][];
   }[];
+  lookupTableAddress?: PublicKey;
 }
 
 export interface TInitializeMultiplePositionAndAddLiquidityParamsByStrategy {
