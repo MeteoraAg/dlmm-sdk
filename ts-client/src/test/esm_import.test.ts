@@ -1,4 +1,4 @@
-import DLMM from "../index";
+import DLMM from "../../dist";
 
 describe("esm default import tests", () => {
   describe("default import structure tests", () => {
