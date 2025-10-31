@@ -3,6 +3,8 @@ import {
   Keypair,
   PublicKey,
   sendAndConfirmTransaction,
+  TransactionMessage,
+  VersionedTransaction,
 } from "@solana/web3.js";
 import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import { DLMM } from "../dlmm";
@@ -285,6 +287,86 @@ async function swap(dlmmPool: DLMM) {
   }
 }
 
+const positionKeypairGenerator = async (count: number) => {
+  const keypairs = [];
+  for (let i = 0; i < count; i++) {
+    keypairs.push(Keypair.generate());
+  }
+  return keypairs;
+};
+
+async function initializePositionAndAddLiquidityByStrategyParallelExecution(
+  dlmm: DLMM
+) {
+  // Deposit bid side 400 bins
+  const minBinId = dlmm.lbPair.activeId - 401;
+  const maxBinId = dlmm.lbPair.activeId - 1;
+
+  const amountX = new BN(0);
+  const amountY = new BN(10_000_000);
+
+  const slippagePercentage = 0.05;
+
+  const { instructionsByPositions, lookupTableAddress } =
+    await dlmm.initializeMultiplePositionAndAddLiquidityByStrategy2(
+      positionKeypairGenerator,
+      amountX,
+      amountY,
+      {
+        strategyType: StrategyType.Spot,
+        minBinId,
+        maxBinId,
+      },
+      user.publicKey,
+      user.publicKey,
+      slippagePercentage
+    );
+
+  // Get lookup table address if applicable
+  const altState = [];
+
+  if (lookupTableAddress) {
+    const altAccount = await connection.getAddressLookupTable(
+      lookupTableAddress
+    );
+
+    altState.push(altAccount.value);
+  }
+
+  const allPromises = [];
+  const latestBlockhash = await connection.getLatestBlockhash();
+
+  for (const {
+    positionKeypair,
+    transactionInstructions,
+  } of instructionsByPositions) {
+    const transactions = transactionInstructions.map(async (ixs) => {
+      const messageV0 = new TransactionMessage({
+        payerKey: user.publicKey,
+        recentBlockhash: latestBlockhash.blockhash,
+        instructions: ixs,
+      }).compileToV0Message(altState);
+
+      const transaction = new VersionedTransaction(messageV0);
+      transaction.sign([user, positionKeypair]);
+
+      const signature = await connection.sendRawTransaction(
+        transaction.serialize()
+      );
+      console.log(signature);
+
+      return connection.confirmTransaction({
+        signature,
+        ...latestBlockhash,
+      });
+    });
+
+    allPromises.push(transactions.flat());
+  }
+
+  await Promise.all(allPromises);
+}
+
 async function main() {
   const dlmmPool = await DLMM.create(connection, poolAddress, {
     cluster: "devnet",
@@ -298,6 +380,7 @@ async function main() {
   await addLiquidityToExistingPosition(dlmmPool);
   await removePositionLiquidity(dlmmPool);
   await swap(dlmmPool);
+  await initializePositionAndAddLiquidityByStrategyParallelExecution(dlmmPool);
 }
 
 main();
