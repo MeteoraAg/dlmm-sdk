@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.7.6] - PR 250
+
+### Fixed
+
+- Fixed modern esm and old commonjs import compatibility
+
 ## cli [0.5.2] - PR #251
 
 ### Fixed
