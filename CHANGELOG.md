@@ -25,6 +25,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fixed modern esm and old commonjs import compatibility
 
+## cli [0.5.2] - PR #251
+
+### Fixed
+- Fixed `fetch_quote_required_accounts` zero copy account deserialization
+
 ## commons [0.3.2] - PR 249
 
 ### Fixed
