@@ -42,7 +42,9 @@ import {
   PositionV2,
   PresetParameter,
   PresetParameter2,
+  REBALANCE_POSITION_PADDING,
   RebalanceAddLiquidityParam,
+  ShrinkMode,
   StrategyParameters,
 } from "../types";
 import {
@@ -269,7 +271,8 @@ export const getEstimatedComputeUnitUsageWithBuffer = async (
   connection: Connection,
   instructions: TransactionInstruction[],
   feePayer: PublicKey,
-  buffer?: number
+  buffer?: number,
+  altAddress?: PublicKey
 ) => {
   if (!buffer) {
     buffer = 0.1;
@@ -279,11 +282,18 @@ export const getEstimatedComputeUnitUsageWithBuffer = async (
   // Limit buffer to 1
   buffer = Math.min(1, buffer);
 
+  const altAccounts = [];
+
+  if (altAddress) {
+    const altAccountInfo = await connection.getAddressLookupTable(altAddress);
+    altAccounts.push(altAccountInfo.value);
+  }
+
   const estimatedComputeUnitUsage = await getSimulationComputeUnits(
     connection,
     instructions,
     feePayer,
-    []
+    altAccounts
   );
 
   let extraComputeUnitBuffer = estimatedComputeUnitUsage * buffer;
@@ -309,13 +319,15 @@ export const getEstimatedComputeUnitIxWithBuffer = async (
   connection: Connection,
   instructions: TransactionInstruction[],
   feePayer: PublicKey,
-  buffer?: number
+  buffer?: number,
+  altAddress?: PublicKey
 ) => {
   const units = await getEstimatedComputeUnitUsageWithBuffer(
     connection,
     instructions,
     feePayer,
-    buffer
+    buffer,
+    altAddress
   ).catch((error) => {
     console.error("Error::getEstimatedComputeUnitUsageWithBuffer", error);
     return 1_400_000;
@@ -327,6 +339,7 @@ export const getEstimatedComputeUnitIxWithBuffer = async (
 export type Opt = {
   cluster?: Cluster | "localhost";
   programId?: PublicKey;
+  skipSolWrappingOperation?: boolean;
 };
 
 export function createProgram(connection: Connection, opt?: Opt) {
@@ -525,7 +538,9 @@ export async function chunkDepositWithRebalanceEndpoint(
   liquidityStrategyParameters: LiquidityStrategyParameters,
   owner: PublicKey,
   payer: PublicKey,
-  simulateCU: boolean
+  // When isParallel = false, instructions must be executed sequentially
+  isParallel: boolean,
+  skipSolWrappingOperation: boolean = false
 ) {
   const { slices, accounts: transferHookAccounts } =
     dlmm.getPotentialToken2022IxDataAndAccounts(ActionType.Liquidity);
@@ -609,19 +624,20 @@ export async function chunkDepositWithRebalanceEndpoint(
     );
 
     for (const [idx, binArrayPubkey] of binArrayPubkeys.entries()) {
-      if (!binArrayOrBitmapInitTracking.has(binArrayPubkey.toBase58())) {
-        const initBinArrayIx = await dlmm.program.methods
-          .initializeBinArray(binArrayIndexes[idx])
-          .accountsPartial({
-            binArray: binArrayPubkey,
-            funder: payer,
-            lbPair: dlmm.pubkey,
-          })
-          .instruction();
+      const initBinArrayIx = await dlmm.program.methods
+        .initializeBinArray(binArrayIndexes[idx])
+        .accountsPartial({
+          binArray: binArrayPubkey,
+          funder: payer,
+          lbPair: dlmm.pubkey,
+        })
+        .instruction();
 
+      if (isParallel) {
+        initBinArrayIxs.push(initBinArrayIx);
+      } else if (!binArrayOrBitmapInitTracking.has(binArrayPubkey.toBase58())) {
         binArrayOrBitmapInitTracking.add(binArrayPubkey.toBase58());
         initBinArrayIxs.push(initBinArrayIx);
-
         calculatedAddLiquidityCU += DEFAULT_INIT_BIN_ARRAY_CU;
       }
     }
@@ -698,6 +714,20 @@ export async function chunkDepositWithRebalanceEndpoint(
       slippagePercentage
     );
 
+    let shrinkMode: ShrinkMode;
+
+    if (isParallel) {
+      if (i == 0) {
+        shrinkMode = ShrinkMode.NoShrinkRight;
+      } else if (i == chunkBinRange.length - 1) {
+        shrinkMode = ShrinkMode.NoShrinkLeft;
+      } else {
+        shrinkMode = ShrinkMode.NoShrinkBoth;
+      }
+    } else {
+      shrinkMode = ShrinkMode.ShrinkBoth;
+    }
+
     const rebalanceIx = await dlmm.program.methods
       .rebalanceLiquidity(
         {
@@ -711,7 +741,8 @@ export async function chunkDepositWithRebalanceEndpoint(
           maxDepositYAmount,
           removes: [],
           adds: [addParam],
-          padding: Array(32).fill(0),
+          shrinkMode,
+          padding: REBALANCE_POSITION_PADDING,
         },
         {
           slices,
@@ -748,31 +779,50 @@ export async function chunkDepositWithRebalanceEndpoint(
 
     addLiquidityIxs.push(...initBitmapIxs, ...initBinArrayIxs);
 
-    if (dlmm.tokenX.publicKey.equals(NATIVE_MINT)) {
+    if (isParallel) {
+      addLiquidityIxs.push(createUserTokenXIx);
+      addLiquidityIxs.push(createUserTokenYIx);
+    }
+
+    if (
+      dlmm.tokenX.publicKey.equals(NATIVE_MINT) &&
+      !skipSolWrappingOperation
+    ) {
       const wrapSOLIx = wrapSOLInstruction(
         owner,
         userTokenX,
         BigInt(totalXAmount.toString())
       );
 
-      addLiquidityIxs.push(createUserTokenXIx);
+      if (!isParallel) {
+        addLiquidityIxs.push(createUserTokenXIx);
+      }
       addLiquidityIxs.push(...wrapSOLIx);
     }
 
-    if (dlmm.tokenY.publicKey.equals(NATIVE_MINT)) {
+    if (
+      dlmm.tokenY.publicKey.equals(NATIVE_MINT) &&
+      !skipSolWrappingOperation
+    ) {
       const wrapSOLIx = wrapSOLInstruction(
         owner,
         userTokenY,
         BigInt(totalYAmount.toString())
       );
 
-      addLiquidityIxs.push(createUserTokenYIx);
+      if (!isParallel) {
+        addLiquidityIxs.push(createUserTokenYIx);
+      }
       addLiquidityIxs.push(...wrapSOLIx);
     }
 
     addLiquidityIxs.push(rebalanceIx);
 
-    if (dlmm.tokenX.publicKey.equals(NATIVE_MINT) && !totalXAmount.isZero()) {
+    if (
+      dlmm.tokenX.publicKey.equals(NATIVE_MINT) &&
+      !totalXAmount.isZero() &&
+      !skipSolWrappingOperation
+    ) {
       addLiquidityIxs.push(
         createCloseAccountInstruction(
           userTokenX,
@@ -784,7 +834,11 @@ export async function chunkDepositWithRebalanceEndpoint(
       );
     }
 
-    if (dlmm.tokenY.publicKey.equals(NATIVE_MINT) && !totalYAmount.isZero()) {
+    if (
+      dlmm.tokenY.publicKey.equals(NATIVE_MINT) &&
+      !totalYAmount.isZero() &&
+      !skipSolWrappingOperation
+    ) {
       addLiquidityIxs.push(
         createCloseAccountInstruction(
           userTokenY,
@@ -796,15 +850,7 @@ export async function chunkDepositWithRebalanceEndpoint(
       );
     }
 
-    if (simulateCU) {
-      const cuIx = await getEstimatedComputeUnitIxWithBuffer(
-        dlmm.program.provider.connection,
-        addLiquidityIxs,
-        payer
-      );
-
-      addLiquidityIxs.unshift(cuIx);
-    } else {
+    if (!isParallel) {
       addLiquidityIxs.unshift(
         ComputeBudgetProgram.setComputeUnitLimit({
           units: Math.min(calculatedAddLiquidityCU, MAX_CU),
