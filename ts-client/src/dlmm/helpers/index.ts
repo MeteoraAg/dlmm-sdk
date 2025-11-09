@@ -788,10 +788,36 @@ export async function chunkDepositWithRebalanceEndpoint(
       dlmm.tokenX.publicKey.equals(NATIVE_MINT) &&
       !skipSolWrappingOperation
     ) {
+      const activeBinIdWithSlippage =
+        dlmm.lbPair.activeId - maxActiveBinSlippage;
+
+      const { totalXAmount: totalXAmountWithSlippage } = toAmountIntoBins(
+        new BN(activeBinIdWithSlippage),
+        minDeltaId,
+        maxDeltaId,
+        deltaX,
+        deltaY,
+        x0,
+        y0,
+        new BN(dlmm.lbPair.binStep),
+        strategy.singleSidedX
+      ).reduce(
+        (acc, bin) => {
+          return {
+            totalXAmount: acc.totalXAmount.add(bin.amountX),
+            totalYAmount: acc.totalYAmount.add(bin.amountY),
+          };
+        },
+        {
+          totalXAmount: new BN(0),
+          totalYAmount: new BN(0),
+        }
+      );
+
       const wrapSOLIx = wrapSOLInstruction(
         owner,
         userTokenX,
-        BigInt(totalXAmount.toString())
+        BigInt(totalXAmountWithSlippage.toString())
       );
 
       if (!isParallel) {

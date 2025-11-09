@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.8.1] - [PR #254](https://github.com/MeteoraAg/dlmm-sdk/pull/254)
+
+### Fixed
+
+- Fixed `initializeMultiplePositionAndAddLiquidityByStrategy2` function wrap SOL doesn't account into bin slippage
+
 ## @meteora-ag/dlmm [1.8.0] - [PR #231](https://github.com/MeteoraAg/dlmm-sdk/pull/231)
 
 ### Added
