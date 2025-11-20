@@ -1,7 +1,8 @@
 {
   "name": "@meteora-ag/dlmm",
-  "version": "1.8.0",
+  "version": "1.8.1",
   "description": "",
+  "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "source": "./src/index.ts",
@@ -16,6 +17,11 @@
   },
   "files": [
     "dist/**"
+  ],
+  "browserslist": [
+    ">0.3%",
+    "not dead",
+    "not op_mini all"
   ],
   "scripts": {
     "build": "tsup",
