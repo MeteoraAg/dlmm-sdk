@@ -13,6 +13,7 @@ import {
 import { LbClmm } from "../../idl";
 import {
   Bin,
+  BinArray,
   Clock,
   ClockLayout,
   LbPair,
@@ -451,9 +452,16 @@ export class RebalancePosition {
       activeBinArrayIdx,
       program.programId
     );
-    const activeBinArrayState = await program.account.binArray.fetch(
-      activeBinArrayPubkey
-    );
+    let activeBinArrayState: BinArray | null = null;
+    try {
+      activeBinArrayState = await program.account.binArray.fetch(
+        activeBinArrayPubkey
+      );
+    } catch (error) {
+      // error happens when the active bin array is not initialized
+      activeBinArrayState = null;
+    }
+
     const [lowerBinId, upperBinId] =
       getBinArrayLowerUpperBinId(activeBinArrayIdx);
     const idx = getBinIdIndexInBinArray(
@@ -461,7 +469,9 @@ export class RebalancePosition {
       lowerBinId,
       upperBinId
     );
-    const activeBin = activeBinArrayState[idx.toNumber()];
+    const activeBin = activeBinArrayState
+      ? activeBinArrayState[idx.toNumber()]
+      : 0;
 
     return new RebalancePosition(
       positionAddress,
