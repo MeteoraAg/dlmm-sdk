@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+[PR #260](https://github.com/MeteoraAg/dlmm-sdk/pull/260)
+
+- Added `binDeltaToMinMaxBinId` helper function. To have a canonical conversion from binDelta to minBinId and maxBinId
+
 ### Changed
 
 ### Deprecated
