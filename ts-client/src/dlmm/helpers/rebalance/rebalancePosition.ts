@@ -328,7 +328,7 @@ function simulateDepositBin(
   binStep: BN,
   amountX: BN,
   amountY: BN,
-  bin: Bin
+  bin: Bin | null
 ) {
   if (!bin) {
     return {
@@ -402,14 +402,14 @@ export class RebalancePosition {
   public shouldClaimFee: boolean;
   public shouldClaimReward: boolean;
   public rebalancePositionBinData: RebalancePositionBinData[];
-  public activeBin: Bin;
+  public activeBin: Bin | null;
   public currentTimestamp: BN;
 
   constructor(
     positionAddress: PublicKey,
     positionData: PositionData,
     lbPair: LbPair,
-    activeBin: Bin,
+    activeBin: Bin | null,
     shouldClaimFee: boolean,
     shouldClaimReward: boolean,
     currentTimestamp: BN
@@ -452,15 +452,6 @@ export class RebalancePosition {
       activeBinArrayIdx,
       program.programId
     );
-    let activeBinArrayState: BinArray | null = null;
-    try {
-      activeBinArrayState = await program.account.binArray.fetch(
-        activeBinArrayPubkey
-      );
-    } catch (error) {
-      // error happens when the active bin array is not initialized
-      activeBinArrayState = null;
-    }
 
     const [lowerBinId, upperBinId] =
       getBinArrayLowerUpperBinId(activeBinArrayIdx);
@@ -469,9 +460,16 @@ export class RebalancePosition {
       lowerBinId,
       upperBinId
     );
-    const activeBin = activeBinArrayState
-      ? activeBinArrayState[idx.toNumber()]
-      : 0;
+
+    let activeBin: Bin | null = null;
+    try {
+      const activeBinArrayState = await program.account.binArray.fetch(
+        activeBinArrayPubkey
+      );
+      activeBin = activeBinArrayState[idx.toNumber()];
+    } catch (error) {
+      // error happens when the active bin array is not initialized
+    }
 
     return new RebalancePosition(
       positionAddress,
