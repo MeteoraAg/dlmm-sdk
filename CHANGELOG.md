@@ -9,10 +9,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-[PR #260](https://github.com/MeteoraAg/dlmm-sdk/pull/260)
-
-- Added `binDeltaToMinMaxBinId` helper function. To have a canonical conversion from binDelta to minBinId and maxBinId
-
 ### Changed
 
 ### Deprecated
@@ -21,11 +17,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-[PR #260](https://github.com/MeteoraAg/dlmm-sdk/pull/260)
-
-- Fix `simulateRebalancePosition` to account for when the activeBinArray has not been initialized.
-
 ### Security
+
+## @meteora-ag/dlmm [1.9.0] - [PR #260](https://github.com/MeteoraAg/dlmm-sdk/pull/260)
+
+### Added
+
+- Added `binDeltaToMinMaxBinId` helper function. To have a canonical conversion from binDelta to minBinId and maxBinId
+
+### Fixed
+
+- Fixed `simulateRebalancePosition` to account for when the activeBinArray has not been initialized.
 
 ## @meteora-ag/dlmm [1.8.0] - [PR #231](https://github.com/MeteoraAg/dlmm-sdk/pull/231)
 
