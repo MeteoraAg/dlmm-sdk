@@ -1,4 +1,4 @@
-import { AnchorProvider, BN, Program, Wallet, web3 } from "@coral-xyz/anchor";
+import { AnchorProvider,  Program, Wallet, web3 } from "@coral-xyz/anchor";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   ExtensionType,
