@@ -863,3 +863,43 @@ export async function chunkDepositWithRebalanceEndpoint(
 
   return chunkedAddLiquidityIx;
 }
+
+/**
+ * Adjusts the minimum and maximum bin IDs based on the provided token amounts, active bin ID, and single-sided flag.
+ *
+ * This function is typically used to ensure that the bin range is valid for liquidity provision,
+ * especially when one of the token amounts is zero (single-sided liquidity).
+ *
+ * @param minBinId - The initial minimum bin ID.
+ * @param maxBinId - The initial maximum bin ID.
+ * @param totalXAmount - The total amount of token X (as a BN instance).
+ * @param totalYAmount - The total amount of token Y (as a BN instance).
+ * @param activeId - The current active bin ID.
+ * @param singleSidedX - Indicates if the liquidity is single-sided on token X.
+ * @returns An object containing the adjusted minimum and maximum bin IDs.
+ */
+export function adjustMinMaxBinId(
+  minBinId: number,
+  maxBinId: number,
+  totalXAmount: BN,
+  totalYAmount: BN,
+  activeId: number,
+  singleSidedX: boolean
+) {
+  let adjustedMaxBinId = maxBinId;
+  let adjustedMinBinId = minBinId;
+
+  if (totalXAmount.isZero()) {
+    if (maxBinId >= activeId) {
+      adjustedMaxBinId = singleSidedX ? activeId - 1 : activeId;
+    }
+  }
+
+  if (totalYAmount.isZero()) {
+    if (minBinId <= activeId) {
+      adjustedMinBinId = singleSidedX ? activeId : activeId - 1;
+    }
+  }
+
+  return { adjustedMinBinId, adjustedMaxBinId };
+}
