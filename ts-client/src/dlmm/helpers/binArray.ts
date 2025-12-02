@@ -472,3 +472,12 @@ export function updateBinArray(
 
   return binArrayClone;
 }
+
+export function binDeltaToMinMaxBinId(binDelta: number, activeBinId: number) {
+  const minBinId = activeBinId - binDelta;
+  const maxBinId = minBinId + binDelta * 2;
+  return {
+    minBinId,
+    maxBinId,
+  };
+}
