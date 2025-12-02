@@ -1,4 +1,4 @@
-import { BN } from "@coral-xyz/anchor";
+import BN from "bn.js";
 import {
   BASIS_POINT_MAX,
   DEFAULT_BIN_PER_POSITION,

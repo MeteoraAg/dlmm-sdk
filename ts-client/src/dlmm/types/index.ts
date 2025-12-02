@@ -1,5 +1,5 @@
+import BN from "bn.js";
 import {
-  BN,
   BorshAccountsCoder,
   IdlAccounts,
   IdlTypes,
