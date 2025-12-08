@@ -19,6 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.9.1] - PR 243
+
+### Added
+- Customizable transaction chunk size for claim methods: `claimAllLMRewards`, `claimAllSwapFee`, `claimAllRewardsByPosition`, `claimAllRewards`
+
 ## @meteora-ag/dlmm [1.9.0] - [PR #260](https://github.com/MeteoraAg/dlmm-sdk/pull/260)
 
 ### Added
@@ -58,11 +63,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fixed wrapping more SOL than required during add liquidity
-
-## @meteora-ag/dlmm [1.7.5] - PR 243
-
-### Added
-- Customizable transaction chunk size for claim methods: `claimAllLMRewards`, `claimAllSwapFee`, `claimAllRewardsByPosition`, `claimAllRewards`
 
 ## @meteora-ag/dlmm [1.7.4] - PR 235
 
