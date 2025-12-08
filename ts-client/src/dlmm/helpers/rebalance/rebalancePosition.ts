@@ -13,6 +13,7 @@ import {
 import { LbClmm } from "../../idl";
 import {
   Bin,
+  BinArray,
   Clock,
   ClockLayout,
   LbPair,
@@ -327,7 +328,7 @@ function simulateDepositBin(
   binStep: BN,
   amountX: BN,
   amountY: BN,
-  bin: Bin
+  bin: Bin | null
 ) {
   if (!bin) {
     return {
@@ -401,14 +402,14 @@ export class RebalancePosition {
   public shouldClaimFee: boolean;
   public shouldClaimReward: boolean;
   public rebalancePositionBinData: RebalancePositionBinData[];
-  public activeBin: Bin;
+  public activeBin: Bin | null;
   public currentTimestamp: BN;
 
   constructor(
     positionAddress: PublicKey,
     positionData: PositionData,
     lbPair: LbPair,
-    activeBin: Bin,
+    activeBin: Bin | null,
     shouldClaimFee: boolean,
     shouldClaimReward: boolean,
     currentTimestamp: BN
@@ -451,9 +452,7 @@ export class RebalancePosition {
       activeBinArrayIdx,
       program.programId
     );
-    const activeBinArrayState = await program.account.binArray.fetch(
-      activeBinArrayPubkey
-    );
+
     const [lowerBinId, upperBinId] =
       getBinArrayLowerUpperBinId(activeBinArrayIdx);
     const idx = getBinIdIndexInBinArray(
@@ -461,7 +460,16 @@ export class RebalancePosition {
       lowerBinId,
       upperBinId
     );
-    const activeBin = activeBinArrayState[idx.toNumber()];
+
+    let activeBin: Bin | null = null;
+    try {
+      const activeBinArrayState = await program.account.binArray.fetch(
+        activeBinArrayPubkey
+      );
+      activeBin = activeBinArrayState[idx.toNumber()];
+    } catch (error) {
+      // error happens when the active bin array is not initialized
+    }
 
     return new RebalancePosition(
       positionAddress,

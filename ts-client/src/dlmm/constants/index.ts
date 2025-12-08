@@ -9,6 +9,11 @@ export const LBCLMM_PROGRAM_IDS = {
   "mainnet-beta": "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo",
 };
 
+export const ALT_ADDRESS = {
+  "mainnet-beta": "JA5F83HUK9L78Y12TRLCsJZbu3Tv8pCK1GfK8mVNp1sz",
+  devnet: "BD6E8oYV52P829MxDq3sEtqWKJrHh9pDSUHeaWR1jRBs",
+};
+
 export const ADMIN = {
   devnet: "6WaLrrRfReGKBYUSkmx2K6AuT21ida4j8at2SUiZdXu8",
   localhost: "bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1",

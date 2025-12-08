@@ -9,6 +9,9 @@
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "noImplicitAny": false,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "strictNullChecks": false,
   }
 }

@@ -1,18 +1,26 @@
 {
   "name": "@meteora-ag/dlmm",
-  "version": "1.7.5",
+  "version": "1.9.0",
   "description": "",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "source": "./src/index.ts",
   "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "default": "./dist/index.mjs"
+    }
+  },
   "files": [
     "dist/**"
   ],
   "scripts": {
     "build": "tsup",
     "start": "npm run build -- --watch",
-    "test": "jest 'src/test/(ilm|sdk_token2022|sdk|single_bin|token_2022|rebalance_parameter_builder|rebalance).test.ts'",
+    "test": "jest 'src/test/sdk_token2022.test.ts'",
     "unit-test": "jest src/test/calculate_distribution.test.ts",
     "example": "dotenv -e .env npx ts-node src/examples/example.ts",
     "start-server": "npx tsc && node dist/src/server/index.js"

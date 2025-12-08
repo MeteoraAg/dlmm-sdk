@@ -153,6 +153,13 @@ export enum PairType {
   Permissioned,
 }
 
+export enum ShrinkMode {
+  ShrinkBoth,
+  NoShrinkLeft,
+  NoShrinkRight,
+  NoShrinkBoth,
+}
+
 export const Strategy = {
   SpotBalanced: { spotBalanced: {} },
   CurveBalanced: { curveBalanced: {} },
@@ -213,6 +220,14 @@ export interface InitializeMultiplePositionAndAddLiquidityByStrategyResponse {
     initializeAtaIxs: TransactionInstruction[];
     addLiquidityIxs: TransactionInstruction[][];
   }[];
+}
+
+export interface InitializeMultiplePositionAndAddLiquidityByStrategyResponse2 {
+  instructionsByPositions: {
+    positionKeypair: Keypair;
+    transactionInstructions: TransactionInstruction[][];
+  }[];
+  lookupTableAddress?: PublicKey;
 }
 
 export interface TInitializeMultiplePositionAndAddLiquidityParamsByStrategy {
@@ -525,3 +540,5 @@ export interface RebalancePositionBinArrayRentalCostQuote {
   binArrayCost: number;
   bitmapExtensionCost: number;
 }
+
+export const REBALANCE_POSITION_PADDING = Array(31).fill(0);

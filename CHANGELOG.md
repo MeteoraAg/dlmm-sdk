@@ -19,6 +19,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.9.0] - [PR #260](https://github.com/MeteoraAg/dlmm-sdk/pull/260)
+
+### Added
+
+- Added `binDeltaToMinMaxBinId` helper function. To have a canonical conversion from binDelta to minBinId and maxBinId
+
+### Fixed
+
+- Fixed `simulateRebalancePosition` to account for when the activeBinArray has not been initialized.
+
+## @meteora-ag/dlmm [1.8.0] - [PR #231](https://github.com/MeteoraAg/dlmm-sdk/pull/231)
+
+### Added
+
+- Added `initializeMultiplePositionAndAddLiquidityByStrategy2` function. It should improve transaction landing by allowing parallel execution of returned transaction's instructions. However, the drawback is the function will only expand position up to 525 bins, and chunk the remaining bins into another position with 525 bins again, and so on. This is due to transaction size limitation.
+
+## @meteora-ag/dlmm [1.7.6] - PR 250
+
+### Fixed
+
+- Fixed modern esm and old commonjs import compatibility
+
+## cli [0.5.2] - PR #251
+
+### Fixed
+
+- Fixed `fetch_quote_required_accounts` zero copy account deserialization
+
+## commons [0.3.2] - PR 249
+
+### Fixed
+
+- Fix rust quote infinite loop
+
+## @meteora-ag/dlmm [1.7.5] - PR 244
+
+### Fixed
+
+- Fixed wrapping more SOL than required during add liquidity
+
 ## @meteora-ag/dlmm [1.7.5] - PR 243
 
 ### Added

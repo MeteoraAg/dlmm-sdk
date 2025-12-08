@@ -1,21 +1,24 @@
 import { Wallet } from "@coral-xyz/anchor";
+import { SYSTEM_PROGRAM_ID } from "@coral-xyz/anchor/dist/cjs/native/system";
 import {
+  Account,
   ASSOCIATED_TOKEN_PROGRAM_ID,
   createInitializeMintInstruction,
   createInitializeTransferFeeConfigInstruction,
   createInitializeTransferHookInstruction,
-  createMint,
   ExtensionType,
   getAssociatedTokenAddressSync,
   getMintLen,
   getOrCreateAssociatedTokenAccount,
   mintTo,
+  NATIVE_MINT,
   TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
   unpackAccount,
 } from "@solana/spl-token";
 import {
   AccountInfo,
+  AddressLookupTableProgram,
   Cluster,
   Connection,
   Keypair,
@@ -24,6 +27,8 @@ import {
   sendAndConfirmTransaction,
   SystemProgram,
   Transaction,
+  TransactionMessage,
+  VersionedTransaction,
 } from "@solana/web3.js";
 import BN from "bn.js";
 import Decimal from "decimal.js";
@@ -39,17 +44,24 @@ import {
   binIdToBinArrayIndex,
   deriveBinArray,
   deriveCustomizablePermissionlessLbPair,
+  deriveEventAuthority,
   deriveLbPairWithPresetParamWithIndexKey,
   derivePresetParameterWithIndex,
   deriveRewardVault,
   deriveTokenBadge,
   toAmountsBothSideByStrategy,
+  wrapSOLInstruction,
 } from "../dlmm/helpers";
 import {
   calculateTransferFeeExcludedAmount,
   getExtraAccountMetasForTransferHook,
 } from "../dlmm/helpers/token_2022";
-import { ActivationType, ResizeSide, StrategyType } from "../dlmm/types";
+import {
+  ActivationType,
+  MEMO_PROGRAM_ID,
+  ResizeSide,
+  StrategyType,
+} from "../dlmm/types";
 import { createExtraAccountMetaListAndCounter } from "./external/helper";
 import {
   createTransferHookCounterProgram,
@@ -66,16 +78,15 @@ const keypair = Keypair.fromSecretKey(
   new Uint8Array(JSON.parse(keypairBuffer))
 );
 
-const btcDecimal = 6;
-const usdcDecimal = 6;
+const btcDecimal = 9;
+const solDecimal = 9;
 const metDecimal = 6;
 
 const BTCKeypair = Keypair.generate();
-const USDCKeypair = Keypair.generate();
 const METKeypair = Keypair.generate();
 
 const BTC2022 = BTCKeypair.publicKey;
-const USDC = USDCKeypair.publicKey;
+const SOL = NATIVE_MINT;
 const MET2022 = METKeypair.publicKey;
 
 const transferFeeBps = 500; // 5%
@@ -94,17 +105,18 @@ const nonExtendedPositionKeypair0 = Keypair.generate();
 const nonExtendedPositionKeypair1 = Keypair.generate();
 
 const extendedPositionKeypair0 = Keypair.generate();
-const extendedPositionKeypair1 = Keypair.generate();
 
 const MAX_ALLOWED_LAMPORT_LOSS = 500;
 
 type Opt = {
   cluster?: Cluster | "localhost";
   programId?: PublicKey;
+  skipSolWrappingOperation?: boolean;
 };
 
 const opt: Opt = {
   cluster: "localhost",
+  skipSolWrappingOperation: true,
 };
 
 describe("SDK token2022 test", () => {
@@ -116,22 +128,10 @@ describe("SDK token2022 test", () => {
     );
     await connection.confirmTransaction(airdropSig, "confirmed");
 
-    await createMint(
+    const userWsolAccount = await getOrCreateAssociatedTokenAccount(
       connection,
       keypair,
-      keypair.publicKey,
-      null,
-      usdcDecimal,
-      USDCKeypair,
-      {
-        commitment: "confirmed",
-      }
-    );
-
-    const userUsdcAccount = await getOrCreateAssociatedTokenAccount(
-      connection,
-      keypair,
-      USDC,
+      SOL,
       keypair.publicKey,
       true,
       "confirmed",
@@ -142,21 +142,20 @@ describe("SDK token2022 test", () => {
       ASSOCIATED_TOKEN_PROGRAM_ID
     );
 
-    const userUsdcAta = userUsdcAccount.address;
-
-    await mintTo(
-      connection,
-      keypair,
-      USDC,
-      userUsdcAta,
-      keypair,
-      BigInt(1_000_000_000) * BigInt(10 ** usdcDecimal),
-      [],
-      {
-        commitment: "confirmed",
-      },
-      TOKEN_PROGRAM_ID
+    const wrapSolIx = await wrapSOLInstruction(
+      keypair.publicKey,
+      userWsolAccount.address,
+      BigInt(100) * BigInt(10 ** solDecimal)
     );
+
+    const wrapSolTx = new Transaction({
+      ...(await connection.getLatestBlockhash("confirmed")),
+      feePayer: keypair.publicKey,
+    }).add(...wrapSolIx);
+
+    await sendAndConfirmTransaction(connection, wrapSolTx, [keypair], {
+      commitment: "confirmed",
+    });
 
     const extensions = [
       ExtensionType.TransferFeeConfig,
@@ -407,7 +406,7 @@ describe("SDK token2022 test", () => {
         connection,
         keypair.publicKey,
         BTC2022,
-        USDC,
+        SOL,
         presetParameter2Key,
         activeId,
         opt
@@ -420,7 +419,7 @@ describe("SDK token2022 test", () => {
       [pairKey] = deriveLbPairWithPresetParamWithIndexKey(
         presetParameter2Key,
         BTC2022,
-        USDC,
+        SOL,
         program.programId
       );
 
@@ -441,7 +440,7 @@ describe("SDK token2022 test", () => {
           connection,
           binStep,
           BTC2022,
-          USDC,
+          SOL,
           activeId,
           feeBps,
           ActivationType.Timestamp,
@@ -460,7 +459,7 @@ describe("SDK token2022 test", () => {
 
       const [pairKey] = deriveCustomizablePermissionlessLbPair(
         BTC2022,
-        USDC,
+        SOL,
         program.programId
       );
 
@@ -739,7 +738,7 @@ describe("SDK token2022 test", () => {
     const dlmm = await DLMM.create(connection, pairKey, opt);
 
     // Generate some swap fees
-    const inAmount = new BN(100_000);
+    const inAmount = new BN(1);
     for (const [inToken, outToken] of [
       [dlmm.tokenX, dlmm.tokenY],
       [dlmm.tokenY, dlmm.tokenX],
@@ -823,6 +822,8 @@ describe("SDK token2022 test", () => {
           fromBinId: position.positionData.lowerBinId,
           toBinId: position.positionData.upperBinId,
           bps: new BN(BASIS_POINT_MAX),
+          shouldClaimAndClose: false,
+          skipUnwrapSOL: true,
         });
       });
 
@@ -837,8 +838,8 @@ describe("SDK token2022 test", () => {
 
     describe("Add liquidity", () => {
       it("Add liquidity by strategy", async () => {
-        const totalXAmount = new BN(100_000).mul(new BN(10 ** btcDecimal));
-        const totalYAmount = new BN(100_000).mul(new BN(10 ** usdcDecimal));
+        const totalXAmount = new BN(5).mul(new BN(10 ** btcDecimal));
+        const totalYAmount = new BN(5).mul(new BN(10 ** solDecimal));
 
         const dlmm = await DLMM.create(connection, pairKey, opt);
         let position = await dlmm.getPosition(
@@ -968,8 +969,8 @@ describe("SDK token2022 test", () => {
       });
 
       it("Initialize position and add liquidity by strategy", async () => {
-        const totalXAmount = new BN(100_000).mul(new BN(10 ** btcDecimal));
-        const totalYAmount = new BN(100_000).mul(new BN(10 ** usdcDecimal));
+        const totalXAmount = new BN(5).mul(new BN(10 ** btcDecimal));
+        const totalYAmount = new BN(5).mul(new BN(10 ** solDecimal));
 
         const dlmm = await DLMM.create(connection, pairKey, opt);
 
@@ -1103,7 +1104,7 @@ describe("SDK token2022 test", () => {
     describe("Swap", () => {
       it("SwapExactIn quote X into Y and execute swap", async () => {
         const dlmm = await DLMM.create(connection, pairKey, opt);
-        const inAmount = new BN(100_000).mul(new BN(10 ** btcDecimal));
+        const inAmount = new BN(1).mul(new BN(10 ** btcDecimal));
         const swapForY = true;
 
         const bidBinArrays = await dlmm.getBinArrayForSwap(swapForY, 3);
@@ -1200,7 +1201,7 @@ describe("SDK token2022 test", () => {
 
       it("SwapExactOut quote Y into X and execute swap", async () => {
         const dlmm = await DLMM.create(connection, pairKey, opt);
-        const outAmount = new BN(100_000).mul(new BN(10 ** btcDecimal));
+        const outAmount = new BN(1).mul(new BN(10 ** btcDecimal));
         const swapForY = false;
 
         const askBinArrays = await dlmm.getBinArrayForSwap(swapForY, 3);
@@ -1212,6 +1213,7 @@ describe("SDK token2022 test", () => {
         );
 
         console.log(
+          "quote exact out",
           quoteResult.inAmount.toString(),
           quoteResult.outAmount.toString()
         );
@@ -1301,7 +1303,7 @@ describe("SDK token2022 test", () => {
 
       it("SwapExactOut quote X into Y and execute swap", async () => {
         const dlmm = await DLMM.create(connection, pairKey, opt);
-        const outAmount = new BN(100_000).mul(new BN(10 ** usdcDecimal));
+        const outAmount = new BN(1).mul(new BN(10 ** solDecimal));
         const swapForY = true;
 
         const bidBinArrays = await dlmm.getBinArrayForSwap(swapForY, 3);
@@ -1313,6 +1315,7 @@ describe("SDK token2022 test", () => {
         );
 
         console.log(
+          "Quote in and out amount",
           quoteResult.inAmount.toString(),
           quoteResult.outAmount.toString()
         );
@@ -1402,7 +1405,7 @@ describe("SDK token2022 test", () => {
 
       it("SwapExactIn quote Y into X and execute swap", async () => {
         const dlmm = await DLMM.create(connection, pairKey, opt);
-        const inAmount = new BN(100_000).mul(new BN(10 ** usdcDecimal));
+        const inAmount = new BN(1).mul(new BN(10 ** solDecimal));
         const swapForY = false;
 
         const askBinArrays = await dlmm.getBinArrayForSwap(swapForY, 3);
@@ -2070,6 +2073,7 @@ describe("SDK token2022 test", () => {
           bps: new BN(BASIS_POINT_MAX),
           user: keypair.publicKey,
           shouldClaimAndClose: false,
+          skipUnwrapSOL: true,
         });
 
         await Promise.all(
@@ -2182,6 +2186,7 @@ describe("SDK token2022 test", () => {
           bps: new BN(BASIS_POINT_MAX),
           user: keypair.publicKey,
           shouldClaimAndClose: true,
+          skipUnwrapSOL: true,
         })) as Transaction[];
 
         expect(Array.isArray(removeLiquidityTxs)).toBeTruthy();
@@ -2496,6 +2501,174 @@ describe("SDK token2022 test", () => {
             .getTokenAccountBalance(userTokenY)
             .then((res) => new BN(res.value.amount)),
         ]);
+
+        const consumedTokenX = beforeTokenX.sub(afterTokenX);
+        const consumedTokenY = beforeTokenY.sub(afterTokenY);
+
+        // Due to transfer fee
+        expect(consumedTokenX.gte(totalXAmount)).toBeTruthy();
+        expect(consumedTokenY.lte(totalYAmount)).toBeTruthy();
+      });
+
+      it("Initialize multiple extended position and add liquidity to strategy 2", async () => {
+        const dlmm = await DLMM.create(connection, pairKey, opt);
+
+        console.log("🚀 ~ dlmm:", dlmm.pubkey.toBase58());
+
+        const [initALTIx, altAddress] =
+          AddressLookupTableProgram.createLookupTable({
+            authority: keypair.publicKey,
+            payer: keypair.publicKey,
+            recentSlot: await connection.getSlot("finalized"),
+          });
+
+        const extendInstruction = AddressLookupTableProgram.extendLookupTable({
+          payer: keypair.publicKey,
+          authority: keypair.publicKey,
+          lookupTable: altAddress,
+          addresses: [
+            TOKEN_PROGRAM_ID,
+            TOKEN_2022_PROGRAM_ID,
+            SYSTEM_PROGRAM_ID,
+            deriveEventAuthority(dlmm.program.programId)[0],
+            MEMO_PROGRAM_ID,
+            NATIVE_MINT,
+          ],
+        });
+
+        const initALTTransaction = new Transaction({
+          ...(await connection.getLatestBlockhash()),
+          feePayer: keypair.publicKey,
+        }).add(initALTIx, extendInstruction);
+
+        await sendAndConfirmTransaction(connection, initALTTransaction, [
+          keypair,
+        ]);
+
+        const totalXAmount = new BN(1_000_000_000);
+        const totalYAmount = new BN(1_000_000_000);
+        const minBinId = dlmm.lbPair.activeId - 2000;
+        const maxBinId = dlmm.lbPair.activeId + 2000;
+
+        const userTokenX = getAssociatedTokenAddressSync(
+          dlmm.lbPair.tokenXMint,
+          keypair.publicKey,
+          true,
+          dlmm.tokenX.owner
+        );
+        const userTokenY = getAssociatedTokenAddressSync(
+          dlmm.lbPair.tokenYMint,
+          keypair.publicKey,
+          true,
+          dlmm.tokenY.owner
+        );
+
+        const [beforeTokenX, beforeTokenY] = await Promise.all([
+          connection
+            .getTokenAccountBalance(userTokenX)
+            .then((res) => new BN(res.value.amount)),
+          connection
+            .getTokenAccountBalance(userTokenY)
+            .then((res) => new BN(res.value.amount)),
+        ]);
+
+        const { instructionsByPositions } =
+          await dlmm.initializeMultiplePositionAndAddLiquidityByStrategy2(
+            async (count) => {
+              const positionKeypairs = [];
+              for (let i = 0; i < count; i++) {
+                const positionKeypair = Keypair.generate();
+                positionKeypairs.push(positionKeypair);
+              }
+              return positionKeypairs;
+            },
+            totalXAmount,
+            totalYAmount,
+            {
+              minBinId,
+              maxBinId,
+              strategyType: StrategyType.Curve,
+            },
+            keypair.publicKey,
+            keypair.publicKey,
+            0,
+            altAddress
+          );
+
+        const altAccount = await connection.getAddressLookupTable(altAddress);
+        const latestBlockhashInfo = await connection.getLatestBlockhash();
+
+        await Promise.all(
+          instructionsByPositions.flatMap(
+            ({ positionKeypair, transactionInstructions }) => {
+              return transactionInstructions.flatMap((ixs) => {
+                const messageV0 = new TransactionMessage({
+                  payerKey: keypair.publicKey,
+                  recentBlockhash: latestBlockhashInfo.blockhash,
+                  instructions: ixs,
+                }).compileToV0Message([altAccount.value]);
+
+                const transaction = new VersionedTransaction(messageV0);
+                transaction.sign([keypair, positionKeypair]);
+
+                return connection.sendTransaction(transaction).then((sig) => {
+                  console.log("Add liquidity", sig);
+                  return connection.confirmTransaction(
+                    {
+                      signature: sig,
+                      lastValidBlockHeight:
+                        latestBlockhashInfo.lastValidBlockHeight,
+                      blockhash: latestBlockhashInfo.blockhash,
+                    },
+                    "confirmed"
+                  );
+                });
+              });
+            }
+          )
+        );
+
+        await logLbPairLiquidities(pairKey, dlmm.lbPair.binStep, dlmm.program);
+
+        const positions = await Promise.all(
+          instructionsByPositions.map(({ positionKeypair }) =>
+            dlmm.getPosition(positionKeypair.publicKey)
+          )
+        );
+
+        for (const position of positions) {
+          const width =
+            position.positionData.upperBinId -
+            position.positionData.lowerBinId +
+            1;
+          console.log("🚀 ~ Position width:", width);
+        }
+
+        let positionMinBinId = Number.MAX_SAFE_INTEGER;
+        let positionMaxBinId = Number.MIN_SAFE_INTEGER;
+
+        for (const position of positions) {
+          if (position.positionData.lowerBinId < positionMinBinId) {
+            positionMinBinId = position.positionData.lowerBinId;
+          }
+          if (position.positionData.upperBinId > positionMaxBinId) {
+            positionMaxBinId = position.positionData.upperBinId;
+          }
+        }
+
+        expect(positionMinBinId).toBe(minBinId);
+        expect(positionMaxBinId).toBe(maxBinId);
+
+        const [afterTokenX, afterTokenY] = await Promise.all([
+          connection
+            .getTokenAccountBalance(userTokenX)
+            .then((res) => new BN(res.value.amount)),
+          connection
+            .getTokenAccountBalance(userTokenY)
+            .then((res) => new BN(res.value.amount)),
+        ]);
+
+        console.log("here", beforeTokenY.toString(), afterTokenY.toString());
 
         const consumedTokenX = beforeTokenX.sub(afterTokenX);
         const consumedTokenY = beforeTokenY.sub(afterTokenY);
