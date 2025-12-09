@@ -24,4 +24,6 @@ cargo build
 
 ### Run
 
+```
 target/debug/cli --help
+```
