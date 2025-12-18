@@ -13,9 +13,11 @@ import {
   getMint,
 } from "@solana/spl-token";
 import {
+  AccountInfo,
   Cluster,
   ComputeBudgetProgram,
   Connection,
+  GetProgramAccountsFilter,
   PublicKey,
   SystemProgram,
   TransactionInstruction,
@@ -35,6 +37,7 @@ import {
   Bin,
   BinArray,
   BinArrayBitmapExtension,
+  ChunkCallback,
   ClmmProgram,
   GetOrCreateATAResponse,
   LbPair,
@@ -257,6 +260,118 @@ export async function chunkedGetMultipleAccountInfos(
   ).flat();
 
   return accountInfos;
+}
+
+
+/**
+ * Fetches program accounts in a chunked manner to handle large result sets.
+ *
+ * This function uses a two-phase approach to avoid RPC timeouts and response size limits:
+ * 1. First fetches only account pubkeys using dataSlice with zero length
+ * 2. Then fetches full account data in chunks using getMultipleAccountsInfo
+ *
+ * This is particularly useful when fetching many accounts (e.g., 1000+ positions)
+ * where a single getProgramAccounts call might timeout or exceed the 50MB response limit.
+ *
+ * @param connection - The Solana connection object
+ * @param programId - The program ID to fetch accounts from
+ * @param filters - Array of filters to apply (e.g., account discriminator, owner filter)
+ * @param chunkSize - Optional number of accounts to fetch per chunk (default: 100)
+ * @param onChunkFetched - Optional callback called as each chunk completes (in parallel mode, order not guaranteed)
+ * @param isParallelExecution - Optional flag to control execution mode. When true, chunks are fetched in parallel. When false (default), chunks are fetched sequentially.
+ * @returns Array of objects containing pubkey and account info
+ */
+export async function chunkedGetProgramAccounts(
+  connection: Connection,
+  programId: PublicKey,
+  filters: GetProgramAccountsFilter[],
+  chunkSize: number = 100,
+  onChunkFetched?: ChunkCallback,
+  isParallelExecution: boolean = false
+): Promise<{ pubkey: PublicKey; account: AccountInfo<Buffer> }[]> {
+  // Fetch only pubkeys using dataSlice with zero length
+  const accountsWithoutData = await connection.getProgramAccounts(programId, {
+    filters,
+    dataSlice: { offset: 0, length: 0 },
+  });
+
+  if (accountsWithoutData.length === 0) {
+    return [];
+  }
+
+  const pubkeys = accountsWithoutData.map((account) => account.pubkey);
+  const totalAccounts = pubkeys.length;
+
+  // Fetch full account data in chunks
+  const chunkedPks = chunks(pubkeys, chunkSize);
+  const totalChunks = chunkedPks.length;
+
+  // Track progress for callback
+  let chunksLoaded = 0;
+  let accountsLoaded = 0;
+
+  // Results array to maintain order
+  const chunkResults: (AccountInfo<Buffer> | null)[][] = new Array(totalChunks);
+
+  const processChunk = async (chunk: PublicKey[], chunkIndex: number) => {
+    const chunkAccountInfos = await connection.getMultipleAccountsInfo(chunk);
+    chunkResults[chunkIndex] = chunkAccountInfos;
+
+    // Call callback if provided
+    if (onChunkFetched) {
+      const chunkAccounts: { pubkey: PublicKey; account: AccountInfo<Buffer> }[] = [];
+      const startIdx = chunkIndex * chunkSize;
+      for (let i = 0; i < chunkAccountInfos.length; i++) {
+        const accountInfo = chunkAccountInfos[i];
+        if (accountInfo) {
+          chunkAccounts.push({
+            pubkey: pubkeys[startIdx + i],
+            account: accountInfo,
+          });
+        }
+      }
+
+      chunksLoaded++;
+      accountsLoaded += chunkAccounts.length;
+
+      onChunkFetched(chunkAccounts, {
+        chunksLoaded,
+        totalChunks,
+        accountsLoaded,
+        totalAccounts,
+      });
+    }
+  };
+
+  if (isParallelExecution) {
+    // Parallel execution (callback progress is approximate due to parallel execution)
+    await Promise.all(
+      chunkedPks.map((chunk, chunkIndex) => processChunk(chunk, chunkIndex))
+    );
+  } else {
+    // Sequential execution (callback progress is accurate and in order)
+    for (let chunkIndex = 0; chunkIndex < chunkedPks.length; chunkIndex++) {
+      await processChunk(chunkedPks[chunkIndex], chunkIndex);
+    }
+  }
+
+  // Combine all results in order
+  const result: { pubkey: PublicKey; account: AccountInfo<Buffer> }[] = [];
+  for (let chunkIndex = 0; chunkIndex < chunkResults.length; chunkIndex++) {
+    const chunkAccountInfos = chunkResults[chunkIndex];
+    const startIdx = chunkIndex * chunkSize;
+    for (let i = 0; i < chunkAccountInfos.length; i++) {
+      const accountInfo = chunkAccountInfos[i];
+      if (accountInfo) {
+        result.push({
+          pubkey: pubkeys[startIdx + i],
+          account: accountInfo,
+        });
+      }
+    }
+  }
+
+  return result;
 }
 
 /**

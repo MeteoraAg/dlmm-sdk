@@ -8,6 +8,7 @@ import {
 import { LbClmm } from "../idl/idl";
 import { getPriceOfBinByBinId } from "../helpers";
 import {
+  AccountInfo,
   AccountMeta,
   Keypair,
   PublicKey,
@@ -541,3 +542,41 @@ export interface RebalancePositionBinArrayRentalCostQuote {
 }
 
 export const REBALANCE_POSITION_PADDING = Array(31).fill(0);
+
+export interface ChunkCallbackInfo {
+  chunksLoaded: number;
+  totalChunks: number;
+  accountsLoaded: number;
+  totalAccounts: number;
+}
+
+export type ChunkCallback = (
+  accounts: { pubkey: PublicKey; account: AccountInfo<Buffer> }[],
+  progress: ChunkCallbackInfo
+) => void;
+
+/**
+ * Options for fetching positions with chunked RPC calls.
+ */
+export interface GetPositionsOpt {
+  /**
+   * Number of accounts to fetch per RPC call when retrieving position data.
+   * Default: 100
+   */
+  chunkSize?: number;
+
+  /**
+   * Optional callback called as each chunk of positions is fetched.
+   * Note: When isParallelExecution is false (default), callbacks fire sequentially in order.
+   * When isParallelExecution is true, callbacks fire in parallel (order not guaranteed).
+   */
+  onChunkFetched?: ChunkCallback;
+
+  /**
+   * Controls whether chunks are fetched in parallel or sequentially.
+   * Default: false (sequential execution)
+   * When false, chunks are fetched sequentially and callbacks fire in order.
+   * When true, callback progress is approximate due to parallel execution.
+   */
+  isParallelExecution?: boolean;
+}
