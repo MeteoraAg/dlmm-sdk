@@ -15,15 +15,15 @@ import {
   LAMPORTS_PER_SOL,
   PublicKey,
   sendAndConfirmTransaction,
-  SYSVAR_RENT_PUBKEY,
 } from "@solana/web3.js";
 import Decimal from "decimal.js";
 import fs from "fs";
 import {
   DEFAULT_BIN_PER_POSITION,
+  FunctionType,
   LBCLMM_PROGRAM_IDS,
 } from "../dlmm/constants";
-import IDL from "../dlmm/dlmm.json";
+import IDL from "../dlmm/idl/idl.json";
 import {
   binIdToBinArrayIndex,
   deriveBinArray,
@@ -37,7 +37,11 @@ import { computeBaseFactorFromFeeBps } from "../dlmm/helpers/math";
 import { wrapPosition } from "../dlmm/helpers/positions";
 import { DLMM } from "../dlmm/index";
 import { ActivationType, PairType, StrategyType } from "../dlmm/types";
-import { createTestProgram } from "./helper";
+import {
+  createTestProgram,
+  createWhitelistOperator,
+  OperatorPermission,
+} from "./helper";
 
 const keypairBuffer = fs.readFileSync(
   "../keys/localnet/admin-bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1.json",
@@ -209,26 +213,37 @@ describe("SDK test", () => {
 
     const program = createTestProgram(connection, programId, keypair);
 
+    const operatorPda = await createWhitelistOperator(
+      connection,
+      keypair,
+      keypair.publicKey,
+      [OperatorPermission.InitializePresetParameter],
+      programId
+    );
+
     const presetParamState =
       await program.account.presetParameter.fetchNullable(presetParamPda);
 
     if (!presetParamState) {
       await program.methods
         .initializePresetParameter({
+          index: 0,
           binStep: DEFAULT_BIN_STEP.toNumber(),
           baseFactor: DEFAULT_BASE_FACTOR.toNumber(),
+          functionType: FunctionType.LiquidityMining,
           filterPeriod: 30,
           decayPeriod: 600,
           reductionFactor: 5000,
           variableFeeControl: 40000,
           protocolShare: 0,
           maxVolatilityAccumulator: 350000,
+          baseFeePowerFactor: 0,
         })
         .accountsPartial({
-          admin: keypair.publicKey,
+          signer: keypair.publicKey,
           presetParameter: presetParamPda,
-          rent: web3.SYSVAR_RENT_PUBKEY,
           systemProgram: web3.SystemProgram.programId,
+          operator: operatorPda,
         })
         .signers([keypair])
         .rpc({
@@ -242,20 +257,23 @@ describe("SDK test", () => {
     if (!presetParamState2) {
       await program.methods
         .initializePresetParameter({
+          index: 0,
           binStep: DEFAULT_BIN_STEP.toNumber(),
           baseFactor: DEFAULT_BASE_FACTOR_2.toNumber(),
+          functionType: FunctionType.LiquidityMining,
           filterPeriod: 30,
           decayPeriod: 600,
           reductionFactor: 5000,
           variableFeeControl: 40000,
           protocolShare: 0,
           maxVolatilityAccumulator: 350000,
+          baseFeePowerFactor: 0,
         })
         .accountsPartial({
-          admin: keypair.publicKey,
+          signer: keypair.publicKey,
           presetParameter: presetParamPda2,
-          rent: web3.SYSVAR_RENT_PUBKEY,
           systemProgram: web3.SystemProgram.programId,
+          operator: operatorPda,
         })
         .signers([keypair])
         .rpc({
@@ -291,6 +309,14 @@ describe("SDK test", () => {
 
       try {
         const program = createTestProgram(connection, programId, keypair);
+
+        const operatorPda = await createWhitelistOperator(
+          connection,
+          keypair,
+          keypair.publicKey,
+          [OperatorPermission.InitializePermissionedPool],
+          programId
+        );
 
         [pairKey] = derivePermissionLbPair(
           baseKeypair.publicKey,
@@ -328,13 +354,13 @@ describe("SDK test", () => {
             reserveX,
             reserveY,
             oracle,
-            admin: keypair.publicKey,
+            signer: keypair.publicKey,
             tokenBadgeX: program.programId,
             tokenBadgeY: program.programId,
             tokenProgramX: TOKEN_PROGRAM_ID,
             tokenProgramY: TOKEN_PROGRAM_ID,
-            rent: SYSVAR_RENT_PUBKEY,
             program: program.programId,
+            operator: operatorPda,
           })
           .transaction();
 

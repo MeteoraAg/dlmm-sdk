@@ -238,3 +238,13 @@ export function derivePlaceHolderAccountMeta(
     isSigner: false,
   };
 }
+
+export function deriveOperator(
+  whitelistedSigner: PublicKey,
+  programId: PublicKey
+) {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("operator"), whitelistedSigner.toBuffer()],
+    programId
+  )[0];
+}

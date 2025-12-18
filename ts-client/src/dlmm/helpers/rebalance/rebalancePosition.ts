@@ -10,7 +10,7 @@ import {
   FEE_PRECISION,
   SCALE_OFFSET,
 } from "../../constants";
-import { LbClmm } from "../../idl";
+import { LbClmm } from "../../idl/idl";
 import {
   Bin,
   BinArray,

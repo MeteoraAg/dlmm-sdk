@@ -1,7 +1,6 @@
 import { Wallet } from "@coral-xyz/anchor";
 import { SYSTEM_PROGRAM_ID } from "@coral-xyz/anchor/dist/cjs/native/system";
 import {
-  Account,
   ASSOCIATED_TOKEN_PROGRAM_ID,
   createInitializeMintInstruction,
   createInitializeTransferFeeConfigInstruction,
@@ -37,6 +36,7 @@ import { DLMM } from "../dlmm";
 import {
   BASIS_POINT_MAX,
   DEFAULT_BIN_PER_POSITION,
+  FunctionType,
   LBCLMM_PROGRAM_IDS,
   POSITION_MAX_LENGTH,
 } from "../dlmm/constants";
@@ -46,6 +46,7 @@ import {
   deriveCustomizablePermissionlessLbPair,
   deriveEventAuthority,
   deriveLbPairWithPresetParamWithIndexKey,
+  deriveOperator,
   derivePresetParameterWithIndex,
   deriveRewardVault,
   deriveTokenBadge,
@@ -67,7 +68,12 @@ import {
   createTransferHookCounterProgram,
   TRANSFER_HOOK_COUNTER_PROGRAM_ID,
 } from "./external/program";
-import { createTestProgram, logLbPairLiquidities } from "./helper";
+import {
+  createTestProgram,
+  createWhitelistOperator,
+  logLbPairLiquidities,
+  OperatorPermission,
+} from "./helper";
 
 const keypairBuffer = fs.readFileSync(
   "../keys/localnet/admin-bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1.json",
@@ -124,7 +130,7 @@ describe("SDK token2022 test", () => {
   beforeAll(async () => {
     const airdropSig = await connection.requestAirdrop(
       keypair.publicKey,
-      10 * LAMPORTS_PER_SOL
+      200 * LAMPORTS_PER_SOL
     );
     await connection.confirmTransaction(airdropSig, "confirmed");
 
@@ -344,11 +350,24 @@ describe("SDK token2022 test", () => {
       program.programId
     );
 
+    const operatorPda = await createWhitelistOperator(
+      connection,
+      keypair,
+      keypair.publicKey,
+      [
+        OperatorPermission.InitializePresetParameter,
+        OperatorPermission.InitializeTokenBadge,
+        OperatorPermission.InitializeReward,
+      ],
+      program.programId
+    );
+
     await program.methods
-      .initializePresetParameter2({
+      .initializePresetParameter({
         index: idx,
         binStep: 10,
         baseFactor: 10_000,
+        functionType: FunctionType.LiquidityMining,
         filterPeriod: 30,
         decayPeriod: 600,
         reductionFactor: 5000,
@@ -359,8 +378,9 @@ describe("SDK token2022 test", () => {
       })
       .accountsPartial({
         presetParameter: presetParameter2Key,
-        admin: keypair.publicKey,
+        signer: keypair.publicKey,
         systemProgram: SystemProgram.programId,
+        operator: operatorPda,
       })
       .rpc();
 
@@ -370,9 +390,10 @@ describe("SDK token2022 test", () => {
       .initializeTokenBadge()
       .accountsPartial({
         tokenBadge: btcTokenBadge,
-        admin: keypair.publicKey,
+        signer: keypair.publicKey,
         systemProgram: SystemProgram.programId,
         tokenMint: BTC2022,
+        operator: operatorPda,
       })
       .rpc();
 
@@ -382,9 +403,10 @@ describe("SDK token2022 test", () => {
       .initializeTokenBadge()
       .accountsPartial({
         tokenBadge: metTokenBadge,
-        admin: keypair.publicKey,
+        signer: keypair.publicKey,
         systemProgram: SystemProgram.programId,
         tokenMint: MET2022,
+        operator: operatorPda,
       })
       .rpc();
   });
@@ -446,6 +468,7 @@ describe("SDK token2022 test", () => {
           ActivationType.Timestamp,
           false,
           keypair.publicKey,
+          FunctionType.LiquidityMining,
           null,
           false,
           opt
@@ -530,16 +553,19 @@ describe("SDK token2022 test", () => {
 
       const [tokenBadge] = deriveTokenBadge(MET2022, program.programId);
 
+      const operatorPda = deriveOperator(keypair.publicKey, program.programId);
+
       await program.methods
         .initializeReward(rewardIndex, rewardDuration, funder)
         .accountsPartial({
           lbPair: pairKey,
           rewardMint: MET2022,
           rewardVault,
-          admin: keypair.publicKey,
+          signer: keypair.publicKey,
           tokenBadge,
           tokenProgram: metAccount.owner,
           systemProgram: SystemProgram.programId,
+          operator: operatorPda,
         })
         .rpc();
 

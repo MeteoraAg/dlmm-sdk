@@ -27,8 +27,8 @@ import {
   SCALE_OFFSET,
   U64_MAX,
 } from "../constants";
-import IDL from "../dlmm.json";
-import { LbClmm } from "../idl";
+import IDL from "../idl/idl.json";
+import { LbClmm } from "../idl/idl";
 import {
   AccountName,
   ActionType,

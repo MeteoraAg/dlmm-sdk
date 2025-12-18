@@ -9,7 +9,7 @@ import {
 import { Connection, Keypair, PublicKey, Transaction } from "@solana/web3.js";
 import { BN } from "bn.js";
 import { DLMM } from "../dlmm";
-import { LBCLMM_PROGRAM_IDS } from "../dlmm/constants";
+import { FunctionType, LBCLMM_PROGRAM_IDS } from "../dlmm/constants";
 import { deriveCustomizablePermissionlessLbPair } from "../dlmm/helpers";
 import { StrategyType } from "../dlmm/types";
 
@@ -61,6 +61,7 @@ async function createMintAndPair(
     1,
     false,
     keypair.publicKey,
+    FunctionType.LiquidityMining,
     null,
     null,
     {
