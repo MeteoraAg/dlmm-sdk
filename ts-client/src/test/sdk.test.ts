@@ -36,7 +36,7 @@ import {
 import { computeBaseFactorFromFeeBps } from "../dlmm/helpers/math";
 import { wrapPosition } from "../dlmm/helpers/positions";
 import { DLMM } from "../dlmm/index";
-import { ActivationType, PairType, StrategyType } from "../dlmm/types";
+import { ActivationType, ChunkCallbackInfo, GetPositionsOpt, PairType, StrategyType } from "../dlmm/types";
 import {
   createTestProgram,
   createWhitelistOperator,
@@ -1050,6 +1050,249 @@ describe("SDK test", () => {
         (ps) => ps.publicKey.toBase58() == positionKeypair.publicKey.toBase58()
       )
     ).not.toBeUndefined();
+  });
+
+  describe("getPositionsByUserAndLbPair with GetPositionsOpt", () => {
+    const additionalPositions: PublicKey[] = [];
+    const NUM_ADDITIONAL_POSITIONS = 4; // Create 4 more positions (total 5 with existing one)
+
+    beforeAll(async () => {
+      // Create additional positions to test chunking
+      console.log(`Creating ${NUM_ADDITIONAL_POSITIONS} additional positions for chunking test...`);
+
+      for (let i = 0; i < NUM_ADDITIONAL_POSITIONS; i++) {
+        const newPositionKeypair = Keypair.generate();
+
+        // Each position covers different bin ranges
+        const minBinId = lbClmm.lbPair.activeId - 15 - (i * 5);
+        const maxBinId = lbClmm.lbPair.activeId - 5 - (i * 5);
+
+        const btcAmount = new BN(100).mul(new BN(10 ** btcDecimal));
+        const usdcAmount = new BN(2400).mul(new BN(10 ** usdcDecimal));
+
+        try {
+          const rawTxs = await lbClmm.initializePositionAndAddLiquidityByStrategy({
+            user: keypair.publicKey,
+            positionPubKey: newPositionKeypair.publicKey,
+            totalXAmount: btcAmount,
+            totalYAmount: usdcAmount,
+            strategy: {
+              minBinId,
+              maxBinId,
+              strategyType: StrategyType.Spot,
+            },
+          });
+
+          if (Array.isArray(rawTxs)) {
+            for (const rawTx of rawTxs) {
+              await sendAndConfirmTransaction(connection, rawTx, [
+                keypair,
+                newPositionKeypair,
+              ]);
+            }
+          } else {
+            await sendAndConfirmTransaction(connection, rawTxs, [
+              keypair,
+              newPositionKeypair,
+            ]);
+          }
+
+          additionalPositions.push(newPositionKeypair.publicKey);
+          console.log(`Created additional position ${i + 1}/${NUM_ADDITIONAL_POSITIONS}`);
+        } catch (error) {
+          console.log(JSON.parse(JSON.stringify(error)));
+          throw error;
+        }
+
+        await lbClmm.refetchStates();
+      }
+
+      console.log(`Successfully created ${additionalPositions.length} additional positions`);
+    });
+
+    it("should fetch positions with callback and verify chunking", async () => {
+      const chunkSize = 2;
+      const callbackData: {
+        accountsCount: number;
+        progress: ChunkCallbackInfo;
+      }[] = [];
+
+      const opt: GetPositionsOpt = {
+        chunkSize,
+        onChunkFetched: (accounts, progress) => {
+          callbackData.push({
+            accountsCount: accounts.length,
+            progress: { ...progress },
+          });
+          console.log(
+            `Chunk ${progress.chunksLoaded}/${progress.totalChunks}: ` +
+            `${accounts.length} accounts, ${progress.accountsLoaded}/${progress.totalAccounts} total`
+          );
+        },
+        isParallelExecution: false,
+      };
+
+      const result = await lbClmm.getPositionsByUserAndLbPair(
+        keypair.publicKey,
+        opt
+      );
+
+      // Should have positions (original + additional)
+      const totalPositions = 1 + additionalPositions.length;
+      expect(result.userPositions.length).toBe(totalPositions);
+
+      // Should have multiple chunks
+      const expectedChunks = Math.ceil(totalPositions / chunkSize);
+      expect(callbackData.length).toBe(expectedChunks);
+
+      // Verify progress info
+      for (let i = 0; i < callbackData.length; i++) {
+        const { progress, accountsCount } = callbackData[i];
+        expect(accountsCount).toBeLessThanOrEqual(chunkSize);
+        expect(progress.chunksLoaded).toBe(i + 1);
+        expect(progress.totalChunks).toBe(expectedChunks);
+        expect(progress.totalAccounts).toBe(totalPositions);
+      }
+
+      // Final callback should show all accounts loaded
+      const lastCallback = callbackData[callbackData.length - 1];
+      expect(lastCallback.progress.accountsLoaded).toBe(totalPositions);
+
+      console.log("\n=== Chunking Proof ===");
+      console.log(`Total positions: ${totalPositions}`);
+      console.log(`Chunk size: ${chunkSize}`);
+      console.log(`Number of chunks: ${callbackData.length}`);
+      console.log("=====================\n");
+    });
+
+    it("should accumulate progress correctly in sequential mode", async () => {
+      const chunkSize = 1;
+      const progressHistory: ChunkCallbackInfo[] = [];
+
+      const opt: GetPositionsOpt = {
+        chunkSize,
+        onChunkFetched: (_, progress) => {
+          progressHistory.push({ ...progress });
+        },
+        isParallelExecution: false,
+      };
+
+      const result = await lbClmm.getPositionsByUserAndLbPair(
+        keypair.publicKey,
+        opt
+      );
+
+      const totalPositions = result.userPositions.length;
+      expect(progressHistory.length).toBe(totalPositions);
+
+      // Verify cumulative progress
+      for (let i = 0; i < progressHistory.length; i++) {
+        const progress = progressHistory[i];
+        expect(progress.chunksLoaded).toBe(i + 1);
+        expect(progress.accountsLoaded).toBe(i + 1);
+        expect(progress.totalChunks).toBe(totalPositions);
+        expect(progress.totalAccounts).toBe(totalPositions);
+      }
+    });
+
+    it("should return same positions for sequential and parallel execution", async () => {
+      const chunkSize = 2;
+
+      const sequentialResult = await lbClmm.getPositionsByUserAndLbPair(
+        keypair.publicKey,
+        { chunkSize, isParallelExecution: false }
+      );
+
+      const parallelResult = await lbClmm.getPositionsByUserAndLbPair(
+        keypair.publicKey,
+        { chunkSize, isParallelExecution: true }
+      );
+
+      expect(sequentialResult.userPositions.length).toBe(
+        parallelResult.userPositions.length
+      );
+
+      const sequentialPubkeys = new Set(
+        sequentialResult.userPositions.map((p) => p.publicKey.toBase58())
+      );
+      const parallelPubkeys = new Set(
+        parallelResult.userPositions.map((p) => p.publicKey.toBase58())
+      );
+
+      expect(sequentialPubkeys).toEqual(parallelPubkeys);
+    });
+
+    it("should handle chunkSize larger than total positions", async () => {
+      const chunkSize = 1000;
+      let callbackCount = 0;
+
+      const opt: GetPositionsOpt = {
+        chunkSize,
+        onChunkFetched: (accounts, progress) => {
+          callbackCount++;
+          expect(progress.totalChunks).toBe(1);
+        },
+        isParallelExecution: false,
+      };
+
+      const result = await lbClmm.getPositionsByUserAndLbPair(
+        keypair.publicKey,
+        opt
+      );
+
+      expect(callbackCount).toBe(1);
+      expect(result.userPositions.length).toBeGreaterThan(0);
+    });
+
+    it("should not call callback for user with no positions", async () => {
+      const randomUser = Keypair.generate().publicKey;
+      let callbackCalled = false;
+
+      const opt: GetPositionsOpt = {
+        chunkSize: 2,
+        onChunkFetched: () => {
+          callbackCalled = true;
+        },
+      };
+
+      const result = await lbClmm.getPositionsByUserAndLbPair(randomUser, opt);
+
+      expect(result.userPositions.length).toBe(0);
+      expect(callbackCalled).toBe(false);
+    });
+
+    it("should return valid position data in callbacks", async () => {
+      const chunkSize = 2;
+      const callbackPubkeys: string[] = [];
+
+      const opt: GetPositionsOpt = {
+        chunkSize,
+        onChunkFetched: (accounts) => {
+          accounts.forEach((acc) => {
+            expect(acc.pubkey).toBeInstanceOf(PublicKey);
+            expect(acc.account).toBeDefined();
+            expect(acc.account.data).toBeDefined();
+            callbackPubkeys.push(acc.pubkey.toBase58());
+          });
+        },
+        isParallelExecution: false,
+      };
+
+      const result = await lbClmm.getPositionsByUserAndLbPair(
+        keypair.publicKey,
+        opt
+      );
+
+      expect(callbackPubkeys.length).toBe(result.userPositions.length);
+
+      // Verify no duplicates
+      const uniquePubkeys = new Set(callbackPubkeys);
+      expect(uniquePubkeys.size).toBe(callbackPubkeys.length);
+
+      // Verify result matches callback data
+      const resultPubkeys = result.userPositions.map((p) => p.publicKey.toBase58());
+      expect(resultPubkeys.sort()).toEqual(callbackPubkeys.sort());
+    });
   });
 
   it("fetch all bin arrays of the lb pair", async () => {
