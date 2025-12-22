@@ -154,7 +154,6 @@ describe("Single Bin Seed Liquidity Test", () => {
         ActivationType.Slot,
         false, // No alpha vault. Set to true the program will deterministically whitelist the alpha vault to swap before the pool start trading. Check: https://github.com/MeteoraAg/alpha-vault-sdk initialize{Prorata|Fcfs}Vault method to create the alpha vault.
         owner.publicKey,
-        FunctionType.LiquidityMining,
         activationPoint,
         false,
         {

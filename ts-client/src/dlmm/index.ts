@@ -1299,7 +1299,6 @@ export class DLMM {
     activationType: ActivationType,
     hasAlphaVault: boolean,
     creatorKey: PublicKey,
-    functionType: FunctionType,
     activationPoint?: BN,
     creatorPoolOnOffControl?: boolean,
     opt?: Opt
@@ -1347,7 +1346,7 @@ export class DLMM {
       activeId: activeId.toNumber(),
       binStep: binStep.toNumber(),
       baseFactor: baseFactor.toNumber(),
-      functionType,
+      functionType: FunctionType.LiquidityMining,
       activationType,
       activationPoint: activationPoint ? activationPoint : null,
       hasAlphaVault,
@@ -1419,7 +1418,6 @@ export class DLMM {
     activationType: ActivationType,
     hasAlphaVault: boolean,
     creatorKey: PublicKey,
-    functionType: FunctionType,
     activationPoint?: BN,
     creatorPoolOnOffControl?: boolean,
     opt?: Opt
@@ -1456,7 +1454,7 @@ export class DLMM {
       activeId: activeId.toNumber(),
       binStep: binStep.toNumber(),
       baseFactor: baseFactor.toNumber(),
-      functionType,
+      functionType: FunctionType.LiquidityMining,
       activationType,
       activationPoint: activationPoint ? activationPoint : null,
       hasAlphaVault,

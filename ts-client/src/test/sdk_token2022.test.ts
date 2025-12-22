@@ -468,7 +468,6 @@ describe("SDK token2022 test", () => {
           ActivationType.Timestamp,
           false,
           keypair.publicKey,
-          FunctionType.LiquidityMining,
           null,
           false,
           opt

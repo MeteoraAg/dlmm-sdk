@@ -61,7 +61,6 @@ async function createMintAndPair(
     1,
     false,
     keypair.publicKey,
-    FunctionType.LiquidityMining,
     null,
     null,
     {

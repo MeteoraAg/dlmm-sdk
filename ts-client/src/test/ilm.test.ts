@@ -183,7 +183,6 @@ describe("ILM test", () => {
         ActivationType.Slot,
         false, // No alpha vault. Set to true the program will deterministically whitelist the alpha vault to swap before the pool start trading. Check: https://github.com/MeteoraAg/alpha-vault-sdk initialize{Prorata|Fcfs}Vault method to create the alpha vault.
         operator.publicKey,
-        FunctionType.LiquidityMining,
         activationPoint,
         false,
         {
@@ -481,7 +480,6 @@ describe("ILM test", () => {
         ActivationType.Slot,
         false, // No alpha vault. Set to true the program will deterministically whitelist the alpha vault to swap before the pool start trading. Check: https://github.com/MeteoraAg/alpha-vault-sdk initialize{Prorata|Fcfs}Vault method to create the alpha vault.
         operator.publicKey,
-        FunctionType.LiquidityMining,
         activationPoint,
         false,
         {
@@ -861,7 +859,6 @@ describe("ILM test", () => {
         ActivationType.Slot,
         false, // No alpha vault. Set to true the program will deterministically whitelist the alpha vault to swap before the pool start trading. Check: https://github.com/MeteoraAg/alpha-vault-sdk initialize{Prorata|Fcfs}Vault method to create the alpha vault.
         operator.publicKey,
-        FunctionType.LiquidityMining,
         activationPoint,
         false,
         {
@@ -1169,7 +1166,6 @@ describe("Edge test", () => {
         ActivationType.Slot,
         false, // No alpha vault. Set to true the program will deterministically whitelist the alpha vault to swap before the pool start trading. Check: https://github.com/MeteoraAg/alpha-vault-sdk initialize{Prorata|Fcfs}Vault method to create the alpha vault.
         operator.publicKey,
-        FunctionType.LiquidityMining,
         activationPoint,
         false,
         {
