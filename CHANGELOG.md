@@ -23,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added `functionType` parameter to `createCustomizablePermissionlessLbPair` and `createCustomizablePermissionlessLbPair2`.
+- Added `functionType` parameter to `createCustomizablePermissionlessLbPair` and `createCustomizablePermissionlessLbPair2`. No breaking change to the interface.
 
 ### Changed
 
