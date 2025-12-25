@@ -67,7 +67,11 @@ import {
   createTransferHookCounterProgram,
   TRANSFER_HOOK_COUNTER_PROGRAM_ID,
 } from "./external/program";
-import { createTestProgram, logLbPairLiquidities } from "./helper";
+import {
+  createTestProgram,
+  logLbPairLiquidities,
+  logPositionLiquidities,
+} from "./helper";
 
 const keypairBuffer = fs.readFileSync(
   "../keys/localnet/admin-bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1.json",
@@ -2773,6 +2777,164 @@ describe("SDK token2022 test", () => {
         // Due to transfer fee
         expect(consumedTokenX.gte(totalXAmount)).toBeTruthy();
         expect(consumedTokenY.lte(totalYAmount)).toBeTruthy();
+      });
+    });
+
+    describe("No empty bins left at edge", () => {
+      it("Shouldn't leave empty bins at edge (bid side)", async () => {
+        const dlmm = await DLMM.create(connection, pairKey, opt);
+
+        const totalXAmount = new BN(0);
+        const totalYAmount = new BN(1_000_000_000);
+        const minBinId = dlmm.lbPair.activeId - 100;
+        const maxBinId = dlmm.lbPair.activeId + 100;
+
+        const keypairGenerator = async (count) => {
+          const keypairs = [];
+          for (let i = 0; i < count; i++) {
+            keypairs.push(Keypair.generate());
+          }
+          return keypairs;
+        };
+
+        const { instructionsByPositions } =
+          await dlmm.initializeMultiplePositionAndAddLiquidityByStrategy(
+            keypairGenerator,
+            totalXAmount,
+            totalYAmount,
+            {
+              strategyType: StrategyType.Spot,
+              minBinId,
+              maxBinId,
+            },
+            keypair.publicKey,
+            keypair.publicKey,
+            0
+          );
+
+        expect(instructionsByPositions.length).toBe(1);
+
+        for (const {
+          positionKeypair,
+          initializePositionIx,
+          addLiquidityIxs,
+        } of instructionsByPositions) {
+          let latestBlockhashInfo = await connection.getLatestBlockhash();
+          const initPositionTx = new Transaction({
+            ...latestBlockhashInfo,
+          }).add(initializePositionIx);
+
+          initPositionTx.sign(keypair, positionKeypair);
+
+          const sig = await connection.sendRawTransaction(
+            initPositionTx.serialize()
+          );
+          await connection.confirmTransaction({
+            ...latestBlockhashInfo,
+            signature: sig,
+          });
+
+          for (const ixs of addLiquidityIxs) {
+            latestBlockhashInfo = await connection.getLatestBlockhash();
+            const tx = new Transaction({
+              ...latestBlockhashInfo,
+            }).add(...ixs);
+
+            tx.sign(keypair);
+
+            const sig = await connection.sendRawTransaction(tx.serialize());
+            await connection.confirmTransaction({
+              ...latestBlockhashInfo,
+              signature: sig,
+            });
+          }
+
+          const position = await dlmm.getPosition(positionKeypair.publicKey);
+          await logPositionLiquidities(position.positionData);
+
+          for (const binData of position.positionData.positionBinData) {
+            const positionShare = new BN(binData.positionLiquidity);
+            expect(positionShare.gt(new BN(0))).toBeTruthy();
+          }
+        }
+      });
+
+      it("Shouldn't leave empty bins at edge (ask side)", async () => {
+        const dlmm = await DLMM.create(connection, pairKey, opt);
+
+        const totalXAmount = new BN(1_000_000_000);
+        const totalYAmount = new BN(0);
+        const minBinId = dlmm.lbPair.activeId - 100;
+        const maxBinId = dlmm.lbPair.activeId + 100;
+
+        const keypairGenerator = async (count) => {
+          const keypairs = [];
+          for (let i = 0; i < count; i++) {
+            keypairs.push(Keypair.generate());
+          }
+          return keypairs;
+        };
+
+        const { instructionsByPositions } =
+          await dlmm.initializeMultiplePositionAndAddLiquidityByStrategy(
+            keypairGenerator,
+            totalXAmount,
+            totalYAmount,
+            {
+              strategyType: StrategyType.Spot,
+              minBinId,
+              maxBinId,
+            },
+            keypair.publicKey,
+            keypair.publicKey,
+            0
+          );
+
+        expect(instructionsByPositions.length).toBe(1);
+
+        for (const {
+          positionKeypair,
+          initializePositionIx,
+          addLiquidityIxs,
+        } of instructionsByPositions) {
+          let latestBlockhashInfo = await connection.getLatestBlockhash();
+          const initPositionTx = new Transaction({
+            ...latestBlockhashInfo,
+          }).add(initializePositionIx);
+
+          initPositionTx.sign(keypair, positionKeypair);
+
+          const sig = await connection.sendRawTransaction(
+            initPositionTx.serialize()
+          );
+          await connection.confirmTransaction({
+            ...latestBlockhashInfo,
+            signature: sig,
+          });
+
+          for (const ixs of addLiquidityIxs) {
+            latestBlockhashInfo = await connection.getLatestBlockhash();
+            const tx = new Transaction({
+              ...latestBlockhashInfo,
+            }).add(...ixs);
+
+            tx.sign(keypair);
+
+            const sig = await connection.sendRawTransaction(tx.serialize());
+            await connection.confirmTransaction({
+              ...latestBlockhashInfo,
+              signature: sig,
+            });
+          }
+
+          const position = await dlmm.getPosition(positionKeypair.publicKey);
+          await logPositionLiquidities(position.positionData);
+
+          for (const binData of position.positionData.positionBinData) {
+            const positionShare = new BN(binData.positionLiquidity);
+            expect(positionShare.gt(new BN(0))).toBeTruthy();
+          }
+        }
       });
     });
   });
