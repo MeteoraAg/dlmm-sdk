@@ -51,7 +51,14 @@ import {
   TOKEN_ACCOUNT_FEE_BN,
   U64_MAX,
 } from "./constants";
-import { DlmmSdkError } from "./error";
+import {
+    BinArrayAccountNotFound, CannotClaimZeroFees, CannotClaimZeroRewards, CannotRemoveZeroLiquidity,
+    ClockAccountNotFound, DiscontinuousBinId, DlmmSdkError,
+    ErrorFetchingActiveBin, ErrorFetchingPositions,
+    IllegalBinConfiguration, LBPairAccountNotFound, LBPairStateNotFound, NoMintForLBPair,
+    NoReserveForLBPair, PoolExistsError, PositionAccountNotFound, PositionOutOfRange,
+    PriceOutOfRange, PriceRangeTooSmall, SyncError, ZeroLiquidityBinsError
+} from "./error";
 import {
   Opt,
   binIdToBinArrayIndex,
@@ -391,7 +398,7 @@ export class DLMM {
 
     const lbPairAccountInfoBuffer = accountsInfo[0]?.data;
     if (!lbPairAccountInfoBuffer)
-      throw new Error(`LB Pair account ${dlmm.toBase58()} not found`);
+        throw new LBPairAccountNotFound(dlmm.toBase58()); // Pass
 
     const lbPairAccInfo = decodeAccount<LbPair>(
       program,
@@ -411,7 +418,7 @@ export class DLMM {
     }
 
     const clockAccountInfoBuffer = accountsInfo[2]?.data;
-    if (!clockAccountInfoBuffer) throw new Error(`Clock account not found`);
+    if (!clockAccountInfoBuffer) throw new ClockAccountNotFound();
     const clock = ClockLayout.decode(clockAccountInfoBuffer) as Clock;
 
     accountsToFetch = [
@@ -591,7 +598,7 @@ export class DLMM {
 
     const clockAccount = accountsInfo.pop();
     const clockAccountInfoBuffer = clockAccount?.data;
-    if (!clockAccountInfoBuffer) throw new Error(`Clock account not found`);
+    if (!clockAccountInfoBuffer) throw new ClockAccountNotFound();
     const clock = ClockLayout.decode(clockAccountInfoBuffer) as Clock;
 
     const lbPairArraysMap = new Map<string, LbPair>();
@@ -599,7 +606,7 @@ export class DLMM {
       const lbPairPubKey = dlmmList[i];
       const lbPairAccountInfoBuffer = accountsInfo[i]?.data;
       if (!lbPairAccountInfoBuffer)
-        throw new Error(`LB Pair account ${lbPairPubKey.toBase58()} not found`);
+          throw new LBPairAccountNotFound(lbPairPubKey.toBase58());
       const lbPairAccInfo = decodeAccount<LbPair>(
         program,
         "lbPair",
@@ -703,7 +710,7 @@ export class DLMM {
     const lbClmmImpl = dlmmList.map((lbPair, index) => {
       const lbPairState = lbPairArraysMap.get(lbPair.toBase58());
       if (!lbPairState)
-        throw new Error(`LB Pair ${lbPair.toBase58()} state not found`);
+          throw new LBPairStateNotFound(lbPair.toBase58());
 
       const binArrayBitmapExtensionState = binArrayBitMapExtensionsMap.get(
         lbPair.toBase58()
@@ -744,9 +751,9 @@ export class DLMM {
         accountsInfo[offsetToRewardMintAccountInfos + index * 2 + 1];
 
       if (!reserveXAccountInfo || !reserveYAccountInfo)
-        throw new Error(
-          `Reserve account for LB Pair ${lbPair.toBase58()} not found`
-        );
+          throw new NoReserveForLBPair(
+              lbPair.toBase58()
+          );
 
       const reserveXBalance = AccountLayout.decode(reserveXAccountInfo.data);
       const reserveYBalance = AccountLayout.decode(reserveYAccountInfo.data);
@@ -943,7 +950,7 @@ export class DLMM {
       const lbPairPubkey = lbPairKeys[i - binArrayPubkeyArrayV2.length];
       const lbPairAccInfoBufferV2 = binArraysAccInfo[i];
       if (!lbPairAccInfoBufferV2)
-        throw new Error(`LB Pair account ${lbPairPubkey.toBase58()} not found`);
+          throw new LBPairAccountNotFound(lbPairPubkey.toBase58());
       const lbPairAccInfo = decodeAccount<LbPair>(
         program,
         "lbPair",
@@ -989,9 +996,8 @@ export class DLMM {
       const reserveYAccount = accountInfos[index + 1];
 
       if (!reserveXAccount || !reserveYAccount)
-        throw new Error(
-          `Reserve account for LB Pair ${lbPair.toBase58()} not found`
-        );
+          throw new NoReserveForLBPair(lbPair.toBase58()
+          );
 
       const reserveAccX = AccountLayout.decode(reserveXAccount.data);
       const reserveAccY = AccountLayout.decode(reserveYAccount.data);
@@ -1004,9 +1010,7 @@ export class DLMM {
       const mintXAccount = accountInfos[index + 2];
       const mintYAccount = accountInfos[index + 3];
       if (!mintXAccount || !mintYAccount)
-        throw new Error(
-          `Mint account for LB Pair ${lbPair.toBase58()} not found`
-        );
+          throw new NoMintForLBPair(lbPair.toBase58());
 
       const mintX = unpackMint(
         reserveAccX.mint,
@@ -1232,9 +1236,7 @@ export class DLMM {
       const binArrayPubkey = binArrayPubkeyArrayV2[i];
       const binArrayAccBufferV2 = binArraysAccInfo[i];
       if (!binArrayAccBufferV2)
-        throw new Error(
-          `Bin Array account ${binArrayPubkey.toBase58()} not found`
-        );
+          throw new BinArrayAccountNotFound(binArrayPubkey.toBase58());
       const binArrayAccInfo = decodeAccount<BinArray>(
         this.program,
         "binArray",
@@ -1523,7 +1525,7 @@ export class DLMM {
     );
 
     if (existsPool) {
-      throw new Error("Pool already exists");
+        throw new PoolExistsError();
     }
 
     const [lbPair] = deriveLbPair2(
@@ -1620,7 +1622,7 @@ export class DLMM {
     );
 
     if (existsPool) {
-      throw new Error("Pool already exists");
+        throw new PoolExistsError();
     }
 
     const [lbPair] = deriveLbPairWithPresetParamWithIndexKey(
@@ -2234,7 +2236,7 @@ export class DLMM {
     const [activeBin, positionsV2] = promiseResults;
 
     if (!activeBin) {
-      throw new Error("Error fetching active bin");
+        throw new ErrorFetchingActiveBin();
     }
 
     if (!userPubKey) {
@@ -2251,7 +2253,7 @@ export class DLMM {
     ];
 
     if (!positions) {
-      throw new Error("Error fetching positions");
+        throw new ErrorFetchingPositions();
     }
 
     const binArrayPubkeySetV2 = new Set<string>();
@@ -2292,7 +2294,7 @@ export class DLMM {
     }
 
     if (!lbPairAccInfo)
-      throw new Error(`LB Pair account ${this.pubkey.toBase58()} not found`);
+        throw new LBPairAccountNotFound(this.pubkey.toBase58());
 
     const clock: Clock = ClockLayout.decode(clockAccInfo.data);
 
@@ -2507,9 +2509,7 @@ export class DLMM {
       await this.program.provider.connection.getAccountInfo(positionPubKey);
 
     if (!positionAccountInfo) {
-      throw new Error(
-        `Position account ${positionPubKey.toBase58()} not found`
-      );
+        throw new PositionAccountNotFound(positionPubKey.toBase58());
     }
 
     let position: IPosition = wrapPosition(
@@ -3152,9 +3152,7 @@ export class DLMM {
       : MAX_ACTIVE_BIN_SLIPPAGE;
 
     if (upperBinId >= lowerBinId + DEFAULT_BIN_PER_POSITION.toNumber()) {
-      throw new Error(
-        `Position must be within a range of 1 to ${DEFAULT_BIN_PER_POSITION.toNumber()} bins.`
-      );
+        throw new PositionOutOfRange(DEFAULT_BIN_PER_POSITION.toNumber());
     }
 
     const preInstructions: Array<TransactionInstruction> = [];
@@ -3282,7 +3280,7 @@ export class DLMM {
       );
 
     if (binLiquidityDist.length === 0) {
-      throw new Error("No liquidity to add");
+        throw new ZeroLiquidityBinsError();
     }
 
     const liquidityParams: LiquidityParameterByWeight = {
@@ -3630,11 +3628,11 @@ export class DLMM {
       this.processXYAmountDistribution(xYAmountDistribution);
 
     if (lowerBinId < positionAccount.lowerBinId)
-      throw new Error(
+      throw new IllegalBinConfiguration(
         `Lower Bin ID (${lowerBinId}) lower than Position Lower Bin Id (${positionAccount.lowerBinId})`
       );
     if (upperBinId > positionAccount.upperBinId)
-      throw new Error(
+      throw new IllegalBinConfiguration(
         `Upper Bin ID (${upperBinId}) higher than Position Upper Bin Id (${positionAccount.upperBinId})`
       );
 
@@ -3667,7 +3665,7 @@ export class DLMM {
       );
 
     if (binLiquidityDist.length === 0) {
-      throw new Error("No liquidity to add");
+        throw new ZeroLiquidityBinsError();
     }
 
     const lowerBinArrayIndex = binIdToBinArrayIndex(
@@ -3933,7 +3931,7 @@ export class DLMM {
     });
 
     if (binIdsWithLiquidity.length == 0) {
-      throw new Error("No liquidity to remove");
+        throw new CannotRemoveZeroLiquidity();
     }
 
     const lowerBinIdWithLiquidity = binIdsWithLiquidity[0].binId.toNumber();
@@ -5097,7 +5095,7 @@ export class DLMM {
     position: LbPosition;
   }): Promise<Transaction[]> {
     if (isPositionNoReward(position.positionData)) {
-      throw new Error("No LM reward to claim");
+        throw new CannotClaimZeroRewards();
     }
 
     const claimTransactions = await this.createClaimBuildMethod({
@@ -5149,7 +5147,7 @@ export class DLMM {
     if (
       positions.every((position) => isPositionNoReward(position.positionData))
     ) {
-      throw new Error("No LM reward to claim");
+        throw new CannotClaimZeroRewards();
     }
 
     const claimAllTxs = (
@@ -5254,7 +5252,7 @@ export class DLMM {
     position: LbPosition;
   }): Promise<Transaction[]> {
     if (isPositionNoFee(position.positionData)) {
-      throw new Error("No fee to claim");
+        throw new CannotClaimZeroFees();
     }
 
     const claimFeeTxs = await this.createClaimSwapFeeMethod({
@@ -5301,7 +5299,7 @@ export class DLMM {
     positions: LbPosition[];
   }): Promise<Transaction[]> {
     if (positions.every((position) => isPositionNoFee(position.positionData))) {
-      throw new Error("No fee to claim");
+        throw new CannotClaimZeroFees();
     }
 
     const claimAllTxs = (
@@ -5371,7 +5369,7 @@ export class DLMM {
       isPositionNoFee(position.positionData) &&
       isPositionNoReward(position.positionData)
     ) {
-      throw new Error("No fee/reward to claim");
+        throw new CannotClaimZeroRewards("No fee/reward to claim");
     }
 
     const claimAllSwapFeeTxs = await this.createClaimSwapFeeMethod({
@@ -5464,11 +5462,11 @@ export class DLMM {
     );
 
     if (minBinId.toNumber() < this.lbPair.activeId) {
-      throw new Error("minPrice < current pair price");
+        throw new PriceOutOfRange("minPrice < current pair price");
     }
 
     if (minBinId.toNumber() >= maxBinId.toNumber()) {
-      throw new Error("Price range too small");
+        throw new PriceRangeTooSmall();
     }
 
     // Generate amount for each bin
@@ -6429,9 +6427,7 @@ export class DLMM {
     const activeBinId = activeBin.binId;
 
     if (!this.canSyncWithMarketPrice(marketPrice, activeBinId)) {
-      throw new Error(
-        "Unable to sync with market price due to bin with liquidity between current and market price bin"
-      );
+        throw new SyncError();
     }
 
     const fromBinArrayIndex = binIdToBinArrayIndex(new BN(activeBinId));
@@ -7720,7 +7716,7 @@ export class DLMM {
       binIds.push(binAndAmount.binId);
 
       if (currentBinId && binAndAmount.binId !== currentBinId + 1) {
-        throw new Error("Discontinuous Bin ID");
+          throw new DiscontinuousBinId();
       } else {
         currentBinId = binAndAmount.binId;
       }
