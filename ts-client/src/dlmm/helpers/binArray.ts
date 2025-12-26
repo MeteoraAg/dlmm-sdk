@@ -465,9 +465,9 @@ export function updateBinArray(
       .div(new BN(15))
       .div(liquiditySupply);
 
-    activeBin.rewardPerTokenStored[rewardIdx] = activeBin.rewardPerTokenStored[
-      rewardIdx
-    ].add(rewardPerTokenStoredDelta);
+    activeBin.functionBytes[rewardIdx] = activeBin.functionBytes[rewardIdx].add(
+      rewardPerTokenStoredDelta
+    );
   }
 
   return binArrayClone;

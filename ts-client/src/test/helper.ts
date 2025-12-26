@@ -3,19 +3,19 @@ import {
   Keypair,
   PublicKey,
   sendAndConfirmTransaction,
+  SystemProgram,
 } from "@solana/web3.js";
 import { LbPosition, Position, PositionData } from "../dlmm/types";
 import { DLMM } from "../dlmm";
 import BN from "bn.js";
 import { AnchorProvider, Program, Wallet } from "@coral-xyz/anchor";
-import IDL from "../dlmm/dlmm.json";
-import { LbClmm } from "../dlmm/idl";
+import IDL from "../dlmm/idl/idl.json";
+import { LbClmm } from "../dlmm/idl/idl";
 import { RebalancePosition } from "../dlmm/helpers/rebalance";
 import babar from "babar";
-import { SCALE_OFFSET } from "../dlmm/constants";
-import { getQPriceFromId } from "../dlmm/helpers/math";
 import Decimal from "decimal.js";
 import {
+  deriveOperator,
   getBinArrayLowerUpperBinId,
   getPriceOfBinByBinId,
 } from "../dlmm/helpers";
@@ -268,4 +268,57 @@ export async function logLbPairLiquidities(
   }
 
   console.log(babar(liquidities));
+}
+
+export enum OperatorPermission {
+  InitializePresetParameter,
+  ClosePresetParameter,
+  SetPairStatus,
+  UpdateFeeParameters,
+  SetActivationPoint,
+  InitializePermissionedPool,
+  InitializeTokenBadge,
+  CloseTokenBadge,
+  InitializeReward,
+  UpdateRewardFunder,
+  UpdateRewardDuration,
+  ResetTombstoneFields,
+  ClaimProtocolFee,
+  ZapProtocolFee,
+}
+
+export function encodePermissions(permissions: OperatorPermission[]): BN {
+  return permissions.reduce((acc, perm) => {
+    return acc.or(new BN(1).shln(perm));
+  }, new BN(0));
+}
+
+export async function createWhitelistOperator(
+  connection: Connection,
+  admin: Keypair,
+  whitelistOperator: PublicKey,
+  permissions: OperatorPermission[],
+  programId: PublicKey
+) {
+  const encodedPermissions = encodePermissions(permissions);
+  const program = createTestProgram(connection, programId, admin);
+  const operatorPda = deriveOperator(whitelistOperator, program.programId);
+
+  const operatorAccount = await connection.getAccountInfo(operatorPda);
+  if (operatorAccount) {
+    return operatorPda;
+  }
+
+  await program.methods
+    .createOperatorAccount(encodedPermissions)
+    .accountsPartial({
+      signer: admin.publicKey,
+      operator: operatorPda,
+      whitelistedSigner: whitelistOperator,
+      systemProgram: SystemProgram.programId,
+    })
+    .signers([admin])
+    .rpc();
+
+  return operatorPda;
 }

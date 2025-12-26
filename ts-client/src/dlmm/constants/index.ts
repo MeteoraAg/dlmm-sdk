@@ -1,6 +1,6 @@
 import { LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import { BN } from "@coral-xyz/anchor";
-import IDL from "../dlmm.json";
+import IDL from "../idl/idl.json";
 import Decimal from "decimal.js";
 
 export const LBCLMM_PROGRAM_IDS = {
@@ -105,3 +105,7 @@ export const U64_MAX = new BN("18446744073709551615");
 export const MAX_BINS_PER_POSITION = new BN(
   CONSTANTS.find(([k, v]) => v.name == "POSITION_MAX_LENGTH")?.[1].value ?? 0
 );
+
+export enum FunctionType {
+  LiquidityMining = 0,
+}

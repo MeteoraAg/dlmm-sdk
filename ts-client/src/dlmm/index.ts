@@ -34,6 +34,7 @@ import {
   BIN_ARRAY_FEE_BN,
   DEFAULT_BIN_PER_POSITION,
   FEE_PRECISION,
+  FunctionType,
   MAX_ACTIVE_BIN_SLIPPAGE,
   MAX_BINS_PER_POSITION,
   MAX_BIN_ARRAY_SIZE,
@@ -1345,6 +1346,7 @@ export class DLMM {
       activeId: activeId.toNumber(),
       binStep: binStep.toNumber(),
       baseFactor: baseFactor.toNumber(),
+      functionType: FunctionType.LiquidityMining,
       activationType,
       activationPoint: activationPoint ? activationPoint : null,
       hasAlphaVault,
@@ -1452,6 +1454,7 @@ export class DLMM {
       activeId: activeId.toNumber(),
       binStep: binStep.toNumber(),
       baseFactor: baseFactor.toNumber(),
+      functionType: FunctionType.LiquidityMining,
       activationType,
       activationPoint: activationPoint ? activationPoint : null,
       hasAlphaVault,
@@ -1841,7 +1844,7 @@ export class DLMM {
       .setPairStatusPermissionless(status)
       .accountsPartial({
         lbPair: this.pubkey,
-        creator,
+        signer: creator,
       })
       .transaction();
 
@@ -2457,6 +2460,7 @@ export class DLMM {
         position: positionPubKey,
         lbPair: this.pubkey,
         owner: user,
+        rent: SYSVAR_RENT_PUBKEY,
       })
       .instruction();
 
@@ -2817,6 +2821,7 @@ export class DLMM {
           lbPair: this.pubkey,
           owner,
           payer,
+          rent: SYSVAR_RENT_PUBKEY,
         })
         .instruction();
 
@@ -2954,6 +2959,7 @@ export class DLMM {
         position: positionPubKey,
         lbPair: this.pubkey,
         owner: user,
+        rent: SYSVAR_RENT_PUBKEY,
       })
       .instruction();
     preInstructions.push(initializePositionIx);
@@ -3159,6 +3165,7 @@ export class DLMM {
         position: positionPubKey,
         lbPair: this.pubkey,
         owner: user,
+        rent: SYSVAR_RENT_PUBKEY,
       })
       .instruction();
     preInstructions.push(initializePositionIx);
@@ -5197,7 +5204,7 @@ export class DLMM {
       .setActivationPoint(activationPoint)
       .accountsPartial({
         lbPair: this.pubkey,
-        admin: this.lbPair.creator,
+        signer: this.lbPair.creator,
       })
       .transaction();
 
@@ -5217,7 +5224,7 @@ export class DLMM {
       .setPairStatus(pairStatus)
       .accountsPartial({
         lbPair: this.pubkey,
-        admin: this.lbPair.creator,
+        signer: this.lbPair.creator,
       })
       .transaction();
 
@@ -7269,6 +7276,7 @@ export class DLMM {
         position,
         lbPair: this.pubkey,
         owner: user,
+        rent: SYSVAR_RENT_PUBKEY,
       })
       .instruction();
 
@@ -7683,7 +7691,7 @@ export class DLMM {
               supply: bin.liquiditySupply,
               feeAmountXPerTokenStored: bin.feeAmountXPerTokenStored,
               feeAmountYPerTokenStored: bin.feeAmountYPerTokenStored,
-              rewardPerTokenStored: bin.rewardPerTokenStored,
+              rewardPerTokenStored: bin.functionBytes,
               price: pricePerLamport,
               version: binArray.version,
               pricePerToken: new Decimal(pricePerLamport)

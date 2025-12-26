@@ -16,5 +16,6 @@ deployment
 
 ts-client/dist
 ts-client/.env
+ts-client/scripts
 
 .pnpm-debug.log

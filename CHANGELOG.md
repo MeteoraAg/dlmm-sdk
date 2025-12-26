@@ -19,6 +19,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.9.1] - [PR #263](https://github.com/MeteoraAg/dlmm-sdk/pull/263)
+
+### Added
+
+- Added `functionType` parameter to `createCustomizablePermissionlessLbPair` and `createCustomizablePermissionlessLbPair2`. No breaking change to the interface.
+
+### Changed
+
+- Changed `admin` to `signer` in `setActivationPoint`, `setPairStatusPermissionless` and `setPairStatus`.
+- Changed `rewardPerTokenStored` to `functionBytes`
+- Added `rent` account to `createEmptyPosition`, `initializePositionAndAddLiquidityByStrategy`, `initializePositionAndAddLiquidityByWeight` and `createInitAndExtendPositionIx`
+
+### Removed
+
+- Removed `amountXIn` and `amountYIn` from bin state
+
 ## @meteora-ag/dlmm [1.9.0] - [PR #260](https://github.com/MeteoraAg/dlmm-sdk/pull/260)
 
 ### Added

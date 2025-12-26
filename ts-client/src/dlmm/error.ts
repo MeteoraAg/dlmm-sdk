@@ -1,4 +1,4 @@
-import IDL from "./dlmm.json";
+import IDL from "./idl/idl.json";
 import { AnchorError } from "@coral-xyz/anchor";
 import { LBCLMM_PROGRAM_IDS } from "./constants";
 
