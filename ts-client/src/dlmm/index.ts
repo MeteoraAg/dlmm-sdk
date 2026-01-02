@@ -1379,6 +1379,20 @@ export class DLMM {
 
     createUserTokenYIx && preInstructions.push(createUserTokenYIx);
 
+    const postInstructions: TransactionInstruction[] = [];
+
+    // if quote mint (tokenY) is SOL, wrap a small amount to initialize the wrapped SOL account then unwrap it after the pool creation
+    if (tokenY.equals(NATIVE_MINT) && !opt?.skipSolWrappingOperation) {
+      const wrapAmount = BigInt(1_000_000); // 0.001 SOL
+      const wrapSOLIx = wrapSOLInstruction(creatorKey, userTokenY, wrapAmount);
+      preInstructions.push(...wrapSOLIx);
+
+      const unwrapSOLIx = await unwrapSOLInstruction(creatorKey);
+      if (unwrapSOLIx) {
+        postInstructions.push(unwrapSOLIx);
+      }
+    }
+
     return program.methods
       .initializeCustomizablePermissionlessLbPair2(ixData)
       .accountsPartial({
@@ -1399,6 +1413,7 @@ export class DLMM {
         tokenProgramY: tokenYAccount.owner,
       })
       .preInstructions(preInstructions)
+      .postInstructions(postInstructions)
       .transaction();
   }
 
@@ -1439,13 +1454,8 @@ export class DLMM {
       program.programId
     );
 
-    const [
-      tokenXAccount,
-      tokenYAccount,
-    ] = await connection.getMultipleAccountsInfo([
-      tokenX,
-      tokenY,
-    ]);
+    const [tokenXAccount, tokenYAccount] =
+      await connection.getMultipleAccountsInfo([tokenX, tokenY]);
 
     const [reserveX] = deriveReserve(tokenX, lbPair, program.programId);
     const [reserveY] = deriveReserve(tokenY, lbPair, program.programId);
@@ -1504,6 +1514,21 @@ export class DLMM {
 
     createUserTokenYIx && preInstructions.push(createUserTokenYIx);
 
+    const postInstructions: TransactionInstruction[] = [];
+
+    // if quote mint (tokenY) is SOL, wrap a small amount to initialize the wrapped SOL account then unwrap it after the pool creation
+    if (tokenY.equals(NATIVE_MINT) && !opt?.skipSolWrappingOperation) {
+      const wrapAmount = BigInt(1_000_000); // 0.001 SOL
+      const wrapSOLIx = wrapSOLInstruction(creatorKey, userTokenY, wrapAmount);
+      preInstructions.push(...wrapSOLIx);
+
+      // Unwrap SOL after pool creation
+      const unwrapSOLIx = await unwrapSOLInstruction(creatorKey);
+      if (unwrapSOLIx) {
+        postInstructions.push(unwrapSOLIx);
+      }
+    }
+
     return program.methods
       .initializeCustomizablePermissionlessLbPair(ixData)
       .accountsPartial({
@@ -1520,6 +1545,7 @@ export class DLMM {
         funder: creatorKey,
       })
       .preInstructions(preInstructions)
+      .postInstructions(postInstructions)
       .transaction();
   }
 
