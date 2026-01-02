@@ -1357,19 +1357,27 @@ export class DLMM {
       padding: Array(63).fill(0),
     };
 
-    const userTokenX = getAssociatedTokenAddressSync(
-      tokenX,
-      creatorKey,
-      true,
-      tokenXAccount.owner
-    );
+    const preInstructions: TransactionInstruction[] = [];
 
-    const userTokenY = getAssociatedTokenAddressSync(
-      tokenY,
-      creatorKey,
-      true,
-      tokenYAccount.owner
-    );
+    const { ataPubKey: userTokenX, ix: createUserTokenXIx } =
+      await getOrCreateATAInstruction(
+        connection,
+        tokenX,
+        creatorKey,
+        tokenXAccount.owner
+      );
+
+    createUserTokenXIx && preInstructions.push(createUserTokenXIx);
+
+    const { ataPubKey: userTokenY, ix: createUserTokenYIx } =
+      await getOrCreateATAInstruction(
+        connection,
+        tokenY,
+        creatorKey,
+        tokenYAccount.owner
+      );
+
+    createUserTokenYIx && preInstructions.push(createUserTokenYIx);
 
     return program.methods
       .initializeCustomizablePermissionlessLbPair2(ixData)
@@ -1390,6 +1398,7 @@ export class DLMM {
         tokenProgramX: tokenXAccount.owner,
         tokenProgramY: tokenYAccount.owner,
       })
+      .preInstructions(preInstructions)
       .transaction();
   }
 
@@ -1430,6 +1439,14 @@ export class DLMM {
       program.programId
     );
 
+    const [
+      tokenXAccount,
+      tokenYAccount,
+    ] = await connection.getMultipleAccountsInfo([
+      tokenX,
+      tokenY,
+    ]);
+
     const [reserveX] = deriveReserve(tokenX, lbPair, program.programId);
     const [reserveY] = deriveReserve(tokenY, lbPair, program.programId);
     const [oracle] = deriveOracle(lbPair, program.programId);
@@ -1465,8 +1482,27 @@ export class DLMM {
       padding: Array(63).fill(0),
     };
 
-    const userTokenX = getAssociatedTokenAddressSync(tokenX, creatorKey);
-    const userTokenY = getAssociatedTokenAddressSync(tokenY, creatorKey);
+    const preInstructions: TransactionInstruction[] = [];
+
+    const { ataPubKey: userTokenX, ix: createUserTokenXIx } =
+      await getOrCreateATAInstruction(
+        connection,
+        tokenX,
+        creatorKey,
+        tokenXAccount.owner
+      );
+
+    createUserTokenXIx && preInstructions.push(createUserTokenXIx);
+
+    const { ataPubKey: userTokenY, ix: createUserTokenYIx } =
+      await getOrCreateATAInstruction(
+        connection,
+        tokenY,
+        creatorKey,
+        tokenYAccount.owner
+      );
+
+    createUserTokenYIx && preInstructions.push(createUserTokenYIx);
 
     return program.methods
       .initializeCustomizablePermissionlessLbPair(ixData)
@@ -1483,6 +1519,7 @@ export class DLMM {
         userTokenY,
         funder: creatorKey,
       })
+      .preInstructions(preInstructions)
       .transaction();
   }
 
