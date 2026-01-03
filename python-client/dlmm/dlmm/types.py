@@ -313,8 +313,13 @@ class TokenReserve():
         self.public_key = Pubkey.from_string(data["publicKey"])
         self.reserve = Pubkey.from_string(data["reserve"])
         self.amount = data["amount"]
-        decimal = data.get("decimal", None)
-        self.decimal = decimal
+        # Handle both formats: direct 'decimal' key or nested 'mint.decimals'
+        if "decimal" in data:
+            self.decimal = data["decimal"]
+        elif "mint" in data and isinstance(data["mint"], dict):
+            self.decimal = data["mint"].get("decimals")
+        else:
+            self.decimal = None
 
 @dataclass
 class PositionInfo():
