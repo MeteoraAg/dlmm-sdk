@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "dlmm"
+version = "0.1.0"
+description = ""
+authors = ["Tanishq Parkar <tanishqparkar@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+solders = "^0.21.0"
+solana = "^0.34.3"
+requests = "^2.32.3"
+
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
