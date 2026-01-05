@@ -1,12 +1,11 @@
 import BN from "bn.js";
 import {
-  BorshAccountsCoder,
   IdlAccounts,
   IdlTypes,
   Program,
   ProgramAccount,
 } from "@coral-xyz/anchor";
-import { LbClmm } from "../idl";
+import { LbClmm } from "../idl/idl";
 import { getPriceOfBinByBinId } from "../helpers";
 import {
   AccountMeta,
@@ -274,7 +273,7 @@ export module BinLiquidity {
         .toString(),
       feeAmountXPerTokenStored: bin.feeAmountXPerTokenStored,
       feeAmountYPerTokenStored: bin.feeAmountYPerTokenStored,
-      rewardPerTokenStored: bin.rewardPerTokenStored,
+      rewardPerTokenStored: bin.functionBytes,
     };
   }
 

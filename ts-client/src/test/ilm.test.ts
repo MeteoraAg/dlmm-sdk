@@ -1,4 +1,5 @@
-import { AnchorProvider,  Program, Wallet, web3 } from "@coral-xyz/anchor";
+import { Wallet, web3 } from "@coral-xyz/anchor";
+import BN from "bn.js";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   ExtensionType,
@@ -24,7 +25,7 @@ import {
 import babar from "babar";
 import Decimal from "decimal.js";
 import fs from "fs";
-import { LBCLMM_PROGRAM_IDS } from "../dlmm/constants";
+import { FunctionType, LBCLMM_PROGRAM_IDS } from "../dlmm/constants";
 import {
   deriveCustomizablePermissionlessLbPair,
   deriveTokenBadge,
@@ -38,7 +39,11 @@ import {
   TRANSFER_HOOK_COUNTER_PROGRAM_ID,
 } from "./external/program";
 import { createExtraAccountMetaListAndCounter } from "./external/helper";
-import { createTestProgram } from "./helper";
+import {
+  createTestProgram,
+  createWhitelistOperator,
+  OperatorPermission,
+} from "./helper";
 
 const keypairBuffer = fs.readFileSync(
   "../keys/localnet/admin-bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1.json",
@@ -823,13 +828,22 @@ describe("ILM test", () => {
 
       const [dummyTokenBadge] = deriveTokenBadge(DUMMY, program.programId);
 
+      const operatorPda = await createWhitelistOperator(
+        connection,
+        operator,
+        operator.publicKey,
+        [OperatorPermission.InitializeTokenBadge],
+        program.programId
+      );
+
       await program.methods
         .initializeTokenBadge()
         .accountsPartial({
           tokenBadge: dummyTokenBadge,
-          admin: operator.publicKey,
+          signer: operator.publicKey,
           systemProgram: SystemProgram.programId,
           tokenMint: DUMMY,
+          operator: operatorPda,
         })
         .rpc();
 

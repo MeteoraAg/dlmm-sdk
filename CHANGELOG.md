@@ -19,6 +19,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.9.2] - [PR #265](https://github.com/MeteoraAg/dlmm-sdk/pull/265)
+
+### Fixed
+
+- Fixed `createCustomizablePermissionlessLbPair` and `createCustomizablePermissionlessLbPair2` to include pre instructions for creating user token accounts.
+
+## @meteora-ag/dlmm [1.9.1] - [PR #263](https://github.com/MeteoraAg/dlmm-sdk/pull/263)
+
+### Added
+
+- Added `functionType` parameter to `createCustomizablePermissionlessLbPair` and `createCustomizablePermissionlessLbPair2`. No breaking change to the interface.
+
+### Changed
+
+- Changed `admin` to `signer` in `setActivationPoint`, `setPairStatusPermissionless` and `setPairStatus`.
+- Changed `rewardPerTokenStored` to `functionBytes`
+- Added `rent` account to `createEmptyPosition`, `initializePositionAndAddLiquidityByStrategy`, `initializePositionAndAddLiquidityByWeight` and `createInitAndExtendPositionIx`
+
+### Removed
+
+- Removed `amountXIn` and `amountYIn` from bin state
+
+## @meteora-ag/dlmm [1.9.0] - [PR #260](https://github.com/MeteoraAg/dlmm-sdk/pull/260)
+
+### Added
+
+- Added `binDeltaToMinMaxBinId` helper function. To have a canonical conversion from binDelta to minBinId and maxBinId
+
+### Fixed
+
+- Fixed `simulateRebalancePosition` to account for when the activeBinArray has not been initialized.
+
 ## @meteora-ag/dlmm [1.8.0] - [PR #231](https://github.com/MeteoraAg/dlmm-sdk/pull/231)
 
 ### Added

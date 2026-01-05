@@ -14,8 +14,12 @@ import {
   Transaction,
 } from "@solana/web3.js";
 import fs from "fs";
-import { BASIS_POINT_MAX, LBCLMM_PROGRAM_IDS } from "../dlmm/constants";
-import IDL from "../dlmm/dlmm.json";
+import {
+  BASIS_POINT_MAX,
+  FunctionType,
+  LBCLMM_PROGRAM_IDS,
+} from "../dlmm/constants";
+import IDL from "../dlmm/idl/idl.json";
 import {
   deriveLbPairWithPresetParamWithIndexKey,
   derivePresetParameterWithIndex,
@@ -29,6 +33,8 @@ import { LbPosition, StrategyType } from "../dlmm/types";
 import {
   assertEqRebalanceSimulationWithActualResult,
   createTestProgram,
+  createWhitelistOperator,
+  OperatorPermission,
 } from "./helper";
 
 const keypairBuffer = fs.readFileSync(
@@ -162,15 +168,24 @@ describe("Rebalance", () => {
 
     const program = createTestProgram(connection, programId, keypair);
 
+    const operatorPda = await createWhitelistOperator(
+      connection,
+      keypair,
+      keypair.publicKey,
+      [OperatorPermission.InitializePresetParameter],
+      programId
+    );
+
     const presetParamState2 =
       await program.account.presetParameter.fetchNullable(presetParamPda2);
 
     if (!presetParamState2) {
       await program.methods
-        .initializePresetParameter2({
+        .initializePresetParameter({
           index: index.toNumber(),
           binStep: DEFAULT_BIN_STEP.toNumber(),
           baseFactor: DEFAULT_BASE_FACTOR_2.toNumber(),
+          functionType: FunctionType.LiquidityMining,
           filterPeriod: 30,
           decayPeriod: 600,
           reductionFactor: 5000,
@@ -180,9 +195,10 @@ describe("Rebalance", () => {
           baseFeePowerFactor: 0,
         })
         .accountsPartial({
-          admin: keypair.publicKey,
+          signer: keypair.publicKey,
           presetParameter: presetParamPda2,
           systemProgram: web3.SystemProgram.programId,
+          operator: operatorPda,
         })
         .signers([keypair])
         .rpc({

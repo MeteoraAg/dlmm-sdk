@@ -1,7 +1,6 @@
 import BN from "bn.js";
 import {
   ExtendedPositionBinData,
-  POSITION_BIN_DATA_SIZE,
   POSITION_MIN_SIZE,
   PositionV2,
   PositionVersion,
@@ -10,12 +9,8 @@ import {
 } from "../../types";
 import { AccountInfo, PublicKey } from "@solana/web3.js";
 import { Program } from "@coral-xyz/anchor";
-import { LbClmm } from "../../idl";
-import {
-  decodeExtendedPosition,
-  getBinArrayIndexesCoverage,
-  getBinArrayKeysCoverage,
-} from ".";
+import { LbClmm } from "../../idl/idl";
+import { decodeExtendedPosition, getBinArrayIndexesCoverage } from ".";
 import { binIdToBinArrayIndex } from "../binArray";
 import { deriveBinArray } from "../derive";
 import { decodeAccount, getAccountDiscriminator } from "..";

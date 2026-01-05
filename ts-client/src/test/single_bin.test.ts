@@ -2,14 +2,11 @@ import BN from "bn.js";
 import { web3 } from "@coral-xyz/anchor";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
-  AccountLayout,
   TOKEN_PROGRAM_ID,
-  createAssociatedTokenAccount,
   createMint,
   getAssociatedTokenAddressSync,
   getOrCreateAssociatedTokenAccount,
   mintTo,
-  transfer,
 } from "@solana/spl-token";
 import {
   Connection,
@@ -18,18 +15,11 @@ import {
   Transaction,
   sendAndConfirmTransaction,
 } from "@solana/web3.js";
-import babar from "babar";
-import Decimal from "decimal.js";
 import fs from "fs";
-import { LBCLMM_PROGRAM_IDS } from "../dlmm/constants";
-import {
-  deriveCustomizablePermissionlessLbPair,
-  getBinArrayLowerUpperBinId,
-  getPriceOfBinByBinId,
-} from "../dlmm/helpers";
+import { FunctionType, LBCLMM_PROGRAM_IDS } from "../dlmm/constants";
+import { deriveCustomizablePermissionlessLbPair } from "../dlmm/helpers";
 import { DLMM } from "../dlmm/index";
 import { ActivationType } from "../dlmm/types";
-import e from "express";
 
 const keypairBuffer = fs.readFileSync(
   "../keys/localnet/admin-bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1.json",

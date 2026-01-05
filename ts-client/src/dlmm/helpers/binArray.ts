@@ -465,10 +465,19 @@ export function updateBinArray(
       .div(new BN(15))
       .div(liquiditySupply);
 
-    activeBin.rewardPerTokenStored[rewardIdx] = activeBin.rewardPerTokenStored[
-      rewardIdx
-    ].add(rewardPerTokenStoredDelta);
+    activeBin.functionBytes[rewardIdx] = activeBin.functionBytes[rewardIdx].add(
+      rewardPerTokenStoredDelta
+    );
   }
 
   return binArrayClone;
+}
+
+export function binDeltaToMinMaxBinId(binDelta: number, activeBinId: number) {
+  const minBinId = activeBinId - binDelta;
+  const maxBinId = minBinId + binDelta * 2;
+  return {
+    minBinId,
+    maxBinId,
+  };
 }

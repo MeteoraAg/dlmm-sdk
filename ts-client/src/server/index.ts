@@ -4,6 +4,7 @@ import { DLMM } from "../dlmm";
 import { BinArrayAccount, LbPosition } from "../dlmm/types";
 import { BN } from "bn.js";
 import { convertToPosition } from "./utils";
+import { FunctionType } from "../dlmm/constants";
 
 declare global {
   namespace Express {
@@ -95,6 +96,7 @@ app.post(
       const activationType = parseInt(req.body.activationType);
       const hasAlphaVault = Boolean(req.body.hasAlphaVault);
       const creatorKey = new PublicKey(req.body.creatorKey);
+      const functionType = FunctionType.LiquidityMining;
       const activationPoint =
         req.body.activationPoint !== null
           ? new BN(req.body.activationPoint)
@@ -109,6 +111,7 @@ app.post(
         activationType,
         hasAlphaVault,
         creatorKey,
+        functionType,
         activationPoint
       );
       return res.status(200).send(safeStringify(transaction));
@@ -301,18 +304,14 @@ app.post("/dlmm/get-bin-array-for-swap", async (req, res) => {
           index: bin.account.index.toString("hex"),
           bins: bin.account.bins.map((b) => ({
             amountX: b.amountX.toString("hex"),
-            amountXIn: b.amountXIn.toString("hex"),
             amountY: b.amountY.toString("hex"),
-            amountYIn: b.amountYIn.toString("hex"),
             feeAmountXPerTokenStored:
               b.feeAmountXPerTokenStored.toString("hex"),
             feeAmountYPerTokenStored:
               b.feeAmountYPerTokenStored.toString("hex"),
             liquiditySupply: b.liquiditySupply.toString("hex"),
             price: b.price.toString("hex"),
-            rewardPerTokenStored: b.rewardPerTokenStored.map((r) =>
-              r.toString("hex")
-            ),
+            rewardPerTokenStored: b.functionBytes.map((r) => r.toString("hex")),
           })),
         },
       })
@@ -338,9 +337,7 @@ app.post("/dlmm/swap-quote", async (req, res) => {
         lbPair: new PublicKey(bin["account"]["lbPair"]),
         bins: bin["account"]["bins"].map((b) => ({
           amountX: new BN(b["amountX"], 16),
-          amountXIn: new BN(b["amountXIn"], 16),
           amountY: new BN(b["amountY"], 16),
-          amountYIn: new BN(b["amountYIn"], 16),
           feeAmountXPerTokenStored: new BN(b["feeAmountXPerTokenStored"], 16),
           feeAmountYPerTokenStored: new BN(b["feeAmountYPerTokenStored"], 16),
           liquiditySupply: new BN(b["liquiditySupply"], 16),
@@ -423,16 +420,12 @@ app.get("/dlmm/get-bin-arrays", async (req, res) => {
         index: bin.account.index.toString("hex"),
         bins: bin.account.bins.map((b) => ({
           amountX: b.amountX.toString("hex"),
-          amountXIn: b.amountXIn.toString("hex"),
           amountY: b.amountY.toString("hex"),
-          amountYIn: b.amountYIn.toString("hex"),
           feeAmountXPerTokenStored: b.feeAmountXPerTokenStored.toString("hex"),
           feeAmountYPerTokenStored: b.feeAmountYPerTokenStored.toString("hex"),
           liquiditySupply: b.liquiditySupply.toString("hex"),
           price: b.price.toString("hex"),
-          rewardPerTokenStored: b.rewardPerTokenStored.map((r) =>
-            r.toString("hex")
-          ),
+          rewardPerTokenStored: b.functionBytes.map((r) => r.toString("hex")),
         })),
       },
     }));

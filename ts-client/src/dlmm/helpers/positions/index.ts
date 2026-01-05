@@ -12,7 +12,7 @@ import {
 } from "../../types";
 import { DEFAULT_BIN_PER_POSITION, POSITION_MAX_LENGTH } from "../../constants";
 import { Program } from "@coral-xyz/anchor";
-import { LbClmm } from "../../idl";
+import { LbClmm } from "../../idl/idl";
 
 export * from "./wrapper";
 
