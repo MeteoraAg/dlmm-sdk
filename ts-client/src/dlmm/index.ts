@@ -1359,25 +1359,41 @@ export class DLMM {
 
     const preInstructions: TransactionInstruction[] = [];
 
-    const { ataPubKey: userTokenX, ix: createUserTokenXIx } =
-      await getOrCreateATAInstruction(
-        connection,
-        tokenX,
+    const userTokenX = getAssociatedTokenAddressSync(
+      tokenX,
+      creatorKey,
+      true,
+      tokenXAccount.owner
+    );
+
+    const createUserTokenXIx =
+      createAssociatedTokenAccountIdempotentInstruction(
         creatorKey,
+        userTokenX,
+        creatorKey,
+        tokenX,
         tokenXAccount.owner
       );
 
-    createUserTokenXIx && preInstructions.push(createUserTokenXIx);
+    preInstructions.push(createUserTokenXIx);
 
-    const { ataPubKey: userTokenY, ix: createUserTokenYIx } =
-      await getOrCreateATAInstruction(
-        connection,
-        tokenY,
+    const userTokenY = getAssociatedTokenAddressSync(
+      tokenY,
+      creatorKey,
+      true,
+      tokenYAccount.owner
+    );
+
+    const createUserTokenYIx =
+      createAssociatedTokenAccountIdempotentInstruction(
         creatorKey,
+        userTokenY,
+        creatorKey,
+        tokenY,
         tokenYAccount.owner
       );
 
-    createUserTokenYIx && preInstructions.push(createUserTokenYIx);
+    preInstructions.push(createUserTokenYIx);
 
     const postInstructions: TransactionInstruction[] = [];
 
@@ -1512,25 +1528,41 @@ export class DLMM {
 
     const preInstructions: TransactionInstruction[] = [];
 
-    const { ataPubKey: userTokenX, ix: createUserTokenXIx } =
-      await getOrCreateATAInstruction(
-        connection,
-        tokenX,
+    const userTokenX = getAssociatedTokenAddressSync(
+      tokenX,
+      creatorKey,
+      true,
+      tokenXAccount.owner
+    );
+
+    const createUserTokenXIx =
+      createAssociatedTokenAccountIdempotentInstruction(
         creatorKey,
+        userTokenX,
+        creatorKey,
+        tokenX,
         tokenXAccount.owner
       );
 
-    createUserTokenXIx && preInstructions.push(createUserTokenXIx);
+    preInstructions.push(createUserTokenXIx);
 
-    const { ataPubKey: userTokenY, ix: createUserTokenYIx } =
-      await getOrCreateATAInstruction(
-        connection,
-        tokenY,
+    const userTokenY = getAssociatedTokenAddressSync(
+      tokenY,
+      creatorKey,
+      true,
+      tokenYAccount.owner
+    );
+
+    const createUserTokenYIx =
+      createAssociatedTokenAccountIdempotentInstruction(
         creatorKey,
+        userTokenY,
+        creatorKey,
+        tokenY,
         tokenYAccount.owner
       );
 
-    createUserTokenYIx && preInstructions.push(createUserTokenYIx);
+    preInstructions.push(createUserTokenYIx);
 
     const postInstructions: TransactionInstruction[] = [];
 
