@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.9.2] - [PR #265](https://github.com/MeteoraAg/dlmm-sdk/pull/265)
+
+### Fixed
+
+- Fixed `createCustomizablePermissionlessLbPair` and `createCustomizablePermissionlessLbPair2` to include pre instructions for creating user token accounts.
+
 ## @meteora-ag/dlmm [1.9.1] - [PR #263](https://github.com/MeteoraAg/dlmm-sdk/pull/263)
 
 ### Added

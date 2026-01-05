@@ -1357,6 +1357,8 @@ export class DLMM {
       padding: Array(63).fill(0),
     };
 
+    const preInstructions: TransactionInstruction[] = [];
+
     const userTokenX = getAssociatedTokenAddressSync(
       tokenX,
       creatorKey,
@@ -1364,12 +1366,66 @@ export class DLMM {
       tokenXAccount.owner
     );
 
+    const createUserTokenXIx =
+      createAssociatedTokenAccountIdempotentInstruction(
+        creatorKey,
+        userTokenX,
+        creatorKey,
+        tokenX,
+        tokenXAccount.owner
+      );
+
+    preInstructions.push(createUserTokenXIx);
+
     const userTokenY = getAssociatedTokenAddressSync(
       tokenY,
       creatorKey,
       true,
       tokenYAccount.owner
     );
+
+    const createUserTokenYIx =
+      createAssociatedTokenAccountIdempotentInstruction(
+        creatorKey,
+        userTokenY,
+        creatorKey,
+        tokenY,
+        tokenYAccount.owner
+      );
+
+    preInstructions.push(createUserTokenYIx);
+
+    const postInstructions: TransactionInstruction[] = [];
+
+    // if either mint (tokenX or tokenY) is SOL, wrap a small amount to initialize the wrapped SOL account(s) then unwrap after the pool creation
+    if (
+      (tokenX.equals(NATIVE_MINT) || tokenY.equals(NATIVE_MINT)) &&
+      !opt?.skipSolWrappingOperation
+    ) {
+      const wrapAmount = BigInt(1); // 1 lamport
+
+      if (tokenX.equals(NATIVE_MINT)) {
+        const wrapSOLIxX = wrapSOLInstruction(
+          creatorKey,
+          userTokenX,
+          wrapAmount
+        );
+        preInstructions.push(...wrapSOLIxX);
+      }
+      if (tokenY.equals(NATIVE_MINT)) {
+        const wrapSOLIxY = wrapSOLInstruction(
+          creatorKey,
+          userTokenY,
+          wrapAmount
+        );
+        preInstructions.push(...wrapSOLIxY);
+      }
+
+      const unwrapSOLIx = await unwrapSOLInstruction(creatorKey);
+      if (unwrapSOLIx) {
+        postInstructions.push(unwrapSOLIx);
+      }
+    }
 
     return program.methods
       .initializeCustomizablePermissionlessLbPair2(ixData)
@@ -1390,6 +1446,8 @@ export class DLMM {
         tokenProgramX: tokenXAccount.owner,
         tokenProgramY: tokenYAccount.owner,
       })
+      .preInstructions(preInstructions)
+      .postInstructions(postInstructions)
       .transaction();
   }
 
@@ -1430,6 +1488,9 @@ export class DLMM {
       program.programId
     );
 
+    const [tokenXAccount, tokenYAccount] =
+      await connection.getMultipleAccountsInfo([tokenX, tokenY]);
+
     const [reserveX] = deriveReserve(tokenX, lbPair, program.programId);
     const [reserveY] = deriveReserve(tokenY, lbPair, program.programId);
     const [oracle] = deriveOracle(lbPair, program.programId);
@@ -1465,8 +1526,75 @@ export class DLMM {
       padding: Array(63).fill(0),
     };
 
-    const userTokenX = getAssociatedTokenAddressSync(tokenX, creatorKey);
-    const userTokenY = getAssociatedTokenAddressSync(tokenY, creatorKey);
+    const preInstructions: TransactionInstruction[] = [];
+
+    const userTokenX = getAssociatedTokenAddressSync(
+      tokenX,
+      creatorKey,
+      true,
+      tokenXAccount.owner
+    );
+
+    const createUserTokenXIx =
+      createAssociatedTokenAccountIdempotentInstruction(
+        creatorKey,
+        userTokenX,
+        creatorKey,
+        tokenX,
+        tokenXAccount.owner
+      );
+
+    preInstructions.push(createUserTokenXIx);
+
+    const userTokenY = getAssociatedTokenAddressSync(
+      tokenY,
+      creatorKey,
+      true,
+      tokenYAccount.owner
+    );
+
+    const createUserTokenYIx =
+      createAssociatedTokenAccountIdempotentInstruction(
+        creatorKey,
+        userTokenY,
+        creatorKey,
+        tokenY,
+        tokenYAccount.owner
+      );
+
+    preInstructions.push(createUserTokenYIx);
+
+    const postInstructions: TransactionInstruction[] = [];
+
+    // if either mint (tokenX or tokenY) is SOL, wrap a small amount to initialize the wrapped SOL account(s) then unwrap after the pool creation
+    if (
+      (tokenX.equals(NATIVE_MINT) || tokenY.equals(NATIVE_MINT)) &&
+      !opt?.skipSolWrappingOperation
+    ) {
+      const wrapAmount = BigInt(1); // 1 lamport
+
+      if (tokenX.equals(NATIVE_MINT)) {
+        const wrapSOLIxX = wrapSOLInstruction(
+          creatorKey,
+          userTokenX,
+          wrapAmount
+        );
+        preInstructions.push(...wrapSOLIxX);
+      }
+      if (tokenY.equals(NATIVE_MINT)) {
+        const wrapSOLIxY = wrapSOLInstruction(
+          creatorKey,
+          userTokenY,
+          wrapAmount
+        );
+        preInstructions.push(...wrapSOLIxY);
+      }
+
+      const unwrapSOLIx = await unwrapSOLInstruction(creatorKey);
+      if (unwrapSOLIx) {
+        postInstructions.push(unwrapSOLIx);
+      }
+    }
 
     return program.methods
       .initializeCustomizablePermissionlessLbPair(ixData)
@@ -1483,6 +1611,8 @@ export class DLMM {
         userTokenY,
         funder: creatorKey,
       })
+      .preInstructions(preInstructions)
+      .postInstructions(postInstructions)
       .transaction();
   }
 
