@@ -1381,11 +1381,29 @@ export class DLMM {
 
     const postInstructions: TransactionInstruction[] = [];
 
-    // if quote mint (tokenY) is SOL, wrap a small amount to initialize the wrapped SOL account then unwrap it after the pool creation
-    if (tokenY.equals(NATIVE_MINT) && !opt?.skipSolWrappingOperation) {
-      const wrapAmount = BigInt(1_000_000); // 0.001 SOL
-      const wrapSOLIx = wrapSOLInstruction(creatorKey, userTokenY, wrapAmount);
-      preInstructions.push(...wrapSOLIx);
+    // if either mint (tokenX or tokenY) is SOL, wrap a small amount to initialize the wrapped SOL account(s) then unwrap after the pool creation
+    if (
+      (tokenX.equals(NATIVE_MINT) || tokenY.equals(NATIVE_MINT)) &&
+      !opt?.skipSolWrappingOperation
+    ) {
+      const wrapAmount = BigInt(1); // 1 lamport
+
+      if (tokenX.equals(NATIVE_MINT)) {
+        const wrapSOLIxX = wrapSOLInstruction(
+          creatorKey,
+          userTokenX,
+          wrapAmount
+        );
+        preInstructions.push(...wrapSOLIxX);
+      }
+      if (tokenY.equals(NATIVE_MINT)) {
+        const wrapSOLIxY = wrapSOLInstruction(
+          creatorKey,
+          userTokenY,
+          wrapAmount
+        );
+        preInstructions.push(...wrapSOLIxY);
+      }
 
       const unwrapSOLIx = await unwrapSOLInstruction(creatorKey);
       if (unwrapSOLIx) {
@@ -1516,13 +1534,30 @@ export class DLMM {
 
     const postInstructions: TransactionInstruction[] = [];
 
-    // if quote mint (tokenY) is SOL, wrap a small amount to initialize the wrapped SOL account then unwrap it after the pool creation
-    if (tokenY.equals(NATIVE_MINT) && !opt?.skipSolWrappingOperation) {
-      const wrapAmount = BigInt(1_000_000); // 0.001 SOL
-      const wrapSOLIx = wrapSOLInstruction(creatorKey, userTokenY, wrapAmount);
-      preInstructions.push(...wrapSOLIx);
+    // if either mint (tokenX or tokenY) is SOL, wrap a small amount to initialize the wrapped SOL account(s) then unwrap after the pool creation
+    if (
+      (tokenX.equals(NATIVE_MINT) || tokenY.equals(NATIVE_MINT)) &&
+      !opt?.skipSolWrappingOperation
+    ) {
+      const wrapAmount = BigInt(1); // 1 lamport
 
-      // Unwrap SOL after pool creation
+      if (tokenX.equals(NATIVE_MINT)) {
+        const wrapSOLIxX = wrapSOLInstruction(
+          creatorKey,
+          userTokenX,
+          wrapAmount
+        );
+        preInstructions.push(...wrapSOLIxX);
+      }
+      if (tokenY.equals(NATIVE_MINT)) {
+        const wrapSOLIxY = wrapSOLInstruction(
+          creatorKey,
+          userTokenY,
+          wrapAmount
+        );
+        preInstructions.push(...wrapSOLIxY);
+      }
+
       const unwrapSOLIx = await unwrapSOLInstruction(creatorKey);
       if (unwrapSOLIx) {
         postInstructions.push(unwrapSOLIx);
