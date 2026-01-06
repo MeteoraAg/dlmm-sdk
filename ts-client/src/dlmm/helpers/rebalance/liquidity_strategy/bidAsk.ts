@@ -2,11 +2,7 @@ import BN from "bn.js";
 import { BidAskParameters, LiquidityStrategyParameterBuilder } from ".";
 import { SCALE_OFFSET } from "../../../constants";
 import { getQPriceFromId } from "../../math";
-import {
-  getAmountInBinsAskSide,
-  getAmountInBinsBidSide,
-  toAmountIntoBins,
-} from "../rebalancePosition";
+import { getAmountInBinsAskSide, toAmountIntoBins } from "../rebalancePosition";
 
 function findMinY0(amountY: BN, minDeltaId: BN, maxDeltaId: BN) {
   const binCount = maxDeltaId.sub(minDeltaId).addn(1);
@@ -61,30 +57,27 @@ function findY0AndDeltaY(
   }
 
   let baseDeltaY = findBaseDeltaY(amountY, minDeltaId, maxDeltaId);
-  const y0 = baseDeltaY.neg().mul(maxDeltaId.neg().subn(1));
+  const maxDeltaAbs = maxDeltaId.neg();
+  const binCount = maxDeltaId.sub(minDeltaId).addn(1);
+  const sumDeltaId = minDeltaId.add(maxDeltaId).mul(binCount).divn(2);
+  const sumNegDelta = sumDeltaId.neg();
+  const coefficient = sumNegDelta.sub(binCount.mul(maxDeltaAbs.subn(1)));
 
-  while (true) {
-    const amountInBins = getAmountInBinsBidSide(
-      activeId,
-      minDeltaId,
-      maxDeltaId,
-      baseDeltaY,
-      y0
-    );
-
-    const totalAmountY = amountInBins.reduce((acc, { amountY }) => {
-      return acc.add(amountY);
-    }, new BN(0));
-
+  if (coefficient.gt(new BN(0))) {
+    const totalAmountY = baseDeltaY.mul(coefficient);
     if (totalAmountY.gt(amountY)) {
-      baseDeltaY = baseDeltaY.sub(new BN(1));
-    } else {
-      return {
-        base: y0,
-        delta: baseDeltaY,
-      };
+      const overshoot = totalAmountY.sub(amountY);
+      const adjustment = overshoot.add(coefficient.subn(1)).div(coefficient);
+      baseDeltaY = BN.max(baseDeltaY.sub(adjustment), new BN(0));
     }
   }
+
+  const y0 = baseDeltaY.neg().mul(maxDeltaAbs.subn(1));
+
+  return {
+    base: y0,
+    delta: baseDeltaY,
+  };
 }
 
 function findMinX0(
