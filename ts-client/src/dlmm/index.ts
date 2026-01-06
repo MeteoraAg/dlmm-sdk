@@ -58,6 +58,7 @@ import {
   capSlippagePercentage,
   chunkDepositWithRebalanceEndpoint,
   chunkedGetMultipleAccountInfos,
+  chunkedGetProgramAccounts,
   chunks,
   computeFeeFromAmount,
   createProgram,
@@ -212,6 +213,7 @@ import {
   TokenReserve,
   sParameters,
   vParameters,
+  GetPositionsOpt,
 } from "./types";
 
 export class DLMM {
@@ -872,6 +874,7 @@ export class DLMM {
    * class, which represents the connection to the Solana blockchain.
    * @param {PublicKey} userPubKey - The user's wallet public key.
    * @param {Opt} [opt] - An optional object that contains additional options for the function.
+   * @param {GetPositionsOpt} [getPositionsOpt] - Optional settings for chunked position fetching
    * @returns The function `getAllLbPairPositionsByUser` returns a `Promise` that resolves to a `Map`
    * object. The `Map` object contains key-value pairs, where the key is a string representing the LB
    * Pair account, and the value is an object of PositionInfo
@@ -879,15 +882,18 @@ export class DLMM {
   static async getAllLbPairPositionsByUser(
     connection: Connection,
     userPubKey: PublicKey,
-    opt?: Opt
+    opt?: Opt,
+    getPositionsOpt?: GetPositionsOpt
   ): Promise<Map<string, PositionInfo>> {
     const program = createProgram(connection, opt);
 
-    const positionsV2 = await program.provider.connection.getProgramAccounts(
+    const positionsV2 = await chunkedGetProgramAccounts(
+      program.provider.connection,
       program.programId,
-      {
-        filters: [positionV2Filter(), positionOwnerFilter(userPubKey)],
-      }
+      [positionV2Filter(), positionOwnerFilter(userPubKey)],
+      getPositionsOpt?.chunkSize,
+      getPositionsOpt?.onChunkFetched,
+      getPositionsOpt?.isParallelExecution
     );
 
     const positionWrappers: IPosition[] = [
@@ -1163,21 +1169,24 @@ export class DLMM {
    * The function `getLbPairLockInfo` retrieves all pair positions that has locked liquidity.
    * @param {number} [lockDurationOpt] - An optional value indicating the minimum position lock duration that the function should return.
    * Depending on the lbPair activationType, the param should be a number of seconds or a number of slots.
+   * @param {GetPositionsOpt} [getPositionsOpt] - Optional settings for chunked position fetching
    * @returns The function `getLbPairLockInfo` returns a `Promise` that resolves to a `PairLockInfo`
    * object. The `PairLockInfo` object contains an array of `PositionLockInfo` objects.
    */
   public async getLbPairLockInfo(
-    lockDurationOpt?: number
+    lockDurationOpt?: number,
+    getPositionsOpt?: GetPositionsOpt
   ): Promise<PairLockInfo> {
     const lockDuration = lockDurationOpt | 0;
 
-    const positionAccounts =
-      await this.program.provider.connection.getProgramAccounts(
-        this.program.programId,
-        {
-          filters: [positionLbPairFilter(this.pubkey)],
-        }
-      );
+    const positionAccounts = await chunkedGetProgramAccounts(
+      this.program.provider.connection,
+      this.program.programId,
+      [positionLbPairFilter(this.pubkey)],
+      getPositionsOpt?.chunkSize,
+      getPositionsOpt?.onChunkFetched,
+      getPositionsOpt?.isParallelExecution
+    );
 
     const lbPairPositions = positionAccounts.map((acc) => {
       return wrapPosition(this.program, acc.pubkey, acc.account);
@@ -2336,28 +2345,34 @@ export class DLMM {
    * `PublicKey`. It represents the public key of a user. If no `userPubKey` is provided, the function
    * will return an object with an empty `userPositions` array and the active bin information obtained
    * from the `getActive
+   * @param {GetPositionsOpt} [getPositionsOpt] - Optional settings for chunked position fetching
    * @returns The function `getPositionsByUserAndLbPair` returns a Promise that resolves to an object
    * with two properties:
    *    - "activeBin" which is an object with two properties: "binId" and "price". The value of "binId"
    *     is the active bin ID of the lbPair, and the value of "price" is the price of the active bin.
    *   - "userPositions" which is an array of Position objects.
    */
-  public async getPositionsByUserAndLbPair(userPubKey?: PublicKey): Promise<{
+  public async getPositionsByUserAndLbPair(
+    userPubKey?: PublicKey,
+    getPositionsOpt?: GetPositionsOpt
+  ): Promise<{
     activeBin: BinLiquidity;
     userPositions: Array<LbPosition>;
   }> {
     const promiseResults = await Promise.all([
       this.getActiveBin(),
       userPubKey &&
-        this.program.provider.connection.getProgramAccounts(
+        chunkedGetProgramAccounts(
+          this.program.provider.connection,
           this.program.programId,
-          {
-            filters: [
-              positionV2Filter(),
-              positionOwnerFilter(userPubKey),
-              positionLbPairFilter(this.pubkey),
-            ],
-          }
+          [
+            positionV2Filter(),
+            positionOwnerFilter(userPubKey),
+            positionLbPairFilter(this.pubkey),
+          ],
+          getPositionsOpt?.chunkSize,
+          getPositionsOpt?.onChunkFetched,
+          getPositionsOpt?.isParallelExecution
         ),
     ]);
 

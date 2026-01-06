@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.9.3] - [PR #262](https://github.com/MeteoraAg/dlmm-sdk/pull/262)
+
+### Added
+
+- Added `chunkedGetMultipleAccountsInfo` helper function to fetch program accounts in chunks, improving reliability for large account queries.
+
 ## @meteora-ag/dlmm [1.9.2] - [PR #265](https://github.com/MeteoraAg/dlmm-sdk/pull/265)
 
 ### Fixed
