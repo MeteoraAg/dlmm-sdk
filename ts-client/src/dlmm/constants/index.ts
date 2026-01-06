@@ -1,5 +1,5 @@
 import { LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
-import { BN } from "@coral-xyz/anchor";
+import BN from "bn.js";
 import IDL from "../idl/idl.json";
 import Decimal from "decimal.js";
 

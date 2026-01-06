@@ -1,4 +1,4 @@
-import { BN } from "@coral-xyz/anchor";
+import BN from "bn.js";
 import { Mint } from "@solana/spl-token";
 import {
   Clock,

@@ -1,4 +1,5 @@
-import { BN, web3 } from "@coral-xyz/anchor";
+import BN from "bn.js";
+import { web3 } from "@coral-xyz/anchor";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
