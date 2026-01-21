@@ -4625,7 +4625,7 @@ export class DLMM {
    *    - `swapForY`: Swap token X to Y when it is true, else reversed.
    *    - `allowedSlippage`: Allowed slippage for the swap. Expressed in BPS. To convert from slippage percentage to BPS unit: SLIPPAGE_PERCENTAGE * 100
    *    - `binArrays`: binArrays for swapQuote.
-   *    - `isPartialFill`: Flag to check whether the the swapQuote is partial fill, default = false.
+   *    - `isPartialFill`: Flag to check whether the swapQuote is partial fill, default = false.
    *    - `maxExtraBinArrays`: Maximum number of extra binArrays to return
    * @returns {SwapQuote}
    *    - `consumedInAmount`: Amount of lamport to swap in

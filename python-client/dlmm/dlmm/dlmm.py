@@ -340,7 +340,7 @@ class DLMM:
             swap_Y_to_X (bool): Swap token X to Y when it is true, else reversed.
             allowed_slippage (int): Allowed slippage for the swap. Expressed in BPS. To convert from slippage percentage to BPS unit: SLIPPAGE_PERCENTAGE * 100
             binArrays (List[dict]): The list of bin arrays to use for the swap.
-            is_partial_filled (Optional[bool]): Flag to check whether the the swapQuote is partial fill.
+            is_partial_filled (Optional[bool]): Flag to check whether the swapQuote is partial fill.
         
         '''
         if type(amount) != int:
