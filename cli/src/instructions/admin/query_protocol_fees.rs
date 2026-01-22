@@ -454,10 +454,6 @@ where
     C: std::ops::Deref<Target = P> + Clone,
     P: anchor_client::solana_sdk::signer::Signer + 'static,
 {
-    if params.token_mints.is_empty() {
-        return Err(anyhow::anyhow!("No token mints specified"));
-    }
-    
     if params.under_target_tolerance < 0.0 || params.under_target_tolerance > 100.0 {
         return Err(anyhow::anyhow!("Under target tolerance must be between 0 and 100"));
     }
@@ -710,8 +706,8 @@ fn filter_and_process_pools(
             continue;
         }
 
-        let token_x_matches = token_filter.contains(&lb_pair.token_x_mint);
-        let token_y_matches = token_filter.contains(&lb_pair.token_y_mint);
+        let token_x_matches = token_filter.is_empty() || token_filter.contains(&lb_pair.token_x_mint);
+        let token_y_matches = token_filter.is_empty() || token_filter.contains(&lb_pair.token_y_mint);
 
         if !token_x_matches && !token_y_matches {
             continue;
