@@ -45,18 +45,34 @@ export class DLMMError extends Error {
   }
 }
 
-// SDK error
-type ErrorName =
-  | "SWAP_QUOTE_INSUFFICIENT_LIQUIDITY"
-  | "INVALID_MAX_EXTRA_BIN_ARRAYS";
+// SDK error codes
+export enum SdkErrorCode {
+  SWAP_QUOTE_INSUFFICIENT_LIQUIDITY = "SWAP_QUOTE_INSUFFICIENT_LIQUIDITY",
+  INVALID_MAX_EXTRA_BIN_ARRAYS = "INVALID_MAX_EXTRA_BIN_ARRAYS",
+}
+
+const SDK_ERROR_MESSAGES: Record<SdkErrorCode, string> = {
+  [SdkErrorCode.SWAP_QUOTE_INSUFFICIENT_LIQUIDITY]:
+  "Insufficient liquidity",
+  [SdkErrorCode.INVALID_MAX_EXTRA_BIN_ARRAYS]:
+  "Max extra bin arrays value is invalid"
+}
 
 export class DlmmSdkError extends Error {
-  name: ErrorName;
+  name: string;
   message: string;
+  code: SdkErrorCode;
 
-  constructor(name: ErrorName, message: string) {
-    super();
-    this.name = name;
+  constructor(code: SdkErrorCode, errorMessage?: string) {
+    const message = errorMessage ?? SDK_ERROR_MESSAGES[code];
+    super(message);
+    this.name = SdkErrorCode[code];
     this.message = message;
+    this.code = code;
+  }
+
+  // Type-safe error check for catch blocks
+  static is(error: unknown, code: SdkErrorCode): error is DlmmSdkError {
+    return error instanceof DlmmSdkError && error.code === code;
   }
 }

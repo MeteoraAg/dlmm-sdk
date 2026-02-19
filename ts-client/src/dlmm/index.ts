@@ -51,7 +51,7 @@ import {
   TOKEN_ACCOUNT_FEE_BN,
   U64_MAX,
 } from "./constants";
-import { DlmmSdkError } from "./error";
+import { DlmmSdkError, SdkErrorCode } from "./error";
 import {
   Opt,
   binIdToBinArrayIndex,
@@ -4452,7 +4452,7 @@ export class DLMM {
 
     if (maxExtraBinArrays < 0 || maxExtraBinArrays > MAX_EXTRA_BIN_ARRAYS) {
       throw new DlmmSdkError(
-        "INVALID_MAX_EXTRA_BIN_ARRAYS",
+        SdkErrorCode.INVALID_MAX_EXTRA_BIN_ARRAYS,
         `maxExtraBinArrays must be a value between 0 and ${MAX_EXTRA_BIN_ARRAYS}`
       );
     }
@@ -4487,7 +4487,7 @@ export class DLMM {
 
       if (binArrayAccountToSwap == null) {
         throw new DlmmSdkError(
-          "SWAP_QUOTE_INSUFFICIENT_LIQUIDITY",
+          SdkErrorCode.SWAP_QUOTE_INSUFFICIENT_LIQUIDITY,
           "Insufficient liquidity in binArrays"
         );
       }
@@ -4649,7 +4649,7 @@ export class DLMM {
 
     if (maxExtraBinArrays < 0 || maxExtraBinArrays > MAX_EXTRA_BIN_ARRAYS) {
       throw new DlmmSdkError(
-        "INVALID_MAX_EXTRA_BIN_ARRAYS",
+        SdkErrorCode.INVALID_MAX_EXTRA_BIN_ARRAYS,
         `maxExtraBinArrays must be a value between 0 and ${MAX_EXTRA_BIN_ARRAYS}`
       );
     }
@@ -4700,7 +4700,7 @@ export class DLMM {
           break;
         } else {
           throw new DlmmSdkError(
-            "SWAP_QUOTE_INSUFFICIENT_LIQUIDITY",
+            SdkErrorCode.SWAP_QUOTE_INSUFFICIENT_LIQUIDITY,
             "Insufficient liquidity in binArrays for swapQuote"
           );
         }
@@ -4756,8 +4756,7 @@ export class DLMM {
     if (!startBin) {
       // The pool insufficient liquidity
       throw new DlmmSdkError(
-        "SWAP_QUOTE_INSUFFICIENT_LIQUIDITY",
-        "Insufficient liquidity"
+        SdkErrorCode.SWAP_QUOTE_INSUFFICIENT_LIQUIDITY
       );
     }
 
