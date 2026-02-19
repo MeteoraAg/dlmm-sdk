@@ -12,7 +12,6 @@ import {
 } from "@solana/spl-token";
 import {
   AccountMeta,
-  ComputeBudgetInstruction,
   ComputeBudgetProgram,
   Connection,
   Keypair,
@@ -113,7 +112,6 @@ import {
   DEFAULT_INIT_BIN_ARRAY_CU,
   DEFAULT_INIT_POSITION_CU,
   getDefaultExtendPositionCU,
-  getSimulationComputeUnits,
 } from "./helpers/computeUnit";
 import {
   Rounding,
