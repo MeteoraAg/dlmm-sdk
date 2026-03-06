@@ -367,7 +367,7 @@ describe("SDK token2022 test", () => {
         index: idx,
         binStep: 10,
         baseFactor: 10_000,
-        functionType: FunctionType.LiquidityMining,
+        concreteFunctionType: FunctionType.LiquidityMining,
         filterPeriod: 30,
         decayPeriod: 600,
         reductionFactor: 5000,
@@ -375,6 +375,7 @@ describe("SDK token2022 test", () => {
         protocolShare: 0,
         maxVolatilityAccumulator: 350000,
         baseFeePowerFactor: 1,
+        collectFeeMode: 0,
       })
       .accountsPartial({
         presetParameter: presetParameter2Key,

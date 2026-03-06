@@ -230,7 +230,7 @@ describe("SDK test", () => {
           index: 0,
           binStep: DEFAULT_BIN_STEP.toNumber(),
           baseFactor: DEFAULT_BASE_FACTOR.toNumber(),
-          functionType: FunctionType.LiquidityMining,
+          concreteFunctionType: FunctionType.LiquidityMining,
           filterPeriod: 30,
           decayPeriod: 600,
           reductionFactor: 5000,
@@ -238,6 +238,7 @@ describe("SDK test", () => {
           protocolShare: 0,
           maxVolatilityAccumulator: 350000,
           baseFeePowerFactor: 0,
+          collectFeeMode: 0,
         })
         .accountsPartial({
           signer: keypair.publicKey,
@@ -260,7 +261,7 @@ describe("SDK test", () => {
           index: 0,
           binStep: DEFAULT_BIN_STEP.toNumber(),
           baseFactor: DEFAULT_BASE_FACTOR_2.toNumber(),
-          functionType: FunctionType.LiquidityMining,
+          concreteFunctionType: FunctionType.LiquidityMining,
           filterPeriod: 30,
           decayPeriod: 600,
           reductionFactor: 5000,
@@ -268,6 +269,7 @@ describe("SDK test", () => {
           protocolShare: 0,
           maxVolatilityAccumulator: 350000,
           baseFeePowerFactor: 0,
+          collectFeeMode: 0,
         })
         .accountsPartial({
           signer: keypair.publicKey,
@@ -344,6 +346,8 @@ describe("SDK test", () => {
             baseFeePowerFactor: basePowerFactor.toNumber(),
             activationType: ActivationType.Slot,
             protocolShare: protocolFeeBps.toNumber(),
+            concreteFunctionType: 0,
+            collectFeeMode: 0,
           })
           .accountsPartial({
             base: baseKeypair.publicKey,

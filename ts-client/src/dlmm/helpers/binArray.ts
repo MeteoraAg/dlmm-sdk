@@ -465,9 +465,8 @@ export function updateBinArray(
       .div(new BN(15))
       .div(liquiditySupply);
 
-    activeBin.functionBytes[rewardIdx] = activeBin.functionBytes[rewardIdx].add(
-      rewardPerTokenStoredDelta
-    );
+    // Reward per token stored is no longer tracked per-bin in v0.12.0
+    // This was previously stored in functionBytes which has been repurposed for limit orders
   }
 
   return binArrayClone;

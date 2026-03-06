@@ -184,7 +184,7 @@ describe("Rebalance", () => {
           index: index.toNumber(),
           binStep: DEFAULT_BIN_STEP.toNumber(),
           baseFactor: DEFAULT_BASE_FACTOR_2.toNumber(),
-          functionType: FunctionType.LiquidityMining,
+          concreteFunctionType: FunctionType.LiquidityMining,
           filterPeriod: 30,
           decayPeriod: 600,
           reductionFactor: 5000,
@@ -192,6 +192,7 @@ describe("Rebalance", () => {
           protocolShare: 0,
           maxVolatilityAccumulator: 350000,
           baseFeePowerFactor: 0,
+          collectFeeMode: 0,
         })
         .accountsPartial({
           signer: keypair.publicKey,
