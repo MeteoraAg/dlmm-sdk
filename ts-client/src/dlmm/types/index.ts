@@ -52,8 +52,13 @@ export type Bin = IdlTypes<LbClmm>["bin"];
 export type BinArray = IdlAccounts<LbClmm>["binArray"];
 export type BinArrayAccount = ProgramAccount<IdlAccounts<LbClmm>["binArray"]>;
 
-export type Position = IdlAccounts<LbClmm>["position"];
 export type PositionV2 = IdlAccounts<LbClmm>["positionV2"];
+export type Position = PositionV2;
+
+export type LimitOrder = IdlAccounts<LbClmm>["limitOrder"];
+export type LimitOrderAccount = ProgramAccount<
+  IdlAccounts<LbClmm>["limitOrder"]
+>;
 
 export type PresetParameter = IdlAccounts<LbClmm>["presetParameter"];
 export type PresetParameter2 = IdlAccounts<LbClmm>["presetParameter2"];
@@ -274,7 +279,7 @@ export module BinLiquidity {
         .toString(),
       feeAmountXPerTokenStored: bin.feeAmountXPerTokenStored,
       feeAmountYPerTokenStored: bin.feeAmountYPerTokenStored,
-      rewardPerTokenStored: bin.functionBytes,
+      rewardPerTokenStored: [new BN(0), new BN(0)],
     };
   }
 
