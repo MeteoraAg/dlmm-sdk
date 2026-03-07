@@ -4065,33 +4065,47 @@ export class DLMM {
     const owner = positionState.owner();
     const feeOwner = positionState.feeOwner();
     const liquidityShares = positionState.liquidityShares();
+    const feeInfos = positionState.feeInfos();
 
-    const liqudityShareWithBinId = liquidityShares.map((share, i) => {
+    const binDataWithBinId = liquidityShares.map((share, i) => {
+      const feeInfo = feeInfos[i];
       return {
         share,
         binId: positionState.lowerBinId().add(new BN(i)),
+        hasFees:
+          feeInfo &&
+          (!feeInfo.feeXPending.isZero() || !feeInfo.feeYPending.isZero()),
       };
     });
 
-    const binIdsWithLiquidity = liqudityShareWithBinId.filter((bin) => {
+    const binIdsWithLiquidity = binDataWithBinId.filter((bin) => {
       return !bin.share.isZero();
     });
 
-    if (binIdsWithLiquidity.length == 0) {
+    const binIdsWithLiquidityOrFees = binDataWithBinId.filter((bin) => {
+      return !bin.share.isZero() || bin.hasFees;
+    });
+
+    const hasLiquidity = binIdsWithLiquidity.length > 0;
+    if (!hasLiquidity && !shouldClaimAndClose) {
       throw new Error("No liquidity to remove");
     }
 
-    const lowerBinIdWithLiquidity = binIdsWithLiquidity[0].binId.toNumber();
-    const upperBinIdWithLiquidity =
-      binIdsWithLiquidity[binIdsWithLiquidity.length - 1].binId.toNumber();
+    const activeBins = shouldClaimAndClose
+      ? binIdsWithLiquidityOrFees
+      : binIdsWithLiquidity;
+
+    const lowerActiveBinId = activeBins[0].binId.toNumber();
+    const upperActiveBinId =
+      activeBins[activeBins.length - 1].binId.toNumber();
 
     // Avoid to attempt to load uninitialized bin array on the program
-    if (fromBinId < lowerBinIdWithLiquidity) {
-      fromBinId = lowerBinIdWithLiquidity;
+    if (fromBinId < lowerActiveBinId) {
+      fromBinId = lowerActiveBinId;
     }
 
-    if (toBinId > upperBinIdWithLiquidity) {
-      toBinId = upperBinIdWithLiquidity;
+    if (toBinId > upperActiveBinId) {
+      toBinId = upperActiveBinId;
     }
 
     const walletToReceiveFee = feeOwner.equals(PublicKey.default)
@@ -4283,34 +4297,36 @@ export class DLMM {
         ? this.binArrayBitmapExtension.publicKey
         : this.program.programId;
 
-      const removeLiquidityTx = await this.program.methods
-        .removeLiquidityByRange2(lowerBinId, upperBinId, bps.toNumber(), {
-          slices,
-        })
-        .accountsPartial({
-          position,
-          lbPair,
-          userTokenX,
-          userTokenY,
-          reserveX: this.lbPair.reserveX,
-          reserveY: this.lbPair.reserveY,
-          tokenXMint: this.tokenX.publicKey,
-          tokenYMint: this.tokenY.publicKey,
-          binArrayBitmapExtension,
-          tokenXProgram: this.tokenX.owner,
-          tokenYProgram: this.tokenY.owner,
-          sender: user,
-          memoProgram: MEMO_PROGRAM_ID,
-        })
-        .remainingAccounts(transferHookAccounts)
-        .remainingAccounts(binArrayAccountsMeta)
-        .instruction();
+      const instructions = [...preInstructions];
 
-      const instructions = [
-        ...preInstructions,
-        removeLiquidityTx,
-        ...postInstructions,
-      ];
+      if (hasLiquidity) {
+        const removeLiquidityTx = await this.program.methods
+          .removeLiquidityByRange2(lowerBinId, upperBinId, bps.toNumber(), {
+            slices,
+          })
+          .accountsPartial({
+            position,
+            lbPair,
+            userTokenX,
+            userTokenY,
+            reserveX: this.lbPair.reserveX,
+            reserveY: this.lbPair.reserveY,
+            tokenXMint: this.tokenX.publicKey,
+            tokenYMint: this.tokenY.publicKey,
+            binArrayBitmapExtension,
+            tokenXProgram: this.tokenX.owner,
+            tokenYProgram: this.tokenY.owner,
+            sender: user,
+            memoProgram: MEMO_PROGRAM_ID,
+          })
+          .remainingAccounts(transferHookAccounts)
+          .remainingAccounts(binArrayAccountsMeta)
+          .instruction();
+
+        instructions.push(removeLiquidityTx);
+      }
+
+      instructions.push(...postInstructions);
 
       groupedInstructions.push(instructions);
     }
