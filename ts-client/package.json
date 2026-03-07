@@ -6,6 +6,11 @@
   "module": "./dist/index.mjs",
   "source": "./src/index.ts",
   "types": "./dist/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MeteoraAg/dlmm-sdk.git",
+    "directory": "ts-client"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
