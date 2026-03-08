@@ -8549,8 +8549,18 @@ export class DLMM {
       this.program.programId
     );
 
-    const { slices, accounts: transferHookAccounts } =
+    // placeLimitOrder only accepts one transfer hook slice depending on side:
+    //   ask side → TransferHookX only
+    //   bid side → TransferHookY only
+    // Passing both slices causes InvalidRemainingAccountSlice (6075).
+    const { slices: allSlices, accounts: allTransferHookAccounts } =
       this.getPotentialToken2022IxDataAndAccounts(ActionType.Liquidity);
+    // allSlices[0] = TransferHookX, allSlices[1] = TransferHookY
+    const xLen = this.tokenX.transferHookAccountMetas.length;
+    const slices = isAskSide ? [allSlices[0]] : [allSlices[1]];
+    const transferHookAccounts = isAskSide
+      ? allTransferHookAccounts.slice(0, xLen)
+      : allTransferHookAccounts.slice(xLen);
 
     const params = {
       isAskSide,
