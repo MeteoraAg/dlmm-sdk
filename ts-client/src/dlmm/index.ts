@@ -8816,46 +8816,6 @@ export class DLMM {
     }).add(setCUIx, setPermissionlessOperationBitsIx);
   }
 
-  /**
-   * The `closeBinArray` function closes a bin array account (admin only).
-   * @param params
-   *    - `binArray`: The public key of the bin array account to close.
-   *    - `signer`: The admin signer.
-   * @returns {Promise<Transaction>}
-   */
-  public async closeBinArray({
-    binArray,
-    signer,
-  }: {
-    binArray: PublicKey;
-    signer: PublicKey;
-  }): Promise<Transaction> {
-    const closeBinArrayIx = await this.program.methods
-      .closeBinArray()
-      .accountsPartial({
-        lbPair: this.pubkey,
-        binArray,
-        rentReceiver: signer,
-        signer,
-      })
-      .instruction();
-
-    const setCUIx = await getEstimatedComputeUnitIxWithBuffer(
-      this.program.provider.connection,
-      [closeBinArrayIx],
-      signer
-    );
-
-    const { blockhash, lastValidBlockHeight } =
-      await this.program.provider.connection.getLatestBlockhash("confirmed");
-
-    return new Transaction({
-      blockhash,
-      lastValidBlockHeight,
-      feePayer: signer,
-    }).add(setCUIx, closeBinArrayIx);
-  }
-
   public getPotentialToken2022IxDataAndAccounts(
     actionType: ActionType,
     rewardIndex?: number
