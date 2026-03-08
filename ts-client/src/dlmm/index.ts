@@ -1355,7 +1355,8 @@ export class DLMM {
       activeId: activeId.toNumber(),
       binStep: binStep.toNumber(),
       baseFactor: baseFactor.toNumber(),
-      functionType: FunctionType.LiquidityMining,
+      concreteFunctionType: FunctionType.LiquidityMining,
+      collectFeeMode: 0,
       activationType,
       activationPoint: activationPoint ? activationPoint : null,
       hasAlphaVault,
@@ -1363,7 +1364,7 @@ export class DLMM {
         ? creatorPoolOnOffControl
         : false,
       baseFeePowerFactor: baseFeePowerFactor.toNumber(),
-      padding: Array(63).fill(0),
+      padding: Array(60).fill(0),
     };
 
     const preInstructions: TransactionInstruction[] = [];
@@ -1524,7 +1525,8 @@ export class DLMM {
       activeId: activeId.toNumber(),
       binStep: binStep.toNumber(),
       baseFactor: baseFactor.toNumber(),
-      functionType: FunctionType.LiquidityMining,
+      concreteFunctionType: FunctionType.LiquidityMining,
+      collectFeeMode: 0,
       activationType,
       activationPoint: activationPoint ? activationPoint : null,
       hasAlphaVault,
@@ -1532,7 +1534,7 @@ export class DLMM {
       creatorPoolOnOffControl: creatorPoolOnOffControl
         ? creatorPoolOnOffControl
         : false,
-      padding: Array(63).fill(0),
+      padding: Array(60).fill(0),
     };
 
     const preInstructions: TransactionInstruction[] = [];
@@ -3713,6 +3715,204 @@ export class DLMM {
     );
 
     const addLiquidityIx = await programMethod
+      .accounts(addLiquidityAccounts)
+      .remainingAccounts(transferHookAccounts)
+      .remainingAccounts(binArrayAccountsMeta)
+      .instruction();
+
+    const instructions = [
+      ...preInstructions,
+      addLiquidityIx,
+      ...postInstructions,
+    ];
+
+    const setCUIx = await getEstimatedComputeUnitIxWithBuffer(
+      this.program.provider.connection,
+      instructions,
+      user
+    );
+
+    instructions.unshift(setCUIx);
+
+    const { blockhash, lastValidBlockHeight } =
+      await this.program.provider.connection.getLatestBlockhash("confirmed");
+    return new Transaction({
+      blockhash,
+      lastValidBlockHeight,
+      feePayer: user,
+    }).add(...instructions);
+  }
+
+  /**
+   * The `addLiquidityByWeight2` function is used to add liquidity to existing position.
+   * Supports both token and token2022.
+   * @param {TInitializePositionAndAddLiquidityParams}
+   *    - `positionPubKey`: The public key of the position account.
+   *    - `totalXAmount`: The total amount of token X to be added to the liquidity pool.
+   *    - `totalYAmount`: The total amount of token Y to be added to the liquidity pool.
+   *    - `xYAmountDistribution`: An array of objects of type `BinAndAmount` that represents the distribution.
+   *    - `user`: The public key of the user account.
+   *    - `slippage`: The slippage percentage to be used for the liquidity pool.
+   * @returns {Promise<Transaction>}
+   */
+  public async addLiquidityByWeight2({
+    positionPubKey,
+    totalXAmount,
+    totalYAmount,
+    xYAmountDistribution,
+    user,
+    slippage,
+  }: TInitializePositionAndAddLiquidityParams): Promise<Transaction> {
+    const { binIds } =
+      this.processXYAmountDistribution(xYAmountDistribution);
+
+    const minBinId = Math.min(...binIds);
+    const maxBinId = Math.max(...binIds);
+
+    const maxActiveBinSlippage = slippage
+      ? Math.ceil(slippage / (this.lbPair.binStep / 100))
+      : MAX_ACTIVE_BIN_SLIPPAGE;
+
+    const preInstructions: TransactionInstruction[] = [];
+
+    const minBinArrayIndex = binIdToBinArrayIndex(new BN(minBinId));
+    const maxBinArrayIndex = binIdToBinArrayIndex(new BN(maxBinId));
+
+    const useExtension =
+      isOverflowDefaultBinArrayBitmap(minBinArrayIndex) ||
+      isOverflowDefaultBinArrayBitmap(maxBinArrayIndex);
+
+    const binArrayBitmapExtension = useExtension
+      ? deriveBinArrayBitmapExtension(this.pubkey, this.program.programId)[0]
+      : null;
+
+    const binLiquidityDist: LiquidityParameterByWeight["binLiquidityDist"] =
+      toWeightDistribution(
+        totalXAmount,
+        totalYAmount,
+        xYAmountDistribution.map((item) => ({
+          binId: item.binId,
+          xAmountBpsOfTotal: item.xAmountBpsOfTotal,
+          yAmountBpsOfTotal: item.yAmountBpsOfTotal,
+        })),
+        this.lbPair.binStep
+      );
+
+    if (binLiquidityDist.length === 0) {
+      throw new Error("No liquidity to add");
+    }
+
+    const binArrayIndexes = getBinArrayIndexesCoverage(
+      new BN(minBinId),
+      new BN(maxBinId)
+    );
+
+    const binArrayAccountsMeta = getBinArrayAccountMetasCoverage(
+      new BN(minBinId),
+      new BN(maxBinId),
+      this.pubkey,
+      this.program.programId
+    );
+
+    const createBinArrayIxs = await this.createBinArraysIfNeeded(
+      binArrayIndexes,
+      user
+    );
+    preInstructions.push(...createBinArrayIxs);
+
+    const [
+      { ataPubKey: userTokenX, ix: createPayerTokenXIx },
+      { ataPubKey: userTokenY, ix: createPayerTokenYIx },
+    ] = await Promise.all([
+      getOrCreateATAInstruction(
+        this.program.provider.connection,
+        this.tokenX.publicKey,
+        user,
+        this.tokenX.owner
+      ),
+      getOrCreateATAInstruction(
+        this.program.provider.connection,
+        this.tokenY.publicKey,
+        user,
+        this.tokenY.owner
+      ),
+    ]);
+
+    createPayerTokenXIx && preInstructions.push(createPayerTokenXIx);
+    createPayerTokenYIx && preInstructions.push(createPayerTokenYIx);
+
+    if (
+      this.tokenX.publicKey.equals(NATIVE_MINT) &&
+      !totalXAmount.isZero() &&
+      !this.opt?.skipSolWrappingOperation
+    ) {
+      const wrapSOLIx = wrapSOLInstruction(
+        user,
+        userTokenX,
+        BigInt(totalXAmount.toString())
+      );
+
+      preInstructions.push(...wrapSOLIx);
+    }
+
+    if (
+      this.tokenY.publicKey.equals(NATIVE_MINT) &&
+      !totalYAmount.isZero() &&
+      !this.opt?.skipSolWrappingOperation
+    ) {
+      const wrapSOLIx = wrapSOLInstruction(
+        user,
+        userTokenY,
+        BigInt(totalYAmount.toString())
+      );
+
+      preInstructions.push(...wrapSOLIx);
+    }
+
+    const postInstructions: Array<TransactionInstruction> = [];
+    if (
+      [
+        this.tokenX.publicKey.toBase58(),
+        this.tokenY.publicKey.toBase58(),
+      ].includes(NATIVE_MINT.toBase58()) &&
+      !this.opt?.skipSolWrappingOperation
+    ) {
+      const closeWrappedSOLIx = await unwrapSOLInstruction(user);
+      closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
+    }
+
+    const activeId = this.lbPair.activeId;
+    const liquidityParams: LiquidityParameterByWeight = {
+      amountX: totalXAmount,
+      amountY: totalYAmount,
+      binLiquidityDist,
+      activeId,
+      maxActiveBinSlippage,
+    };
+
+    const addLiquidityAccounts = {
+      position: positionPubKey,
+      lbPair: this.pubkey,
+      userTokenX,
+      userTokenY,
+      reserveX: this.lbPair.reserveX,
+      reserveY: this.lbPair.reserveY,
+      tokenXMint: this.lbPair.tokenXMint,
+      tokenYMint: this.lbPair.tokenYMint,
+      binArrayBitmapExtension,
+      sender: user,
+      tokenXProgram: this.tokenX.owner,
+      tokenYProgram: this.tokenY.owner,
+      memoProgram: MEMO_PROGRAM_ID,
+    };
+
+    const { slices, accounts: transferHookAccounts } =
+      this.getPotentialToken2022IxDataAndAccounts(ActionType.Liquidity);
+
+    const addLiquidityIx = await this.program.methods
+      .addLiquidityByWeight2(liquidityParams, {
+        slices,
+      })
       .accounts(addLiquidityAccounts)
       .remainingAccounts(transferHookAccounts)
       .remainingAccounts(binArrayAccountsMeta)
@@ -7836,7 +8036,7 @@ export class DLMM {
               supply: bin.liquiditySupply,
               feeAmountXPerTokenStored: bin.feeAmountXPerTokenStored,
               feeAmountYPerTokenStored: bin.feeAmountYPerTokenStored,
-              rewardPerTokenStored: bin.functionBytes,
+              rewardPerTokenStored: [new BN(0), new BN(0)],
               price: pricePerLamport,
               version: binArray.version,
               pricePerToken: new Decimal(pricePerLamport)
@@ -8242,6 +8442,388 @@ export class DLMM {
     }
 
     return claimFeeTxs;
+  }
+
+  /**
+   * The `placeLimitOrder` function places a limit order by depositing tokens into specific bins.
+   * @param params
+   *    - `user`: The public key of the user placing the order (payer and sender).
+   *    - `owner`: The owner of the limit order. Defaults to `user`.
+   *    - `isAskSide`: If true, selling token X (ask). If false, selling token Y (bid).
+   *    - `bins`: Array of `{ id: number; amount: BN }` specifying bin IDs and amounts.
+   *    - `relativeBin`: Optional active bin slippage protection.
+   * @returns {Promise<{ transaction: Transaction; limitOrderKeypair: Keypair }>}
+   */
+  public async placeLimitOrder({
+    user,
+    owner,
+    isAskSide,
+    bins,
+    relativeBin,
+  }: {
+    user: PublicKey;
+    owner?: PublicKey;
+    isAskSide: boolean;
+    bins: { id: number; amount: BN }[];
+    relativeBin?: { activeId: number; maxActiveBinSlippage: number };
+  }): Promise<{ transaction: Transaction; limitOrderKeypair: Keypair }> {
+    const limitOrderKeypair = Keypair.generate();
+    const effectiveOwner = owner ?? user;
+
+    const reserve = isAskSide
+      ? this.lbPair.reserveX
+      : this.lbPair.reserveY;
+    const tokenMint = isAskSide
+      ? this.lbPair.tokenXMint
+      : this.lbPair.tokenYMint;
+    const tokenReserve = isAskSide ? this.tokenX : this.tokenY;
+
+    const preInstructions: TransactionInstruction[] = [];
+
+    const { ataPubKey: userToken, ix: createUserTokenIx } =
+      await getOrCreateATAInstruction(
+        this.program.provider.connection,
+        tokenReserve.publicKey,
+        user,
+        tokenReserve.owner
+      );
+    createUserTokenIx && preInstructions.push(createUserTokenIx);
+
+    const totalAmount = bins.reduce(
+      (acc, b) => acc.add(b.amount),
+      new BN(0)
+    );
+
+    if (
+      tokenReserve.publicKey.equals(NATIVE_MINT) &&
+      !totalAmount.isZero() &&
+      !this.opt?.skipSolWrappingOperation
+    ) {
+      const wrapSOLIx = wrapSOLInstruction(
+        user,
+        userToken,
+        BigInt(totalAmount.toString())
+      );
+      preInstructions.push(...wrapSOLIx);
+    }
+
+    const postInstructions: TransactionInstruction[] = [];
+    if (
+      tokenReserve.publicKey.equals(NATIVE_MINT) &&
+      !this.opt?.skipSolWrappingOperation
+    ) {
+      const closeWrappedSOLIx = await unwrapSOLInstruction(user);
+      closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
+    }
+
+    const binIds = bins.map((b) => b.id);
+    const minBinId = Math.min(...binIds);
+    const maxBinId = Math.max(...binIds);
+
+    const minBinArrayIndex = binIdToBinArrayIndex(new BN(minBinId));
+    const maxBinArrayIndex = binIdToBinArrayIndex(new BN(maxBinId));
+
+    const useExtension =
+      isOverflowDefaultBinArrayBitmap(minBinArrayIndex) ||
+      isOverflowDefaultBinArrayBitmap(maxBinArrayIndex);
+
+    const binArrayBitmapExtension = useExtension
+      ? deriveBinArrayBitmapExtension(this.pubkey, this.program.programId)[0]
+      : null;
+
+    const binArrayIndexes = getBinArrayIndexesCoverage(
+      new BN(minBinId),
+      new BN(maxBinId)
+    );
+
+    const createBinArrayIxs = await this.createBinArraysIfNeeded(
+      binArrayIndexes,
+      user
+    );
+    preInstructions.push(...createBinArrayIxs);
+
+    const binArrayAccountsMeta = getBinArrayAccountMetasCoverage(
+      new BN(minBinId),
+      new BN(maxBinId),
+      this.pubkey,
+      this.program.programId
+    );
+
+    // placeLimitOrder only accepts one transfer hook slice depending on side:
+    //   ask side → TransferHookX only
+    //   bid side → TransferHookY only
+    // Passing both slices causes InvalidRemainingAccountSlice (6075).
+    const { slices: allSlices, accounts: allTransferHookAccounts } =
+      this.getPotentialToken2022IxDataAndAccounts(ActionType.Liquidity);
+    // allSlices[0] = TransferHookX, allSlices[1] = TransferHookY
+    const xLen = this.tokenX.transferHookAccountMetas.length;
+    const slices = isAskSide ? [allSlices[0]] : [allSlices[1]];
+    const transferHookAccounts = isAskSide
+      ? allTransferHookAccounts.slice(0, xLen)
+      : allTransferHookAccounts.slice(xLen);
+
+    const params = {
+      isAskSide,
+      padding: new Array(16).fill(0),
+      relativeBin: relativeBin
+        ? {
+            activeId: relativeBin.activeId,
+            maxActiveBinSlippage: relativeBin.maxActiveBinSlippage,
+          }
+        : null,
+      bins: bins.map((b) => ({ id: b.id, amount: b.amount })),
+    };
+
+    const placeLimitOrderIx = await this.program.methods
+      .placeLimitOrder(params, { slices })
+      .accountsPartial({
+        lbPair: this.pubkey,
+        binArrayBitmapExtension,
+        reserve,
+        tokenMint,
+        limitOrder: limitOrderKeypair.publicKey,
+        payer: user,
+        owner: effectiveOwner,
+        userToken,
+        sender: user,
+        tokenProgram: tokenReserve.owner,
+        systemProgram: SystemProgram.programId,
+      })
+      .remainingAccounts(transferHookAccounts)
+      .remainingAccounts(binArrayAccountsMeta)
+      .signers([limitOrderKeypair])
+      .instruction();
+
+    const instructions = [
+      ...preInstructions,
+      placeLimitOrderIx,
+      ...postInstructions,
+    ];
+
+    const setCUIx = await getEstimatedComputeUnitIxWithBuffer(
+      this.program.provider.connection,
+      instructions,
+      user
+    );
+
+    instructions.unshift(setCUIx);
+
+    const { blockhash, lastValidBlockHeight } =
+      await this.program.provider.connection.getLatestBlockhash("confirmed");
+
+    const transaction = new Transaction({
+      blockhash,
+      lastValidBlockHeight,
+      feePayer: user,
+    }).add(...instructions);
+
+    transaction.partialSign(limitOrderKeypair);
+
+    return { transaction, limitOrderKeypair };
+  }
+
+  /**
+   * The `cancelLimitOrder` function cancels specific bins from a limit order.
+   * @param params
+   *    - `owner`: The owner of the limit order.
+   *    - `limitOrder`: The public key of the limit order account.
+   *    - `bins`: Array of bin IDs to cancel.
+   * @returns {Promise<Transaction>}
+   */
+  public async cancelLimitOrder({
+    owner,
+    limitOrder,
+    bins,
+  }: {
+    owner: PublicKey;
+    limitOrder: PublicKey;
+    bins: number[];
+  }): Promise<Transaction> {
+    const preInstructions: TransactionInstruction[] = [];
+
+    const [
+      { ataPubKey: ownerTokenX, ix: createOwnerTokenXIx },
+      { ataPubKey: ownerTokenY, ix: createOwnerTokenYIx },
+    ] = await Promise.all([
+      getOrCreateATAInstruction(
+        this.program.provider.connection,
+        this.tokenX.publicKey,
+        owner,
+        this.tokenX.owner
+      ),
+      getOrCreateATAInstruction(
+        this.program.provider.connection,
+        this.tokenY.publicKey,
+        owner,
+        this.tokenY.owner
+      ),
+    ]);
+
+    createOwnerTokenXIx && preInstructions.push(createOwnerTokenXIx);
+    createOwnerTokenYIx && preInstructions.push(createOwnerTokenYIx);
+
+    const postInstructions: TransactionInstruction[] = [];
+    if (
+      [
+        this.tokenX.publicKey.toBase58(),
+        this.tokenY.publicKey.toBase58(),
+      ].includes(NATIVE_MINT.toBase58()) &&
+      !this.opt?.skipSolWrappingOperation
+    ) {
+      const closeWrappedSOLIx = await unwrapSOLInstruction(owner);
+      closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
+    }
+
+    const minBinId = Math.min(...bins);
+    const maxBinId = Math.max(...bins);
+
+    const minBinArrayIndex = binIdToBinArrayIndex(new BN(minBinId));
+    const maxBinArrayIndex = binIdToBinArrayIndex(new BN(maxBinId));
+
+    const useExtension =
+      isOverflowDefaultBinArrayBitmap(minBinArrayIndex) ||
+      isOverflowDefaultBinArrayBitmap(maxBinArrayIndex);
+
+    const binArrayBitmapExtension = useExtension
+      ? deriveBinArrayBitmapExtension(this.pubkey, this.program.programId)[0]
+      : null;
+
+    const binArrayAccountsMeta = getBinArrayAccountMetasCoverage(
+      new BN(minBinId),
+      new BN(maxBinId),
+      this.pubkey,
+      this.program.programId
+    );
+
+    const { slices, accounts: transferHookAccounts } =
+      this.getPotentialToken2022IxDataAndAccounts(ActionType.Liquidity);
+
+    const cancelLimitOrderIx = await this.program.methods
+      .cancelLimitOrder(bins, { slices })
+      .accountsPartial({
+        lbPair: this.pubkey,
+        binArrayBitmapExtension,
+        reserveX: this.lbPair.reserveX,
+        reserveY: this.lbPair.reserveY,
+        tokenXMint: this.lbPair.tokenXMint,
+        tokenYMint: this.lbPair.tokenYMint,
+        limitOrder,
+        ownerTokenX,
+        ownerTokenY,
+        owner,
+        tokenXProgram: this.tokenX.owner,
+        tokenYProgram: this.tokenY.owner,
+        memoProgram: MEMO_PROGRAM_ID,
+      })
+      .remainingAccounts(transferHookAccounts)
+      .remainingAccounts(binArrayAccountsMeta)
+      .instruction();
+
+    const instructions = [
+      ...preInstructions,
+      cancelLimitOrderIx,
+      ...postInstructions,
+    ];
+
+    const setCUIx = await getEstimatedComputeUnitIxWithBuffer(
+      this.program.provider.connection,
+      instructions,
+      owner
+    );
+
+    instructions.unshift(setCUIx);
+
+    const { blockhash, lastValidBlockHeight } =
+      await this.program.provider.connection.getLatestBlockhash("confirmed");
+
+    return new Transaction({
+      blockhash,
+      lastValidBlockHeight,
+      feePayer: owner,
+    }).add(...instructions);
+  }
+
+  /**
+   * The `closeLimitOrderIfEmpty` function closes a limit order account if all bins are empty.
+   * @param params
+   *    - `owner`: The owner of the limit order.
+   *    - `limitOrder`: The public key of the limit order account.
+   *    - `rentReceiver`: Who receives the reclaimed rent. Defaults to `owner`.
+   * @returns {Promise<Transaction>}
+   */
+  public async closeLimitOrderIfEmpty({
+    owner,
+    limitOrder,
+    rentReceiver,
+  }: {
+    owner: PublicKey;
+    limitOrder: PublicKey;
+    rentReceiver?: PublicKey;
+  }): Promise<Transaction> {
+    const closeLimitOrderIx = await this.program.methods
+      .closeLimitOrderIfEmpty()
+      .accountsPartial({
+        limitOrder,
+        owner,
+        rentReceiver: rentReceiver ?? owner,
+      })
+      .instruction();
+
+    const setCUIx = await getEstimatedComputeUnitIxWithBuffer(
+      this.program.provider.connection,
+      [closeLimitOrderIx],
+      owner
+    );
+
+    const { blockhash, lastValidBlockHeight } =
+      await this.program.provider.connection.getLatestBlockhash("confirmed");
+
+    return new Transaction({
+      blockhash,
+      lastValidBlockHeight,
+      feePayer: owner,
+    }).add(setCUIx, closeLimitOrderIx);
+  }
+
+  /**
+   * The `setPermissionlessOperationBits` function sets permissionless operation bits on a position.
+   * @param params
+   *    - `owner`: The owner of the position.
+   *    - `position`: The public key of the position account.
+   *    - `bits`: The bits to set.
+   * @returns {Promise<Transaction>}
+   */
+  public async setPermissionlessOperationBits({
+    owner,
+    position,
+    bits,
+  }: {
+    owner: PublicKey;
+    position: PublicKey;
+    bits: number;
+  }): Promise<Transaction> {
+    const setPermissionlessOperationBitsIx = await this.program.methods
+      .setPermissionlessOperationBits(bits)
+      .accountsPartial({
+        position,
+        owner,
+      })
+      .instruction();
+
+    const setCUIx = await getEstimatedComputeUnitIxWithBuffer(
+      this.program.provider.connection,
+      [setPermissionlessOperationBitsIx],
+      owner
+    );
+
+    const { blockhash, lastValidBlockHeight } =
+      await this.program.provider.connection.getLatestBlockhash("confirmed");
+
+    return new Transaction({
+      blockhash,
+      lastValidBlockHeight,
+      feePayer: owner,
+    }).add(setCUIx, setPermissionlessOperationBitsIx);
   }
 
   public getPotentialToken2022IxDataAndAccounts(

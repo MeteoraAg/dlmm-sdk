@@ -4,7 +4,6 @@ import { DLMM } from "../dlmm";
 import { BinArrayAccount, LbPosition } from "../dlmm/types";
 import { BN } from "bn.js";
 import { convertToPosition } from "./utils";
-import { FunctionType } from "../dlmm/constants";
 
 declare global {
   namespace Express {
@@ -96,7 +95,6 @@ app.post(
       const activationType = parseInt(req.body.activationType);
       const hasAlphaVault = Boolean(req.body.hasAlphaVault);
       const creatorKey = new PublicKey(req.body.creatorKey);
-      const functionType = FunctionType.LiquidityMining;
       const activationPoint =
         req.body.activationPoint !== null
           ? new BN(req.body.activationPoint)
@@ -111,7 +109,6 @@ app.post(
         activationType,
         hasAlphaVault,
         creatorKey,
-        functionType,
         activationPoint
       );
       return res.status(200).send(safeStringify(transaction));
@@ -311,7 +308,8 @@ app.post("/dlmm/get-bin-array-for-swap", async (req, res) => {
               b.feeAmountYPerTokenStored.toString("hex"),
             liquiditySupply: b.liquiditySupply.toString("hex"),
             price: b.price.toString("hex"),
-            rewardPerTokenStored: b.functionBytes.map((r) => r.toString("hex")),
+            fulfilledOrderAmountX: b.fulfilledOrderAmountX.toString("hex"),
+            fulfilledOrderAmountY: b.fulfilledOrderAmountY.toString("hex"),
           })),
         },
       })
@@ -425,7 +423,8 @@ app.get("/dlmm/get-bin-arrays", async (req, res) => {
           feeAmountYPerTokenStored: b.feeAmountYPerTokenStored.toString("hex"),
           liquiditySupply: b.liquiditySupply.toString("hex"),
           price: b.price.toString("hex"),
-          rewardPerTokenStored: b.functionBytes.map((r) => r.toString("hex")),
+          fulfilledOrderAmountX: b.fulfilledOrderAmountX.toString("hex"),
+            fulfilledOrderAmountY: b.fulfilledOrderAmountY.toString("hex"),
         })),
       },
     }));

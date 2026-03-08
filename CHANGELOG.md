@@ -19,6 +19,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.10.0]
+
+### Added
+
+- New: Limit Orders support — `placeLimitOrder`, `cancelLimitOrder`, `closeLimitOrderIfEmpty`
+- New: `addLiquidityByWeight2` — v2 of addLiquidityByWeight with Token2022 and transfer hook support
+- New: `setPermissionlessOperationBits` — set permissionless operation bits on a position
+- New: `LimitOrder` and `LimitOrderAccount` type exports
+- New: `ts-client/MIGRATION_GUIDE.md` — upgrade guide for v1.9.3 → v1.10.0
+
+### Removed
+
+- `closeBinArray` — admin-only instruction removed from client SDK (use the program directly if needed)
+
+### Changed
+
+- Updated IDL to DLMM program v0.12.0
+
 ## @meteora-ag/dlmm [1.9.3] - [PR #262](https://github.com/MeteoraAg/dlmm-sdk/pull/262)
 
 ### Added

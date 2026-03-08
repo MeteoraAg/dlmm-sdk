@@ -107,5 +107,7 @@ export const MAX_BINS_PER_POSITION = new BN(
 );
 
 export enum FunctionType {
-  LiquidityMining = 0,
+  Undetermined = 0,
+  LiquidityMining = 1,
+  LimitOrder = 2,
 }
