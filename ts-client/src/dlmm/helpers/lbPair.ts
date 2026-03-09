@@ -1,6 +1,6 @@
 import { AnchorProvider, Program } from "@coral-xyz/anchor";
 import { Cluster, Connection, PublicKey } from "@solana/web3.js";
-import { LBCLMM_PROGRAM_IDS } from "../constants";
+import { FunctionType, LBCLMM_PROGRAM_IDS } from "../constants";
 import { LbPair } from "../types";
 import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { createProgram } from ".";
@@ -17,12 +17,12 @@ export async function getTokensMintFromPoolAddress(
   opt?: {
     cluster?: Cluster;
     programId?: PublicKey;
-  }
+  },
 ) {
   const program = createProgram(connection, opt);
 
   const poolAccount = await program.account.lbPair.fetchNullable(
-    new PublicKey(poolAddress)
+    new PublicKey(poolAddress),
   );
 
   if (!poolAccount) throw new Error("Pool account not found");
@@ -41,4 +41,18 @@ export function getTokenProgramId(lbPairState: LbPair) {
     tokenXProgram: getTokenProgramIdByFlag(lbPairState.tokenMintXProgramFlag),
     tokenYProgram: getTokenProgramIdByFlag(lbPairState.tokenMintYProgramFlag),
   };
+}
+
+export function isSupportLimitOrder(lbPairState: LbPair) {
+  const functionType: FunctionType = lbPairState.parameters.functionType;
+  switch (functionType) {
+    case FunctionType.LimitOrder:
+      return true;
+    case FunctionType.LiquidityMining:
+      return false;
+    case FunctionType.Undetermined:
+      return lbPairState.rewardInfos.some(
+        (rewardInfo) => rewardInfo.mint != PublicKey.default,
+      );
+  }
 }
