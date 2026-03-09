@@ -1,4 +1,5 @@
-import { BN, Wallet, web3 } from "@coral-xyz/anchor";
+import { Wallet, web3 } from "@coral-xyz/anchor";
+import BN from "bn.js";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   ExtensionType,

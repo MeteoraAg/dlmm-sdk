@@ -1,4 +1,5 @@
-import { AnchorProvider, BN, EventParser, Program } from "@coral-xyz/anchor";
+import BN from "bn.js";
+import { AnchorProvider, EventParser, Program } from "@coral-xyz/anchor";
 import { IdlDiscriminator } from "@coral-xyz/anchor/dist/cjs/idl";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
