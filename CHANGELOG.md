@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-## @meteora-ag/dlmm [1.9.4] - [PR #TODO](https://github.com/MeteoraAg/dlmm-sdk/pull/TODO)
+## @meteora-ag/dlmm [1.9.4] - [PR #272](https://github.com/MeteoraAg/dlmm-sdk/pull/272)
 
 ### Fixed
 

@@ -4066,15 +4066,21 @@ export class DLMM {
     const feeOwner = positionState.feeOwner();
     const liquidityShares = positionState.liquidityShares();
     const feeInfos = positionState.feeInfos();
+    const rewardInfos = positionState.rewardInfos();
 
     const binDataWithBinId = liquidityShares.map((share, i) => {
       const feeInfo = feeInfos[i];
+      const rewardInfo = rewardInfos[i];
+      const hasFees =
+        feeInfo &&
+        (!feeInfo.feeXPending.isZero() || !feeInfo.feeYPending.isZero());
+      const hasRewards =
+        rewardInfo &&
+        rewardInfo.rewardPendings.some((pending) => !pending.isZero());
       return {
         share,
         binId: positionState.lowerBinId().add(new BN(i)),
-        hasFees:
-          feeInfo &&
-          (!feeInfo.feeXPending.isZero() || !feeInfo.feeYPending.isZero()),
+        hasFeesOrRewards: hasFees || hasRewards,
       };
     });
 
@@ -4083,7 +4089,7 @@ export class DLMM {
     });
 
     const binIdsWithLiquidityOrFees = binDataWithBinId.filter((bin) => {
-      return !bin.share.isZero() || bin.hasFees;
+      return !bin.share.isZero() || bin.hasFeesOrRewards;
     });
 
     const hasLiquidity = binIdsWithLiquidity.length > 0;
