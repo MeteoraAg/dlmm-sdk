@@ -127,5 +127,5 @@ export enum ConcreteFunctionType {
 
 export enum CollectFeeMode {
   InputOnly = 0,
-  OnlyY = 2,
+  OnlyY = 1,
 }

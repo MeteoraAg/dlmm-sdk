@@ -42,6 +42,7 @@ import {
   GetOrCreateATAResponse,
   LbPair,
   LimitOrder,
+  PositionPermission,
   PositionV2,
   PresetParameter,
   PresetParameter2,
@@ -219,7 +220,7 @@ export const wrapSOLInstruction = (
   ];
 };
 
-export const unwrapSOLInstruction = async (
+export const unwrapSOLInstruction = (
   owner: PublicKey,
   allowOwnerOffCurve = true,
 ) => {
@@ -974,4 +975,12 @@ export async function chunkDepositWithRebalanceEndpoint(
   }
 
   return chunkedAddLiquidityIx;
+}
+
+export function encodePositionPermissions(
+  permissions: PositionPermission[],
+): number {
+  return permissions.reduce((acc, perm) => {
+    return acc | (1 << perm);
+  }, 0);
 }

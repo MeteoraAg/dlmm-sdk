@@ -104,9 +104,13 @@ import {
   wrapSOLInstruction,
   getFeeMode,
   getAmountOut,
+  encodePositionPermissions,
 } from "./helpers";
 import {
   binArrayLbPairFilter,
+  limitOrderFilter,
+  limitOrderLbPairFilter,
+  limitOrderOwnerFilter,
   positionLbPairFilter,
   positionOwnerFilter,
   positionV2Filter,
@@ -220,7 +224,12 @@ import {
   sParameters,
   vParameters,
   GetPositionsOpt,
+  PositionPermission,
+  PlaceLimitOrderParams,
+  LimitOrder,
+  ParsedLimitOrderWithPubkey,
 } from "./types";
+import { ILimitOrder, wrapLimitOrder } from "./helpers/limitOrders";
 
 export class DLMM {
   constructor(
@@ -2362,6 +2371,96 @@ export class DLMM {
    */
   public getBinIdFromPrice(price: number, min: boolean): number {
     return DLMM.getBinIdFromPrice(price, this.lbPair.binStep, min);
+  }
+
+  /**
+   * The function `getLimitOrderByUserAndLbPair` retrieves all limit orders for a user in the current LB pair
+   * and parses them with on-chain bin array and clock state.
+   * @param {PublicKey} userPubKey - The public key of the user who owns the limit orders.
+   * @returns A Promise that resolves to an array of parsed limit orders with their public keys.
+   */
+  public async getLimitOrderByUserAndLbPair(
+    userPubKey: PublicKey,
+  ): Promise<ParsedLimitOrderWithPubkey[]> {
+    const limitOrderAccounts = await chunkedGetProgramAccounts(
+      this.program.provider.connection,
+      this.program.programId,
+      [
+        limitOrderFilter(),
+        limitOrderOwnerFilter(userPubKey),
+        limitOrderLbPairFilter(this.pubkey),
+      ],
+    );
+
+    const limitOrders: ILimitOrder[] = limitOrderAccounts.map(
+      ({ account, pubkey }) => {
+        return wrapLimitOrder(this.program, pubkey, account);
+      },
+    );
+
+    const binArrayPubkeysSet = new Set<string>();
+
+    limitOrders.forEach((lo) => {
+      const binArrayPubkeys = lo.getBinArrayKeysCoverage(
+        this.program.programId,
+      );
+
+      binArrayPubkeys.forEach((key) => {
+        binArrayPubkeysSet.add(key.toString());
+      });
+    });
+
+    const binArrayPubkeyArrays = Array.from(binArrayPubkeysSet).map(
+      (pubkey) => new PublicKey(pubkey),
+    );
+
+    const lbPairAndBinArrays = await chunkedGetMultipleAccountInfos(
+      this.program.provider.connection,
+      [this.pubkey, SYSVAR_CLOCK_PUBKEY, ...binArrayPubkeyArrays],
+    );
+
+    const [lbPairAccInfo, clockAccInfo, ...binArraysAccInfo] =
+      lbPairAndBinArrays;
+
+    const clock: Clock = ClockLayout.decode(clockAccInfo.data);
+    const lbPairState = decodeAccount<LbPair>(
+      this.program,
+      "lbPair",
+      lbPairAccInfo.data,
+    );
+
+    const binArrayMap = new Map<string, BinArray>();
+
+    for (let i = 0; i < binArraysAccInfo.length; i++) {
+      const binArrayPubkey = binArrayPubkeyArrays[i];
+      const binArrayAccInfo = binArraysAccInfo[i];
+      const binArrayState = decodeAccount<BinArray>(
+        this.program,
+        "binArray",
+        binArrayAccInfo.data,
+      );
+      binArrayMap.set(binArrayPubkey.toBase58(), binArrayState);
+    }
+
+    const parsedLimitOrder: ParsedLimitOrderWithPubkey[] = limitOrders.map(
+      (lo) => {
+        const parsedLo = lo.parseInfo(
+          this.program.programId,
+          lbPairState,
+          this.tokenX.mint,
+          this.tokenY.mint,
+          clock,
+          binArrayMap,
+        );
+
+        return {
+          publicKey: lo.address(),
+          limitOrderData: parsedLo,
+        };
+      },
+    );
+
+    return parsedLimitOrder;
   }
 
   /**
@@ -7483,6 +7582,401 @@ export class DLMM {
     return tx;
   }
 
+  /**
+   * Enables permissionless fee claiming for a position.
+   * @param
+   *    - `position`: The public key of the position account.
+   *    - `owner`: The public key of the position owner.
+   * @returns {Promise<Transaction>} A transaction that sets the position permission bit for fee claiming.
+   */
+  public async enablePositionPermissionlessClaimFee({
+    position,
+    owner,
+  }: {
+    position: PublicKey;
+    owner: PublicKey;
+  }) {
+    const enablePositionPermissionlessClaimFeeIx = await this.program.methods
+      .setPermissionlessOperationBits(
+        encodePositionPermissions([PositionPermission.ClaimFee]),
+      )
+      .accountsPartial({
+        position,
+        owner,
+      })
+      .instruction();
+
+    const latestBlockhashInfo =
+      await this.program.provider.connection.getLatestBlockhash();
+
+    const tx = new Transaction({
+      ...latestBlockhashInfo,
+      feePayer: owner,
+    }).add(enablePositionPermissionlessClaimFeeIx);
+
+    return tx;
+  }
+
+  /**
+   * Creates a limit-order transaction for this LB pair.
+   * When `relativeBin` is provided, the `bin.id` in `params.bins` will be treated as relative to the current active bin, which mean bin.id = bin.id + activeId. Otherwise, it will be absolute bin id.
+   *
+   *
+   * @param params Input parameters for placing a limit order.
+   * @param params.owner Owner of the token account used by the order.
+   * @param params.payer Account paying rent for any newly created accounts.
+   * @param params.sender Transaction signer that submits the order.
+   * @param params.limitOrder PDA/public key of the limit-order account.
+   * @param params.params Limit-order configuration. `padding` is injected by the SDK.
+   * @returns A transaction that places the limit order.
+   */
+  public async placeLimitOrder({
+    owner,
+    payer,
+    sender,
+    limitOrder,
+    params,
+  }: {
+    owner: PublicKey;
+    payer: PublicKey;
+    sender: PublicKey;
+    limitOrder: PublicKey;
+    params: Omit<PlaceLimitOrderParams, "padding">;
+  }): Promise<Transaction> {
+    const isAskSide = Boolean(params.isAskSide);
+
+    let lowestBinId = Number.MAX_SAFE_INTEGER;
+    let highestBinId = Number.MIN_SAFE_INTEGER;
+
+    for (const bin of params.bins) {
+      const binId =
+        params.relativeBin == null ? bin.id : bin.id + this.lbPair.activeId;
+      if (binId < lowestBinId) {
+        lowestBinId = binId;
+      }
+
+      if (binId > highestBinId) {
+        highestBinId = binId;
+      }
+    }
+
+    const binArrayIndexes = getBinArrayIndexesCoverage(
+      new BN(lowestBinId),
+      new BN(highestBinId),
+    );
+
+    const binArrayAccountMetas = getBinArrayAccountMetasCoverage(
+      new BN(lowestBinId),
+      new BN(highestBinId),
+      this.pubkey,
+      this.program.programId,
+    );
+
+    const createBinArrayIxs = await this.createBinArraysIfNeeded(
+      binArrayIndexes,
+      payer,
+    );
+
+    let binArrayBitmapExtension = this.program.programId;
+
+    const preInstructions = [...createBinArrayIxs];
+    const postInstructions = [];
+
+    for (const index of binArrayIndexes) {
+      if (isOverflowDefaultBinArrayBitmap(index)) {
+        binArrayBitmapExtension = deriveBinArrayBitmapExtension(
+          this.pubkey,
+          this.program.programId,
+        )[0];
+
+        if (!this.binArrayBitmapExtension) {
+          const initializeBitmapExtensionIx = await this.program.methods
+            .initializeBinArrayBitmapExtension()
+            .accountsPartial({
+              binArrayBitmapExtension: binArrayBitmapExtension,
+              funder: owner,
+              lbPair: this.pubkey,
+            })
+            .instruction();
+
+          preInstructions.push(initializeBitmapExtensionIx);
+        }
+      }
+    }
+
+    const [reserve, tokenMint, tokenProgram, slices, transferHookAccounts] =
+      isAskSide
+        ? [
+            this.lbPair.reserveX,
+            this.tokenX.mint.address,
+            this.tokenX.owner,
+            [
+              {
+                accountsType: {
+                  transferHookX: {},
+                },
+                length: this.tokenX.transferHookAccountMetas.length,
+              },
+            ],
+            this.tokenX.transferHookAccountMetas,
+          ]
+        : [
+            this.lbPair.reserveY,
+            this.tokenY.mint.address,
+            this.tokenY.owner,
+            [
+              {
+                accountsType: {
+                  transferHookY: {},
+                },
+                length: this.tokenY.transferHookAccountMetas.length,
+              },
+            ],
+            this.tokenY.transferHookAccountMetas,
+          ];
+
+    const userTokenAddress = getAssociatedTokenAddressSync(
+      tokenMint,
+      owner,
+      true,
+      tokenProgram,
+    );
+
+    if (tokenMint.equals(NATIVE_MINT)) {
+      const totalAmount = params.bins.reduce(
+        (acc, { amount }) => acc.add(amount),
+        new BN(0),
+      );
+
+      const wrapSOLIxX = wrapSOLInstruction(
+        sender,
+        userTokenAddress,
+        BigInt(totalAmount.toString()),
+      );
+      preInstructions.push(...wrapSOLIxX);
+
+      const unwrapSOLIX = unwrapSOLInstruction(sender, true);
+      postInstructions.push(unwrapSOLIX);
+    }
+
+    const placeLimitOrderIx = await this.program.methods
+      .placeLimitOrder(
+        {
+          ...params,
+          padding: new Array(16).fill(0),
+        },
+        {
+          slices,
+        },
+      )
+      .accountsPartial({
+        lbPair: this.pubkey,
+        binArrayBitmapExtension,
+        reserve,
+        tokenMint,
+        tokenProgram,
+        limitOrder,
+        userToken: userTokenAddress,
+        sender,
+        payer,
+      })
+      .remainingAccounts([...transferHookAccounts, ...binArrayAccountMetas])
+      .preInstructions(preInstructions)
+      .postInstructions(postInstructions)
+      .instruction();
+
+    const latestBlockhashInfo =
+      await this.program.provider.connection.getLatestBlockhash();
+
+    const tx = new Transaction({
+      ...latestBlockhashInfo,
+      feePayer: sender,
+    }).add(...preInstructions, placeLimitOrderIx, ...postInstructions);
+
+    return tx;
+  }
+
+  /**
+   * Cancels a limit order
+   * @param
+   *    - `limitOrderPubkey`: The public key of the limit-order account to cancel.
+   *    - `owner`: The owner of the limit-order account and transaction fee payer.
+   *    - `binIds`: Bin IDs to cancel from the limit order.
+   * @returns {Promise<Transaction>} A transaction that cancels the limit order and handles SOL unwrap when needed.
+   */
+  public async cancelLimitOrder({
+    limitOrderPubkey,
+    owner,
+    rentReceiver,
+    binIds,
+  }: {
+    limitOrderPubkey: PublicKey;
+    owner: PublicKey;
+    rentReceiver: PublicKey;
+    binIds: number[];
+  }) {
+    const { slices, accounts: transferHookAccounts } =
+      this.getPotentialToken2022IxDataAndAccounts(ActionType.Liquidity);
+
+    const binArrayIndexes = new Set<number>();
+
+    let binArrayBitmapExtension = this.program.programId;
+
+    for (const binId of binIds) {
+      const binArrayIndex = binIdToBinArrayIndex(new BN(binId));
+      if (
+        isOverflowDefaultBinArrayBitmap(binArrayIndex) &&
+        binArrayBitmapExtension.equals(this.program.programId)
+      ) {
+        binArrayBitmapExtension = deriveBinArrayBitmapExtension(
+          this.pubkey,
+          this.program.programId,
+        )[0];
+      }
+      binArrayIndexes.add(binArrayIndex.toNumber());
+    }
+
+    const binArrayPubkeys = [...binArrayIndexes].map(
+      (idx) =>
+        deriveBinArray(this.pubkey, new BN(idx), this.program.programId)[0],
+    );
+
+    const binArrayAccountMetas: AccountMeta[] = binArrayPubkeys.map(
+      (pubkey) => {
+        return {
+          pubkey,
+          isSigner: false,
+          isWritable: true,
+        };
+      },
+    );
+
+    const preInstructions = [];
+    const postInstructions = [];
+
+    const userTokenX = getAssociatedTokenAddressSync(
+      this.tokenX.mint.address,
+      owner,
+      true,
+      this.tokenX.owner,
+    );
+
+    const userTokenY = getAssociatedTokenAddressSync(
+      this.tokenY.mint.address,
+      owner,
+      true,
+      this.tokenY.owner,
+    );
+
+    if (this.tokenX.mint.address.equals(NATIVE_MINT)) {
+      preInstructions.push(
+        createAssociatedTokenAccountIdempotentInstruction(
+          owner,
+          userTokenX,
+          owner,
+          this.tokenX.mint.address,
+          this.tokenX.owner,
+        ),
+      );
+
+      postInstructions.push(unwrapSOLInstruction(owner));
+    }
+
+    if (this.tokenY.mint.address.equals(NATIVE_MINT)) {
+      preInstructions.push(
+        createAssociatedTokenAccountIdempotentInstruction(
+          owner,
+          userTokenY,
+          owner,
+          this.tokenY.mint.address,
+          this.tokenY.owner,
+        ),
+      );
+
+      postInstructions.push(unwrapSOLInstruction(owner));
+    }
+
+    const closeLimitOrderIx = await this.program.methods
+      .closeLimitOrderIfEmpty()
+      .accountsPartial({
+        limitOrder: limitOrderPubkey,
+        owner,
+        rentReceiver,
+      })
+      .instruction();
+
+    postInstructions.push(closeLimitOrderIx);
+
+    const cancelLimitOrderIx = await this.program.methods
+      .cancelLimitOrder(binIds, {
+        slices,
+      })
+      .accountsPartial({
+        lbPair: this.pubkey,
+        reserveX: this.lbPair.reserveX,
+        reserveY: this.lbPair.reserveY,
+        binArrayBitmapExtension,
+        tokenXMint: this.tokenX.mint.address,
+        tokenYMint: this.tokenY.mint.address,
+        limitOrder: limitOrderPubkey,
+        ownerTokenX: userTokenX,
+        ownerTokenY: userTokenY,
+        owner,
+        tokenXProgram: this.tokenX.owner,
+        tokenYProgram: this.tokenY.owner,
+        memoProgram: MEMO_PROGRAM_ID,
+      })
+      .remainingAccounts([...transferHookAccounts, ...binArrayAccountMetas])
+      .instruction();
+
+    const latestBlockhashInfo =
+      await this.program.provider.connection.getLatestBlockhash();
+
+    const tx = new Transaction({
+      ...latestBlockhashInfo,
+      feePayer: owner,
+    }).add(...preInstructions, cancelLimitOrderIx, ...postInstructions);
+
+    return tx;
+  }
+
+  /**
+   * Closes a limit-order account if it has no remaining open bins.
+   * @param
+   *    - `limitOrder`: The public key of the limit-order account to close.
+   *    - `owner`: The owner of the limit-order account and transaction fee payer.
+   *    - `rentReceiver`: The account that receives reclaimed rent from the closed limit-order account.
+   * @returns {Promise<Transaction>} A transaction that closes the limit-order account when it is empty.
+   */
+  public async closeLimitOrderIfEmpty({
+    limitOrder,
+    owner,
+    rentReceiver,
+  }: {
+    limitOrder: PublicKey;
+    owner: PublicKey;
+    rentReceiver: PublicKey;
+  }) {
+    const closeLimitOrderIx = await this.program.methods
+      .closeLimitOrderIfEmpty()
+      .accountsPartial({
+        limitOrder,
+        owner,
+        rentReceiver,
+      })
+      .instruction();
+
+    const latestBlockhashInfo =
+      await this.program.provider.connection.getLatestBlockhash();
+
+    const tx = new Transaction({
+      ...latestBlockhashInfo,
+      feePayer: owner,
+    }).add(closeLimitOrderIx);
+
+    return tx;
+  }
+
   private async createInitAndExtendPositionIx(
     lowerBinId: number,
     upperBinId: number,
@@ -7601,13 +8095,6 @@ export class DLMM {
   }
 
   /** Private static method */
-
-  private static async getBinArrays(
-    program: ClmmProgram,
-    lbPairPubkey: PublicKey,
-  ): Promise<Array<BinArrayAccount>> {
-    return program.account.binArray.all([binArrayLbPairFilter(lbPairPubkey)]);
-  }
 
   private static async processPosition(
     program: ClmmProgram,

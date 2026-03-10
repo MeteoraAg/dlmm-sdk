@@ -5,7 +5,7 @@ import {
   sendAndConfirmTransaction,
   SystemProgram,
 } from "@solana/web3.js";
-import { LbPosition, Position, PositionData } from "../dlmm/types";
+import { LbPosition, PositionData } from "../dlmm/types";
 import { DLMM } from "../dlmm";
 import BN from "bn.js";
 import { AnchorProvider, Program, Wallet } from "@coral-xyz/anchor";
@@ -23,12 +23,12 @@ import {
 export function createTestProgram(
   connection: Connection,
   programId: PublicKey,
-  keypair: Keypair
+  keypair: Keypair,
 ) {
   const provider = new AnchorProvider(
     connection,
     new Wallet(keypair),
-    AnchorProvider.defaultOptions()
+    AnchorProvider.defaultOptions(),
   );
   return new Program<LbClmm>({ ...IDL, address: programId }, provider);
 }
@@ -36,7 +36,7 @@ export function createTestProgram(
 export function assertAmountWithPrecision(
   actualAmount: number,
   expectedAmount: number,
-  precisionPercent: number
+  precisionPercent: number,
 ) {
   if (expectedAmount == 0 && actualAmount == 0) {
     return;
@@ -66,41 +66,39 @@ export async function assertPosition({
   xAmount: BN;
   yAmount: BN;
 }) {
-  const positionState: Position = await lbClmm.program.account.positionV2.fetch(
-    positionPubkey
-  );
+  const positionState: Position =
+    await lbClmm.program.account.positionV2.fetch(positionPubkey);
 
-  const { userPositions } = await lbClmm.getPositionsByUserAndLbPair(
-    userPublicKey
-  );
+  const { userPositions } =
+    await lbClmm.getPositionsByUserAndLbPair(userPublicKey);
 
   expect(userPositions.length).toBeGreaterThan(0);
   const position = userPositions.find((ps) =>
-    ps.publicKey.equals(positionPubkey)
+    ps.publicKey.equals(positionPubkey),
   );
   expect(position).not.toBeUndefined();
   expect(position.positionData.positionBinData.length).toBe(
-    positionState.upperBinId - positionState.lowerBinId + 1
+    positionState.upperBinId - positionState.lowerBinId + 1,
   );
   expect(position.positionData.positionBinData[0].binId).toBe(
-    positionState.lowerBinId
+    positionState.lowerBinId,
   );
   expect(
     position.positionData.positionBinData[
       position.positionData.positionBinData.length - 1
-    ].binId
+    ].binId,
   ).toBe(positionState.upperBinId);
   expect(+position.positionData.totalXAmount).toBeLessThan(xAmount.toNumber());
   assertAmountWithPrecision(
     +position.positionData.totalXAmount,
     xAmount.toNumber(),
-    5
+    5,
   );
   expect(+position.positionData.totalYAmount).toBeLessThan(yAmount.toNumber());
   assertAmountWithPrecision(
     +position.positionData.totalYAmount,
     yAmount.toNumber(),
-    5
+    5,
   );
 
   return { bins: position.positionData.positionBinData };
@@ -108,28 +106,28 @@ export async function assertPosition({
 
 export function assertEqRebalanceSimulationWithActualResult(
   rebalancePosition: RebalancePosition,
-  position: LbPosition
+  position: LbPosition,
 ) {
   const [simulatedAmountX, simulatedAmountY] = rebalancePosition.totalAmounts();
 
   expect(position.positionData.totalXAmount.toString()).toBe(
-    simulatedAmountX.toString()
+    simulatedAmountX.toString(),
   );
 
   expect(position.positionData.totalYAmount.toString()).toBe(
-    simulatedAmountY.toString()
+    simulatedAmountY.toString(),
   );
 
   expect(position.positionData.lowerBinId).toBe(
-    rebalancePosition.lowerBinId.toNumber()
+    rebalancePosition.lowerBinId.toNumber(),
   );
 
   expect(position.positionData.upperBinId).toBe(
-    rebalancePosition.upperBinId.toNumber()
+    rebalancePosition.upperBinId.toNumber(),
   );
 
   expect(rebalancePosition.rebalancePositionBinData.length).toBe(
-    position.positionData.positionBinData.length
+    position.positionData.positionBinData.length,
   );
 
   for (let i = 0; i < position.positionData.positionBinData.length; i++) {
@@ -141,16 +139,16 @@ export function assertEqRebalanceSimulationWithActualResult(
     expect(simBinData.amountY.toString()).toBe(binData.positionYAmount);
 
     expect(simBinData.claimableFeeXAmount.toString()).toBe(
-      binData.positionFeeXAmount
+      binData.positionFeeXAmount,
     );
     expect(simBinData.claimableFeeYAmount.toString()).toBe(
-      binData.positionFeeYAmount
+      binData.positionFeeYAmount,
     );
     expect(simBinData.claimableRewardAmount[0].toString()).toBe(
-      binData.positionRewardAmount[0]
+      binData.positionRewardAmount[0],
     );
     expect(simBinData.claimableRewardAmount[1].toString()).toBe(
-      binData.positionRewardAmount[1]
+      binData.positionRewardAmount[1],
     );
   }
 }
@@ -159,7 +157,7 @@ export async function swap(
   swapForY: boolean,
   inAmount: BN,
   dlmm: DLMM,
-  keypair: Keypair
+  keypair: Keypair,
 ) {
   await dlmm.refetchStates();
   const inToken = swapForY ? dlmm.lbPair.tokenXMint : dlmm.lbPair.tokenYMint;
@@ -170,7 +168,7 @@ export async function swap(
     swapForY,
     new BN(0),
     binArrays,
-    true
+    true,
   );
   const swapTx = await dlmm.swap({
     lbPair: dlmm.pubkey,
@@ -195,7 +193,7 @@ export function logPositionLiquidities(parsedPosition: PositionData) {
       continue;
     }
     const liquidityX = new Decimal(data.positionXAmount).mul(
-      new Decimal(data.price)
+      new Decimal(data.price),
     );
     const liquidityY = new Decimal(data.positionYAmount);
     const liquidity = liquidityX.add(liquidityY);
@@ -207,7 +205,7 @@ export function logPositionLiquidities(parsedPosition: PositionData) {
 export function assertionWithTolerance(
   actual: BN,
   expected: BN,
-  tolerance: BN
+  tolerance: BN,
 ) {
   try {
     expect(actual.sub(expected).abs().lte(tolerance)).toBeTruthy();
@@ -220,7 +218,7 @@ export function assertionWithTolerance(
 export function assertionWithPercentageTolerance(
   actual: BN,
   expected: BN,
-  tolerancePercentage: number
+  tolerancePercentage: number,
 ) {
   const tolerance = actual.sub(expected).abs().muln(100).div(actual);
   try {
@@ -234,7 +232,7 @@ export function assertionWithPercentageTolerance(
 export async function logLbPairLiquidities(
   lbPair: PublicKey,
   binStep: number,
-  program: Program<LbClmm>
+  program: Program<LbClmm>,
 ) {
   const binArrays = await program.account.binArray.all([
     {
@@ -259,7 +257,7 @@ export async function logLbPairLiquidities(
         continue;
       }
       const liquidityX = new Decimal(bin.amountX.toString()).mul(
-        getPriceOfBinByBinId(binId, binStep)
+        getPriceOfBinByBinId(binId, binStep),
       );
       const liquidityY = new Decimal(bin.amountY.toString());
       const liquidity = liquidityX.add(liquidityY);
@@ -287,7 +285,9 @@ export enum OperatorPermission {
   ZapProtocolFee,
 }
 
-export function encodePermissions(permissions: OperatorPermission[]): BN {
+export function encodeOperatorPermissions(
+  permissions: OperatorPermission[],
+): BN {
   return permissions.reduce((acc, perm) => {
     return acc.or(new BN(1).shln(perm));
   }, new BN(0));
@@ -298,9 +298,9 @@ export async function createWhitelistOperator(
   admin: Keypair,
   whitelistOperator: PublicKey,
   permissions: OperatorPermission[],
-  programId: PublicKey
+  programId: PublicKey,
 ) {
-  const encodedPermissions = encodePermissions(permissions);
+  const encodedPermissions = encodeOperatorPermissions(permissions);
   const program = createTestProgram(connection, programId, admin);
   const operatorPda = deriveOperator(whitelistOperator, program.programId);
 

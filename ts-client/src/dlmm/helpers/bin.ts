@@ -12,11 +12,16 @@ import {
   vParameters,
 } from "../..";
 
-function getAmountIn(amountOut: BN, price: BN, swapForY: Boolean): BN {
+export function getAmountIn(
+  amountOut: BN,
+  price: BN,
+  swapForY: Boolean,
+  rounding: Rounding,
+): BN {
   if (swapForY) {
-    return shlDiv(amountOut, price, SCALE_OFFSET, Rounding.Up);
+    return shlDiv(amountOut, price, SCALE_OFFSET, rounding);
   } else {
-    return mulShr(amountOut, price, SCALE_OFFSET, Rounding.Up);
+    return mulShr(amountOut, price, SCALE_OFFSET, rounding);
   }
 }
 
@@ -72,6 +77,7 @@ export function swapExactOutQuoteAtBin(
       includedFeeAmountOut,
       bin.price,
       swapForY,
+      Rounding.Up,
     );
 
     let includedFeeAmountIn = excludedFeeAmountIn;
@@ -125,7 +131,12 @@ function calculateExactInFillAmount(
   amountLeft: BN;
   outAmount: BN;
 } {
-  const maxAmountIn = getAmountIn(maxAmountOut, bin.price, swapForY);
+  const maxAmountIn = getAmountIn(
+    maxAmountOut,
+    bin.price,
+    swapForY,
+    Rounding.Up,
+  );
   if (amount.gte(maxAmountIn)) {
     return {
       amountIn: maxAmountIn,

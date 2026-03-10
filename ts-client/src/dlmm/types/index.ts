@@ -24,6 +24,7 @@ import { Mint } from "@solana/spl-token";
 import { AllAccountsMap } from "@coral-xyz/anchor/dist/cjs/program/namespace/types";
 import { RebalancePosition, SimulateRebalanceResp } from "../helpers/rebalance";
 import { FunctionType } from "../constants";
+import { ParsedLimitOrder } from "../helpers/limitOrders";
 
 export interface FeeInfo {
   baseFeeRatePercentage: Decimal;
@@ -114,7 +115,12 @@ export type ResizeSideEnum = IdlTypes<LbClmm>["resizeSide"];
 export type ExtendedPositionBinData = IdlTypes<LbClmm>["positionBinData"];
 
 export type LimitOrderBinData = IdlTypes<LbClmm>["limitOrderBinData"];
-export type placeLimitOrderParams = IdlTypes<LbClmm>["placeLimitOrderParams"];
+export type PlaceLimitOrderParams = IdlTypes<LbClmm>["placeLimitOrderParams"];
+
+export interface ParsedLimitOrderWithPubkey {
+  publicKey: PublicKey;
+  limitOrderData: ParsedLimitOrder;
+}
 
 export interface LbPosition {
   publicKey: PublicKey;
@@ -191,6 +197,9 @@ export enum ActivationType {
 // This is position struct size, it doesn't include the discriminator bytes
 export const POSITION_MIN_SIZE = 8112;
 export const POSITION_BIN_DATA_SIZE = 112;
+
+export const LIMIT_ORDER_MIN_SIZE = 112;
+export const LIMIT_ORDER_BIN_DATA_SIZE = 32;
 
 export interface StrategyParameters {
   maxBinId: number;
@@ -656,4 +665,14 @@ export interface GetPositionsOpt {
    * When true, callback progress is approximate due to parallel execution.
    */
   isParallelExecution?: boolean;
+}
+
+export enum PositionPermission {
+  ClaimFee,
+}
+
+export enum LimitOrderStatus {
+  NotFilled,
+  PartialFilled,
+  Fulfilled,
 }
