@@ -388,6 +388,7 @@ export interface SwapQuote {
   priceImpact: Decimal;
   binArraysPubkey: any[];
   endPrice: Decimal;
+  feeOnInput: boolean;
 }
 
 export interface SwapQuoteExactOut {

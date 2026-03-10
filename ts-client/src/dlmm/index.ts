@@ -84,8 +84,8 @@ import {
   getBinCount,
   getBinFromBinArray,
   getEstimatedComputeUnitIxWithBuffer,
+  getBinMaxAmountOut,
   getOrCreateATAInstruction,
-  getOutAmount,
   getPositionCountByBinCount,
   getPriceOfBinByBinId,
   getSlippageMaxAmount,
@@ -102,6 +102,8 @@ import {
   toWeightDistribution,
   unwrapSOLInstruction,
   wrapSOLInstruction,
+  getFeeMode,
+  getAmountOut,
 } from "./helpers";
 import {
   binArrayLbPairFilter,
@@ -4508,6 +4510,9 @@ export class DLMM {
     const binStep = this.lbPair.binStep;
     const sParameters = this.lbPair.parameters;
 
+    const supportLimitOrder = isSupportLimitOrder(this.lbPair);
+    const feeOnInput = getFeeMode(this.lbPair, swapForY).feeOnInput;
+
     DLMM.updateReference(
       activeId.toNumber(),
       vParameterClone,
@@ -4539,12 +4544,6 @@ export class DLMM {
 
       binArraysForSwap.set(binArrayAccountToSwap.publicKey, true);
 
-      DLMM.updateVolatilityAccumulator(
-        vParameterClone,
-        sParameters,
-        activeId.toNumber(),
-      );
-
       if (
         isBinIdWithinBinArray(activeId, binArrayAccountToSwap.account.index)
       ) {
@@ -4552,21 +4551,38 @@ export class DLMM {
           activeId.toNumber(),
           binArrayAccountToSwap.account,
         );
-        const { amountIn, amountOut, fee, protocolFee } =
-          swapExactOutQuoteAtBin(
-            bin,
-            binStep,
-            sParameters,
+
+        const maxOutAmount = getBinMaxAmountOut(
+          bin,
+          swapForY,
+          supportLimitOrder,
+        );
+
+        if (!maxOutAmount.isZero()) {
+          DLMM.updateVolatilityAccumulator(
             vParameterClone,
-            outAmountLeft,
-            swapForY,
+            sParameters,
+            activeId.toNumber(),
           );
 
-        if (!amountOut.isZero()) {
-          outAmountLeft = outAmountLeft.sub(amountOut);
-          actualInAmount = actualInAmount.add(amountIn);
-          feeAmount = feeAmount.add(fee);
-          protocolFeeAmount = protocolFee.add(protocolFee);
+          const { amountIn, amountOut, fee, protocolFee } =
+            swapExactOutQuoteAtBin(
+              bin,
+              binStep,
+              sParameters,
+              vParameterClone,
+              outAmountLeft,
+              swapForY,
+              supportLimitOrder,
+              feeOnInput,
+            );
+
+          if (!amountOut.isZero()) {
+            outAmountLeft = outAmountLeft.sub(amountOut);
+            actualInAmount = actualInAmount.add(amountIn);
+            feeAmount = feeAmount.add(fee);
+            protocolFeeAmount = protocolFee.add(protocolFee);
+          }
         }
       }
 
@@ -4595,7 +4611,7 @@ export class DLMM {
       .mul(new Decimal(100));
 
     actualInAmount = calculateTransferFeeIncludedAmount(
-      actualInAmount.add(feeAmount),
+      actualInAmount,
       inMint,
       this.clock.epoch.toNumber(),
     ).amount;
@@ -4716,6 +4732,8 @@ export class DLMM {
 
     const binStep = this.lbPair.binStep;
     const sParameters = this.lbPair.parameters;
+    const supportLimitOrder = isSupportLimitOrder(this.lbPair);
+    const feeOnInput = getFeeMode(this.lbPair, swapForY).feeOnInput;
 
     DLMM.updateReference(
       activeId.toNumber(),
@@ -4753,12 +4771,6 @@ export class DLMM {
 
       binArraysForSwap.set(binArrayAccountToSwap.publicKey, true);
 
-      DLMM.updateVolatilityAccumulator(
-        vParameterClone,
-        sParameters,
-        activeId.toNumber(),
-      );
-
       if (
         isBinIdWithinBinArray(activeId, binArrayAccountToSwap.account.index)
       ) {
@@ -4766,26 +4778,44 @@ export class DLMM {
           activeId.toNumber(),
           binArrayAccountToSwap.account,
         );
-        const { amountIn, amountOut, fee, protocolFee } = swapExactInQuoteAtBin(
+
+        const maxAmountOut = getBinMaxAmountOut(
           bin,
-          binStep,
-          sParameters,
-          vParameterClone,
-          inAmountLeft,
           swapForY,
+          supportLimitOrder,
         );
 
-        if (!amountIn.isZero()) {
-          inAmountLeft = inAmountLeft.sub(amountIn);
-          totalOutAmount = totalOutAmount.add(amountOut);
-          feeAmount = feeAmount.add(fee);
-          protocolFeeAmount = protocolFee.add(protocolFee);
+        if (!maxAmountOut.isZero()) {
+          DLMM.updateVolatilityAccumulator(
+            vParameterClone,
+            sParameters,
+            activeId.toNumber(),
+          );
 
-          if (!startBin) {
-            startBin = bin;
+          const { amountIn, amountOut, fee, protocolFee } =
+            swapExactInQuoteAtBin(
+              bin,
+              binStep,
+              sParameters,
+              vParameterClone,
+              inAmountLeft,
+              swapForY,
+              supportLimitOrder,
+              feeOnInput,
+            );
+
+          if (!amountIn.isZero()) {
+            inAmountLeft = inAmountLeft.sub(amountIn);
+            totalOutAmount = totalOutAmount.add(amountOut);
+            feeAmount = feeAmount.add(fee);
+            protocolFeeAmount = protocolFeeAmount.add(protocolFee);
+
+            if (!startBin) {
+              startBin = bin;
+            }
+
+            lastFilledActiveBinId = activeId;
           }
-
-          lastFilledActiveBinId = activeId;
         }
       }
 
@@ -4818,7 +4848,7 @@ export class DLMM {
       ? inAmount
       : transferFeeIncludedInAmount;
 
-    const outAmountWithoutSlippage = getOutAmount(
+    const outAmountWithoutSlippage = getAmountOut(
       startBin,
       actualInAmount.sub(
         computeFeeFromAmount(
@@ -4908,6 +4938,7 @@ export class DLMM {
       priceImpact,
       binArraysPubkey,
       endPrice,
+      feeOnInput,
     };
   }
 

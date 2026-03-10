@@ -82,6 +82,7 @@ export * from "./rebalance";
 export * from "./strategy";
 export * from "./weight";
 export * from "./weightToAmounts";
+export * from "./bin";
 
 export function chunks<T>(array: T[], size: number): T[][] {
   return Array.apply(0, new Array(Math.ceil(array.length / size))).map(
@@ -124,12 +125,6 @@ export async function chunkedFetchMultipleBinArrayBitmapExtensionAccount(
   ).flat();
 
   return accounts;
-}
-
-export function getOutAmount(bin: Bin, inAmount: BN, swapForY: boolean) {
-  return swapForY
-    ? mulShr(inAmount, bin.price, SCALE_OFFSET, Rounding.Down)
-    : shlDiv(inAmount, bin.price, SCALE_OFFSET, Rounding.Down);
 }
 
 export async function getTokenDecimals(conn: Connection, mint: PublicKey) {

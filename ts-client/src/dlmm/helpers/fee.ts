@@ -2,12 +2,10 @@ import { BN } from "@coral-xyz/anchor";
 import {
   BASIS_POINT_MAX,
   FEE_PRECISION,
+  LIMIT_ORDER_FEE_SHARE,
   MAX_FEE_RATE,
-  SCALE_OFFSET,
 } from "../constants";
-import { Bin, sParameters, vParameters } from "../types";
-import { Rounding, mulShr, shlDiv } from "./math";
-import { getOutAmount } from ".";
+import { sParameters, vParameters } from "../types";
 
 export function getBaseFee(binStep: number, sParameter: sParameters) {
   return new BN(sParameter.baseFactor)
@@ -19,7 +17,7 @@ export function getBaseFee(binStep: number, sParameter: sParameters) {
 export function getVariableFee(
   binStep: number,
   sParameter: sParameters,
-  vParameter: vParameters
+  vParameter: vParameters,
 ) {
   if (sParameter.variableFeeControl > 0) {
     const square_vfa_bin = new BN(vParameter.volatilityAccumulator)
@@ -35,10 +33,10 @@ export function getVariableFee(
 export function getTotalFee(
   binStep: number,
   sParameter: sParameters,
-  vParameter: vParameters
+  vParameter: vParameters,
 ) {
   const totalFee = getBaseFee(binStep, sParameter).add(
-    getVariableFee(binStep, sParameter, vParameter)
+    getVariableFee(binStep, sParameter, vParameter),
   );
   return totalFee.gt(MAX_FEE_RATE) ? MAX_FEE_RATE : totalFee;
 }
@@ -47,7 +45,7 @@ export function computeFee(
   binStep: number,
   sParameter: sParameters,
   vParameter: vParameters,
-  inAmount: BN
+  inAmount: BN,
 ) {
   const totalFee = getTotalFee(binStep, sParameter, vParameter);
   const denominator = FEE_PRECISION.sub(totalFee);
@@ -63,7 +61,7 @@ export function computeFeeFromAmount(
   binStep: number,
   sParameter: sParameters,
   vParameter: vParameters,
-  inAmountWithFees: BN
+  inAmountWithFees: BN,
 ) {
   const totalFee = getTotalFee(binStep, sParameter, vParameter);
   return inAmountWithFees
@@ -78,149 +76,70 @@ export function computeProtocolFee(feeAmount: BN, sParameter: sParameters) {
     .div(new BN(BASIS_POINT_MAX));
 }
 
-export function swapExactOutQuoteAtBin(
-  bin: Bin,
-  binStep: number,
-  sParameter: sParameters,
-  vParameter: vParameters,
-  outAmount: BN,
-  swapForY: boolean
+export function getExcludedFeeAmount(
+  includedFeeAmount: BN,
+  tradeFeeNumerator: BN,
 ): {
-  amountIn: BN;
-  amountOut: BN;
+  excludedFeeAmount: BN;
   fee: BN;
-  protocolFee: BN;
 } {
-  if (swapForY && bin.amountY.isZero()) {
-    return {
-      amountIn: new BN(0),
-      amountOut: new BN(0),
-      fee: new BN(0),
-      protocolFee: new BN(0),
-    };
-  }
-
-  if (!swapForY && bin.amountX.isZero()) {
-    return {
-      amountIn: new BN(0),
-      amountOut: new BN(0),
-      fee: new BN(0),
-      protocolFee: new BN(0),
-    };
-  }
-
-  let maxAmountOut: BN;
-  let maxAmountIn: BN;
-
-  if (swapForY) {
-    maxAmountOut = bin.amountY;
-    maxAmountIn = shlDiv(bin.amountY, bin.price, SCALE_OFFSET, Rounding.Up);
-  } else {
-    maxAmountOut = bin.amountX;
-    maxAmountIn = mulShr(bin.amountX, bin.price, SCALE_OFFSET, Rounding.Up);
-  }
-
-  if (outAmount.gte(maxAmountOut)) {
-    const maxFee = computeFee(binStep, sParameter, vParameter, maxAmountIn);
-    const protocolFee = computeProtocolFee(maxFee, sParameter);
-    return {
-      amountIn: maxAmountIn,
-      amountOut: maxAmountOut,
-      fee: maxFee,
-      protocolFee,
-    };
-  } else {
-    const amountIn = getAmountIn(outAmount, bin.price, swapForY);
-    const fee = computeFee(binStep, sParameter, vParameter, amountIn);
-    const protocolFee = computeProtocolFee(fee, sParameter);
-    return {
-      amountIn,
-      amountOut: outAmount,
-      fee,
-      protocolFee,
-    };
-  }
-}
-
-export function swapExactInQuoteAtBin(
-  bin: Bin,
-  binStep: number,
-  sParameter: sParameters,
-  vParameter: vParameters,
-  inAmount: BN,
-  swapForY: boolean
-): {
-  amountIn: BN;
-  amountOut: BN;
-  fee: BN;
-  protocolFee: BN;
-} {
-  if (swapForY && bin.amountY.isZero()) {
-    return {
-      amountIn: new BN(0),
-      amountOut: new BN(0),
-      fee: new BN(0),
-      protocolFee: new BN(0),
-    };
-  }
-
-  if (!swapForY && bin.amountX.isZero()) {
-    return {
-      amountIn: new BN(0),
-      amountOut: new BN(0),
-      fee: new BN(0),
-      protocolFee: new BN(0),
-    };
-  }
-
-  let maxAmountOut: BN;
-  let maxAmountIn: BN;
-
-  if (swapForY) {
-    maxAmountOut = bin.amountY;
-    maxAmountIn = shlDiv(bin.amountY, bin.price, SCALE_OFFSET, Rounding.Up);
-  } else {
-    maxAmountOut = bin.amountX;
-    maxAmountIn = mulShr(bin.amountX, bin.price, SCALE_OFFSET, Rounding.Up);
-  }
-
-  const maxFee = computeFee(binStep, sParameter, vParameter, maxAmountIn);
-  maxAmountIn = maxAmountIn.add(maxFee);
-
-  let amountInWithFees: BN;
-  let amountOut: BN;
-  let fee: BN;
-  let protocolFee: BN;
-
-  if (inAmount.gt(maxAmountIn)) {
-    amountInWithFees = maxAmountIn;
-    amountOut = maxAmountOut;
-    fee = maxFee;
-    protocolFee = computeProtocolFee(maxFee, sParameter);
-  } else {
-    fee = computeFeeFromAmount(binStep, sParameter, vParameter, inAmount);
-    const amountInAfterFee = inAmount.sub(fee);
-    const computedOutAmount = getOutAmount(bin, amountInAfterFee, swapForY);
-
-    amountOut = computedOutAmount.gt(maxAmountOut)
-      ? maxAmountOut
-      : computedOutAmount;
-    protocolFee = computeProtocolFee(fee, sParameter);
-    amountInWithFees = inAmount;
-  }
-
+  const tradingFee = includedFeeAmount
+    .mul(tradeFeeNumerator)
+    .add(FEE_PRECISION.sub(new BN(1)))
+    .div(FEE_PRECISION);
+  const excludedFeeAmount = includedFeeAmount.sub(tradingFee);
   return {
-    amountIn: amountInWithFees,
-    amountOut,
-    fee,
-    protocolFee,
+    excludedFeeAmount,
+    fee: tradingFee,
   };
 }
 
-function getAmountIn(amountOut: BN, price: BN, swapForY: Boolean): BN {
-  if (swapForY) {
-    return shlDiv(amountOut, price, SCALE_OFFSET, Rounding.Up);
-  } else {
-    return mulShr(amountOut, price, SCALE_OFFSET, Rounding.Up);
-  }
+export function getIncludedFeeAmount(
+  excludedFeeAmount: BN,
+  tradeFeeNumerator: BN,
+): {
+  includedFeeAmount: BN;
+  fee: BN;
+} {
+  const denominator = FEE_PRECISION.sub(tradeFeeNumerator);
+
+  const includedFeeAmount = excludedFeeAmount
+    .mul(FEE_PRECISION)
+    .add(denominator.sub(new BN(1)))
+    .div(denominator);
+
+  const fee = includedFeeAmount.sub(excludedFeeAmount);
+  return {
+    includedFeeAmount,
+    fee,
+  };
+}
+
+export function splitFee(
+  tradingFee: BN,
+  protocolShare: BN,
+  mmAmountIn: BN,
+  totalAmountIn: BN,
+) {
+  const mmFee = tradingFee
+    .mul(mmAmountIn)
+    .add(totalAmountIn.sub(new BN(1)))
+    .div(totalAmountIn);
+
+  const totalLoFee = tradingFee.sub(mmFee);
+
+  const loFee = totalLoFee
+    .mul(LIMIT_ORDER_FEE_SHARE)
+    .div(new BN(BASIS_POINT_MAX));
+
+  const loProtocolFee = totalLoFee.sub(loFee);
+  const mmProtocolFee = mmFee.mul(protocolShare).div(new BN(BASIS_POINT_MAX));
+
+  const totalProtocolFee = loProtocolFee.add(mmProtocolFee);
+  const totalUserFee = tradingFee.sub(totalProtocolFee);
+
+  return {
+    fee: totalUserFee,
+    protocolFee: totalProtocolFee,
+  };
 }

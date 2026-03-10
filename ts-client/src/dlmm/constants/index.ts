@@ -109,6 +109,10 @@ export const MAX_BINS_PER_POSITION = new BN(
   CONSTANTS.find(([k, v]) => v.name == "POSITION_MAX_LENGTH")?.[1].value ?? 0,
 );
 
+export const LIMIT_ORDER_FEE_SHARE = new BN(
+  CONSTANTS.find(([k, v]) => v.name == "LIMIT_ORDER_FEE_SHARE")?.[1].value ?? 0,
+);
+
 export enum FunctionType {
   // Undetermined pair type means the function type cannot be represented by PairFunctionType enum itself. The system will decide whether it's LO or LM based on whether rewards was initialized.
   Undetermined = 0,

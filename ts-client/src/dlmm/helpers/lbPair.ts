@@ -1,6 +1,6 @@
 import { AnchorProvider, Program } from "@coral-xyz/anchor";
 import { Cluster, Connection, PublicKey } from "@solana/web3.js";
-import { FunctionType, LBCLMM_PROGRAM_IDS } from "../constants";
+import { CollectFeeMode, FunctionType, LBCLMM_PROGRAM_IDS } from "../constants";
 import { LbPair } from "../types";
 import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { createProgram } from ".";
@@ -54,5 +54,37 @@ export function isSupportLimitOrder(lbPairState: LbPair) {
       return lbPairState.rewardInfos.some(
         (rewardInfo) => rewardInfo.mint != PublicKey.default,
       );
+    default:
+      throw new Error("Invalid function type");
   }
+}
+
+export interface FeeMode {
+  feeOnInput: boolean;
+  feeOnTokenX: boolean;
+}
+
+export function getFeeMode(lbPairState: LbPair, swapForY: boolean): FeeMode {
+  const collectFeeMode: CollectFeeMode = lbPairState.parameters.collectFeeMode;
+
+  let feeOnInput: boolean;
+  let feeOnTokenX: boolean;
+
+  switch (collectFeeMode) {
+    case CollectFeeMode.InputOnly:
+      feeOnInput = true;
+      feeOnTokenX = swapForY;
+      break;
+    case CollectFeeMode.OnlyY:
+      feeOnInput = !swapForY;
+      feeOnTokenX = false;
+      break;
+    default:
+      throw new Error("Invalid collect fee mode");
+  }
+
+  return {
+    feeOnInput,
+    feeOnTokenX,
+  };
 }
