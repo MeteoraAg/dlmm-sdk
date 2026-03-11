@@ -42,24 +42,24 @@ import {
   createTestProgram,
   createWhitelistOperator,
   OperatorPermission,
+  sendTransactionAndConfirm,
 } from "./helper";
 
 const keypairBuffer = fs.readFileSync(
   "../keys/localnet/admin-bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1.json",
-  "utf-8"
+  "utf-8",
 );
 const connection = new Connection("http://127.0.0.1:8899", "confirmed");
 
-const operator = Keypair.fromSecretKey(
-  new Uint8Array(JSON.parse(keypairBuffer))
-);
+const admin = Keypair.fromSecretKey(new Uint8Array(JSON.parse(keypairBuffer)));
+const operatorKeypair = Keypair.generate();
 
 const positionOwner = Keypair.generate();
 const feeOwner = Keypair.generate();
 const lockDuration = new BN(86400 * 31);
 
 const programId = new PublicKey(LBCLMM_PROGRAM_IDS["localhost"]);
-const program = createTestProgram(connection, programId, operator);
+const program = createTestProgram(connection, programId, admin);
 
 describe("ILM test", () => {
   describe("WEN", () => {
@@ -86,88 +86,88 @@ describe("ILM test", () => {
     const minBinId = DLMM.getBinIdFromPrice(
       new Decimal(minPrice).mul(toLamportMultiplier),
       binStep,
-      false
+      false,
     );
 
     beforeAll(async () => {
       WEN = await createMint(
         connection,
-        operator,
-        operator.publicKey,
+        admin,
+        admin.publicKey,
         null,
         wenDecimal,
         Keypair.generate(),
         null,
-        TOKEN_PROGRAM_ID
+        TOKEN_PROGRAM_ID,
       );
 
       USDC = await createMint(
         connection,
-        operator,
-        operator.publicKey,
+        admin,
+        admin.publicKey,
         null,
         usdcDecimal,
         Keypair.generate(),
         null,
-        TOKEN_PROGRAM_ID
+        TOKEN_PROGRAM_ID,
       );
 
       const userWenInfo = await getOrCreateAssociatedTokenAccount(
         connection,
-        operator,
+        admin,
         WEN,
-        operator.publicKey,
+        admin.publicKey,
         false,
         "confirmed",
         {
           commitment: "confirmed",
         },
         TOKEN_PROGRAM_ID,
-        ASSOCIATED_TOKEN_PROGRAM_ID
+        ASSOCIATED_TOKEN_PROGRAM_ID,
       );
       userWEN = userWenInfo.address;
 
       const userUsdcInfo = await getOrCreateAssociatedTokenAccount(
         connection,
-        operator,
+        admin,
         USDC,
-        operator.publicKey,
+        admin.publicKey,
         false,
         "confirmed",
         {
           commitment: "confirmed",
         },
         TOKEN_PROGRAM_ID,
-        ASSOCIATED_TOKEN_PROGRAM_ID
+        ASSOCIATED_TOKEN_PROGRAM_ID,
       );
       userUSDC = userUsdcInfo.address;
 
       await mintTo(
         connection,
-        operator,
+        admin,
         WEN,
         userWEN,
-        operator.publicKey,
+        admin.publicKey,
         200_000_000_000 * 10 ** wenDecimal,
         [],
         {
           commitment: "confirmed",
         },
-        TOKEN_PROGRAM_ID
+        TOKEN_PROGRAM_ID,
       );
 
       await mintTo(
         connection,
-        operator,
+        admin,
         USDC,
         userUSDC,
-        operator.publicKey,
+        admin.publicKey,
         1_000_000_000 * 10 ** usdcDecimal,
         [],
         {
           commitment: "confirmed",
         },
-        TOKEN_PROGRAM_ID
+        TOKEN_PROGRAM_ID,
       );
 
       const slot = await connection.getSlot();
@@ -182,16 +182,18 @@ describe("ILM test", () => {
         feeBps,
         ActivationType.Slot,
         false, // No alpha vault. Set to true the program will deterministically whitelist the alpha vault to swap before the pool start trading. Check: https://github.com/MeteoraAg/alpha-vault-sdk initialize{Prorata|Fcfs}Vault method to create the alpha vault.
-        operator.publicKey,
+        admin.publicKey,
         activationPoint,
         false,
+        null,
+        null,
         {
           cluster: "localhost",
-        }
+        },
       );
 
       let txHash = await sendAndConfirmTransaction(connection, rawTx, [
-        operator,
+        admin,
       ]).catch((e) => {
         console.error(e);
         throw e;
@@ -221,11 +223,11 @@ describe("ILM test", () => {
         minPrice,
         maxPrice,
         baseKeypair.publicKey,
-        operator.publicKey,
+        admin.publicKey,
         feeOwner.publicKey,
-        operator.publicKey,
+        admin.publicKey,
         lockReleaseSlot,
-        true
+        true,
       );
 
       // Send token prove
@@ -234,12 +236,12 @@ describe("ILM test", () => {
           await connection.getLatestBlockhash("confirmed");
 
         const transaction = new Transaction({
-          feePayer: operator.publicKey,
+          feePayer: admin.publicKey,
           blockhash,
           lastValidBlockHeight,
         }).add(...sendPositionOwnerTokenProveIxs);
 
-        await sendAndConfirmTransaction(connection, transaction, [operator]);
+        await sendAndConfirmTransaction(connection, transaction, [admin]);
       }
 
       // Initialize all bin array and position, transaction order can be in sequence or not
@@ -250,12 +252,12 @@ describe("ILM test", () => {
 
         for (const groupIx of initializeBinArraysAndPositionIxs) {
           const tx = new Transaction({
-            feePayer: operator.publicKey,
+            feePayer: admin.publicKey,
             blockhash,
             lastValidBlockHeight,
           }).add(...groupIx);
 
-          const signers = [operator, baseKeypair];
+          const signers = [admin, baseKeypair];
 
           transactions.push(sendAndConfirmTransaction(connection, tx, signers));
         }
@@ -283,12 +285,12 @@ describe("ILM test", () => {
         // Deposit to positions created in above step. The add liquidity order can be in sequence or not.
         for (const groupIx of addLiquidityIxs) {
           const tx = new Transaction({
-            feePayer: operator.publicKey,
+            feePayer: admin.publicKey,
             blockhash,
             lastValidBlockHeight,
           }).add(...groupIx);
 
-          const signers = [operator];
+          const signers = [admin];
 
           transactions.push(sendAndConfirmTransaction(connection, tx, signers));
         }
@@ -311,7 +313,7 @@ describe("ILM test", () => {
       expect(actualDepositedAmount.toString()).toEqual(seedAmount.toString());
 
       const positions = await pair.getPositionsByUserAndLbPair(
-        positionOwner.publicKey
+        positionOwner.publicKey,
       );
 
       const positionKeys = positions.userPositions.map((p) => p.publicKey);
@@ -322,19 +324,19 @@ describe("ILM test", () => {
         expect(state.feeOwner.toBase58()).toBe(feeOwner.publicKey.toBase58());
         expect(state.owner.toBase58()).toBe(positionOwner.publicKey.toBase58());
         expect(state.lockReleasePoint.toString()).toBe(
-          lockReleaseSlot.toString()
+          lockReleaseSlot.toString(),
         );
       }
 
       let binArrays = await pair.getBinArrays();
       binArrays = binArrays.sort((a, b) =>
-        a.account.index.cmp(b.account.index)
+        a.account.index.cmp(b.account.index),
       );
 
       const binLiquidities = binArrays
         .map((ba) => {
           const [lowerBinId, upperBinId] = getBinArrayLowerUpperBinId(
-            ba.account.index
+            ba.account.index,
           );
           const binWithLiquidity: [number, number][] = [];
           for (let i = lowerBinId.toNumber(); i <= upperBinId.toNumber(); i++) {
@@ -371,7 +373,7 @@ describe("ILM test", () => {
     let pair: DLMM;
 
     const toLamportMultiplier = new Decimal(
-      10 ** (usdcDecimal - sharkyDecimal)
+      10 ** (usdcDecimal - sharkyDecimal),
     );
 
     const minPrice = 0.5;
@@ -383,88 +385,88 @@ describe("ILM test", () => {
     const minBinId = DLMM.getBinIdFromPrice(
       new Decimal(minPrice).mul(toLamportMultiplier),
       binStep,
-      false
+      false,
     );
 
     beforeAll(async () => {
       SHARKY = await createMint(
         connection,
-        operator,
-        operator.publicKey,
+        admin,
+        admin.publicKey,
         null,
         sharkyDecimal,
         Keypair.generate(),
         null,
-        TOKEN_PROGRAM_ID
+        TOKEN_PROGRAM_ID,
       );
 
       USDC = await createMint(
         connection,
-        operator,
-        operator.publicKey,
+        admin,
+        admin.publicKey,
         null,
         usdcDecimal,
         Keypair.generate(),
         null,
-        TOKEN_PROGRAM_ID
+        TOKEN_PROGRAM_ID,
       );
 
       const userShakyInfo = await getOrCreateAssociatedTokenAccount(
         connection,
-        operator,
+        admin,
         SHARKY,
-        operator.publicKey,
+        admin.publicKey,
         false,
         "confirmed",
         {
           commitment: "confirmed",
         },
         TOKEN_PROGRAM_ID,
-        ASSOCIATED_TOKEN_PROGRAM_ID
+        ASSOCIATED_TOKEN_PROGRAM_ID,
       );
       userSHAKY = userShakyInfo.address;
 
       const userUsdcInfo = await getOrCreateAssociatedTokenAccount(
         connection,
-        operator,
+        admin,
         USDC,
-        operator.publicKey,
+        admin.publicKey,
         false,
         "confirmed",
         {
           commitment: "confirmed",
         },
         TOKEN_PROGRAM_ID,
-        ASSOCIATED_TOKEN_PROGRAM_ID
+        ASSOCIATED_TOKEN_PROGRAM_ID,
       );
       userUSDC = userUsdcInfo.address;
 
       await mintTo(
         connection,
-        operator,
+        admin,
         SHARKY,
         userSHAKY,
-        operator.publicKey,
+        admin.publicKey,
         200_000_000_000 * 10 ** sharkyDecimal,
         [],
         {
           commitment: "confirmed",
         },
-        TOKEN_PROGRAM_ID
+        TOKEN_PROGRAM_ID,
       );
 
       await mintTo(
         connection,
-        operator,
+        admin,
         USDC,
         userUSDC,
-        operator.publicKey,
+        admin.publicKey,
         1_000_000_000 * 10 ** usdcDecimal,
         [],
         {
           commitment: "confirmed",
         },
-        TOKEN_PROGRAM_ID
+        TOKEN_PROGRAM_ID,
       );
 
       const slot = await connection.getSlot();
@@ -479,16 +481,18 @@ describe("ILM test", () => {
         feeBps,
         ActivationType.Slot,
         false, // No alpha vault. Set to true the program will deterministically whitelist the alpha vault to swap before the pool start trading. Check: https://github.com/MeteoraAg/alpha-vault-sdk initialize{Prorata|Fcfs}Vault method to create the alpha vault.
-        operator.publicKey,
+        admin.publicKey,
         activationPoint,
         false,
+        null,
+        null,
         {
           cluster: "localhost",
-        }
+        },
       );
 
       let txHash = await sendAndConfirmTransaction(connection, rawTx, [
-        operator,
+        admin,
       ]).catch((e) => {
         console.error(e);
         throw e;
@@ -498,7 +502,7 @@ describe("ILM test", () => {
       [pairKey] = deriveCustomizablePermissionlessLbPair(
         SHARKY,
         USDC,
-        programId
+        programId,
       );
 
       pair = await DLMM.create(connection, pairKey, {
@@ -522,11 +526,11 @@ describe("ILM test", () => {
         minPrice,
         maxPrice,
         baseKeypair.publicKey,
-        operator.publicKey,
+        admin.publicKey,
         feeOwner.publicKey,
-        operator.publicKey,
+        admin.publicKey,
         lockReleaseSlot,
-        true
+        true,
       );
 
       // Send token prove
@@ -535,12 +539,12 @@ describe("ILM test", () => {
           await connection.getLatestBlockhash("confirmed");
 
         const transaction = new Transaction({
-          feePayer: operator.publicKey,
+          feePayer: admin.publicKey,
           blockhash,
           lastValidBlockHeight,
         }).add(...sendPositionOwnerTokenProveIxs);
 
-        await sendAndConfirmTransaction(connection, transaction, [operator]);
+        await sendAndConfirmTransaction(connection, transaction, [admin]);
       }
 
       // Initialize all bin array and position, transaction order can be in sequence or not
@@ -551,12 +555,12 @@ describe("ILM test", () => {
 
         for (const groupIx of initializeBinArraysAndPositionIxs) {
           const tx = new Transaction({
-            feePayer: operator.publicKey,
+            feePayer: admin.publicKey,
             blockhash,
             lastValidBlockHeight,
           }).add(...groupIx);
 
-          const signers = [operator, baseKeypair];
+          const signers = [admin, baseKeypair];
 
           transactions.push(sendAndConfirmTransaction(connection, tx, signers));
         }
@@ -584,12 +588,12 @@ describe("ILM test", () => {
         // Deposit to positions created in above step. The add liquidity order can be in sequence or not.
         for (const groupIx of addLiquidityIxs) {
           const tx = new Transaction({
-            feePayer: operator.publicKey,
+            feePayer: admin.publicKey,
             blockhash,
             lastValidBlockHeight,
           }).add(...groupIx);
 
-          const signers = [operator];
+          const signers = [admin];
 
           transactions.push(sendAndConfirmTransaction(connection, tx, signers));
         }
@@ -612,7 +616,7 @@ describe("ILM test", () => {
       expect(actualDepositedAmount.toString()).toEqual(seedAmount.toString());
 
       const positions = await pair.getPositionsByUserAndLbPair(
-        positionOwner.publicKey
+        positionOwner.publicKey,
       );
 
       const positionKeys = positions.userPositions.map((p) => p.publicKey);
@@ -623,19 +627,19 @@ describe("ILM test", () => {
         expect(state.feeOwner.toBase58()).toBe(feeOwner.publicKey.toBase58());
         expect(state.owner.toBase58()).toBe(positionOwner.publicKey.toBase58());
         expect(state.lockReleasePoint.toString()).toBe(
-          lockReleaseSlot.toString()
+          lockReleaseSlot.toString(),
         );
       }
 
       let binArrays = await pair.getBinArrays();
       binArrays = binArrays.sort((a, b) =>
-        a.account.index.cmp(b.account.index)
+        a.account.index.cmp(b.account.index),
       );
 
       const binLiquidities = binArrays
         .map((ba) => {
           const [lowerBinId, upperBinId] = getBinArrayLowerUpperBinId(
-            ba.account.index
+            ba.account.index,
           );
           const binWithLiquidity: [number, number][] = [];
           for (let i = lowerBinId.toNumber(); i <= upperBinId.toNumber(); i++) {
@@ -686,165 +690,179 @@ describe("ILM test", () => {
     const minBinId = DLMM.getBinIdFromPrice(
       new Decimal(minPrice).mul(toLamportMultiplier),
       binStep,
-      false
+      false,
     );
 
     beforeAll(async () => {
+      await connection.requestAirdrop(
+        operatorKeypair.publicKey,
+        10 * LAMPORTS_PER_SOL,
+      );
+
       const extensions = [
         ExtensionType.TransferFeeConfig,
         ExtensionType.TransferHook,
       ];
 
       const mintLen = getMintLen(extensions);
-      const minLamports = await connection.getMinimumBalanceForRentExemption(
-        mintLen
-      );
+      const minLamports =
+        await connection.getMinimumBalanceForRentExemption(mintLen);
 
       const createDummyTx = new Transaction()
         .add(
           SystemProgram.createAccount({
-            fromPubkey: operator.publicKey,
+            fromPubkey: admin.publicKey,
             newAccountPubkey: DUMMYKeypair.publicKey,
             space: mintLen,
             lamports: minLamports,
             programId: TOKEN_2022_PROGRAM_ID,
-          })
+          }),
         )
         .add(
           createInitializeTransferFeeConfigInstruction(
             DUMMY,
-            operator.publicKey,
-            operator.publicKey,
+            admin.publicKey,
+            admin.publicKey,
             transferFeeBps,
             maxFee,
-            TOKEN_2022_PROGRAM_ID
-          )
+            TOKEN_2022_PROGRAM_ID,
+          ),
         )
         .add(
           createInitializeTransferHookInstruction(
             DUMMY,
-            operator.publicKey,
+            admin.publicKey,
             TRANSFER_HOOK_COUNTER_PROGRAM_ID,
-            TOKEN_2022_PROGRAM_ID
-          )
+            TOKEN_2022_PROGRAM_ID,
+          ),
         )
         .add(
           createInitializeMintInstruction(
             DUMMY,
             dummyDecimal,
-            operator.publicKey,
+            admin.publicKey,
             null,
-            TOKEN_2022_PROGRAM_ID
-          )
+            TOKEN_2022_PROGRAM_ID,
+          ),
         );
 
       await sendAndConfirmTransaction(
         connection,
         createDummyTx,
-        [operator, DUMMYKeypair],
-        { commitment: "confirmed" }
+        [admin, DUMMYKeypair],
+        { commitment: "confirmed" },
       );
 
       const transferHookCounterProgram = createTransferHookCounterProgram(
-        new Wallet(operator),
+        new Wallet(admin),
         TRANSFER_HOOK_COUNTER_PROGRAM_ID,
-        connection
+        connection,
       );
 
       await createExtraAccountMetaListAndCounter(
+        connection,
+        admin,
         transferHookCounterProgram,
-        DUMMY
+        DUMMY,
       );
 
       USDC = await createMint(
         connection,
-        operator,
-        operator.publicKey,
+        admin,
+        admin.publicKey,
         null,
         usdcDecimal,
         Keypair.generate(),
         null,
-        TOKEN_PROGRAM_ID
+        TOKEN_PROGRAM_ID,
       );
 
       const userDummyInfo = await getOrCreateAssociatedTokenAccount(
         connection,
-        operator,
+        admin,
         DUMMY,
-        operator.publicKey,
+        admin.publicKey,
         false,
         "confirmed",
         {
           commitment: "confirmed",
         },
         TOKEN_2022_PROGRAM_ID,
-        ASSOCIATED_TOKEN_PROGRAM_ID
+        ASSOCIATED_TOKEN_PROGRAM_ID,
       );
       userDUMMY = userDummyInfo.address;
 
       await mintTo(
         connection,
-        operator,
+        admin,
         DUMMY,
         userDUMMY,
-        operator,
+        admin,
         BigInt(100_000_000_000_000) * BigInt(10 ** dummyDecimal),
         [],
         {
           commitment: "confirmed",
         },
-        TOKEN_2022_PROGRAM_ID
+        TOKEN_2022_PROGRAM_ID,
       );
 
       const userUsdcInfo = await getOrCreateAssociatedTokenAccount(
         connection,
-        operator,
+        admin,
         USDC,
-        operator.publicKey,
+        admin.publicKey,
         false,
         "confirmed",
         {
           commitment: "confirmed",
         },
         TOKEN_PROGRAM_ID,
-        ASSOCIATED_TOKEN_PROGRAM_ID
+        ASSOCIATED_TOKEN_PROGRAM_ID,
       );
       userUSDC = userUsdcInfo.address;
 
       await mintTo(
         connection,
-        operator,
+        admin,
         USDC,
         userUSDC,
-        operator.publicKey,
+        admin.publicKey,
         1_000_000_000 * 10 ** usdcDecimal,
         [],
         {
           commitment: "confirmed",
         },
-        TOKEN_PROGRAM_ID
+        TOKEN_PROGRAM_ID,
       );
 
       const [dummyTokenBadge] = deriveTokenBadge(DUMMY, program.programId);
 
       const operatorPda = await createWhitelistOperator(
         connection,
-        operator,
-        operator.publicKey,
+        admin,
+        operatorKeypair.publicKey,
         [OperatorPermission.InitializeTokenBadge],
-        program.programId
+        program.programId,
       );
 
-      await program.methods
+      const initTokenBadgeIx = await program.methods
         .initializeTokenBadge()
         .accountsPartial({
           tokenBadge: dummyTokenBadge,
-          signer: operator.publicKey,
+          signer: operatorKeypair.publicKey,
           systemProgram: SystemProgram.programId,
           tokenMint: DUMMY,
           operator: operatorPda,
+          payer: operatorKeypair.publicKey,
         })
-        .rpc();
+        .instruction();
+
+      await sendTransactionAndConfirm(
+        connection,
+        [initTokenBadgeIx],
+        operatorKeypair,
+        [operatorKeypair],
+      );
 
       const slot = await connection.getSlot();
       const activationPoint = new BN(slot).add(new BN(100));
@@ -858,16 +876,18 @@ describe("ILM test", () => {
         feeBps,
         ActivationType.Slot,
         false, // No alpha vault. Set to true the program will deterministically whitelist the alpha vault to swap before the pool start trading. Check: https://github.com/MeteoraAg/alpha-vault-sdk initialize{Prorata|Fcfs}Vault method to create the alpha vault.
-        operator.publicKey,
+        admin.publicKey,
         activationPoint,
         false,
+        null,
+        null,
         {
           cluster: "localhost",
-        }
+        },
       );
 
       let txHash = await sendAndConfirmTransaction(connection, rawTx, [
-        operator,
+        admin,
       ]).catch((e) => {
         console.error(e);
         throw e;
@@ -877,7 +897,7 @@ describe("ILM test", () => {
       [pairKey] = deriveCustomizablePermissionlessLbPair(
         DUMMY,
         USDC,
-        programId
+        programId,
       );
 
       pair = await DLMM.create(connection, pairKey, {
@@ -901,11 +921,11 @@ describe("ILM test", () => {
         minPrice,
         maxPrice,
         baseKeypair.publicKey,
-        operator.publicKey,
+        admin.publicKey,
         feeOwner.publicKey,
-        operator.publicKey,
+        admin.publicKey,
         lockReleaseSlot,
-        true
+        true,
       );
 
       // Send token prove
@@ -914,12 +934,12 @@ describe("ILM test", () => {
           await connection.getLatestBlockhash("confirmed");
 
         const transaction = new Transaction({
-          feePayer: operator.publicKey,
+          feePayer: admin.publicKey,
           blockhash,
           lastValidBlockHeight,
         }).add(...sendPositionOwnerTokenProveIxs);
 
-        await sendAndConfirmTransaction(connection, transaction, [operator]);
+        await sendAndConfirmTransaction(connection, transaction, [admin]);
       }
 
       // Initialize all bin array and position, transaction order can be in sequence or not
@@ -930,12 +950,12 @@ describe("ILM test", () => {
 
         for (const groupIx of initializeBinArraysAndPositionIxs) {
           const tx = new Transaction({
-            feePayer: operator.publicKey,
+            feePayer: admin.publicKey,
             blockhash,
             lastValidBlockHeight,
           }).add(...groupIx);
 
-          const signers = [operator, baseKeypair];
+          const signers = [admin, baseKeypair];
 
           transactions.push(sendAndConfirmTransaction(connection, tx, signers));
         }
@@ -963,12 +983,12 @@ describe("ILM test", () => {
         // Deposit to positions created in above step. The add liquidity order can be in sequence or not.
         for (const groupIx of addLiquidityIxs) {
           const tx = new Transaction({
-            feePayer: operator.publicKey,
+            feePayer: admin.publicKey,
             blockhash,
             lastValidBlockHeight,
           }).add(...groupIx);
 
-          const signers = [operator];
+          const signers = [admin];
 
           transactions.push(sendAndConfirmTransaction(connection, tx, signers));
         }
@@ -991,7 +1011,7 @@ describe("ILM test", () => {
       expect(actualDepositedAmount.toString()).toEqual(seedAmount.toString());
 
       const positions = await pair.getPositionsByUserAndLbPair(
-        positionOwner.publicKey
+        positionOwner.publicKey,
       );
 
       const positionKeys = positions.userPositions.map((p) => p.publicKey);
@@ -1002,19 +1022,19 @@ describe("ILM test", () => {
         expect(state.feeOwner.toBase58()).toBe(feeOwner.publicKey.toBase58());
         expect(state.owner.toBase58()).toBe(positionOwner.publicKey.toBase58());
         expect(state.lockReleasePoint.toString()).toBe(
-          lockReleaseSlot.toString()
+          lockReleaseSlot.toString(),
         );
       }
 
       let binArrays = await pair.getBinArrays();
       binArrays = binArrays.sort((a, b) =>
-        a.account.index.cmp(b.account.index)
+        a.account.index.cmp(b.account.index),
       );
 
       const binLiquidities = binArrays
         .map((ba) => {
           const [lowerBinId, upperBinId] = getBinArrayLowerUpperBinId(
-            ba.account.index
+            ba.account.index,
           );
           const binWithLiquidity: [number, number][] = [];
           for (let i = lowerBinId.toNumber(); i <= upperBinId.toNumber(); i++) {
@@ -1064,93 +1084,93 @@ describe("Edge test", () => {
     const minBinId = DLMM.getBinIdFromPrice(
       new Decimal(minPrice).mul(toLamportMultiplier),
       binStep,
-      false
+      false,
     );
 
     beforeAll(async () => {
       await connection.requestAirdrop(
         feePayerKeypair.publicKey,
-        10 * LAMPORTS_PER_SOL
+        10 * LAMPORTS_PER_SOL,
       );
 
       TOKEN = await createMint(
         connection,
-        operator,
-        operator.publicKey,
+        admin,
+        admin.publicKey,
         null,
         tokenDecimal,
         Keypair.generate(),
         null,
-        TOKEN_PROGRAM_ID
+        TOKEN_PROGRAM_ID,
       );
 
       USDC = await createMint(
         connection,
-        operator,
-        operator.publicKey,
+        admin,
+        admin.publicKey,
         null,
         usdcDecimal,
         Keypair.generate(),
         null,
-        TOKEN_PROGRAM_ID
+        TOKEN_PROGRAM_ID,
       );
 
       const userTokenInfo = await getOrCreateAssociatedTokenAccount(
         connection,
-        operator,
+        admin,
         TOKEN,
-        operator.publicKey,
+        admin.publicKey,
         false,
         "confirmed",
         {
           commitment: "confirmed",
         },
         TOKEN_PROGRAM_ID,
-        ASSOCIATED_TOKEN_PROGRAM_ID
+        ASSOCIATED_TOKEN_PROGRAM_ID,
       );
       userTOKEN = userTokenInfo.address;
 
       const userUsdcInfo = await getOrCreateAssociatedTokenAccount(
         connection,
-        operator,
+        admin,
         USDC,
-        operator.publicKey,
+        admin.publicKey,
         false,
         "confirmed",
         {
           commitment: "confirmed",
         },
         TOKEN_PROGRAM_ID,
-        ASSOCIATED_TOKEN_PROGRAM_ID
+        ASSOCIATED_TOKEN_PROGRAM_ID,
       );
       userUSDC = userUsdcInfo.address;
 
       await mintTo(
         connection,
-        operator,
+        admin,
         TOKEN,
         userTOKEN,
-        operator.publicKey,
+        admin.publicKey,
         200_000_000_000 * 10 ** tokenDecimal,
         [],
         {
           commitment: "confirmed",
         },
-        TOKEN_PROGRAM_ID
+        TOKEN_PROGRAM_ID,
       );
 
       await mintTo(
         connection,
-        operator,
+        admin,
         USDC,
         userUSDC,
-        operator.publicKey,
+        admin.publicKey,
         1_000_000_000 * 10 ** usdcDecimal,
         [],
         {
           commitment: "confirmed",
         },
-        TOKEN_PROGRAM_ID
+        TOKEN_PROGRAM_ID,
       );
 
       const slot = await connection.getSlot();
@@ -1165,16 +1185,18 @@ describe("Edge test", () => {
         feeBps,
         ActivationType.Slot,
         false, // No alpha vault. Set to true the program will deterministically whitelist the alpha vault to swap before the pool start trading. Check: https://github.com/MeteoraAg/alpha-vault-sdk initialize{Prorata|Fcfs}Vault method to create the alpha vault.
-        operator.publicKey,
+        admin.publicKey,
         activationPoint,
         false,
+        null,
+        null,
         {
           cluster: "localhost",
-        }
+        },
       );
 
       let txHash = await sendAndConfirmTransaction(connection, rawTx, [
-        operator,
+        admin,
       ]).catch((e) => {
         console.error(e);
         throw e;
@@ -1184,7 +1206,7 @@ describe("Edge test", () => {
       [pairKey] = deriveCustomizablePermissionlessLbPair(
         TOKEN,
         USDC,
-        programId
+        programId,
       );
 
       pair = await DLMM.create(connection, pairKey, {
@@ -1210,9 +1232,9 @@ describe("Edge test", () => {
         baseKeypair.publicKey,
         feePayerKeypair.publicKey,
         feeOwner.publicKey,
-        operator.publicKey,
+        admin.publicKey,
         lockReleaseSlot,
-        true
+        true,
       );
 
       // Send token prove
@@ -1221,14 +1243,14 @@ describe("Edge test", () => {
           await connection.getLatestBlockhash("confirmed");
 
         const transaction = new Transaction({
-          feePayer: operator.publicKey,
+          feePayer: admin.publicKey,
           blockhash,
           lastValidBlockHeight,
         }).add(...sendPositionOwnerTokenProveIxs);
 
         await sendAndConfirmTransaction(connection, transaction, [
           feePayerKeypair,
-          operator,
+          admin,
         ]);
       }
 
@@ -1240,12 +1262,12 @@ describe("Edge test", () => {
 
         for (const groupIx of initializeBinArraysAndPositionIxs) {
           const tx = new Transaction({
-            feePayer: operator.publicKey,
+            feePayer: admin.publicKey,
             blockhash,
             lastValidBlockHeight,
           }).add(...groupIx);
 
-          const signers = [feePayerKeypair, operator, baseKeypair];
+          const signers = [feePayerKeypair, admin, baseKeypair];
 
           transactions.push(sendAndConfirmTransaction(connection, tx, signers));
         }
@@ -1273,12 +1295,12 @@ describe("Edge test", () => {
         // Deposit to positions created in above step. The add liquidity order can be in sequence or not.
         for (const groupIx of addLiquidityIxs) {
           const tx = new Transaction({
-            feePayer: operator.publicKey,
+            feePayer: admin.publicKey,
             blockhash,
             lastValidBlockHeight,
           }).add(...groupIx);
 
-          const signers = [operator];
+          const signers = [admin];
 
           transactions.push(sendAndConfirmTransaction(connection, tx, signers));
         }
@@ -1302,7 +1324,7 @@ describe("Edge test", () => {
       expect(actualDepositedAmount.toString()).toEqual(seedAmount.toString());
 
       const positions = await pair.getPositionsByUserAndLbPair(
-        positionOwner.publicKey
+        positionOwner.publicKey,
       );
 
       const positionKeys = positions.userPositions.map((p) => p.publicKey);
@@ -1313,19 +1335,19 @@ describe("Edge test", () => {
         expect(state.feeOwner.toBase58()).toBe(feeOwner.publicKey.toBase58());
         expect(state.owner.toBase58()).toBe(positionOwner.publicKey.toBase58());
         expect(state.lockReleasePoint.toString()).toBe(
-          lockReleaseSlot.toString()
+          lockReleaseSlot.toString(),
         );
       }
 
       let binArrays = await pair.getBinArrays();
       binArrays = binArrays.sort((a, b) =>
-        a.account.index.cmp(b.account.index)
+        a.account.index.cmp(b.account.index),
       );
 
       const binLiquidities = binArrays
         .map((ba) => {
           const [lowerBinId, upperBinId] = getBinArrayLowerUpperBinId(
-            ba.account.index
+            ba.account.index,
           );
           const binWithLiquidity: [number, number][] = [];
           for (let i = lowerBinId.toNumber(); i <= upperBinId.toNumber(); i++) {

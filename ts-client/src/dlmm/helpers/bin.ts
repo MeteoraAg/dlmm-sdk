@@ -48,7 +48,7 @@ export function swapExactOutQuoteAtBin(
 } {
   const tradeFeeNumerator = getTotalFee(binStep, sParameter, vParameter);
 
-  let includedFeeAmountOut = new BN(0);
+  let includedFeeAmountOut = outAmount;
 
   if (!feeOnInput) {
     const { includedFeeAmount } = getIncludedFeeAmount(

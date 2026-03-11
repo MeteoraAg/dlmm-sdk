@@ -9,12 +9,14 @@ import {
 import {
   Connection,
   Keypair,
+  LAMPORTS_PER_SOL,
   sendAndConfirmTransaction,
   Transaction,
 } from "@solana/web3.js";
 import fs from "fs";
 import {
   BASIS_POINT_MAX,
+  ConcreteFunctionType,
   FunctionType,
   LBCLMM_PROGRAM_IDS,
 } from "../dlmm/constants";
@@ -32,26 +34,31 @@ import {
   assertionWithTolerance,
   createTestProgram,
   createWhitelistOperator,
+  encodeOperatorPermissions,
   logPositionLiquidities,
   OperatorPermission,
+  sendTransactionAndConfirm,
   swap,
 } from "./helper";
+import { randomInt } from "crypto";
 
 const keypairBuffer = fs.readFileSync(
   "../keys/localnet/admin-bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1.json",
-  "utf-8"
+  "utf-8",
 );
 const connection = new Connection("http://127.0.0.1:8899", "confirmed");
-const keypair = Keypair.fromSecretKey(
-  new Uint8Array(JSON.parse(keypairBuffer))
+const adminKeypair = Keypair.fromSecretKey(
+  new Uint8Array(JSON.parse(keypairBuffer)),
 );
+
+const operatorKeypair = Keypair.generate();
 
 const btcDecimal = 6;
 const usdcDecimal = 6;
 
 const CONSTANTS = Object.entries(IDL.constants);
 export const MAX_BIN_PER_ARRAY = new BN(
-  CONSTANTS.find(([k, v]) => v.name == "MAX_BIN_PER_ARRAY")[1].value
+  CONSTANTS.find(([k, v]) => v.name == "MAX_BIN_PER_ARRAY")[1].value,
 );
 
 const DEFAULT_ACTIVE_ID = new BN(1);
@@ -71,14 +78,14 @@ let position: web3.PublicKey;
 
 async function closeAndCreateNewPositionWithSpotLiquidity(
   dlmm: DLMM,
-  owner: Keypair
+  owner: Keypair,
 ) {
   if (position) {
     const positionState = await dlmm.program.account.positionV2.fetch(position);
     const dlmm2 = await DLMM.create(
       dlmm.program.provider.connection,
       positionState.lbPair,
-      opt
+      opt,
     );
 
     const txs = await dlmm2.removeLiquidity({
@@ -91,7 +98,7 @@ async function closeAndCreateNewPositionWithSpotLiquidity(
     });
 
     await Promise.all(
-      txs.map((tx) => sendAndConfirmTransaction(connection, tx, [owner]))
+      txs.map((tx) => sendAndConfirmTransaction(connection, tx, [owner])),
     );
   }
   console.log("Create empty position");
@@ -105,10 +112,13 @@ async function closeAndCreateNewPositionWithSpotLiquidity(
     positionPubKey: position,
     minBinId: lowerBinId.toNumber(),
     maxBinId: upperBinId.toNumber(),
-    user: keypair.publicKey,
+    user: adminKeypair.publicKey,
   });
 
-  await sendAndConfirmTransaction(connection, rawTx, [positionKp, keypair]);
+  await sendAndConfirmTransaction(connection, rawTx, [
+    positionKp,
+    adminKeypair,
+  ]);
 
   const positionState = await dlmm.program.account.positionV2.fetch(position);
 
@@ -121,124 +131,128 @@ async function closeAndCreateNewPositionWithSpotLiquidity(
       minBinId: positionState.lowerBinId,
       maxBinId: positionState.upperBinId,
     },
-    user: keypair.publicKey,
+    user: adminKeypair.publicKey,
     slippage: 0,
   });
 
-  await sendAndConfirmTransaction(connection, rawTx, [keypair]);
+  await sendAndConfirmTransaction(connection, rawTx, [adminKeypair]);
 }
 
 describe("Rebalance with strategy", () => {
   beforeEach(async () => {
+    await connection.requestAirdrop(
+      operatorKeypair.publicKey,
+      10 * LAMPORTS_PER_SOL,
+    );
+
     BTC = await createMint(
       connection,
-      keypair,
-      keypair.publicKey,
+      adminKeypair,
+      adminKeypair.publicKey,
       null,
       btcDecimal,
       Keypair.generate(),
       null,
-      TOKEN_PROGRAM_ID
+      TOKEN_PROGRAM_ID,
     );
 
     USDC = await createMint(
       connection,
-      keypair,
-      keypair.publicKey,
+      adminKeypair,
+      adminKeypair.publicKey,
       null,
       usdcDecimal,
       Keypair.generate(),
       null,
-      TOKEN_PROGRAM_ID
+      TOKEN_PROGRAM_ID,
     );
 
     const userBtcInfo = await getOrCreateAssociatedTokenAccount(
       connection,
-      keypair,
+      adminKeypair,
       BTC,
-      keypair.publicKey,
+      adminKeypair.publicKey,
       false,
       "confirmed",
       {
         commitment: "confirmed",
       },
       TOKEN_PROGRAM_ID,
-      ASSOCIATED_TOKEN_PROGRAM_ID
+      ASSOCIATED_TOKEN_PROGRAM_ID,
     );
     userBTC = userBtcInfo.address;
 
     const userUsdcInfo = await getOrCreateAssociatedTokenAccount(
       connection,
-      keypair,
+      adminKeypair,
       USDC,
-      keypair.publicKey,
+      adminKeypair.publicKey,
       false,
       "confirmed",
       {
         commitment: "confirmed",
       },
       TOKEN_PROGRAM_ID,
-      ASSOCIATED_TOKEN_PROGRAM_ID
+      ASSOCIATED_TOKEN_PROGRAM_ID,
     );
     userUSDC = userUsdcInfo.address;
 
     await mintTo(
       connection,
-      keypair,
+      adminKeypair,
       BTC,
       userBTC,
-      keypair.publicKey,
+      adminKeypair.publicKey,
       100_000_000 * 10 ** btcDecimal,
       [],
       {
         commitment: "confirmed",
       },
-      TOKEN_PROGRAM_ID
+      TOKEN_PROGRAM_ID,
     );
 
     await mintTo(
       connection,
-      keypair,
+      adminKeypair,
       USDC,
       userUSDC,
-      keypair.publicKey,
+      adminKeypair.publicKey,
       100_000_000 * 10 ** usdcDecimal,
       [],
       {
         commitment: "confirmed",
       },
-      TOKEN_PROGRAM_ID
+      TOKEN_PROGRAM_ID,
     );
 
     const { presetParameter2 } = await DLMM.getAllPresetParameters(
       connection,
-      opt
+      opt,
     );
 
-    const index = new BN(presetParameter2.length);
+    const index = new BN(presetParameter2.length).add(new BN(randomInt(1000)));
 
     [presetParamPda2] = derivePresetParameterWithIndex(index, programId);
 
-    const program = createTestProgram(connection, programId, keypair);
+    const program = createTestProgram(connection, programId, adminKeypair);
 
     const operatorPda = await createWhitelistOperator(
       connection,
-      keypair,
-      keypair.publicKey,
+      adminKeypair,
+      operatorKeypair.publicKey,
       [OperatorPermission.InitializePresetParameter],
-      programId
+      programId,
     );
 
     const presetParamState2 =
-      await program.account.presetParameter.fetchNullable(presetParamPda2);
+      await program.account.presetParameter2.fetchNullable(presetParamPda2);
 
     if (!presetParamState2) {
-      await program.methods
+      const initPresetParamIx = await program.methods
         .initializePresetParameter({
           index: index.toNumber(),
           binStep: DEFAULT_BIN_STEP.toNumber(),
           baseFactor: DEFAULT_BASE_FACTOR_2.toNumber(),
-          functionType: FunctionType.LiquidityMining,
           filterPeriod: 30,
           decayPeriod: 600,
           reductionFactor: 5000,
@@ -246,36 +260,43 @@ describe("Rebalance with strategy", () => {
           protocolShare: 0,
           maxVolatilityAccumulator: 350000,
           baseFeePowerFactor: 0,
+          collectFeeMode: 0,
+          concreteFunctionType: ConcreteFunctionType.LiquidityMining,
         })
         .accountsPartial({
-          signer: keypair.publicKey,
+          signer: operatorKeypair.publicKey,
           presetParameter: presetParamPda2,
           systemProgram: web3.SystemProgram.programId,
           operator: operatorPda,
+          payer: operatorKeypair.publicKey,
         })
-        .signers([keypair])
-        .rpc({
-          commitment: "confirmed",
-        });
+        .instruction();
+
+      await sendTransactionAndConfirm(
+        connection,
+        [initPresetParamIx],
+        operatorKeypair,
+        [operatorKeypair],
+      );
     }
 
     console.log("Create lb pair");
     let rawTx = await DLMM.createLbPair2(
       connection,
-      keypair.publicKey,
+      adminKeypair.publicKey,
       BTC,
       USDC,
       presetParamPda2,
       DEFAULT_ACTIVE_ID,
-      opt
+      opt,
     );
-    await sendAndConfirmTransaction(connection, rawTx, [keypair]);
+    await sendAndConfirmTransaction(connection, rawTx, [adminKeypair]);
 
     [lbPairPubkey] = deriveLbPairWithPresetParamWithIndexKey(
       presetParamPda2,
       BTC,
       USDC,
-      programId
+      programId,
     );
 
     const dlmm = await DLMM.create(connection, lbPairPubkey, opt);
@@ -289,11 +310,11 @@ describe("Rebalance with strategy", () => {
         StrategyType.BidAsk,
       ]) {
         const dlmm = await DLMM.create(connection, lbPairPubkey, opt);
-        await closeAndCreateNewPositionWithSpotLiquidity(dlmm, keypair);
+        await closeAndCreateNewPositionWithSpotLiquidity(dlmm, adminKeypair);
 
         for (const swapForY of [true, false]) {
           console.log(`Before swap active id ${dlmm.lbPair.activeId}`);
-          await swap(swapForY, new BN(250_000_000), dlmm, keypair);
+          await swap(swapForY, new BN(250_000_000), dlmm, adminKeypair);
           await dlmm.refetchStates();
           console.log(`After swap active id ${dlmm.lbPair.activeId}`);
 
@@ -312,15 +333,15 @@ describe("Rebalance with strategy", () => {
               new BN(0),
               new BN(0),
               new BN(0),
-              new BN(0)
+              new BN(0),
             );
 
           const { initBinArrayInstructions, rebalancePositionInstruction } =
             await dlmm.rebalancePosition(
               { rebalancePosition, simulationResult },
               new BN(0),
-              keypair.publicKey,
-              0
+              adminKeypair.publicKey,
+              0,
             );
 
           let latestBlockHash = await connection.getLatestBlockhash();
@@ -330,9 +351,9 @@ describe("Rebalance with strategy", () => {
               sendAndConfirmTransaction(
                 connection,
                 new Transaction({ ...latestBlockHash }).add(ix),
-                [keypair]
-              )
-            )
+                [adminKeypair],
+              ),
+            ),
           );
 
           latestBlockHash = await connection.getLatestBlockhash();
@@ -348,9 +369,9 @@ describe("Rebalance with strategy", () => {
           await sendAndConfirmTransaction(
             connection,
             new Transaction({ ...latestBlockHash }).add(
-              ...rebalancePositionInstruction
+              ...rebalancePositionInstruction,
             ),
-            [keypair]
+            [adminKeypair],
           );
 
           const afterUsdcBalance = await dlmm.program.provider.connection
@@ -380,7 +401,7 @@ describe("Rebalance with strategy", () => {
 
           assertEqRebalanceSimulationWithActualResult(
             rebalancePosition,
-            parsedPosition
+            parsedPosition,
           );
         }
       }
@@ -393,10 +414,10 @@ describe("Rebalance with strategy", () => {
         StrategyType.BidAsk,
       ]) {
         const dlmm = await DLMM.create(connection, lbPairPubkey, opt);
-        await closeAndCreateNewPositionWithSpotLiquidity(dlmm, keypair);
+        await closeAndCreateNewPositionWithSpotLiquidity(dlmm, adminKeypair);
         for (const swapForY of [true, false]) {
           console.log(`Before swap active id ${dlmm.lbPair.activeId}`);
-          await swap(swapForY, new BN(250_000_000), dlmm, keypair);
+          await swap(swapForY, new BN(250_000_000), dlmm, adminKeypair);
           await dlmm.refetchStates();
           console.log(`After swap active id ${dlmm.lbPair.activeId}`);
 
@@ -415,15 +436,15 @@ describe("Rebalance with strategy", () => {
               new BN(0),
               new BN(100_000_000),
               new BN(0),
-              new BN(0)
+              new BN(0),
             );
 
           const { initBinArrayInstructions, rebalancePositionInstruction } =
             await dlmm.rebalancePosition(
               { rebalancePosition, simulationResult },
               new BN(0),
-              keypair.publicKey,
-              0
+              adminKeypair.publicKey,
+              0,
             );
 
           let latestBlockHash = await connection.getLatestBlockhash();
@@ -433,9 +454,9 @@ describe("Rebalance with strategy", () => {
               sendAndConfirmTransaction(
                 connection,
                 new Transaction({ ...latestBlockHash }).add(ix),
-                [keypair]
-              )
-            )
+                [adminKeypair],
+              ),
+            ),
           );
 
           latestBlockHash = await connection.getLatestBlockhash();
@@ -451,9 +472,9 @@ describe("Rebalance with strategy", () => {
           await sendAndConfirmTransaction(
             connection,
             new Transaction({ ...latestBlockHash }).add(
-              ...rebalancePositionInstruction
+              ...rebalancePositionInstruction,
             ),
-            [keypair]
+            [adminKeypair],
           );
 
           const afterUsdcBalance = await dlmm.program.provider.connection
@@ -483,7 +504,7 @@ describe("Rebalance with strategy", () => {
 
           assertEqRebalanceSimulationWithActualResult(
             rebalancePosition,
-            parsedPosition
+            parsedPosition,
           );
         }
       }
@@ -496,10 +517,10 @@ describe("Rebalance with strategy", () => {
         StrategyType.BidAsk,
       ]) {
         const dlmm = await DLMM.create(connection, lbPairPubkey, opt);
-        await closeAndCreateNewPositionWithSpotLiquidity(dlmm, keypair);
+        await closeAndCreateNewPositionWithSpotLiquidity(dlmm, adminKeypair);
         for (const swapForY of [true, false]) {
           console.log(`Before swap active id ${dlmm.lbPair.activeId}`);
-          await swap(swapForY, new BN(250_000_000), dlmm, keypair);
+          await swap(swapForY, new BN(250_000_000), dlmm, adminKeypair);
           await dlmm.refetchStates();
           console.log(`After swap active id ${dlmm.lbPair.activeId}`);
 
@@ -518,15 +539,15 @@ describe("Rebalance with strategy", () => {
               new BN(100_000_000),
               new BN(0),
               new BN(0),
-              new BN(0)
+              new BN(0),
             );
 
           const { initBinArrayInstructions, rebalancePositionInstruction } =
             await dlmm.rebalancePosition(
               { rebalancePosition, simulationResult },
               new BN(0),
-              keypair.publicKey,
-              0
+              adminKeypair.publicKey,
+              0,
             );
 
           let latestBlockHash = await connection.getLatestBlockhash();
@@ -536,9 +557,9 @@ describe("Rebalance with strategy", () => {
               sendAndConfirmTransaction(
                 connection,
                 new Transaction({ ...latestBlockHash }).add(ix),
-                [keypair]
-              )
-            )
+                [adminKeypair],
+              ),
+            ),
           );
 
           latestBlockHash = await connection.getLatestBlockhash();
@@ -554,9 +575,9 @@ describe("Rebalance with strategy", () => {
           await sendAndConfirmTransaction(
             connection,
             new Transaction({ ...latestBlockHash }).add(
-              ...rebalancePositionInstruction
+              ...rebalancePositionInstruction,
             ),
-            [keypair]
+            [adminKeypair],
           );
 
           const afterUsdcBalance = await dlmm.program.provider.connection
@@ -586,7 +607,7 @@ describe("Rebalance with strategy", () => {
 
           assertEqRebalanceSimulationWithActualResult(
             rebalancePosition,
-            parsedPosition
+            parsedPosition,
           );
         }
       }
@@ -599,10 +620,10 @@ describe("Rebalance with strategy", () => {
         StrategyType.BidAsk,
       ]) {
         const dlmm = await DLMM.create(connection, lbPairPubkey, opt);
-        await closeAndCreateNewPositionWithSpotLiquidity(dlmm, keypair);
+        await closeAndCreateNewPositionWithSpotLiquidity(dlmm, adminKeypair);
         for (const swapForY of [true, false]) {
           console.log(`Before swap active id ${dlmm.lbPair.activeId}`);
-          await swap(swapForY, new BN(250_000_000), dlmm, keypair);
+          await swap(swapForY, new BN(250_000_000), dlmm, adminKeypair);
           await dlmm.refetchStates();
           console.log(`After swap active id ${dlmm.lbPair.activeId}`);
 
@@ -621,15 +642,15 @@ describe("Rebalance with strategy", () => {
               new BN(100_000_000),
               new BN(100_000_000),
               new BN(0),
-              new BN(0)
+              new BN(0),
             );
 
           const { initBinArrayInstructions, rebalancePositionInstruction } =
             await dlmm.rebalancePosition(
               { rebalancePosition, simulationResult },
               new BN(0),
-              keypair.publicKey,
-              0
+              adminKeypair.publicKey,
+              0,
             );
 
           let latestBlockHash = await connection.getLatestBlockhash();
@@ -639,9 +660,9 @@ describe("Rebalance with strategy", () => {
               sendAndConfirmTransaction(
                 connection,
                 new Transaction({ ...latestBlockHash }).add(ix),
-                [keypair]
-              )
-            )
+                [adminKeypair],
+              ),
+            ),
           );
 
           latestBlockHash = await connection.getLatestBlockhash();
@@ -657,9 +678,9 @@ describe("Rebalance with strategy", () => {
           await sendAndConfirmTransaction(
             connection,
             new Transaction({ ...latestBlockHash }).add(
-              ...rebalancePositionInstruction
+              ...rebalancePositionInstruction,
             ),
-            [keypair]
+            [adminKeypair],
           );
 
           const afterUsdcBalance = await dlmm.program.provider.connection
@@ -689,7 +710,7 @@ describe("Rebalance with strategy", () => {
 
           assertEqRebalanceSimulationWithActualResult(
             rebalancePosition,
-            parsedPosition
+            parsedPosition,
           );
         }
       }
@@ -702,10 +723,10 @@ describe("Rebalance with strategy", () => {
         StrategyType.BidAsk,
       ]) {
         const dlmm = await DLMM.create(connection, lbPairPubkey, opt);
-        await closeAndCreateNewPositionWithSpotLiquidity(dlmm, keypair);
+        await closeAndCreateNewPositionWithSpotLiquidity(dlmm, adminKeypair);
         for (const swapForY of [true, false]) {
           console.log(`Before swap active id ${dlmm.lbPair.activeId}`);
-          await swap(swapForY, new BN(250_000_000), dlmm, keypair);
+          await swap(swapForY, new BN(250_000_000), dlmm, adminKeypair);
           await dlmm.refetchStates();
           console.log(`After swap active id ${dlmm.lbPair.activeId}`);
 
@@ -724,15 +745,15 @@ describe("Rebalance with strategy", () => {
               new BN(0),
               new BN(0),
               new BN(0),
-              new BN(5000)
+              new BN(5000),
             );
 
           const { initBinArrayInstructions, rebalancePositionInstruction } =
             await dlmm.rebalancePosition(
               { rebalancePosition, simulationResult },
               new BN(0),
-              keypair.publicKey,
-              0
+              adminKeypair.publicKey,
+              0,
             );
 
           let latestBlockHash = await connection.getLatestBlockhash();
@@ -742,9 +763,9 @@ describe("Rebalance with strategy", () => {
               sendAndConfirmTransaction(
                 connection,
                 new Transaction({ ...latestBlockHash }).add(ix),
-                [keypair]
-              )
-            )
+                [adminKeypair],
+              ),
+            ),
           );
 
           latestBlockHash = await connection.getLatestBlockhash();
@@ -760,9 +781,9 @@ describe("Rebalance with strategy", () => {
           await sendAndConfirmTransaction(
             connection,
             new Transaction({ ...latestBlockHash }).add(
-              ...rebalancePositionInstruction
+              ...rebalancePositionInstruction,
             ),
-            [keypair]
+            [adminKeypair],
           );
 
           const afterUsdcBalance = await dlmm.program.provider.connection
@@ -774,7 +795,7 @@ describe("Rebalance with strategy", () => {
             .then((acc) => new BN(acc.value.amount));
 
           const minPositionYAmountWithdrawn = new BN(
-            parsedPosition.positionData.totalYAmount
+            parsedPosition.positionData.totalYAmount,
           )
             .mul(new BN(5000))
             .div(new BN(BASIS_POINT_MAX));
@@ -786,7 +807,7 @@ describe("Rebalance with strategy", () => {
           assertionWithTolerance(
             afterBtcBalance,
             beforeBtcBalance,
-            new BN(1000)
+            new BN(1000),
           );
 
           console.log("Before liquidity");
@@ -805,7 +826,7 @@ describe("Rebalance with strategy", () => {
 
           assertEqRebalanceSimulationWithActualResult(
             rebalancePosition,
-            parsedPosition
+            parsedPosition,
           );
         }
       }
@@ -818,10 +839,10 @@ describe("Rebalance with strategy", () => {
         StrategyType.BidAsk,
       ]) {
         const dlmm = await DLMM.create(connection, lbPairPubkey, opt);
-        await closeAndCreateNewPositionWithSpotLiquidity(dlmm, keypair);
+        await closeAndCreateNewPositionWithSpotLiquidity(dlmm, adminKeypair);
         for (const swapForY of [true, false]) {
           console.log(`Before swap active id ${dlmm.lbPair.activeId}`);
-          await swap(swapForY, new BN(250_000_000), dlmm, keypair);
+          await swap(swapForY, new BN(250_000_000), dlmm, adminKeypair);
           await dlmm.refetchStates();
           console.log(`After swap active id ${dlmm.lbPair.activeId}`);
 
@@ -840,15 +861,15 @@ describe("Rebalance with strategy", () => {
               new BN(0),
               new BN(0),
               new BN(5000),
-              new BN(0)
+              new BN(0),
             );
 
           const { initBinArrayInstructions, rebalancePositionInstruction } =
             await dlmm.rebalancePosition(
               { rebalancePosition, simulationResult },
               new BN(0),
-              keypair.publicKey,
-              0
+              adminKeypair.publicKey,
+              0,
             );
 
           let latestBlockHash = await connection.getLatestBlockhash();
@@ -858,9 +879,9 @@ describe("Rebalance with strategy", () => {
               sendAndConfirmTransaction(
                 connection,
                 new Transaction({ ...latestBlockHash }).add(ix),
-                [keypair]
-              )
-            )
+                [adminKeypair],
+              ),
+            ),
           );
 
           latestBlockHash = await connection.getLatestBlockhash();
@@ -876,9 +897,9 @@ describe("Rebalance with strategy", () => {
           await sendAndConfirmTransaction(
             connection,
             new Transaction({ ...latestBlockHash }).add(
-              ...rebalancePositionInstruction
+              ...rebalancePositionInstruction,
             ),
-            [keypair]
+            [adminKeypair],
           );
 
           const afterUsdcBalance = await dlmm.program.provider.connection
@@ -890,7 +911,7 @@ describe("Rebalance with strategy", () => {
             .then((acc) => new BN(acc.value.amount));
 
           const positionWithdrawnXAMount = new BN(
-            parsedPosition.positionData.totalXAmount
+            parsedPosition.positionData.totalXAmount,
           )
             .muln(5000)
             .divn(10000);
@@ -900,12 +921,12 @@ describe("Rebalance with strategy", () => {
           assertionWithPercentageTolerance(
             btcDiff,
             positionWithdrawnXAMount,
-            0.05
+            0.05,
           );
           assertionWithTolerance(
             afterUsdcBalance,
             beforeUsdcBalance,
-            new BN(1000)
+            new BN(1000),
           );
 
           console.log("Before liquidity");
@@ -924,7 +945,7 @@ describe("Rebalance with strategy", () => {
 
           assertEqRebalanceSimulationWithActualResult(
             rebalancePosition,
-            parsedPosition
+            parsedPosition,
           );
         }
       }
@@ -937,10 +958,10 @@ describe("Rebalance with strategy", () => {
         StrategyType.BidAsk,
       ]) {
         const dlmm = await DLMM.create(connection, lbPairPubkey, opt);
-        await closeAndCreateNewPositionWithSpotLiquidity(dlmm, keypair);
+        await closeAndCreateNewPositionWithSpotLiquidity(dlmm, adminKeypair);
         for (const swapForY of [true, false]) {
           console.log(`Before swap active id ${dlmm.lbPair.activeId}`);
-          await swap(swapForY, new BN(250_000_000), dlmm, keypair);
+          await swap(swapForY, new BN(250_000_000), dlmm, adminKeypair);
           await dlmm.refetchStates();
           console.log(`After swap active id ${dlmm.lbPair.activeId}`);
 
@@ -959,15 +980,15 @@ describe("Rebalance with strategy", () => {
               new BN(0),
               new BN(5000),
               new BN(5000),
-              new BN(0)
+              new BN(0),
             );
 
           const { initBinArrayInstructions, rebalancePositionInstruction } =
             await dlmm.rebalancePosition(
               { rebalancePosition, simulationResult },
               new BN(0),
-              keypair.publicKey,
-              0
+              adminKeypair.publicKey,
+              0,
             );
 
           let latestBlockHash = await connection.getLatestBlockhash();
@@ -977,9 +998,9 @@ describe("Rebalance with strategy", () => {
               sendAndConfirmTransaction(
                 connection,
                 new Transaction({ ...latestBlockHash }).add(ix),
-                [keypair]
-              )
-            )
+                [adminKeypair],
+              ),
+            ),
           );
 
           latestBlockHash = await connection.getLatestBlockhash();
@@ -995,9 +1016,9 @@ describe("Rebalance with strategy", () => {
           await sendAndConfirmTransaction(
             connection,
             new Transaction({ ...latestBlockHash }).add(
-              ...rebalancePositionInstruction
+              ...rebalancePositionInstruction,
             ),
-            [keypair]
+            [adminKeypair],
           );
 
           const afterUsdcBalance = await dlmm.program.provider.connection
@@ -1009,13 +1030,13 @@ describe("Rebalance with strategy", () => {
             .then((acc) => new BN(acc.value.amount));
 
           const positionWithdrawnXAMount = new BN(
-            parsedPosition.positionData.totalXAmount
+            parsedPosition.positionData.totalXAmount,
           )
             .muln(5000)
             .divn(10000);
 
           const positionWithdrawnYAMount = new BN(
-            parsedPosition.positionData.totalYAmount
+            parsedPosition.positionData.totalYAmount,
           )
             .muln(5000)
             .divn(10000);
@@ -1026,12 +1047,12 @@ describe("Rebalance with strategy", () => {
           assertionWithPercentageTolerance(
             btcDiff,
             positionWithdrawnXAMount,
-            0.05
+            0.05,
           );
           assertionWithPercentageTolerance(
             usdcDiff,
             positionWithdrawnYAMount,
-            0.05
+            0.05,
           );
 
           console.log("Before liquidity");
@@ -1050,7 +1071,7 @@ describe("Rebalance with strategy", () => {
 
           assertEqRebalanceSimulationWithActualResult(
             rebalancePosition,
-            parsedPosition
+            parsedPosition,
           );
         }
       }
@@ -1063,9 +1084,9 @@ describe("Rebalance with strategy", () => {
         StrategyType.BidAsk,
       ]) {
         const dlmm = await DLMM.create(connection, lbPairPubkey, opt);
-        await closeAndCreateNewPositionWithSpotLiquidity(dlmm, keypair);
+        await closeAndCreateNewPositionWithSpotLiquidity(dlmm, adminKeypair);
         console.log(`Before swap active id ${dlmm.lbPair.activeId}`);
-        await swap(true, new BN(250_000_000), dlmm, keypair);
+        await swap(true, new BN(250_000_000), dlmm, adminKeypair);
         await dlmm.refetchStates();
         console.log(`After swap active id ${dlmm.lbPair.activeId}`);
 
@@ -1084,15 +1105,15 @@ describe("Rebalance with strategy", () => {
             new BN(0),
             new BN(0),
             new BN(10000),
-            new BN(0)
+            new BN(0),
           );
 
         const { initBinArrayInstructions, rebalancePositionInstruction } =
           await dlmm.rebalancePosition(
             { rebalancePosition, simulationResult },
             new BN(0),
-            keypair.publicKey,
-            0
+            adminKeypair.publicKey,
+            0,
           );
 
         let latestBlockHash = await connection.getLatestBlockhash();
@@ -1102,9 +1123,9 @@ describe("Rebalance with strategy", () => {
             sendAndConfirmTransaction(
               connection,
               new Transaction({ ...latestBlockHash }).add(ix),
-              [keypair]
-            )
-          )
+              [adminKeypair],
+            ),
+          ),
         );
 
         latestBlockHash = await connection.getLatestBlockhash();
@@ -1112,9 +1133,9 @@ describe("Rebalance with strategy", () => {
         await sendAndConfirmTransaction(
           connection,
           new Transaction({ ...latestBlockHash }).add(
-            ...rebalancePositionInstruction
+            ...rebalancePositionInstruction,
           ),
-          [keypair]
+          [adminKeypair],
         );
 
         console.log("Before liquidity");
@@ -1126,7 +1147,7 @@ describe("Rebalance with strategy", () => {
         expect(
           new BN(parsedPosition.positionData.totalXAmount)
             .add(new BN(parsedPosition.positionData.feeX))
-            .isZero()
+            .isZero(),
         ).toBeTruthy();
 
         let afterBinPerBidSide =
@@ -1139,7 +1160,7 @@ describe("Rebalance with strategy", () => {
 
         assertEqRebalanceSimulationWithActualResult(
           rebalancePosition,
-          parsedPosition
+          parsedPosition,
         );
       }
     });
@@ -1151,9 +1172,9 @@ describe("Rebalance with strategy", () => {
         StrategyType.BidAsk,
       ]) {
         const dlmm = await DLMM.create(connection, lbPairPubkey, opt);
-        await closeAndCreateNewPositionWithSpotLiquidity(dlmm, keypair);
+        await closeAndCreateNewPositionWithSpotLiquidity(dlmm, adminKeypair);
         console.log(`Before swap active id ${dlmm.lbPair.activeId}`);
-        await swap(false, new BN(250_000_000), dlmm, keypair);
+        await swap(false, new BN(250_000_000), dlmm, adminKeypair);
         await dlmm.refetchStates();
         console.log(`After swap active id ${dlmm.lbPair.activeId}`);
 
@@ -1172,15 +1193,15 @@ describe("Rebalance with strategy", () => {
             new BN(0),
             new BN(0),
             new BN(0),
-            new BN(10000)
+            new BN(10000),
           );
 
         const { initBinArrayInstructions, rebalancePositionInstruction } =
           await dlmm.rebalancePosition(
             { rebalancePosition, simulationResult },
             new BN(0),
-            keypair.publicKey,
-            0
+            adminKeypair.publicKey,
+            0,
           );
 
         let latestBlockHash = await connection.getLatestBlockhash();
@@ -1190,9 +1211,9 @@ describe("Rebalance with strategy", () => {
             sendAndConfirmTransaction(
               connection,
               new Transaction({ ...latestBlockHash }).add(ix),
-              [keypair]
-            )
-          )
+              [adminKeypair],
+            ),
+          ),
         );
 
         latestBlockHash = await connection.getLatestBlockhash();
@@ -1200,9 +1221,9 @@ describe("Rebalance with strategy", () => {
         await sendAndConfirmTransaction(
           connection,
           new Transaction({ ...latestBlockHash }).add(
-            ...rebalancePositionInstruction
+            ...rebalancePositionInstruction,
           ),
-          [keypair]
+          [adminKeypair],
         );
 
         console.log("Before liquidity");
@@ -1214,7 +1235,7 @@ describe("Rebalance with strategy", () => {
         expect(
           new BN(parsedPosition.positionData.totalYAmount)
             .add(new BN(parsedPosition.positionData.feeY))
-            .isZero()
+            .isZero(),
         ).toBeTruthy();
 
         let afterBinPerBidSide =
@@ -1227,7 +1248,7 @@ describe("Rebalance with strategy", () => {
 
         assertEqRebalanceSimulationWithActualResult(
           rebalancePosition,
-          parsedPosition
+          parsedPosition,
         );
       }
     });

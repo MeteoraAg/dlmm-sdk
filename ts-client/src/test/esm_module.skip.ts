@@ -128,7 +128,7 @@ describe("ESM module compatibility tests", () => {
       expect(typeof DLMM.getAllLbPairPositionsByUser).toBe("function");
 
       expect(
-        (DLMM as any).default?.getAllLbPairPositionsByUser
+        (DLMM as any).default?.getAllLbPairPositionsByUser,
       ).toBeUndefined();
     });
 

@@ -4,8 +4,10 @@ import {
   PublicKey,
   sendAndConfirmTransaction,
   SystemProgram,
+  Transaction,
+  TransactionInstruction,
 } from "@solana/web3.js";
-import { LbPosition, PositionData } from "../dlmm/types";
+import { LbPosition, PositionData, PositionV2 } from "../dlmm/types";
 import { DLMM } from "../dlmm";
 import BN from "bn.js";
 import { AnchorProvider, Program, Wallet } from "@coral-xyz/anchor";
@@ -66,7 +68,7 @@ export async function assertPosition({
   xAmount: BN;
   yAmount: BN;
 }) {
-  const positionState: Position =
+  const positionState: PositionV2 =
     await lbClmm.program.account.positionV2.fetch(positionPubkey);
 
   const { userPositions } =
@@ -301,6 +303,7 @@ export async function createWhitelistOperator(
   programId: PublicKey,
 ) {
   const encodedPermissions = encodeOperatorPermissions(permissions);
+
   const program = createTestProgram(connection, programId, admin);
   const operatorPda = deriveOperator(whitelistOperator, program.programId);
 
@@ -309,7 +312,7 @@ export async function createWhitelistOperator(
     return operatorPda;
   }
 
-  await program.methods
+  const createWhitelistOperatorIx = await program.methods
     .createOperatorAccount(encodedPermissions)
     .accountsPartial({
       signer: admin.publicKey,
@@ -317,8 +320,29 @@ export async function createWhitelistOperator(
       whitelistedSigner: whitelistOperator,
       systemProgram: SystemProgram.programId,
     })
-    .signers([admin])
-    .rpc();
+    .instruction();
+
+  const latestBlockhash = await connection.getLatestBlockhash();
+  const tx = new Transaction().add(createWhitelistOperatorIx);
+  tx.recentBlockhash = latestBlockhash.blockhash;
+  tx.feePayer = admin.publicKey;
+
+  await sendAndConfirmTransaction(connection, tx, [admin]);
 
   return operatorPda;
+}
+
+export function sendTransactionAndConfirm(
+  connection: Connection,
+  instructions: TransactionInstruction[],
+  feePayer: Keypair,
+  signers: Keypair[],
+) {
+  const latestBlockhash = connection.getLatestBlockhash();
+  const tx = new Transaction({
+    ...latestBlockhash,
+    feePayer: feePayer.publicKey,
+  });
+  tx.add(...instructions);
+  return sendAndConfirmTransaction(connection, tx, [feePayer, ...signers]);
 }

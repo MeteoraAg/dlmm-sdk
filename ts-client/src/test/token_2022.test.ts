@@ -12,7 +12,7 @@ import {
 import {
   Connection,
   Keypair,
-  LAMPORTS_PER_SOL, 
+  LAMPORTS_PER_SOL,
   PublicKey,
   sendAndConfirmTransaction,
   SystemProgram,
@@ -40,10 +40,10 @@ const connection = new Connection("http://127.0.0.1:8899", "confirmed");
 
 const keypairBuffer = fs.readFileSync(
   "../keys/localnet/admin-bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1.json",
-  "utf-8"
+  "utf-8",
 );
 const keypair = Keypair.fromSecretKey(
-  new Uint8Array(JSON.parse(keypairBuffer))
+  new Uint8Array(JSON.parse(keypairBuffer)),
 );
 
 const BTCKeypair = Keypair.generate();
@@ -62,7 +62,7 @@ async function createMintWithExtensions(
     createIx: TransactionInstruction;
     extensionType: ExtensionType;
   }[],
-  decimals: number
+  decimals: number,
 ) {
   const extensions = extensionWithIx.map((e) => e.extensionType);
   const mintLen = getMintLen(extensions);
@@ -76,7 +76,7 @@ async function createMintWithExtensions(
       space: mintLen,
       lamports: minLamports,
       programId: TOKEN_2022_PROGRAM_ID,
-    })
+    }),
   );
 
   for (const { createIx } of extensionWithIx) {
@@ -89,8 +89,8 @@ async function createMintWithExtensions(
       decimals,
       owner.publicKey,
       null,
-      TOKEN_2022_PROGRAM_ID
-    )
+      TOKEN_2022_PROGRAM_ID,
+    ),
   );
 
   await sendAndConfirmTransaction(
@@ -99,7 +99,7 @@ async function createMintWithExtensions(
     [keypair, mintKeypair],
     {
       commitment: "confirmed",
-    }
+    },
   );
 }
 
@@ -107,14 +107,14 @@ describe("Token 2022 helper test", () => {
   beforeAll(async () => {
     const signature = await connection.requestAirdrop(
       keypair.publicKey,
-      10 * LAMPORTS_PER_SOL
+      10 * LAMPORTS_PER_SOL,
     );
     await connection.confirmTransaction(signature, "confirmed");
 
     const transferHookCounterProgram = createTransferHookCounterProgram(
       new Wallet(keypair),
       TRANSFER_HOOK_COUNTER_PROGRAM_ID,
-      connection
+      connection,
     );
 
     await createMintWithExtensions(
@@ -126,7 +126,7 @@ describe("Token 2022 helper test", () => {
             USDCKeypair.publicKey,
             keypair.publicKey,
             TRANSFER_HOOK_COUNTER_PROGRAM_ID,
-            TOKEN_2022_PROGRAM_ID
+            TOKEN_2022_PROGRAM_ID,
           ),
           extensionType: ExtensionType.TransferHook,
         },
@@ -137,16 +137,18 @@ describe("Token 2022 helper test", () => {
             null,
             transferFeeBps,
             maxFee,
-            TOKEN_2022_PROGRAM_ID
+            TOKEN_2022_PROGRAM_ID,
           ),
           extensionType: ExtensionType.TransferFeeConfig,
         },
       ],
-      6
+      6,
     ).then(() => {
       return createExtraAccountMetaListAndCounter(
+        connection,
+        keypair,
         transferHookCounterProgram,
-        USDCWithTransferFeeAndHook
+        USDCWithTransferFeeAndHook,
       );
     });
 
@@ -159,34 +161,36 @@ describe("Token 2022 helper test", () => {
             BTCKeypair.publicKey,
             keypair.publicKey,
             TRANSFER_HOOK_COUNTER_PROGRAM_ID,
-            TOKEN_2022_PROGRAM_ID
+            TOKEN_2022_PROGRAM_ID,
           ),
           extensionType: ExtensionType.TransferHook,
         },
       ],
-      6
+      6,
     ).then(() => {
       return createExtraAccountMetaListAndCounter(
+        connection,
+        keypair,
         transferHookCounterProgram,
-        BTCWithTransferHook
+        BTCWithTransferHook,
       );
     });
   });
 
   it("getExtraAccountMetasForTransferHook return correct accounts", async () => {
     const mintAccount = await connection.getAccountInfo(
-      USDCWithTransferFeeAndHook
+      USDCWithTransferFeeAndHook,
     );
 
     const extraAccountMetas = await getExtraAccountMetasForTransferHook(
       connection,
       USDCWithTransferFeeAndHook,
-      mintAccount
+      mintAccount,
     );
 
     const counterPda = deriveCounter(
       USDCWithTransferFeeAndHook,
-      TRANSFER_HOOK_COUNTER_PROGRAM_ID
+      TRANSFER_HOOK_COUNTER_PROGRAM_ID,
     );
 
     expect(extraAccountMetas.length).toBe(3);
@@ -201,8 +205,8 @@ describe("Token 2022 helper test", () => {
     expect(account2).toBe(
       getExtraAccountMetaAddress(
         USDCWithTransferFeeAndHook,
-        TRANSFER_HOOK_COUNTER_PROGRAM_ID
-      ).toBase58()
+        TRANSFER_HOOK_COUNTER_PROGRAM_ID,
+      ).toBase58(),
     );
   });
 
@@ -231,7 +235,7 @@ describe("Token 2022 helper test", () => {
 
       const counterPda = deriveCounter(
         mintKey,
-        TRANSFER_HOOK_COUNTER_PROGRAM_ID
+        TRANSFER_HOOK_COUNTER_PROGRAM_ID,
       );
 
       const account0 = accounts[0].pubkey.toBase58();
@@ -244,21 +248,21 @@ describe("Token 2022 helper test", () => {
       expect(account2).toBe(
         getExtraAccountMetaAddress(
           mintKey,
-          TRANSFER_HOOK_COUNTER_PROGRAM_ID
-        ).toBase58()
+          TRANSFER_HOOK_COUNTER_PROGRAM_ID,
+        ).toBase58(),
       );
     }
   });
 
   it("calculateTransferFeeIncludedAmount return more value than original value", async () => {
     const usdcMintAccount = await connection.getAccountInfo(
-      USDCWithTransferFeeAndHook
+      USDCWithTransferFeeAndHook,
     );
 
     const mint = unpackMint(
       USDCWithTransferFeeAndHook,
       usdcMintAccount,
-      usdcMintAccount.owner
+      usdcMintAccount.owner,
     );
 
     const transferFeeExcludedAmount = new BN(100_000);
@@ -266,23 +270,23 @@ describe("Token 2022 helper test", () => {
     const transferFeeIncludedAmount = calculateTransferFeeIncludedAmount(
       transferFeeExcludedAmount,
       mint,
-      0
+      0,
     ).amount;
 
     expect(
-      transferFeeIncludedAmount.gt(transferFeeExcludedAmount)
+      transferFeeIncludedAmount.gt(transferFeeExcludedAmount),
     ).toBeTruthy();
   });
 
   it("calculateTransferFeeExcludedAmount return less value than original value", async () => {
     const usdcMintAccount = await connection.getAccountInfo(
-      USDCWithTransferFeeAndHook
+      USDCWithTransferFeeAndHook,
     );
 
     const mint = unpackMint(
       USDCWithTransferFeeAndHook,
       usdcMintAccount,
-      usdcMintAccount.owner
+      usdcMintAccount.owner,
     );
 
     const transferFeeIncludedAmount = new BN(100_000);
@@ -290,11 +294,11 @@ describe("Token 2022 helper test", () => {
     const transferFeeExcludedAmount = calculateTransferFeeExcludedAmount(
       transferFeeIncludedAmount,
       mint,
-      0
+      0,
     ).amount;
 
     expect(
-      transferFeeIncludedAmount.gt(transferFeeExcludedAmount)
+      transferFeeIncludedAmount.gt(transferFeeExcludedAmount),
     ).toBeTruthy();
   });
 });

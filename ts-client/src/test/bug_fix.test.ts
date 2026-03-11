@@ -93,6 +93,8 @@ async function createMintAndPair(
     keypair.publicKey,
     null,
     null,
+    null,
+    null,
     {
       cluster: "localhost",
     },
