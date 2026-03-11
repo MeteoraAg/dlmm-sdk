@@ -26,6 +26,7 @@
     "build": "tsup",
     "start": "npm run build -- --watch",
     "test": "jest 'src/test/.*\\.test\\.ts'",
+    "lo-test": "jest 'src/test/limit_order_and_collect_fee_mode.test.ts'",
     "unit-test": "jest src/test/calculate_distribution.test.ts",
     "example": "dotenv -e .env npx ts-node src/examples/example.ts",
     "start-server": "npx tsc && node dist/src/server/index.js"

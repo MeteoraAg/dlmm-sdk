@@ -291,6 +291,7 @@ export function swapExactInQuoteAtBin(
 
   if (!amountLeft.isZero()) {
     excludedFeeAmountIn = excludedFeeAmountIn.sub(amountLeft);
+
     if (feeOnInput) {
       const { includedFeeAmount: amount, fee } = getIncludedFeeAmount(
         excludedFeeAmountIn,
@@ -299,6 +300,8 @@ export function swapExactInQuoteAtBin(
 
       tradingFee = fee;
       includedFeeAmountIn = amount;
+    } else {
+      includedFeeAmountIn = excludedFeeAmountIn;
     }
   }
 

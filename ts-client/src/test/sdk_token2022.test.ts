@@ -549,6 +549,8 @@ describe("SDK token2022 test", () => {
         new BN(dlmm.lbPair.binStep),
         new BN(dlmm.lbPair.parameters.baseFactor),
         new BN(dlmm.lbPair.parameters.baseFeePowerFactor),
+        null,
+        null,
         opt,
       );
 

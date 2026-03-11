@@ -282,6 +282,8 @@ export class DLMM {
     binStep: BN,
     baseFactor: BN,
     baseFeePowerFactor: BN,
+    concreteFunctionType?: ConcreteFunctionType,
+    collectFeeMode?: CollectFeeMode,
     opt?: Opt,
   ): Promise<PublicKey | null> {
     const program = createProgram(connection, opt);
@@ -317,12 +319,19 @@ export class DLMM {
       return lbPairKey;
     }
 
-    const presetParametersWithIndex =
-      await program.account.presetParameter2.all([
-        presetParameter2BinStepFilter(binStep),
-        presetParameter2BaseFactorFilter(baseFactor),
-        presetParameter2BaseFeePowerFactor(baseFeePowerFactor),
-      ]);
+    let presetParametersWithIndex = await program.account.presetParameter2.all([
+      presetParameter2BinStepFilter(binStep),
+      presetParameter2BaseFactorFilter(baseFactor),
+      presetParameter2BaseFeePowerFactor(baseFeePowerFactor),
+    ]);
+
+    presetParametersWithIndex = presetParametersWithIndex.filter((p) => {
+      return (
+        p.account.concreteFunctionType ==
+          (concreteFunctionType ?? ConcreteFunctionType.LiquidityMining) &&
+        p.account.collectFeeMode == (collectFeeMode ?? CollectFeeMode.InputOnly)
+      );
+    });
 
     if (presetParametersWithIndex.length > 0) {
       const possibleLbPairKeys = presetParametersWithIndex.map((account) => {
@@ -1787,6 +1796,8 @@ export class DLMM {
       new BN(presetParameterState.binStep),
       new BN(presetParameterState.baseFactor),
       new BN(presetParameterState.baseFeePowerFactor),
+      presetParameterState.concreteFunctionType,
+      presetParameterState.collectFeeMode,
       {
         cluster: opt?.cluster,
         programId: opt?.programId,
@@ -2461,6 +2472,73 @@ export class DLMM {
     );
 
     return parsedLimitOrder;
+  }
+
+  /**
+   * Fetches and parses a single limit order by address for the current LB pair.
+   *
+   * This method loads the limit order account, the LB pair state, clock sysvar,
+   * and all required bin arrays to produce a parsed limit order view.
+   * @param {PublicKey} limitOrder - The public key of the limit order account.
+   * @returns A Promise that resolves to the parsed limit order with its public key.
+   */
+  public async getLimitOrder(
+    limitOrder: PublicKey,
+  ): Promise<ParsedLimitOrderWithPubkey> {
+    const limitOrderAccount =
+      await this.program.provider.connection.getAccountInfo(limitOrder);
+
+    const limitOrderState = wrapLimitOrder(
+      this.program,
+      limitOrder,
+      limitOrderAccount,
+    );
+
+    const binArrayPubkeyArrays = limitOrderState.getBinArrayKeysCoverage(
+      this.program.programId,
+    );
+
+    const lbPairAndBinArrays = await chunkedGetMultipleAccountInfos(
+      this.program.provider.connection,
+      [this.pubkey, SYSVAR_CLOCK_PUBKEY, ...binArrayPubkeyArrays],
+    );
+
+    const [lbPairAccInfo, clockAccInfo, ...binArraysAccInfo] =
+      lbPairAndBinArrays;
+
+    const clock: Clock = ClockLayout.decode(clockAccInfo.data);
+    const lbPairState = decodeAccount<LbPair>(
+      this.program,
+      "lbPair",
+      lbPairAccInfo.data,
+    );
+
+    const binArrayMap = new Map<string, BinArray>();
+
+    for (let i = 0; i < binArraysAccInfo.length; i++) {
+      const binArrayPubkey = binArrayPubkeyArrays[i];
+      const binArrayAccInfo = binArraysAccInfo[i];
+      const binArrayState = decodeAccount<BinArray>(
+        this.program,
+        "binArray",
+        binArrayAccInfo.data,
+      );
+      binArrayMap.set(binArrayPubkey.toBase58(), binArrayState);
+    }
+
+    const parsedLo = limitOrderState.parseInfo(
+      this.program.programId,
+      lbPairState,
+      this.tokenX.mint,
+      this.tokenY.mint,
+      clock,
+      binArrayMap,
+    );
+
+    return {
+      publicKey: limitOrder,
+      limitOrderData: parsedLo,
+    };
   }
 
   /**
@@ -7742,7 +7820,7 @@ export class DLMM {
       tokenProgram,
     );
 
-    if (tokenMint.equals(NATIVE_MINT)) {
+    if (tokenMint.equals(NATIVE_MINT) && !this.opt?.skipSolWrappingOperation) {
       const totalAmount = params.bins.reduce(
         (acc, { amount }) => acc.add(amount),
         new BN(0),
@@ -7779,6 +7857,7 @@ export class DLMM {
         userToken: userTokenAddress,
         sender,
         payer,
+        owner,
       })
       .remainingAccounts([...transferHookAccounts, ...binArrayAccountMetas])
       .preInstructions(preInstructions)
@@ -7868,7 +7947,10 @@ export class DLMM {
       this.tokenY.owner,
     );
 
-    if (this.tokenX.mint.address.equals(NATIVE_MINT)) {
+    if (
+      this.tokenX.mint.address.equals(NATIVE_MINT) &&
+      !this.opt?.skipSolWrappingOperation
+    ) {
       preInstructions.push(
         createAssociatedTokenAccountIdempotentInstruction(
           owner,
@@ -7882,7 +7964,10 @@ export class DLMM {
       postInstructions.push(unwrapSOLInstruction(owner));
     }
 
-    if (this.tokenY.mint.address.equals(NATIVE_MINT)) {
+    if (
+      this.tokenY.mint.address.equals(NATIVE_MINT) &&
+      !this.opt?.skipSolWrappingOperation
+    ) {
       preInstructions.push(
         createAssociatedTokenAccountIdempotentInstruction(
           owner,

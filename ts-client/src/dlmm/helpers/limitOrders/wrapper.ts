@@ -71,8 +71,8 @@ export interface ParsedLimitOrderBinData {
 }
 
 export interface ParsedLimitOrder {
-  totalXAmount: string;
-  totalYAmount: string;
+  totalDepositAmountX: string;
+  totalDepositAmountY: string;
   limitOrderBinData: ParsedLimitOrderBinData[];
   totalUnfilledAmountX: string;
   totalUnfilledAmountY: string;
@@ -297,20 +297,20 @@ export class LimitOrderV1Wrapper implements ILimitOrder {
         totalXAmount,
         baseMint,
         clock.epoch.toNumber(),
-      );
+      ).amount;
 
     const transferFeeExcludedWithdrawableAmountY =
       calculateTransferFeeExcludedAmount(
         totalYAmount,
         quoteMint,
         clock.epoch.toNumber(),
-      );
+      ).amount;
 
     return {
-      totalXAmount: new Decimal(totalAmountXDeposited.toString())
+      totalDepositAmountX: new Decimal(totalAmountXDeposited.toString())
         .div(tokenXUiMultiplier)
         .toString(),
-      totalYAmount: new Decimal(totalAmountYDeposited.toString())
+      totalDepositAmountY: new Decimal(totalAmountYDeposited.toString())
         .div(tokenYUiMultiplier)
         .toString(),
       limitOrderBinData: parsedLimitOrderBinData,
@@ -392,7 +392,6 @@ function getUpdatedLimitOrderAmount(
   );
 
   const { feeX, feeY } = calculateLimitOrderFee(
-    limitOrderData,
     fulFilledAmount,
     limitOrderData.isAsk(),
     collectFeeMode,
@@ -409,7 +408,6 @@ function getUpdatedLimitOrderAmount(
 }
 
 function calculateLimitOrderFee(
-  limitOrderBinData: ILimitOrderBinData,
   fulfilledAmount: BN,
   isAskSide: boolean,
   collectFeeMode: CollectFeeMode,
@@ -418,6 +416,13 @@ function calculateLimitOrderFee(
   feeX: BN;
   feeY: BN;
 } {
+  if (fulfilledAmount.isZero()) {
+    return {
+      feeX: new BN(0),
+      feeY: new BN(0),
+    };
+  }
+
   let limitOrderFee = new BN(0);
   if (isAskSide) {
     limitOrderFee = bin.limitOrderFeeAskSide
