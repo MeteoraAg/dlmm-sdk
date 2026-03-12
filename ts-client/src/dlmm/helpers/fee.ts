@@ -121,6 +121,13 @@ export function splitFee(
   mmAmountIn: BN,
   totalAmountIn: BN,
 ) {
+  if (totalAmountIn.isZero()) {
+    return {
+      fee: new BN(0),
+      protocolFee: new BN(0),
+    };
+  }
+
   const mmFee = tradingFee
     .mul(mmAmountIn)
     .add(totalAmountIn.sub(new BN(1)))

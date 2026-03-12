@@ -52,7 +52,7 @@ export function isSupportLimitOrder(lbPairState: LbPair) {
       return false;
     case FunctionType.Undetermined:
       return lbPairState.rewardInfos.some(
-        (rewardInfo) => rewardInfo.mint != PublicKey.default,
+        (rewardInfo) => !rewardInfo.mint.equals(PublicKey.default),
       );
     default:
       throw new Error("Invalid function type");

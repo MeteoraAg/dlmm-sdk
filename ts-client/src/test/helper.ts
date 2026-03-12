@@ -332,13 +332,13 @@ export async function createWhitelistOperator(
   return operatorPda;
 }
 
-export function sendTransactionAndConfirm(
+export async function sendTransactionAndConfirm(
   connection: Connection,
   instructions: TransactionInstruction[],
   feePayer: Keypair,
   signers: Keypair[],
 ) {
-  const latestBlockhash = connection.getLatestBlockhash();
+  const latestBlockhash = await connection.getLatestBlockhash();
   const tx = new Transaction({
     ...latestBlockhash,
     feePayer: feePayer.publicKey,

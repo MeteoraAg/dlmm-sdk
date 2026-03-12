@@ -416,7 +416,11 @@ function calculateLimitOrderFee(
   feeX: BN;
   feeY: BN;
 } {
-  if (fulfilledAmount.isZero()) {
+  if (
+    fulfilledAmount.isZero() ||
+    (bin.fulfilledOrderAmountX.isZero() && isAskSide) ||
+    (bin.fulfilledOrderAmountY.isZero() && !isAskSide)
+  ) {
     return {
       feeX: new BN(0),
       feeY: new BN(0),
@@ -424,6 +428,7 @@ function calculateLimitOrderFee(
   }
 
   let limitOrderFee = new BN(0);
+
   if (isAskSide) {
     limitOrderFee = bin.limitOrderFeeAskSide
       .mul(fulfilledAmount)
