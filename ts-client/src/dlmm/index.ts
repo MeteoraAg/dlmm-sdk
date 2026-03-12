@@ -4304,8 +4304,7 @@ export class DLMM {
       : binIdsWithLiquidity;
 
     const lowerActiveBinId = activeBins[0].binId.toNumber();
-    const upperActiveBinId =
-      activeBins[activeBins.length - 1].binId.toNumber();
+    const upperActiveBinId = activeBins[activeBins.length - 1].binId.toNumber();
 
     // Avoid to attempt to load uninitialized bin array on the program
     if (fromBinId < lowerActiveBinId) {

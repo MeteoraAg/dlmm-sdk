@@ -52,6 +52,10 @@ import {
   sendTransactionAndConfirm,
 } from "./helper";
 
+// ---------------------------------------------------------------------------
+// Environment
+// ---------------------------------------------------------------------------
+
 const keypairBuffer = fs.readFileSync(
   "../keys/localnet/admin-bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1.json",
   "utf-8",
@@ -71,7 +75,7 @@ const BTCKeypair = Keypair.generate();
 const BTC2022 = BTCKeypair.publicKey;
 const SOL = NATIVE_MINT;
 
-const transferFeeBps = 100; // 5%
+const transferFeeBps = 100;
 const maxFee = BigInt(100_000) * BigInt(10 ** btcDecimal);
 
 let pairKeyCollectFeeInput: PublicKey;
@@ -94,7 +98,136 @@ const opt: Opt = {
   skipSolWrappingOperation: true,
 };
 
-describe.only("Limit order, collect fee mode", () => {
+// ---------------------------------------------------------------------------
+// Helper functions
+// ---------------------------------------------------------------------------
+
+/** Convert raw BN amount to UI-scale Decimal. */
+function toUi(amount: BN, decimals: number): Decimal {
+  return new Decimal(amount.toString()).div(new Decimal(10).pow(decimals));
+}
+
+/** Get the raw token balance for an ATA. */
+async function getBalance(ata: PublicKey): Promise<BN> {
+  const res = await connection.getTokenAccountBalance(ata);
+  return new BN(res.value.amount);
+}
+
+/** UI-scaled results from a single swap. */
+interface SwapResult {
+  outAmount: Decimal;
+  fee: Decimal;
+  protocolFee: Decimal;
+}
+
+/** Execute a swap: refetch state, quote, swap, return UI-scaled results. */
+async function executeSwap(
+  pair: DLMM,
+  swapForY: boolean,
+  rawSwapAmount: BN,
+  inToken: PublicKey,
+  outToken: PublicKey,
+  user: Keypair,
+  uiDecimals: number,
+): Promise<SwapResult> {
+  await pair.refetchStates();
+  const binArrays = await pair.getBinArrayForSwap(swapForY);
+
+  const quote = await pair.swapQuote(
+    rawSwapAmount,
+    swapForY,
+    new BN(0),
+    binArrays,
+  );
+
+  const swapTx = await pair.swap({
+    inToken,
+    outToken,
+    inAmount: quote.consumedInAmount,
+    minOutAmount: quote.minOutAmount,
+    lbPair: pair.pubkey,
+    user: user.publicKey,
+    binArraysPubkey: binArrays.map((b) => b.publicKey),
+  });
+
+  await sendAndConfirmTransaction(connection, swapTx, [user], {
+    commitment: "confirmed",
+  });
+
+  return {
+    outAmount: toUi(quote.outAmount, uiDecimals),
+    fee: toUi(quote.fee, uiDecimals),
+    protocolFee: toUi(quote.protocolFee, uiDecimals),
+  };
+}
+
+/** Sum two SwapResults into cumulative totals. */
+function accumulate(a: SwapResult, b: SwapResult): SwapResult {
+  return {
+    outAmount: a.outAmount.add(b.outAmount),
+    fee: a.fee.add(b.fee),
+    protocolFee: a.protocolFee.add(b.protocolFee),
+  };
+}
+
+/** Get user ATAs for a pair's X and Y tokens. */
+function getUserAtas(pair: DLMM, user: PublicKey) {
+  const userXAta = getAssociatedTokenAddressSync(
+    pair.tokenX.mint.address,
+    user,
+    true,
+    pair.tokenX.owner,
+  );
+  const userYAta = getAssociatedTokenAddressSync(
+    pair.tokenY.mint.address,
+    user,
+    true,
+    pair.tokenY.owner,
+  );
+  return { userXAta, userYAta };
+}
+
+/** Assert that a bin in limit order data has the expected status. */
+function assertBinStatus(
+  limitOrderData: any,
+  binId: number,
+  expectedStatus: LimitOrderStatus,
+) {
+  const bin = limitOrderData.limitOrderBinData.find(
+    (b: any) => b.binId == binId,
+  );
+  expect(bin.status).toBe(expectedStatus);
+}
+
+/** Assert withdrawn token deltas match the limit order's withdrawable amounts. */
+async function assertWithdrawableAmounts(
+  pair: DLMM,
+  user: PublicKey,
+  beforeX: BN,
+  beforeY: BN,
+  limitOrderData: any,
+) {
+  const { userXAta, userYAta } = getUserAtas(pair, user);
+
+  const afterX = await getBalance(userXAta);
+  const afterY = await getBalance(userYAta);
+
+  const uiDeltaX = toUi(afterX.sub(beforeX), btcDecimal);
+  const uiDeltaY = toUi(afterY.sub(beforeY), solDecimal);
+
+  expect(uiDeltaX.toString()).toBe(
+    limitOrderData.transferFeeExcludedWithdrawableAmountX,
+  );
+  expect(uiDeltaY.toString()).toBe(
+    limitOrderData.transferFeeExcludedWithdrawableAmountY,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Test suite
+// ---------------------------------------------------------------------------
+
+describe("Limit order, collect fee mode", () => {
   // Token setup
   beforeAll(async () => {
     const [txSig0, txSig1] = await Promise.all([
@@ -117,9 +250,7 @@ describe.only("Limit order, collect fee mode", () => {
       adminKeypair.publicKey,
       true,
       "confirmed",
-      {
-        commitment: "confirmed",
-      },
+      { commitment: "confirmed" },
       TOKEN_PROGRAM_ID,
       ASSOCIATED_TOKEN_PROGRAM_ID,
     );
@@ -213,31 +344,25 @@ describe.only("Limit order, collect fee mode", () => {
       adminKeypair.publicKey,
       true,
       "confirmed",
-      {
-        commitment: "confirmed",
-      },
+      { commitment: "confirmed" },
       TOKEN_2022_PROGRAM_ID,
       ASSOCIATED_TOKEN_PROGRAM_ID,
     );
-
-    const userBtcAta = userBtcAccount.address;
 
     await mintTo(
       connection,
       adminKeypair,
       BTC2022,
-      userBtcAta,
+      userBtcAccount.address,
       adminKeypair,
       BigInt(1_000_000_000) * BigInt(10 ** btcDecimal),
       [],
-      {
-        commitment: "confirmed",
-      },
+      { commitment: "confirmed" },
       TOKEN_2022_PROGRAM_ID,
     );
   });
 
-  // DLMM related setup
+  // DLMM setup
   beforeAll(async () => {
     const operatorPda = await createWhitelistOperator(
       connection,
@@ -334,9 +459,7 @@ describe.only("Limit order, collect fee mode", () => {
         connection,
         createLbPair2Tx,
         [adminKeypair],
-        {
-          commitment: "confirmed",
-        },
+        { commitment: "confirmed" },
       );
 
       switch (collectFeeMode) {
@@ -360,17 +483,22 @@ describe.only("Limit order, collect fee mode", () => {
     }
   });
 
-  describe("Full flow ", () => {
+  // -------------------------------------------------------------------------
+  // Tests
+  // -------------------------------------------------------------------------
+
+  describe("Full flow", () => {
     it("Happy path limit order collect fee only Y", async () => {
       const pair = await DLMM.create(connection, pairKeyCollectFeeY, opt);
       const limitOrderKeypair = Keypair.generate();
 
       const depositUiAmount = new BN(5);
-      const rawDepositAmount = depositUiAmount.mul(new BN(10 ** solDecimal));
+      const rawDeposit = depositUiAmount.mul(new BN(10 ** solDecimal));
       const id0 = pair.lbPair.activeId - 1;
       const id1 = pair.lbPair.activeId;
 
-      const placeLimitOrderIx = await pair.placeLimitOrder({
+      // 1. Place limit order (bid side)
+      const placeTx = await pair.placeLimitOrder({
         owner: adminKeypair.publicKey,
         sender: adminKeypair.publicKey,
         payer: adminKeypair.publicKey,
@@ -379,19 +507,13 @@ describe.only("Limit order, collect fee mode", () => {
           isAskSide: false,
           relativeBin: null,
           bins: [
-            {
-              id: id0,
-              amount: rawDepositAmount,
-            },
-            {
-              id: id1,
-              amount: rawDepositAmount,
-            },
+            { id: id0, amount: rawDeposit },
+            { id: id1, amount: rawDeposit },
           ],
         },
       });
 
-      await sendAndConfirmTransaction(connection, placeLimitOrderIx, [
+      await sendAndConfirmTransaction(connection, placeTx, [
         adminKeypair,
         limitOrderKeypair,
       ]);
@@ -399,215 +521,83 @@ describe.only("Limit order, collect fee mode", () => {
       let limitOrders = await pair.getLimitOrderByUserAndLbPair(
         adminKeypair.publicKey,
       );
-
       expect(limitOrders.length).toBe(1);
-      await pair.refetchStates();
 
-      let binArrays = await pair.getBinArrayForSwap(true);
-
-      // 1. Active bin partial fill
-      let quoteResult = await pair.swapQuote(
-        // Active bin = 0, the price is ~= 1.00, both token has the same decimal so swapping in exact equal value of deposit amount will only partial fill it due to fee
-        depositUiAmount.mul(new BN(10 ** btcDecimal)),
+      // 2. First swap: active bin partial fill (X -> Y)
+      const swap1 = await executeSwap(
+        pair,
         true,
-        new BN(0),
-        binArrays,
-      );
-
-      let consumedInAmount = quoteResult.consumedInAmount;
-      let outAmount = quoteResult.outAmount;
-      let fee = quoteResult.fee;
-      let protocolFee = quoteResult.protocolFee;
-      let minOutAmount = quoteResult.minOutAmount;
-
-      let swapIx = await pair.swap({
-        inToken: pair.tokenX.mint.address,
-        outToken: pair.tokenY.mint.address,
-        inAmount: consumedInAmount,
-        minOutAmount,
-        lbPair: pair.pubkey,
-        user: adminKeypair.publicKey,
-        binArraysPubkey: binArrays.map((b) => b.publicKey),
-      });
-
-      await sendAndConfirmTransaction(connection, swapIx, [adminKeypair], {
-        commitment: "confirmed",
-      });
-
-      let loAfterSwap = await pair.getLimitOrder(limitOrderKeypair.publicKey);
-
-      let uiOutAmount = new Decimal(outAmount.toString()).div(
-        new Decimal(10).pow(solDecimal),
-      );
-
-      let uiFeeAmount = new Decimal(fee.toString()).div(
-        new Decimal(10).pow(solDecimal),
-      );
-
-      let uiProtocolFeeAmount = new Decimal(protocolFee.toString()).div(
-        new Decimal(10).pow(solDecimal),
-      );
-
-      expect(uiFeeAmount.toString()).toBe(
-        loAfterSwap.limitOrderData.totalFeeAmountY,
-      );
-
-      expect(
-        uiOutAmount.add(uiProtocolFeeAmount).add(uiFeeAmount).toString(),
-      ).toBe(loAfterSwap.limitOrderData.totalFilledAmountY);
-
-      let loBin = loAfterSwap.limitOrderData.limitOrderBinData.find(
-        (b) => b.binId == id1,
-      );
-
-      expect(loBin.status).toBe(LimitOrderStatus.PartialFilled);
-
-      // 2. Active bin fulfilled, next bin partial fill
-      await pair.refetchStates();
-
-      binArrays = await pair.getBinArrayForSwap(true);
-
-      quoteResult = await pair.swapQuote(
         depositUiAmount.mul(new BN(10 ** btcDecimal)),
-        true,
-        new BN(0),
-        binArrays,
-      );
-
-      consumedInAmount = quoteResult.consumedInAmount;
-      outAmount = quoteResult.outAmount;
-      fee = quoteResult.fee;
-      protocolFee = quoteResult.protocolFee;
-      minOutAmount = quoteResult.minOutAmount;
-
-      swapIx = await pair.swap({
-        inToken: pair.tokenX.mint.address,
-        outToken: pair.tokenY.mint.address,
-        inAmount: consumedInAmount,
-        minOutAmount,
-        lbPair: pair.pubkey,
-        user: adminKeypair.publicKey,
-        binArraysPubkey: binArrays.map((b) => b.publicKey),
-      });
-
-      await sendAndConfirmTransaction(connection, swapIx, [adminKeypair], {
-        commitment: "confirmed",
-      });
-
-      loAfterSwap = await pair.getLimitOrder(limitOrderKeypair.publicKey);
-
-      let prevUiOutAmount = uiOutAmount;
-      uiOutAmount = new Decimal(outAmount.toString()).div(
-        new Decimal(10).pow(solDecimal),
-      );
-
-      let prevUiFeeAmount = uiFeeAmount;
-      uiFeeAmount = new Decimal(fee.toString()).div(
-        new Decimal(10).pow(solDecimal),
-      );
-
-      let prevUiProtocolFeeAmount = uiProtocolFeeAmount;
-      uiProtocolFeeAmount = new Decimal(protocolFee.toString()).div(
-        new Decimal(10).pow(solDecimal),
-      );
-
-      expect(uiFeeAmount.add(prevUiFeeAmount).toString()).toBe(
-        loAfterSwap.limitOrderData.totalFeeAmountY,
-      );
-
-      expect(
-        uiOutAmount
-          .add(prevUiOutAmount)
-          .add(uiProtocolFeeAmount)
-          .add(prevUiProtocolFeeAmount)
-          .add(uiFeeAmount)
-          .add(prevUiFeeAmount)
-          .toString(),
-      ).toBe(loAfterSwap.limitOrderData.totalFilledAmountY);
-
-      loBin = loAfterSwap.limitOrderData.limitOrderBinData.find(
-        (b) => b.binId == id1,
-      );
-
-      expect(loBin.status).toBe(LimitOrderStatus.Fulfilled);
-
-      loBin = loAfterSwap.limitOrderData.limitOrderBinData.find(
-        (b) => b.binId == id0,
-      );
-
-      expect(loBin.status).toBe(LimitOrderStatus.PartialFilled);
-
-      const userXAta = getAssociatedTokenAddressSync(
         pair.tokenX.mint.address,
-        adminKeypair.publicKey,
-        true,
-        pair.tokenX.owner,
-      );
-
-      const userYAta = getAssociatedTokenAddressSync(
         pair.tokenY.mint.address,
-        adminKeypair.publicKey,
-        true,
-        pair.tokenY.owner,
+        adminKeypair,
+        solDecimal,
       );
 
-      const beforeUserXBalance = await connection
-        .getTokenAccountBalance(userXAta)
-        .then((res) => new BN(res.value.amount));
+      let loData = (await pair.getLimitOrder(limitOrderKeypair.publicKey))
+        .limitOrderData;
 
-      const beforeUserYBalance = await connection
-        .getTokenAccountBalance(userYAta)
-        .then((res) => new BN(res.value.amount));
+      expect(swap1.fee.toString()).toBe(loData.totalFeeAmountY);
+      expect(
+        swap1.outAmount.add(swap1.protocolFee).add(swap1.fee).toString(),
+      ).toBe(loData.totalFilledAmountY);
+      assertBinStatus(loData, id1, LimitOrderStatus.PartialFilled);
+
+      // 3. Second swap: active bin fulfilled, next bin partial fill
+      const swap2 = await executeSwap(
+        pair,
+        true,
+        depositUiAmount.mul(new BN(10 ** btcDecimal)),
+        pair.tokenX.mint.address,
+        pair.tokenY.mint.address,
+        adminKeypair,
+        solDecimal,
+      );
+
+      loData = (await pair.getLimitOrder(limitOrderKeypair.publicKey))
+        .limitOrderData;
+
+      const cumulative = accumulate(swap1, swap2);
+
+      expect(cumulative.fee.toString()).toBe(loData.totalFeeAmountY);
+      expect(
+        cumulative.outAmount
+          .add(cumulative.protocolFee)
+          .add(cumulative.fee)
+          .toString(),
+      ).toBe(loData.totalFilledAmountY);
+      assertBinStatus(loData, id1, LimitOrderStatus.Fulfilled);
+      assertBinStatus(loData, id0, LimitOrderStatus.PartialFilled);
+
+      // 4. Cancel and verify withdrawal
+      const { userXAta, userYAta } = getUserAtas(pair, adminKeypair.publicKey);
+      const beforeX = await getBalance(userXAta);
+      const beforeY = await getBalance(userYAta);
 
       await pair.refetchStates();
 
-      // 3. Cancel the remaining limit order
-      const cancelLimitOrderIx = await pair.cancelLimitOrder({
+      const cancelTx = await pair.cancelLimitOrder({
         limitOrderPubkey: limitOrderKeypair.publicKey,
         owner: adminKeypair.publicKey,
         rentReceiver: adminKeypair.publicKey,
         binIds: [id0, id1],
       });
 
-      await sendAndConfirmTransaction(
-        connection,
-        cancelLimitOrderIx,
-        [adminKeypair],
-        {
-          commitment: "confirmed",
-        },
-      );
+      await sendAndConfirmTransaction(connection, cancelTx, [adminKeypair], {
+        commitment: "confirmed",
+      });
 
       limitOrders = await pair.getLimitOrderByUserAndLbPair(
         adminKeypair.publicKey,
       );
-
       expect(limitOrders.length).toBe(0);
 
-      const afterUserXBalance = await connection
-        .getTokenAccountBalance(userXAta)
-        .then((res) => new BN(res.value.amount));
-
-      const afterUserYBalance = await connection
-        .getTokenAccountBalance(userYAta)
-        .then((res) => new BN(res.value.amount));
-
-      const deltaX = afterUserXBalance.sub(beforeUserXBalance);
-      const deltaY = afterUserYBalance.sub(beforeUserYBalance);
-
-      const uiDeltaX = new Decimal(deltaX.toString()).div(
-        new Decimal(10).pow(btcDecimal),
-      );
-      const uiDeltaY = new Decimal(deltaY.toString()).div(
-        new Decimal(10).pow(solDecimal),
-      );
-
-      expect(uiDeltaX.toString()).toBe(
-        loAfterSwap.limitOrderData.transferFeeExcludedWithdrawableAmountX,
-      );
-
-      expect(uiDeltaY.toString()).toBe(
-        loAfterSwap.limitOrderData.transferFeeExcludedWithdrawableAmountY,
+      await assertWithdrawableAmounts(
+        pair,
+        adminKeypair.publicKey,
+        beforeX,
+        beforeY,
+        loData,
       );
     });
 
@@ -616,11 +606,12 @@ describe.only("Limit order, collect fee mode", () => {
       const limitOrderKeypair = Keypair.generate();
 
       const depositUiAmount = new BN(5);
-      const rawDepositAmount = depositUiAmount.mul(new BN(10 ** btcDecimal));
+      const rawDeposit = depositUiAmount.mul(new BN(10 ** btcDecimal));
       const id0 = pair.lbPair.activeId;
       const id1 = pair.lbPair.activeId + 1;
 
-      const placeLimitOrderIx = await pair.placeLimitOrder({
+      // 1. Place limit order (ask side)
+      const placeTx = await pair.placeLimitOrder({
         owner: adminKeypair.publicKey,
         sender: adminKeypair.publicKey,
         payer: adminKeypair.publicKey,
@@ -629,19 +620,13 @@ describe.only("Limit order, collect fee mode", () => {
           isAskSide: true,
           relativeBin: null,
           bins: [
-            {
-              id: id0,
-              amount: rawDepositAmount,
-            },
-            {
-              id: id1,
-              amount: rawDepositAmount,
-            },
+            { id: id0, amount: rawDeposit },
+            { id: id1, amount: rawDeposit },
           ],
         },
       });
 
-      await sendAndConfirmTransaction(connection, placeLimitOrderIx, [
+      await sendAndConfirmTransaction(connection, placeTx, [
         adminKeypair,
         limitOrderKeypair,
       ]);
@@ -649,220 +634,84 @@ describe.only("Limit order, collect fee mode", () => {
       let limitOrders = await pair.getLimitOrderByUserAndLbPair(
         adminKeypair.publicKey,
       );
-
       expect(limitOrders.length).toBe(1);
-      await pair.refetchStates();
 
-      let binArrays = await pair.getBinArrayForSwap(false);
-
-      // 1. Active bin partial fill
-      let quoteResult = await pair.swapQuote(
-        // Active bin = 0, the price is ~= 1.00, both token has the same decimal so swapping in exact equal value of deposit amount will only partial fill it due to fee
-        depositUiAmount.mul(new BN(10 ** solDecimal)),
+      // 2. First swap: active bin partial fill (Y -> X)
+      const swap1 = await executeSwap(
+        pair,
         false,
-        new BN(0),
-        binArrays,
-      );
-
-      let consumedInAmount = quoteResult.consumedInAmount;
-      let outAmount = quoteResult.outAmount;
-      let fee = quoteResult.fee;
-      let protocolFee = quoteResult.protocolFee;
-      let minOutAmount = quoteResult.minOutAmount;
-
-      let swapIx = await pair.swap({
-        inToken: pair.tokenY.mint.address,
-        outToken: pair.tokenX.mint.address,
-        inAmount: consumedInAmount,
-        minOutAmount,
-        lbPair: pair.pubkey,
-        user: adminKeypair.publicKey,
-        binArraysPubkey: binArrays.map((b) => b.publicKey),
-      });
-
-      await sendAndConfirmTransaction(connection, swapIx, [adminKeypair], {
-        commitment: "confirmed",
-      });
-
-      let loAfterSwap = await pair.getLimitOrder(limitOrderKeypair.publicKey);
-
-      let uiOutAmount = new Decimal(outAmount.toString()).div(
-        new Decimal(10).pow(solDecimal),
-      );
-
-      let uiFeeAmount = new Decimal(fee.toString()).div(
-        new Decimal(10).pow(solDecimal),
-      );
-
-      let uiProtocolFeeAmount = new Decimal(protocolFee.toString()).div(
-        new Decimal(10).pow(solDecimal),
-      );
-
-      expect(uiFeeAmount.toString()).toBe(
-        loAfterSwap.limitOrderData.totalFeeAmountY,
-      );
-
-      const totalFilledAmountX = new Decimal(
-        loAfterSwap.limitOrderData.totalFilledAmountX,
-      );
-
-      // Due to transfer fee
-      expect(uiOutAmount.lessThan(totalFilledAmountX)).toBeTruthy();
-      // Fee at input side
-      expect(uiFeeAmount.toString()).toBe(
-        loAfterSwap.limitOrderData.totalFeeAmountY,
-      );
-
-      let loBin = loAfterSwap.limitOrderData.limitOrderBinData.find(
-        (b) => b.binId == id0,
-      );
-
-      expect(loBin.status).toBe(LimitOrderStatus.PartialFilled);
-
-      // 2. Active bin fulfilled, next bin partial fill
-      await pair.refetchStates();
-
-      binArrays = await pair.getBinArrayForSwap(false);
-
-      quoteResult = await pair.swapQuote(
         depositUiAmount.mul(new BN(10 ** solDecimal)),
-        false,
-        new BN(0),
-        binArrays,
-      );
-
-      consumedInAmount = quoteResult.consumedInAmount;
-      outAmount = quoteResult.outAmount;
-      fee = quoteResult.fee;
-      protocolFee = quoteResult.protocolFee;
-      minOutAmount = quoteResult.minOutAmount;
-
-      swapIx = await pair.swap({
-        inToken: pair.tokenY.mint.address,
-        outToken: pair.tokenX.mint.address,
-        inAmount: consumedInAmount,
-        minOutAmount,
-        lbPair: pair.pubkey,
-        user: adminKeypair.publicKey,
-        binArraysPubkey: binArrays.map((b) => b.publicKey),
-      });
-
-      await sendAndConfirmTransaction(connection, swapIx, [adminKeypair], {
-        commitment: "confirmed",
-      });
-
-      loAfterSwap = await pair.getLimitOrder(limitOrderKeypair.publicKey);
-
-      let prevUiOutAmount = uiOutAmount;
-      uiOutAmount = new Decimal(outAmount.toString()).div(
-        new Decimal(10).pow(solDecimal),
-      );
-
-      let prevUiFeeAmount = uiFeeAmount;
-      uiFeeAmount = new Decimal(fee.toString()).div(
-        new Decimal(10).pow(solDecimal),
-      );
-
-      let prevUiProtocolFeeAmount = uiProtocolFeeAmount;
-      uiProtocolFeeAmount = new Decimal(protocolFee.toString()).div(
-        new Decimal(10).pow(solDecimal),
-      );
-
-      expect(uiFeeAmount.add(prevUiFeeAmount).toString()).toBe(
-        loAfterSwap.limitOrderData.totalFeeAmountY,
-      );
-
-      const totalOutAmount = uiOutAmount.add(prevUiOutAmount);
-
-      expect(
-        totalOutAmount.lt(
-          new Decimal(loAfterSwap.limitOrderData.totalFilledAmountX),
-        ),
-      ).toBeTruthy();
-
-      loBin = loAfterSwap.limitOrderData.limitOrderBinData.find(
-        (b) => b.binId == id0,
-      );
-
-      expect(loBin.status).toBe(LimitOrderStatus.Fulfilled);
-
-      loBin = loAfterSwap.limitOrderData.limitOrderBinData.find(
-        (b) => b.binId == id1,
-      );
-
-      expect(loBin.status).toBe(LimitOrderStatus.PartialFilled);
-
-      const userXAta = getAssociatedTokenAddressSync(
-        pair.tokenX.mint.address,
-        adminKeypair.publicKey,
-        true,
-        pair.tokenX.owner,
-      );
-
-      const userYAta = getAssociatedTokenAddressSync(
         pair.tokenY.mint.address,
-        adminKeypair.publicKey,
-        true,
-        pair.tokenY.owner,
+        pair.tokenX.mint.address,
+        adminKeypair,
+        solDecimal,
       );
 
-      const beforeUserXBalance = await connection
-        .getTokenAccountBalance(userXAta)
-        .then((res) => new BN(res.value.amount));
+      let loData = (await pair.getLimitOrder(limitOrderKeypair.publicKey))
+        .limitOrderData;
 
-      const beforeUserYBalance = await connection
-        .getTokenAccountBalance(userYAta)
-        .then((res) => new BN(res.value.amount));
+      // Fee tracked in Y (input side)
+      expect(swap1.fee.toString()).toBe(loData.totalFeeAmountY);
+      // outAmount < totalFilledAmountX due to transfer fee on token2022 X
+      expect(
+        swap1.outAmount.lessThan(new Decimal(loData.totalFilledAmountX)),
+      ).toBeTruthy();
+      assertBinStatus(loData, id0, LimitOrderStatus.PartialFilled);
+
+      // 3. Second swap: active bin fulfilled, next bin partial fill
+      const swap2 = await executeSwap(
+        pair,
+        false,
+        depositUiAmount.mul(new BN(10 ** solDecimal)),
+        pair.tokenY.mint.address,
+        pair.tokenX.mint.address,
+        adminKeypair,
+        solDecimal,
+      );
+
+      loData = (await pair.getLimitOrder(limitOrderKeypair.publicKey))
+        .limitOrderData;
+
+      const cumulative = accumulate(swap1, swap2);
+
+      // Fee tracked in Y
+      expect(cumulative.fee.toString()).toBe(loData.totalFeeAmountY);
+      // Cumulative out < totalFilledAmountX due to transfer fee
+      expect(
+        cumulative.outAmount.lt(new Decimal(loData.totalFilledAmountX)),
+      ).toBeTruthy();
+      assertBinStatus(loData, id0, LimitOrderStatus.Fulfilled);
+      assertBinStatus(loData, id1, LimitOrderStatus.PartialFilled);
+
+      // 4. Cancel and verify withdrawal
+      const { userXAta, userYAta } = getUserAtas(pair, adminKeypair.publicKey);
+      const beforeX = await getBalance(userXAta);
+      const beforeY = await getBalance(userYAta);
 
       await pair.refetchStates();
 
-      // 3. Cancel the remaining limit order
-      const cancelLimitOrderIx = await pair.cancelLimitOrder({
+      const cancelTx = await pair.cancelLimitOrder({
         limitOrderPubkey: limitOrderKeypair.publicKey,
         owner: adminKeypair.publicKey,
         rentReceiver: adminKeypair.publicKey,
         binIds: [id0, id1],
       });
 
-      await sendAndConfirmTransaction(
-        connection,
-        cancelLimitOrderIx,
-        [adminKeypair],
-        {
-          commitment: "confirmed",
-        },
-      );
+      await sendAndConfirmTransaction(connection, cancelTx, [adminKeypair], {
+        commitment: "confirmed",
+      });
 
       limitOrders = await pair.getLimitOrderByUserAndLbPair(
         adminKeypair.publicKey,
       );
-
       expect(limitOrders.length).toBe(0);
 
-      const afterUserXBalance = await connection
-        .getTokenAccountBalance(userXAta)
-        .then((res) => new BN(res.value.amount));
-
-      const afterUserYBalance = await connection
-        .getTokenAccountBalance(userYAta)
-        .then((res) => new BN(res.value.amount));
-
-      const deltaX = afterUserXBalance.sub(beforeUserXBalance);
-      const deltaY = afterUserYBalance.sub(beforeUserYBalance);
-
-      const uiDeltaX = new Decimal(deltaX.toString()).div(
-        new Decimal(10).pow(btcDecimal),
-      );
-      const uiDeltaY = new Decimal(deltaY.toString()).div(
-        new Decimal(10).pow(solDecimal),
-      );
-
-      expect(uiDeltaX.toString()).toBe(
-        loAfterSwap.limitOrderData.transferFeeExcludedWithdrawableAmountX,
-      );
-
-      expect(uiDeltaY.toString()).toBe(
-        loAfterSwap.limitOrderData.transferFeeExcludedWithdrawableAmountY,
+      await assertWithdrawableAmounts(
+        pair,
+        adminKeypair.publicKey,
+        beforeX,
+        beforeY,
+        loData,
       );
     });
   });
