@@ -41,7 +41,9 @@ import {
   ClmmProgram,
   GetOrCreateATAResponse,
   LbPair,
+  LimitOrder,
   Position,
+  PositionPermission,
   PositionV2,
   PresetParameter,
   PresetParameter2,
@@ -82,6 +84,7 @@ export * from "./rebalance";
 export * from "./strategy";
 export * from "./weight";
 export * from "./weightToAmounts";
+export * from "./bin";
 
 export function chunks<T>(array: T[], size: number): T[][] {
   return Array.apply(0, new Array(Math.ceil(array.length / size))).map(
@@ -479,6 +482,7 @@ export function decodeAccount<
     | PositionV2
     | Position
     | PresetParameter
+    | LimitOrder
     | PresetParameter2
 >(program: Program<LbClmm>, accountName: AccountName, buffer: Buffer): T {
   return program.coder.accounts.decode(accountName, buffer);
@@ -977,4 +981,12 @@ export async function chunkDepositWithRebalanceEndpoint(
   }
 
   return chunkedAddLiquidityIx;
+}
+
+export function encodePositionPermissions(
+  permissions: PositionPermission[],
+): number {
+  return permissions.reduce((acc, perm) => {
+    return acc | (1 << perm);
+  }, 0);
 }
