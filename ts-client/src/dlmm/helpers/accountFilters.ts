@@ -77,3 +77,34 @@ export const positionV2Filter = (): GetProgramAccountsFilter => {
     },
   };
 };
+
+export const limitOrderFilter = (): GetProgramAccountsFilter => {
+  return {
+    memcmp: {
+      bytes: bs58.encode(Buffer.from(getAccountDiscriminator("limitOrder"))),
+      offset: 0,
+    },
+  };
+};
+
+export const limitOrderOwnerFilter = (
+  owner: PublicKey
+): GetProgramAccountsFilter => {
+  return {
+    memcmp: {
+      bytes: owner.toBase58(),
+      offset: 8 + 32,
+    },
+  };
+};
+
+export const limitOrderLbPairFilter = (
+  lbPair: PublicKey
+): GetProgramAccountsFilter => {
+  return {
+    memcmp: {
+      bytes: lbPair.toBase58(),
+      offset: 8,
+    },
+  };
+};

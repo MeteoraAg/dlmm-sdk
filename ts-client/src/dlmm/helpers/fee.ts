@@ -2,6 +2,7 @@ import { BN } from "@coral-xyz/anchor";
 import {
   BASIS_POINT_MAX,
   FEE_PRECISION,
+  LIMIT_ORDER_FEE_SHARE,
   MAX_FEE_RATE,
   SCALE_OFFSET,
 } from "../constants";
@@ -223,4 +224,72 @@ function getAmountIn(amountOut: BN, price: BN, swapForY: Boolean): BN {
   } else {
     return mulShr(amountOut, price, SCALE_OFFSET, Rounding.Up);
   }
+}
+
+export function getExcludedFeeAmount(
+  includedFeeAmount: BN,
+  tradeFeeNumerator: BN
+): {
+  excludedFeeAmount: BN;
+  fee: BN;
+} {
+  const tradingFee = includedFeeAmount
+    .mul(tradeFeeNumerator)
+    .add(FEE_PRECISION.sub(new BN(1)))
+    .div(FEE_PRECISION);
+  const excludedFeeAmount = includedFeeAmount.sub(tradingFee);
+  return {
+    excludedFeeAmount,
+    fee: tradingFee,
+  };
+}
+
+export function getIncludedFeeAmount(
+  excludedFeeAmount: BN,
+  tradeFeeNumerator: BN
+): {
+  includedFeeAmount: BN;
+  fee: BN;
+} {
+  const denominator = FEE_PRECISION.sub(tradeFeeNumerator);
+
+  const includedFeeAmount = excludedFeeAmount
+    .mul(FEE_PRECISION)
+    .add(denominator.sub(new BN(1)))
+    .div(denominator);
+
+  const fee = includedFeeAmount.sub(excludedFeeAmount);
+  return {
+    includedFeeAmount,
+    fee,
+  };
+}
+
+export function splitFee(
+  tradingFee: BN,
+  protocolShare: BN,
+  mmAmountIn: BN,
+  totalAmountIn: BN
+) {
+  const mmFee = tradingFee
+    .mul(mmAmountIn)
+    .add(totalAmountIn.sub(new BN(1)))
+    .div(totalAmountIn);
+
+  const totalLoFee = tradingFee.sub(mmFee);
+
+  const loFee = totalLoFee
+    .mul(LIMIT_ORDER_FEE_SHARE)
+    .div(new BN(BASIS_POINT_MAX));
+
+  const loProtocolFee = totalLoFee.sub(loFee);
+  const mmProtocolFee = mmFee.mul(protocolShare).div(new BN(BASIS_POINT_MAX));
+
+  const totalProtocolFee = loProtocolFee.add(mmProtocolFee);
+  const totalUserFee = tradingFee.sub(totalProtocolFee);
+
+  return {
+    fee: totalUserFee,
+    protocolFee: totalProtocolFee,
+  };
 }

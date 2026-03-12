@@ -33,6 +33,9 @@ export const SCALE = new BN(1).shln(SCALE_OFFSET);
 export const FEE_PRECISION = new BN(1_000_000_000);
 export const MAX_FEE_RATE = new BN(100_000_000);
 
+// Bin array version 3 is release_0.11.0 which support limit order.
+export const BIN_ARRAY_DEFAULT_VERSION = 3;
+
 // https://solscan.io/tx/5JgHgEiVoqV61p3SASYzP4gnedvYFLhewPchBdFgPQZjHEiitjZCqs8u4rXyDYnGJ9zqAscknv9NoBiodsfDE1qR
 export const BIN_ARRAY_FEE = 0.07143744;
 // https://solscan.io/tx/37yEmHsTU6tKjUc6iGG8GPiEuPHxiyBezwexsnnsqXQQKuDgwsNciEzkQZFWJShcdLpfug5xqNBPJkzit7eWvkDD
@@ -106,8 +109,23 @@ export const MAX_BINS_PER_POSITION = new BN(
   CONSTANTS.find(([k, v]) => v.name == "POSITION_MAX_LENGTH")?.[1].value ?? 0
 );
 
+export const LIMIT_ORDER_FEE_SHARE = new BN(
+  CONSTANTS.find(([k, v]) => v.name == "LIMIT_ORDER_FEE_SHARE")?.[1].value ?? 0
+);
+
 export enum FunctionType {
+  // Undetermined pair type means the function type cannot be represented by PairFunctionType enum itself. The system will decide whether it's LO or LM based on whether rewards was initialized.
   Undetermined = 0,
   LiquidityMining = 1,
   LimitOrder = 2,
+}
+
+export enum ConcreteFunctionType {
+  LimitOrder = 0,
+  LiquidityMining = 1,
+}
+
+export enum CollectFeeMode {
+  InputOnly = 0,
+  OnlyY = 1,
 }
