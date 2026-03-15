@@ -19,6 +19,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## cli [0.6.3] [PR #273](https://github.com/MeteoraAg/dlmm-sdk/pull/273)
+
+### Added
+
+- Added `place_limit_order` command to place limit orders
+- Added `cancel_limit_order` command to cancel existing limit orders
+- Added `close_limit_order_if_empty` command to close empty limit order account
+- Added `get_limit_orders` command to query limit orders for a user on a specific pair
+- Added `set_permissionless_operation_bits` command to set operation bits on a position
+
+## commons [0.3.3] [PR #273](https://github.com/MeteoraAg/dlmm-sdk/pull/273)
+
+### Added
+
+- Added `DynamicPosition` in `dynamic_position.rs` to support parsing on position account
+- Added `LimitOrder` in `limit_order.rs` to support parsing on limit order account
+
+### Changed
+
+- `quote_exact_in()` and `quote_exact_out()` now support limit order liquidity
+
 ## @meteora-ag/dlmm [1.9.5] - [PR #273](https://github.com/MeteoraAg/dlmm-sdk/pull/273)
 
 ### Added
