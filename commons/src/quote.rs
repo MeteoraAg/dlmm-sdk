@@ -8,12 +8,329 @@ use std::collections::HashMap;
 pub struct SwapExactInQuote {
     pub amount_out: u64,
     pub fee: u64,
+    pub protocol_fee: u64,
 }
 
 #[derive(Debug)]
 pub struct SwapExactOutQuote {
     pub amount_in: u64,
     pub fee: u64,
+    pub protocol_fee: u64,
+}
+
+/// Internal fill result for a single liquidity layer within a bin.
+struct FillResult {
+    amount_in: u64,
+    amount_left: u64,
+    out_amount: u64,
+}
+
+/// Internal result for filling across all liquidity layers (MM + limit orders) in a bin.
+struct ExactInFillResult {
+    amount_in: u64,
+    amount_left: u64,
+    out_amount: u64,
+    mm_amount_in: u64,
+}
+
+/// Calculate how much of `amount` can be filled against `max_amount_out` of liquidity at `price`.
+fn calculate_exact_in_fill_amount(
+    bin: &Bin,
+    amount: u64,
+    max_amount_out: u64,
+    swap_for_y: bool,
+) -> Result<FillResult> {
+    if max_amount_out == 0 {
+        return Ok(FillResult {
+            amount_in: 0,
+            amount_left: amount,
+            out_amount: 0,
+        });
+    }
+    let max_amount_in = Bin::get_amount_in(max_amount_out, bin.price, swap_for_y)?;
+    if amount >= max_amount_in {
+        Ok(FillResult {
+            amount_in: max_amount_in,
+            amount_left: amount.checked_sub(max_amount_in).context("MathOverflow")?,
+            out_amount: max_amount_out,
+        })
+    } else {
+        let out_amount = Bin::get_amount_out(amount, bin.price, swap_for_y)?;
+        Ok(FillResult {
+            amount_in: amount,
+            amount_left: 0,
+            out_amount,
+        })
+    }
+}
+
+/// Fill a bin's liquidity layers: MM first, then processed limit orders, then open limit orders.
+fn get_exact_in_fill_amount_result(
+    bin: &Bin,
+    amount_in: u64,
+    swap_for_y: bool,
+    support_limit_order: bool,
+) -> Result<ExactInFillResult> {
+    let mm_amount = if swap_for_y {
+        bin.amount_y
+    } else {
+        bin.amount_x
+    };
+    let mm_fill = calculate_exact_in_fill_amount(bin, amount_in, mm_amount, swap_for_y)?;
+
+    if !support_limit_order {
+        return Ok(ExactInFillResult {
+            amount_in: mm_fill.amount_in,
+            amount_left: mm_fill.amount_left,
+            out_amount: mm_fill.out_amount,
+            mm_amount_in: mm_fill.amount_in,
+        });
+    }
+
+    let mut total_amount_in = mm_fill.amount_in;
+    let mut total_amount_out = mm_fill.out_amount;
+    let amount_left_after_mm = mm_fill.amount_left;
+
+    if amount_left_after_mm > 0 {
+        let (open_order_amount, processed_order_remaining) =
+            bin.get_limit_order_amounts_by_direction(swap_for_y);
+
+        // Fill processed orders first
+        let processed_fill = calculate_exact_in_fill_amount(
+            bin,
+            amount_left_after_mm,
+            processed_order_remaining,
+            swap_for_y,
+        )?;
+        total_amount_in = total_amount_in
+            .checked_add(processed_fill.amount_in)
+            .context("MathOverflow")?;
+        total_amount_out = total_amount_out
+            .checked_add(processed_fill.out_amount)
+            .context("MathOverflow")?;
+
+        // Fill open orders next
+        if processed_fill.amount_left > 0 {
+            let open_fill = calculate_exact_in_fill_amount(
+                bin,
+                processed_fill.amount_left,
+                open_order_amount,
+                swap_for_y,
+            )?;
+            total_amount_in = total_amount_in
+                .checked_add(open_fill.amount_in)
+                .context("MathOverflow")?;
+            total_amount_out = total_amount_out
+                .checked_add(open_fill.out_amount)
+                .context("MathOverflow")?;
+        }
+    }
+
+    Ok(ExactInFillResult {
+        amount_in: total_amount_in,
+        amount_left: amount_in
+            .checked_sub(total_amount_in)
+            .context("MathOverflow")?,
+        out_amount: total_amount_out,
+        mm_amount_in: mm_fill.amount_in,
+    })
+}
+
+/// Split trading fee between user (LP) fee and protocol fee, accounting for limit order fee share.
+fn split_fee(
+    trading_fee: u64,
+    protocol_share: u16,
+    mm_amount_in: u64,
+    total_amount_in: u64,
+) -> Result<(u64, u64)> {
+    if total_amount_in == 0 || trading_fee == 0 {
+        return Ok((0, 0));
+    }
+
+    // mm_fee = ceil(trading_fee * mm_amount_in / total_amount_in)
+    let mm_fee: u64 = u128::from(trading_fee)
+        .checked_mul(mm_amount_in.into())
+        .context("MathOverflow")?
+        .checked_add(
+            u128::from(total_amount_in)
+                .checked_sub(1)
+                .context("MathOverflow")?,
+        )
+        .context("MathOverflow")?
+        .checked_div(total_amount_in.into())
+        .context("MathOverflow")?
+        .try_into()
+        .context("MathOverflow")?;
+
+    let total_lo_fee = trading_fee.checked_sub(mm_fee).context("MathOverflow")?;
+
+    // LO fee: portion that goes to order placer
+    let lo_fee: u64 = u128::from(total_lo_fee)
+        .checked_mul(LIMIT_ORDER_FEE_SHARE.into())
+        .context("MathOverflow")?
+        .checked_div(BASIS_POINT_MAX as u128)
+        .context("MathOverflow")?
+        .try_into()
+        .context("MathOverflow")?;
+
+    let lo_protocol_fee = total_lo_fee.checked_sub(lo_fee).context("MathOverflow")?;
+
+    // MM protocol fee
+    let mm_protocol_fee: u64 = u128::from(mm_fee)
+        .checked_mul(protocol_share.into())
+        .context("MathOverflow")?
+        .checked_div(BASIS_POINT_MAX as u128)
+        .context("MathOverflow")?
+        .try_into()
+        .context("MathOverflow")?;
+
+    let total_protocol_fee = lo_protocol_fee
+        .checked_add(mm_protocol_fee)
+        .context("MathOverflow")?;
+    let total_user_fee = trading_fee
+        .checked_sub(total_protocol_fee)
+        .context("MathOverflow")?;
+
+    Ok((total_user_fee, total_protocol_fee))
+}
+
+/// Per-bin exact-in quote with limit order and fee mode support.
+fn swap_exact_in_quote_at_bin(
+    bin: &Bin,
+    lb_pair: &LbPair,
+    in_amount: u64,
+    swap_for_y: bool,
+    support_limit_order: bool,
+    fee_on_input: bool,
+) -> Result<BinQuoteResult> {
+    let mut trading_fee: u64 = 0;
+    let mut excluded_fee_amount_in = in_amount;
+
+    if fee_on_input {
+        let fee = lb_pair.compute_fee_from_amount(in_amount)?;
+        trading_fee = fee;
+        excluded_fee_amount_in = in_amount.checked_sub(fee).context("MathOverflow")?;
+    }
+
+    let fill_result = get_exact_in_fill_amount_result(
+        bin,
+        excluded_fee_amount_in,
+        swap_for_y,
+        support_limit_order,
+    )?;
+
+    let amount_left = fill_result.amount_left;
+    let out_amount = fill_result.out_amount;
+    let mut included_fee_amount_in = in_amount;
+
+    if amount_left > 0 {
+        excluded_fee_amount_in = excluded_fee_amount_in
+            .checked_sub(amount_left)
+            .context("MathOverflow")?;
+
+        if fee_on_input {
+            let fee = lb_pair.compute_fee(excluded_fee_amount_in)?;
+            trading_fee = fee;
+            included_fee_amount_in = excluded_fee_amount_in
+                .checked_add(fee)
+                .context("MathOverflow")?;
+        } else {
+            included_fee_amount_in = excluded_fee_amount_in;
+        }
+    }
+
+    let mut excluded_fee_amount_out = out_amount;
+
+    if !fee_on_input {
+        let fee = lb_pair.compute_fee_from_amount(out_amount)?;
+        trading_fee = fee;
+        excluded_fee_amount_out = out_amount.checked_sub(fee).context("MathOverflow")?;
+    }
+
+    let (_user_fee, protocol_fee) = split_fee(
+        trading_fee,
+        lb_pair.parameters.protocol_share,
+        fill_result.mm_amount_in,
+        fill_result.amount_in,
+    )?;
+
+    Ok(BinQuoteResult {
+        amount_in: included_fee_amount_in,
+        amount_out: excluded_fee_amount_out,
+        fee: trading_fee,
+        protocol_fee,
+    })
+}
+
+/// Per-bin exact-out quote with limit order and fee mode support.
+fn swap_exact_out_quote_at_bin(
+    bin: &Bin,
+    lb_pair: &LbPair,
+    out_amount: u64,
+    swap_for_y: bool,
+    support_limit_order: bool,
+    fee_on_input: bool,
+) -> Result<BinQuoteResult> {
+    let mut included_fee_amount_out = out_amount;
+
+    if !fee_on_input {
+        let fee = lb_pair.compute_fee(out_amount)?;
+        included_fee_amount_out = out_amount.checked_add(fee).context("MathOverflow")?;
+    }
+
+    let max_amount_out = bin.get_max_amount_out_with_limit_orders(swap_for_y, support_limit_order);
+
+    if included_fee_amount_out >= max_amount_out {
+        // Drain entire bin
+        return swap_exact_in_quote_at_bin(
+            bin,
+            lb_pair,
+            u64::MAX,
+            swap_for_y,
+            support_limit_order,
+            fee_on_input,
+        );
+    }
+
+    // Calculate required input for exact output
+    let excluded_fee_amount_in =
+        Bin::get_amount_in(included_fee_amount_out, bin.price, swap_for_y)?;
+
+    let included_fee_amount_in = if fee_on_input {
+        let fee = lb_pair.compute_fee(excluded_fee_amount_in)?;
+        excluded_fee_amount_in
+            .checked_add(fee)
+            .context("MathOverflow")?
+    } else {
+        excluded_fee_amount_in
+    };
+
+    let mut result = swap_exact_in_quote_at_bin(
+        bin,
+        lb_pair,
+        included_fee_amount_in,
+        swap_for_y,
+        support_limit_order,
+        fee_on_input,
+    )?;
+
+    // Delta between quoted output and requested output goes to protocol (rounding)
+    if result.amount_out > out_amount {
+        let delta = result
+            .amount_out
+            .checked_sub(out_amount)
+            .context("MathOverflow")?;
+        if delta > 1 {
+            result.protocol_fee = result
+                .protocol_fee
+                .checked_add(delta)
+                .context("MathOverflow")?;
+        }
+    }
+
+    result.amount_out = out_amount;
+
+    Ok(result)
 }
 
 fn validate_swap_activation(
@@ -86,8 +403,12 @@ pub fn quote_exact_out(
     let mut lb_pair = *lb_pair;
     lb_pair.update_references(current_timestamp as i64)?;
 
+    let support_limit_order = lb_pair.is_support_limit_order();
+    let fee_on_input = lb_pair.fee_on_input(swap_for_y);
+
     let mut total_amount_in: u64 = 0;
     let mut total_fee: u64 = 0;
+    let mut total_protocol_fee: u64 = 0;
 
     let (in_mint_account, out_mint_account) = if swap_for_y {
         (mint_x_account, mint_y_account)
@@ -121,37 +442,35 @@ pub fn quote_exact_out(
                 break;
             }
 
-            lb_pair.update_volatility_accumulator()?;
-
             let active_bin = active_bin_array.get_bin_mut(lb_pair.active_id)?;
-            let price = active_bin.get_or_store_bin_price(lb_pair.active_id, lb_pair.bin_step)?;
+            let _price = active_bin.get_or_store_bin_price(lb_pair.active_id, lb_pair.bin_step)?;
 
-            if !active_bin.is_empty(!swap_for_y) {
-                let bin_max_amount_out = active_bin.get_max_amount_out(swap_for_y);
-                if amount_out >= bin_max_amount_out {
-                    let max_amount_in = active_bin.get_max_amount_in(price, swap_for_y)?;
-                    let max_fee = lb_pair.compute_fee(max_amount_in)?;
+            let max_out =
+                active_bin.get_max_amount_out_with_limit_orders(swap_for_y, support_limit_order);
 
-                    total_amount_in = total_amount_in
-                        .checked_add(max_amount_in)
-                        .context("MathOverflow")?;
+            if max_out > 0 {
+                lb_pair.update_volatility_accumulator()?;
 
-                    total_fee = total_fee.checked_add(max_fee).context("MathOverflow")?;
+                let result = swap_exact_out_quote_at_bin(
+                    active_bin,
+                    &lb_pair,
+                    amount_out,
+                    swap_for_y,
+                    support_limit_order,
+                    fee_on_input,
+                )?;
 
+                if result.amount_out > 0 {
                     amount_out = amount_out
-                        .checked_sub(bin_max_amount_out)
+                        .checked_sub(result.amount_out)
                         .context("MathOverflow")?;
-                } else {
-                    let amount_in = Bin::get_amount_in(amount_out, price, swap_for_y)?;
-                    let fee = lb_pair.compute_fee(amount_in)?;
-
                     total_amount_in = total_amount_in
-                        .checked_add(amount_in)
+                        .checked_add(result.amount_in)
                         .context("MathOverflow")?;
-
-                    total_fee = total_fee.checked_add(fee).context("MathOverflow")?;
-
-                    amount_out = 0;
+                    total_fee = total_fee.checked_add(result.fee).context("MathOverflow")?;
+                    total_protocol_fee = total_protocol_fee
+                        .checked_add(result.protocol_fee)
+                        .context("MathOverflow")?;
                 }
             }
 
@@ -161,16 +480,13 @@ pub fn quote_exact_out(
         }
     }
 
-    total_amount_in = total_amount_in
-        .checked_add(total_fee)
-        .context("MathOverflow")?;
-
     total_amount_in =
         calculate_transfer_fee_included_amount(in_mint_account, total_amount_in, epoch)?.amount;
 
     Ok(SwapExactOutQuote {
         amount_in: total_amount_in,
         fee: total_fee,
+        protocol_fee: total_protocol_fee,
     })
 }
 
@@ -195,8 +511,12 @@ pub fn quote_exact_in(
     let mut lb_pair = *lb_pair;
     lb_pair.update_references(current_timestamp as i64)?;
 
+    let support_limit_order = lb_pair.is_support_limit_order();
+    let fee_on_input = lb_pair.fee_on_input(swap_for_y);
+
     let mut total_amount_out: u64 = 0;
     let mut total_fee: u64 = 0;
+    let mut total_protocol_fee: u64 = 0;
 
     let (in_mint_account, out_mint_account) = if swap_for_y {
         (mint_x_account, mint_y_account)
@@ -232,27 +552,35 @@ pub fn quote_exact_in(
                 break;
             }
 
-            lb_pair.update_volatility_accumulator()?;
-
             let active_bin = active_bin_array.get_bin_mut(lb_pair.active_id)?;
-            let price = active_bin.get_or_store_bin_price(lb_pair.active_id, lb_pair.bin_step)?;
 
-            if !active_bin.is_empty(!swap_for_y) {
-                let SwapResult {
-                    amount_in_with_fees,
-                    amount_out,
-                    fee,
-                    ..
-                } = active_bin.swap(amount_left, price, swap_for_y, &lb_pair, None)?;
+            let max_out =
+                active_bin.get_max_amount_out_with_limit_orders(swap_for_y, support_limit_order);
 
-                amount_left = amount_left
-                    .checked_sub(amount_in_with_fees)
-                    .context("MathOverflow")?;
+            if max_out > 0 {
+                lb_pair.update_volatility_accumulator()?;
 
-                total_amount_out = total_amount_out
-                    .checked_add(amount_out)
-                    .context("MathOverflow")?;
-                total_fee = total_fee.checked_add(fee).context("MathOverflow")?;
+                let result = swap_exact_in_quote_at_bin(
+                    active_bin,
+                    &lb_pair,
+                    amount_left,
+                    swap_for_y,
+                    support_limit_order,
+                    fee_on_input,
+                )?;
+
+                if result.amount_in > 0 {
+                    amount_left = amount_left
+                        .checked_sub(result.amount_in)
+                        .context("MathOverflow")?;
+                    total_amount_out = total_amount_out
+                        .checked_add(result.amount_out)
+                        .context("MathOverflow")?;
+                    total_fee = total_fee.checked_add(result.fee).context("MathOverflow")?;
+                    total_protocol_fee = total_protocol_fee
+                        .checked_add(result.protocol_fee)
+                        .context("MathOverflow")?;
+                }
             }
 
             if amount_left > 0 {
@@ -267,6 +595,7 @@ pub fn quote_exact_in(
     Ok(SwapExactInQuote {
         amount_out: transfer_fee_excluded_amount_out,
         fee: total_fee,
+        protocol_fee: total_protocol_fee,
     })
 }
 

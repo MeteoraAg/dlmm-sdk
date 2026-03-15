@@ -69,7 +69,7 @@ pub async fn execute_list_all_bin_step<C: Deref<Target = impl Signer> + Clone>(
                     let state = PresetParameter::try_deserialize(&mut account.data.as_ref())?;
                     (state.bin_step, state.base_factor, 0)
                 } else if disc == PresetParameter2::DISCRIMINATOR {
-                    let state: PresetParameter2 = bytemuck::pod_read_unaligned(&account.data[8..]);
+                    let state: PresetParameter2 = pod_read_unaligned_skip_disc(&account.data)?;
                     (
                         state.bin_step,
                         state.base_factor,

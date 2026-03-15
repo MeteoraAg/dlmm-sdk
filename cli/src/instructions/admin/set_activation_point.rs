@@ -19,8 +19,8 @@ pub async fn execute_set_activation_point<C: Deref<Target = impl Signer> + Clone
     } = params;
 
     let accounts = dlmm::client::accounts::SetActivationPoint {
-        admin: program.payer(),
         lb_pair,
+        signer: program.payer(),
     }
     .to_account_metas(None);
 

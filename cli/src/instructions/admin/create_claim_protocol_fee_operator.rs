@@ -13,17 +13,21 @@ pub async fn execute_create_claim_protocol_fee_operator<C: Deref<Target = impl S
 ) -> Result<()> {
     let CreateClaimFeeOperatorParams { operator } = params;
 
-    let (claim_fee_operator, _bump) = derive_claim_protocol_fee_operator_pda(operator);
+    let (operator_pda, _bump) = derive_operator_pda(operator);
 
-    let accounts = dlmm::client::accounts::CreateClaimProtocolFeeOperator {
-        claim_fee_operator,
-        operator,
-        admin: program.payer(),
+    let accounts = dlmm::client::accounts::CreateOperatorAccount {
+        operator: operator_pda,
+        whitelisted_signer: operator,
+        signer: program.payer(),
+        payer: program.payer(),
         system_program: anchor_lang::system_program::ID,
     }
     .to_account_metas(None);
 
-    let data = dlmm::client::args::CreateClaimProtocolFeeOperator {}.data();
+    let data = dlmm::client::args::CreateOperatorAccount {
+        permission: 0,
+    }
+    .data();
 
     let instruction = Instruction {
         program_id: dlmm::ID,

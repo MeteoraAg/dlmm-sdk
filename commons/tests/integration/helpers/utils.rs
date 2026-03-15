@@ -1,13 +1,19 @@
+use anchor_lang::AccountDeserialize;
 use anchor_spl::associated_token::*;
 use anchor_spl::token::spl_token;
+use anchor_spl::token_interface::TokenAccount;
 use assert_matches::assert_matches;
+use commons::dlmm::accounts::{BinArray, LbPair};
+use solana_program::clock::Clock;
 use solana_program_test::BanksClient;
 use solana_sdk::{
+    account::Account,
     instruction::Instruction,
     pubkey::Pubkey,
     signature::{Keypair, Signer},
     transaction::Transaction,
 };
+use std::collections::HashMap;
 pub async fn process_and_assert_ok(
     instructions: &[Instruction],
     payer: &Keypair,
@@ -115,15 +121,84 @@ pub async fn warp_sol(
     .await;
 }
 
-pub async fn get_clock(banks_client: &mut BanksClient) -> solana_program::clock::Clock {
+pub async fn mint_spl_tokens(
+    payer: &Keypair,
+    mint: &Pubkey,
+    destination: &Pubkey,
+    mint_authority: &Keypair,
+    amount: u64,
+    banks_client: &mut BanksClient,
+) {
+    let ix = spl_token::instruction::mint_to(
+        &spl_token::id(),
+        mint,
+        destination,
+        &mint_authority.pubkey(),
+        &[],
+        amount,
+    )
+    .unwrap();
+
+    process_and_assert_ok(&[ix], payer, &[payer, mint_authority], banks_client).await;
+}
+
+pub async fn get_clock(banks_client: &mut BanksClient) -> Clock {
     let clock_account = banks_client
         .get_account(solana_program::sysvar::clock::id())
         .await
         .unwrap()
         .unwrap();
 
-    let clock_state =
-        bincode::deserialize::<solana_program::clock::Clock>(clock_account.data.as_ref()).unwrap();
+    let clock_state = bincode::deserialize::<Clock>(clock_account.data.as_ref()).unwrap();
 
     clock_state
+}
+
+pub async fn fetch_account(banks_client: &mut BanksClient, pubkey: Pubkey) -> Account {
+    banks_client
+        .get_account(pubkey)
+        .await
+        .ok()
+        .flatten()
+        .unwrap()
+}
+
+pub async fn fetch_token_account_state(
+    banks_client: &mut BanksClient,
+    pubkey: Pubkey,
+) -> TokenAccount {
+    let account = fetch_account(banks_client, pubkey).await;
+    TokenAccount::try_deserialize(&mut account.data.as_ref()).unwrap()
+}
+
+pub async fn fetch_lb_pair(banks_client: &mut BanksClient, pubkey: Pubkey) -> LbPair {
+    let account = fetch_account(banks_client, pubkey).await;
+    bytemuck::pod_read_unaligned(&account.data[8..])
+}
+
+pub async fn fetch_swap_state(
+    banks_client: &mut BanksClient,
+    lb_pair_pubkey: Pubkey,
+    bin_array_pubkeys: &[Pubkey],
+) -> (LbPair, HashMap<Pubkey, BinArray>, Account, Account, Clock) {
+    let lb_pair_state = fetch_lb_pair(banks_client, lb_pair_pubkey).await;
+
+    let mut bin_arrays = HashMap::new();
+    for &pubkey in bin_array_pubkeys {
+        let account = fetch_account(banks_client, pubkey).await;
+        let state: BinArray = bytemuck::pod_read_unaligned(&account.data[8..]);
+        bin_arrays.insert(pubkey, state);
+    }
+
+    let mint_x_account = fetch_account(banks_client, lb_pair_state.token_x_mint).await;
+    let mint_y_account = fetch_account(banks_client, lb_pair_state.token_y_mint).await;
+    let clock = get_clock(banks_client).await;
+
+    (
+        lb_pair_state,
+        bin_arrays,
+        mint_x_account,
+        mint_y_account,
+        clock,
+    )
 }
