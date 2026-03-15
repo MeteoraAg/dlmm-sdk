@@ -144,11 +144,13 @@ pub async fn execute_initialize_customizable_permissionless_lb_pair<
             bin_step,
             base_factor,
             activation_type,
-            activation_point,
             has_alpha_vault,
-            base_fee_power_factor,
+            activation_point,
             creator_pool_on_off_control,
-            padding: [0u8; 62],
+            base_fee_power_factor,
+            concrete_function_type: 0,
+            collect_fee_mode: 0,
+            padding: [0u8; 60],
         },
     }
     .data();

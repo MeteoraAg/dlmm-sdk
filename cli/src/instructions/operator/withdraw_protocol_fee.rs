@@ -18,7 +18,7 @@ pub async fn execute_withdraw_protocol_fee<C: Deref<Target = impl Signer> + Clon
 
     let lb_pair_state: LbPair = rpc_client
         .get_account_and_deserialize(&lb_pair, |account| {
-            Ok(bytemuck::pod_read_unaligned(&account.data[8..]))
+            pod_read_unaligned_skip_disc(&account.data)
         })
         .await?;
 
@@ -36,7 +36,7 @@ pub async fn execute_withdraw_protocol_fee<C: Deref<Target = impl Signer> + Clon
         &token_y_program,
     );
 
-    let (claim_fee_operator, _) = derive_claim_protocol_fee_operator_pda(program.payer());
+    let (operator, _bump) = derive_operator_pda(program.payer());
 
     let main_accounts = dlmm::client::accounts::WithdrawProtocolFee {
         lb_pair,
@@ -44,13 +44,12 @@ pub async fn execute_withdraw_protocol_fee<C: Deref<Target = impl Signer> + Clon
         reserve_y: lb_pair_state.reserve_y,
         token_x_mint: lb_pair_state.token_x_mint,
         token_y_mint: lb_pair_state.token_y_mint,
-        token_x_program,
-        token_y_program,
         receiver_token_x,
         receiver_token_y,
-        claim_fee_operator,
-        operator: program.payer(),
-        memo_program: spl_memo::ID,
+        operator,
+        signer: program.payer(),
+        token_x_program,
+        token_y_program,
     }
     .to_account_metas(None);
 

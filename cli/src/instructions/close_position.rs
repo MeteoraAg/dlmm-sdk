@@ -15,7 +15,7 @@ pub async fn execute_close_position<C: Deref<Target = impl Signer> + Clone>(
     let rpc_client = program.rpc();
     let position_state: PositionV2 = rpc_client
         .get_account_and_deserialize(&position, |account| {
-            Ok(bytemuck::pod_read_unaligned(&account.data[8..]))
+            pod_read_unaligned_skip_disc(&account.data)
         })
         .await?;
 

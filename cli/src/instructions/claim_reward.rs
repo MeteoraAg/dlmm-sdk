@@ -25,13 +25,13 @@ pub async fn execute_claim_reward<C: Deref<Target = impl Signer> + Clone>(
 
     let lb_pair_state: LbPair = rpc_client
         .get_account_and_deserialize(&lb_pair, |account| {
-            Ok(bytemuck::pod_read_unaligned(&account.data[8..]))
+            pod_read_unaligned_skip_disc(&account.data)
         })
         .await?;
 
     let position_state: PositionV2 = rpc_client
         .get_account_and_deserialize(&position, |account| {
-            Ok(bytemuck::pod_read_unaligned(&account.data[8..]))
+            pod_read_unaligned_skip_disc(&account.data)
         })
         .await?;
 

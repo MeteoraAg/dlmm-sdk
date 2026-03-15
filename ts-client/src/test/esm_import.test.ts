@@ -32,7 +32,7 @@ describe("ESM default import tests", () => {
     test("should have createCustomizablePermissionlessLbPair static method directly accessible", () => {
       expect(DLMM.createCustomizablePermissionlessLbPair).toBeDefined();
       expect(typeof DLMM.createCustomizablePermissionlessLbPair).toBe(
-        "function"
+        "function",
       );
     });
 
@@ -103,7 +103,7 @@ describe("ESM default import tests", () => {
       expect(typeof DLMM.getAllLbPairPositionsByUser).toBe("function");
 
       expect(
-        (DLMM as any).default?.getAllLbPairPositionsByUser
+        (DLMM as any).default?.getAllLbPairPositionsByUser,
       ).toBeUndefined();
     });
 

@@ -62,6 +62,26 @@ pub fn parse_bin_liquidity_distribution(src: &str) -> Result<(i32, f64, f64), Er
     Ok((delta_id, dist_x, dist_y))
 }
 
+pub fn parse_bin_limit_order(src: &str) -> Result<(i32, u64), Error> {
+    let mut parsed_str: Vec<&str> = src.split(',').collect();
+
+    if parsed_str.len() != 2 {
+        return Err(clap::error::Error::new(error::ErrorKind::InvalidValue));
+    }
+
+    let amount = parsed_str
+        .pop()
+        .and_then(|s| s.parse::<u64>().ok())
+        .ok_or_else(|| clap::error::Error::new(error::ErrorKind::InvalidValue))?;
+
+    let bin_id = parsed_str
+        .pop()
+        .and_then(|s| s.parse::<i32>().ok())
+        .ok_or_else(|| clap::error::Error::new(error::ErrorKind::InvalidValue))?;
+
+    Ok((bin_id, amount))
+}
+
 #[derive(Debug, Clone, ValueEnum)]
 pub enum SelectiveRounding {
     Up,
@@ -116,6 +136,16 @@ pub enum DLMMCommand {
     SetPairStatusPermissionless(SetPairStatusPermissionlessParams),
     GetAllPositionsForAnOwner(GetAllPositionsParams),
     SyncPrice(SyncPriceParams),
+    /// Place a limit order on a liquidity pair
+    PlaceLimitOrder(PlaceLimitOrderCliParams),
+    /// Cancel a limit order
+    CancelLimitOrder(CancelLimitOrderParams),
+    /// Close a limit order account if it's empty
+    CloseLimitOrderIfEmpty(CloseLimitOrderIfEmptyParams),
+    /// Set permissionless operation bits on a position
+    SetPermissionlessOperationBits(SetPermissionlessOperationBitsParams),
+    /// Get limit orders for a user on a specific lb pair
+    GetLimitOrders(GetLimitOrdersParams),
     #[clap(flatten)]
     Admin(AdminCommand),
 }
@@ -148,4 +178,8 @@ pub enum AdminCommand {
     CreateClaimProtocolFeeOperator(CreateClaimFeeOperatorParams),
     CloseClaimProtocolFeeOperator(CloseClaimFeeOperatorParams),
     UpdateBaseFee(UpdateBaseFeeParams),
+    /// Close an operator account
+    CloseOperatorAccount(CloseOperatorAccountParams),
+    /// Close a token badge account
+    CloseTokenBadge(CloseTokenBadgeParams),
 }

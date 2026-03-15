@@ -21,6 +21,14 @@ program = "./artifacts/lb_clmm.so"
 address = "abcSyangMHdGzUGKhBhKoQzSFdJKUdkPGf5cbXVHpEw"
 program = "./artifacts/transfer_hook_counter.so"
 
+[[test.validator.account]]
+address = "AUkDuR2mFr68MkknY4xE8nv1ALZGJpgJy6pHUye4rCWA"
+filename = "./artifacts/AUkDuR2mFr68MkknY4xE8nv1ALZGJpgJy6pHUye4rCWA.json"
+
+[[test.validator.account]]
+address = "JB65k1MPAyhqy4Y4sGH2JJnk2wua2pMA5bddznJnmFdE"
+filename = "./artifacts/JB65k1MPAyhqy4Y4sGH2JJnk2wua2pMA5bddznJnmFdE.json"
+
 [scripts]
 test = "yarn run ts-mocha --sort --type-check --bail -p ./tsconfig.json -t 1000000 tests/*.ts"
 

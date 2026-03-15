@@ -18,7 +18,7 @@ import {
 import { BN } from "bn.js";
 import fs from "fs";
 import { DLMM } from "../dlmm";
-import { LBCLMM_PROGRAM_IDS } from "../dlmm/constants";
+import { ConcreteFunctionType, LBCLMM_PROGRAM_IDS } from "../dlmm/constants";
 import {
   binIdToBinArrayIndex,
   deriveBinArray,
@@ -92,6 +92,8 @@ async function createMintAndPair(
     false,
     keypair.publicKey,
     null,
+    null,
+    ConcreteFunctionType.LiquidityMining,
     null,
     {
       cluster: "localhost",

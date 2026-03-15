@@ -47,7 +47,7 @@ pub async fn execute_initialize_lb_pair2<C: Deref<Target = impl Signer> + Clone>
 
     let preset_parameter_state: PresetParameter2 = rpc_client
         .get_account_and_deserialize(&preset_parameter, |account| {
-            Ok(bytemuck::pod_read_unaligned(&account.data[8..]))
+            pod_read_unaligned_skip_disc(&account.data)
         })
         .await?;
 
