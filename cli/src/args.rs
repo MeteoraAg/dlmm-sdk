@@ -65,6 +65,10 @@ pub fn parse_bin_liquidity_distribution(src: &str) -> Result<(i32, f64, f64), Er
 pub fn parse_bin_limit_order(src: &str) -> Result<(i32, u64), Error> {
     let mut parsed_str: Vec<&str> = src.split(',').collect();
 
+    if parsed_str.len() != 2 {
+        return Err(clap::error::Error::new(error::ErrorKind::InvalidValue));
+    }
+
     let amount = parsed_str
         .pop()
         .and_then(|s| s.parse::<u64>().ok())

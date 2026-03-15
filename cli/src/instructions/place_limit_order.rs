@@ -61,11 +61,8 @@ pub async fn execute_place_limit_order<C: Deref<Target = impl Signer> + Clone>(
     let token_mint_account = rpc_client.get_account(&token_mint).await?;
     let token_program = token_mint_account.owner;
 
-    let user_token = get_associated_token_address_with_program_id(
-        &program.payer(),
-        &token_mint,
-        &token_program,
-    );
+    let user_token =
+        get_associated_token_address_with_program_id(&program.payer(), &token_mint, &token_program);
 
     let bitmap_extension_key = derive_bin_array_bitmap_extension(lb_pair).0;
     let bin_array_bitmap_extension = rpc_client
