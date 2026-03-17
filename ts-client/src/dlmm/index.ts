@@ -4278,19 +4278,22 @@ export class DLMM {
           postInstructions.push(claimRewardIx);
         }
 
-        const closePositionIx = await this.program.methods
-          .closePositionIfEmpty()
-          .accountsPartial({
-            rentReceiver: owner, // Must be position owner
-            position,
-            sender: user,
-          })
-          .instruction();
+        if (isFirstChunk) {
+          const closePositionIx = await this.program.methods
+            .closePositionIfEmpty()
+            .accountsPartial({
+              rentReceiver: owner, // Must be position owner
+              position,
+              sender: user,
+            })
+            .instruction();
 
-        postInstructions.push(closePositionIx);
+          postInstructions.push(closePositionIx);
+        }
       }
 
       if (
+        isFirstChunk &&
         [
           this.tokenX.publicKey.toBase58(),
           this.tokenY.publicKey.toBase58(),
