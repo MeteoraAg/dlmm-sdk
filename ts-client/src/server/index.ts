@@ -96,11 +96,10 @@ app.post(
       const activationType = parseInt(req.body.activationType);
       const hasAlphaVault = Boolean(req.body.hasAlphaVault);
       const creatorKey = new PublicKey(req.body.creatorKey);
-      const functionType = FunctionType.LiquidityMining;
       const activationPoint =
         req.body.activationPoint !== null
           ? new BN(req.body.activationPoint)
-          : null;
+          : undefined;
       const transaction = DLMM.createCustomizablePermissionlessLbPair(
         req.connect,
         binStep,
@@ -111,7 +110,6 @@ app.post(
         activationType,
         hasAlphaVault,
         creatorKey,
-        functionType,
         activationPoint
       );
       return res.status(200).send(safeStringify(transaction));
