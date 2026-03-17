@@ -186,7 +186,7 @@ import {
   PairType,
   PositionBinData,
   PositionData,
-  PositionInfo,
+  LbInfo,
   PositionV2,
   PositionVersion,
   ProgramStrategyParameter,
@@ -884,7 +884,7 @@ export class DLMM {
     userPubKey: PublicKey,
     opt?: Opt,
     getPositionsOpt?: GetPositionsOpt
-  ): Promise<Map<string, PositionInfo>> {
+  ): Promise<Map<string, LbInfo>> {
     const program = createProgram(connection, opt);
 
     const positionsV2 = await chunkedGetProgramAccounts(

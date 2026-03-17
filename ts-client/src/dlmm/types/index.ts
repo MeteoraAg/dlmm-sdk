@@ -114,7 +114,7 @@ export interface LbPosition {
   version: PositionVersion;
 }
 
-export interface PositionInfo {
+export interface LbInfo {
   publicKey: PublicKey;
   lbPair: LbPair;
   tokenX: TokenReserve;
