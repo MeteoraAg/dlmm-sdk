@@ -4115,13 +4115,13 @@ export class DLMM {
 
       if (
         this.tokenX.publicKey.equals(NATIVE_MINT) &&
-        !totalXAmount.isZero() &&
+        !totalChunkedXAmount.isZero() &&
         !this.opt?.skipSolWrappingOperation
       ) {
         const wrapSOLIx = wrapSOLInstruction(
           user,
           userTokenX,
-          BigInt(totalXAmount.toString()),
+          BigInt(totalChunkedXAmount.toString()),
         );
 
         preInstructions.push(...wrapSOLIx);
@@ -4131,13 +4131,13 @@ export class DLMM {
 
       if (
         this.tokenY.publicKey.equals(NATIVE_MINT) &&
-        !totalYAmount.isZero() &&
+        !totalChunkedYAmount.isZero() &&
         !this.opt?.skipSolWrappingOperation
       ) {
         const wrapSOLIx = wrapSOLInstruction(
           user,
           userTokenY,
-          BigInt(totalYAmount.toString()),
+          BigInt(totalChunkedYAmount.toString()),
         );
 
         preInstructions.push(...wrapSOLIx);
