@@ -4185,7 +4185,9 @@ export class DLMM {
     const chunkedBinRange = chunkBinRange(fromBinId, toBinId);
     const groupedInstructions: TransactionInstruction[][] = [];
 
-    for (const { lowerBinId, upperBinId } of chunkedBinRange) {
+    for (let i = 0; i < chunkedBinRange.length; i++) {
+      const { lowerBinId, upperBinId } = chunkedBinRange[i];
+      const isFirstChunk = i === 0;
       const binArrayAccountsMeta = getBinArrayAccountMetasCoverage(
         new BN(lowerBinId),
         new BN(upperBinId),
@@ -4222,8 +4224,11 @@ export class DLMM {
           .remainingAccounts(binArrayAccountsMeta)
           .instruction();
 
-        preInstructions.push(createFeeOwnerTokenXIx);
-        preInstructions.push(createFeeOwnerTokenYIx);
+        if (isFirstChunk) {
+          preInstructions.push(createFeeOwnerTokenXIx);
+          preInstructions.push(createFeeOwnerTokenYIx);
+        }
+
         postInstructions.push(claimSwapFeeIx);
 
         for (let i = 0; i < 2; i++) {
@@ -4296,9 +4301,11 @@ export class DLMM {
         closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
       }
 
-      preInstructions.push(createUserTokenXIx);
-      preInstructions.push(createUserTokenYIx);
-
+      if (isFirstChunk) {
+        preInstructions.push(createUserTokenXIx);
+        preInstructions.push(createUserTokenYIx);
+      }
+      
       const binArrayBitmapExtension = this.binArrayBitmapExtension
         ? this.binArrayBitmapExtension.publicKey
         : this.program.programId;
