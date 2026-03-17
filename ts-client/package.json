@@ -26,7 +26,7 @@
     "build": "tsup",
     "start": "npm run build -- --watch",
     "test": "tsup && jest 'src/test/.*\\.test\\.ts'",
-    "unit-test": "jest src/test/calculate_distribution.test.ts",
+    "unit-test": "jest src/test/sdk_token2022.test.ts",
     "example": "dotenv -e .env npx ts-node src/examples/example.ts",
     "start-server": "npx tsc && node dist/src/server/index.js"
   },
