@@ -2286,7 +2286,7 @@ export class DLMM {
       lowerBinId,
       upperBinId,
       this.tokenX.mint.decimals,
-      this.tokenX.mint.decimals,
+      this.tokenY.mint.decimals,
     );
 
     return { activeBin: this.lbPair.activeId, bins };
@@ -4757,7 +4757,7 @@ export class DLMM {
             outAmountLeft = outAmountLeft.sub(amountOut);
             actualInAmount = actualInAmount.add(amountIn);
             feeAmount = feeAmount.add(fee);
-            protocolFeeAmount = protocolFee.add(protocolFee);
+            protocolFeeAmount = protocolFeeAmount.add(protocolFee);
           }
         }
       }
@@ -5258,6 +5258,12 @@ export class DLMM {
     const preInstructions: TransactionInstruction[] = [];
     const postInstructions: Array<TransactionInstruction> = [];
 
+    const [inTokenProgram, outTokenProgram] = inToken.equals(
+      this.lbPair.tokenXMint,
+    )
+      ? [this.tokenX.owner, this.tokenY.owner]
+      : [this.tokenY.owner, this.tokenX.owner];
+
     const [
       { ataPubKey: userTokenIn, ix: createInTokenAccountIx },
       { ataPubKey: userTokenOut, ix: createOutTokenAccountIx },
@@ -5266,13 +5272,13 @@ export class DLMM {
         this.program.provider.connection,
         inToken,
         user,
-        this.tokenX.owner,
+        inTokenProgram,
       ),
       getOrCreateATAInstruction(
         this.program.provider.connection,
         outToken,
         user,
-        this.tokenY.owner,
+        outTokenProgram,
       ),
     ]);
     createInTokenAccountIx && preInstructions.push(createInTokenAccountIx);

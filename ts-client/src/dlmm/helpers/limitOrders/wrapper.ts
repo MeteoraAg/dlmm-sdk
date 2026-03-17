@@ -375,7 +375,8 @@ function getUpdatedLimitOrderAmount(
       unFilledAmount = limitOrderData
         .amount()
         .mul(bin.processedOrderRemainingAmount)
-        .divRound(bin.totalProcessingOrderAmount);
+        .add(bin.totalProcessingOrderAmount.sub(new BN(1)))
+        .div(bin.totalProcessingOrderAmount);
 
       fulFilledAmount = limitOrderData.amount().sub(unFilledAmount);
       break;

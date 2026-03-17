@@ -51,8 +51,8 @@ export function isSupportLimitOrder(lbPairState: LbPair) {
     case FunctionType.LiquidityMining:
       return false;
     case FunctionType.Undetermined:
-      return lbPairState.rewardInfos.some(
-        (rewardInfo) => !rewardInfo.mint.equals(PublicKey.default),
+      return lbPairState.rewardInfos.every((rewardInfo) =>
+        rewardInfo.mint.equals(PublicKey.default),
       );
     default:
       throw new Error("Invalid function type");
