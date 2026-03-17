@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.9.4] - [PR #272](https://github.com/MeteoraAg/dlmm-sdk/pull/272)
+
+### Fixed
+
+- Fixed `removeLiquidity` with `shouldClaimAndClose` failing to close position when bins have unclaimed fees but no remaining liquidity.
+
 ## @meteora-ag/dlmm [1.9.3] - [PR #262](https://github.com/MeteoraAg/dlmm-sdk/pull/262)
 
 ### Added
