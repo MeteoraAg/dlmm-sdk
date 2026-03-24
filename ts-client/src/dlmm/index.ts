@@ -4185,6 +4185,9 @@ export class DLMM {
     const chunkedBinRange = chunkBinRange(fromBinId, toBinId);
     const groupedInstructions: TransactionInstruction[][] = [];
 
+    const { slices, accounts: transferHookAccounts } =
+      this.getPotentialToken2022IxDataAndAccounts(ActionType.Liquidity);
+
     for (let i = 0; i < chunkedBinRange.length; i++) {
       const { lowerBinId, upperBinId } = chunkedBinRange[i];
       const isFirstChunk = i === 0;
@@ -4194,9 +4197,6 @@ export class DLMM {
         this.pubkey,
         this.program.programId
       );
-
-      const { slices, accounts: transferHookAccounts } =
-        this.getPotentialToken2022IxDataAndAccounts(ActionType.Liquidity);
 
       const preInstructions: Array<TransactionInstruction> = [];
       const postInstructions: Array<TransactionInstruction> = [];
