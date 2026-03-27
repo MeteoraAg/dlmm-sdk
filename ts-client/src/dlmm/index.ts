@@ -2787,12 +2787,17 @@ export class DLMM {
     };
   }
 
+  /**
+   * Quote the cost to create a limit order
+   * @param bins - Array of bin IDs (absolute, or relative offsets from active bin if relativeBin is set) to place limit orders in.
+   * @param relativeBin - When set, the `bin.id` in `params.bins` will be treated as relative to the current active bin, which mean bin.id = bin.id + activeId. Otherwise, it will be absolute bin id.
+   */
   public async quoteCreateLimitOrder({
     bins,
     relativeBin,
   }: {
     bins: { id: number }[];
-    relativeBin?: { activeId: number; maxActiveBinSlippage: number };
+    relativeBin?: { activeId: number };
   }) {
     const binCount = bins.length;
 
