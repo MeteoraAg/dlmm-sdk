@@ -37,9 +37,9 @@ import {
   ConcreteFunctionType,
   DEFAULT_BIN_PER_POSITION,
   FEE_PRECISION,
-  FunctionType,
   MAX_ACTIVE_BIN_SLIPPAGE,
   MAX_BINS_PER_POSITION,
+  MAX_BIN_PER_LIMIT_ORDER,
   MAX_BIN_ARRAY_SIZE,
   MAX_BIN_LENGTH_ALLOWED_IN_ONE_TX,
   MAX_CLAIM_ALL_ALLOWED,
@@ -228,6 +228,8 @@ import {
   PositionPermission,
   PlaceLimitOrderParams,
   ParsedLimitOrderWithPubkey,
+  LIMIT_ORDER_MIN_SIZE,
+  LIMIT_ORDER_BIN_DATA_SIZE,
 } from "./types";
 import { ILimitOrder, wrapLimitOrder } from "./helpers/limitOrders";
 
@@ -2782,6 +2784,56 @@ export class DLMM {
       binArraysCount,
       binArrayCost,
       transactionCount,
+    };
+  }
+
+  public async quoteCreateLimitOrder({
+    minBinId,
+    maxBinId,
+  }: {
+    minBinId: number;
+    maxBinId: number;
+  }) {
+    const binCount = maxBinId - minBinId + 1;
+
+    if (binCount <= 0 || binCount > MAX_BIN_PER_LIMIT_ORDER.toNumber()) {
+      throw new Error(
+        `Bin count must be between 1 and ${MAX_BIN_PER_LIMIT_ORDER.toNumber()}`,
+      );
+    }
+
+    const limitOrderAccountSize =
+      8 + LIMIT_ORDER_MIN_SIZE + binCount * LIMIT_ORDER_BIN_DATA_SIZE;
+    const limitOrderCost =
+      await this.program.provider.connection.getMinimumBalanceForRentExemption(
+        limitOrderAccountSize,
+      );
+
+    const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(minBinId));
+    const upperBinArrayIndex = BN.max(
+      binIdToBinArrayIndex(new BN(maxBinId)),
+      lowerBinArrayIndex.add(new BN(1)),
+    );
+
+    let bitmapExtensionCost = 0;
+    if (
+      isOverflowDefaultBinArrayBitmap(lowerBinArrayIndex) ||
+      isOverflowDefaultBinArrayBitmap(upperBinArrayIndex)
+    ) {
+      bitmapExtensionCost = BIN_ARRAY_BITMAP_FEE;
+    }
+
+    const binArraysCount = (
+      await this.binArraysToBeCreate(lowerBinArrayIndex, upperBinArrayIndex)
+    ).length;
+
+    const binArrayCost = binArraysCount * BIN_ARRAY_FEE;
+
+    return {
+      limitOrderCost: limitOrderCost / LAMPORTS_PER_SOL,
+      binArraysCount,
+      binArrayCost,
+      bitmapExtensionCost,
     };
   }
 

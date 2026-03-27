@@ -64,26 +64,26 @@ export const BIN_ARRAY_BITMAP_FEE_BN = new BN(
 const CONSTANTS = Object.entries(IDL.constants);
 
 export const MAX_BIN_ARRAY_SIZE = new BN(
-  CONSTANTS.find(([k, v]) => v.name == "MAX_BIN_PER_ARRAY")?.[1].value ?? 0,
+  CONSTANTS.find(([_, v]) => v.name == "MAX_BIN_PER_ARRAY")?.[1].value ?? 0,
 );
 export const DEFAULT_BIN_PER_POSITION = new BN(
-  CONSTANTS.find(([k, v]) => v.name == "DEFAULT_BIN_PER_POSITION")?.[1].value ??
+  CONSTANTS.find(([_, v]) => v.name == "DEFAULT_BIN_PER_POSITION")?.[1].value ??
     0,
 );
 export const BIN_ARRAY_BITMAP_SIZE = new BN(
-  CONSTANTS.find(([k, v]) => v.name == "BIN_ARRAY_BITMAP_SIZE")?.[1].value ?? 0,
+  CONSTANTS.find(([_, v]) => v.name == "BIN_ARRAY_BITMAP_SIZE")?.[1].value ?? 0,
 );
 export const EXTENSION_BINARRAY_BITMAP_SIZE = new BN(
-  CONSTANTS.find(([k, v]) => v.name == "EXTENSION_BINARRAY_BITMAP_SIZE")?.[1]
+  CONSTANTS.find(([_, v]) => v.name == "EXTENSION_BINARRAY_BITMAP_SIZE")?.[1]
     .value ?? 0,
 );
 
 export const POSITION_MAX_LENGTH = new BN(
-  CONSTANTS.find(([k, v]) => v.name == "POSITION_MAX_LENGTH")?.[1].value ?? 0,
+  CONSTANTS.find(([_, v]) => v.name == "POSITION_MAX_LENGTH")?.[1].value ?? 0,
 );
 
 export const MAX_RESIZE_LENGTH = new BN(
-  CONSTANTS.find(([k, v]) => v.name == "MAX_RESIZE_LENGTH")?.[1].value ?? 0,
+  CONSTANTS.find(([_, v]) => v.name == "MAX_RESIZE_LENGTH")?.[1].value ?? 0,
 );
 
 export const SIMULATION_USER = new PublicKey(
@@ -106,11 +106,16 @@ export const MAX_EXTRA_BIN_ARRAYS = 3;
 export const U64_MAX = new BN("18446744073709551615");
 
 export const MAX_BINS_PER_POSITION = new BN(
-  CONSTANTS.find(([k, v]) => v.name == "POSITION_MAX_LENGTH")?.[1].value ?? 0,
+  CONSTANTS.find(([_, v]) => v.name == "POSITION_MAX_LENGTH")?.[1].value ?? 0,
+);
+
+export const MAX_BIN_PER_LIMIT_ORDER = new BN(
+  CONSTANTS.find(([_, v]) => v.name == "MAX_BIN_PER_LIMIT_ORDER")?.[1].value ??
+    0,
 );
 
 export const LIMIT_ORDER_FEE_SHARE = new BN(
-  CONSTANTS.find(([k, v]) => v.name == "LIMIT_ORDER_FEE_SHARE")?.[1].value ?? 0,
+  CONSTANTS.find(([_, v]) => v.name == "LIMIT_ORDER_FEE_SHARE")?.[1].value ?? 0,
 );
 
 export enum FunctionType {

@@ -53,6 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added function `getLimitOrderByUserAndLbPair` to get all limit orders of a user for a given pair.
 - Added function `getLimitOrder` to get limit order data by limit order pubkey.
 - Added function `addLiquidityByWeight2` which support token 2022 add liquidity by weight.
+- Added function `quoteCreateLimitOrder` which returns the cost for creating a Limit Order
 
 ### Removed
 
