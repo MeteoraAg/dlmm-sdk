@@ -2788,19 +2788,26 @@ export class DLMM {
   }
 
   public async quoteCreateLimitOrder({
-    minBinId,
-    maxBinId,
+    bins,
+    relativeBin,
   }: {
-    minBinId: number;
-    maxBinId: number;
+    bins: { id: number }[];
+    relativeBin?: { activeId: number; maxActiveBinSlippage: number };
   }) {
-    const binCount = maxBinId - minBinId + 1;
+    const binCount = bins.length;
 
     if (binCount <= 0 || binCount > MAX_BIN_PER_LIMIT_ORDER.toNumber()) {
       throw new Error(
         `Bin count must be between 1 and ${MAX_BIN_PER_LIMIT_ORDER.toNumber()}`,
       );
     }
+
+    const resolvedBinIds = bins.map((bin) =>
+      relativeBin == null ? bin.id : bin.id + this.lbPair.activeId,
+    );
+
+    const minBinId = Math.min(...resolvedBinIds);
+    const maxBinId = Math.max(...resolvedBinIds);
 
     const limitOrderAccountSize =
       8 + LIMIT_ORDER_MIN_SIZE + binCount * LIMIT_ORDER_BIN_DATA_SIZE;
