@@ -2828,6 +2828,10 @@ export class DLMM {
         this.pubkey,
       );
 
+    const requireBitmapExtension = !binArrayBitmapExtension.equals(
+      this.program.programId,
+    );
+
     const limitOrderAccountSize =
       8 + LIMIT_ORDER_MIN_SIZE + binCount * LIMIT_ORDER_BIN_DATA_SIZE;
     const limitOrderCost =
@@ -2835,20 +2839,29 @@ export class DLMM {
         limitOrderAccountSize,
       );
 
-    let bitmapExtensionCost = 0;
-    if (
-      !binArrayBitmapExtension.equals(this.program.programId) &&
-      !this.binArrayBitmapExtension
-    ) {
-      bitmapExtensionCost = BIN_ARRAY_BITMAP_FEE;
+    const binArrayPubkeys = binArrayAccountMetas.map((acc) => acc.pubkey);
+    const accountsToFetch = [...binArrayPubkeys];
+
+    if (requireBitmapExtension) {
+      accountsToFetch.push(binArrayBitmapExtension);
     }
 
-    const binArrayPubkeys = binArrayAccountMetas.map((acc) => acc.pubkey);
-    const uninitializedBinArrayCount = await this.program.provider.connection
-      .getMultipleAccountsInfo(binArrayPubkeys)
-      .then(
-        (accInfos) => accInfos.filter((accInfo) => accInfo === null).length,
-      );
+    const accounts = await chunkedGetMultipleAccountInfos(
+      this.program.provider.connection,
+      accountsToFetch,
+    );
+
+    const binArrayAccounts = accounts.splice(0, binArrayPubkeys.length);
+    const bitmapExtensionAccount = accounts.splice(0, accounts.length).pop();
+
+    const uninitializedBinArrayCount = binArrayAccounts.filter(
+      (acc) => acc === null,
+    ).length;
+
+    let bitmapExtensionCost = 0;
+    if (requireBitmapExtension && !bitmapExtensionAccount) {
+      bitmapExtensionCost = BIN_ARRAY_BITMAP_FEE;
+    }
 
     const binArrayCost = uninitializedBinArrayCount * BIN_ARRAY_FEE;
 
