@@ -44,8 +44,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added `concreteFunctionType`, `collectFeeMode` parameters in `createCustomizablePermissionlessLbPair` function. This allow user to create pair with function of LimitOrder or LiquidityMining and collect fee in InputToken, or TokenY (single sided fee).
-- Added `concreteFunctionType`, `collectFeeMode` parameters in `getPairPubkeyIfExists` function. This allow user to query existing pair with addition filter of function type and collect fee mode.
 - Added function `placeLimitOrder` to place a new limit order. Only applicable for pair with function type of LimitOrder.
 - Added function `cancelLimitOrder` to cancel an existing limit order.
 - Added function `closeLimitOrderIfEmpty` to close a limit order if it's empty.
@@ -54,6 +52,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added function `getLimitOrder` to get limit order data by limit order pubkey.
 - Added function `addLiquidityByWeight2` which support token 2022 add liquidity by weight.
 - Added function `quoteCreateLimitOrder` which returns the cost for creating a Limit Order
+
+### Breaking Changes
+
+- Added `concreteFunctionType`, `collectFeeMode` parameters in `createCustomizablePermissionlessLbPair` function. This allow user to create pair with function of LimitOrder or LiquidityMining and collect fee in InputToken, or TokenY (single sided fee).
+- Added `concreteFunctionType`, `collectFeeMode` parameters in `getPairPubkeyIfExists` function. This allow user to query existing pair with addition filter of function type and collect fee mode.
 
 ### Removed
 
