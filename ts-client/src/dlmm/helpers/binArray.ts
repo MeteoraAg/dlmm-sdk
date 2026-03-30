@@ -1,5 +1,5 @@
 import { BN } from "@coral-xyz/anchor";
-import { PublicKey } from "@solana/web3.js";
+import { AccountMeta, PublicKey } from "@solana/web3.js";
 import {
   BIN_ARRAY_BITMAP_SIZE,
   DEFAULT_BIN_PER_POSITION,
@@ -464,4 +464,45 @@ export function decodeRewardPerTokenStored(bin: Bin) {
   );
 
   return [rewardPerTokenStored0, rewardPerTokenStored1];
+}
+
+export function getBinArrayInfoForNonContiguousBinIds(
+  binIds: number[],
+  programId: PublicKey,
+  lbPair: PublicKey,
+) {
+  let binArrayBitmapExtension = programId;
+  const binArrayIndexes = new Set<number>();
+
+  for (const binId of binIds) {
+    const binArrayIndex = binIdToBinArrayIndex(new BN(binId));
+    if (
+      isOverflowDefaultBinArrayBitmap(binArrayIndex) &&
+      binArrayBitmapExtension.equals(programId)
+    ) {
+      binArrayBitmapExtension = deriveBinArrayBitmapExtension(
+        lbPair,
+        programId,
+      )[0];
+    }
+    binArrayIndexes.add(binArrayIndex.toNumber());
+  }
+
+  const binArrayPubkeys = [...binArrayIndexes].map(
+    (idx) => deriveBinArray(lbPair, new BN(idx), programId)[0],
+  );
+
+  const binArrayAccountMetas: AccountMeta[] = binArrayPubkeys.map((pubkey) => {
+    return {
+      pubkey,
+      isSigner: false,
+      isWritable: true,
+    };
+  });
+
+  return {
+    binArrayAccountMetas,
+    binArrayBitmapExtension,
+    binArrayIndexes: [...binArrayIndexes].map((idx) => new BN(idx)),
+  };
 }

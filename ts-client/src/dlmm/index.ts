@@ -37,11 +37,11 @@ import {
   ConcreteFunctionType,
   DEFAULT_BIN_PER_POSITION,
   FEE_PRECISION,
-  FunctionType,
   MAX_ACTIVE_BIN_SLIPPAGE,
   MAX_BINS_PER_POSITION,
   MAX_BIN_ARRAY_SIZE,
   MAX_BIN_LENGTH_ALLOWED_IN_ONE_TX,
+  MAX_BIN_PER_LIMIT_ORDER,
   MAX_CLAIM_ALL_ALLOWED,
   MAX_EXTRA_BIN_ARRAYS,
   MAX_FEE_RATE,
@@ -105,6 +105,7 @@ import {
   getFeeMode,
   getAmountOut,
   encodePositionPermissions,
+  getBinArrayInfoForNonContiguousBinIds,
 } from "./helpers";
 import {
   binArrayLbPairFilter,
@@ -228,6 +229,8 @@ import {
   PositionPermission,
   PlaceLimitOrderParams,
   ParsedLimitOrderWithPubkey,
+  LIMIT_ORDER_MIN_SIZE,
+  LIMIT_ORDER_BIN_DATA_SIZE,
 } from "./types";
 import { ILimitOrder, wrapLimitOrder } from "./helpers/limitOrders";
 
@@ -2782,6 +2785,91 @@ export class DLMM {
       binArraysCount,
       binArrayCost,
       transactionCount,
+    };
+  }
+
+  /**
+   * Quote the cost to create a limit order
+   * @param bins - Array of bin IDs (absolute, or relative offsets from active bin if relativeBin is set) to place limit orders in.
+   * @param relativeBin - When set, the `bin.id` in `params.bins` will be treated as relative to the current active bin, which mean bin.id = bin.id + activeId. Otherwise, it will be absolute bin id.
+   */
+  public async quoteCreateLimitOrder({
+    bins,
+    relativeBin,
+  }: {
+    bins: { id: number }[];
+    relativeBin?: { activeId: number };
+  }) {
+    const binCount = bins.length;
+
+    if (binCount <= 0 || binCount > MAX_BIN_PER_LIMIT_ORDER.toNumber()) {
+      throw new Error(
+        `Bin count must be between 1 and ${MAX_BIN_PER_LIMIT_ORDER.toNumber()}`,
+      );
+    }
+
+    for (let i = 1; i < binCount; i++) {
+      const prevBinId = bins[i - 1].id;
+      const currentBinId = bins[i].id;
+
+      if (currentBinId <= prevBinId) {
+        throw new Error(`Bin IDs must be in increasing order`);
+      }
+    }
+
+    const resolvedBinIds = bins.map((bin) =>
+      relativeBin == null ? bin.id : bin.id + this.lbPair.activeId,
+    );
+
+    const { binArrayBitmapExtension, binArrayAccountMetas } =
+      getBinArrayInfoForNonContiguousBinIds(
+        resolvedBinIds,
+        this.program.programId,
+        this.pubkey,
+      );
+
+    const requireBitmapExtension = !binArrayBitmapExtension.equals(
+      this.program.programId,
+    );
+
+    const limitOrderAccountSize =
+      8 + LIMIT_ORDER_MIN_SIZE + binCount * LIMIT_ORDER_BIN_DATA_SIZE;
+    const limitOrderCost =
+      await this.program.provider.connection.getMinimumBalanceForRentExemption(
+        limitOrderAccountSize,
+      );
+
+    const binArrayPubkeys = binArrayAccountMetas.map((acc) => acc.pubkey);
+    const accountsToFetch = [...binArrayPubkeys];
+
+    if (requireBitmapExtension) {
+      accountsToFetch.push(binArrayBitmapExtension);
+    }
+
+    const accounts = await chunkedGetMultipleAccountInfos(
+      this.program.provider.connection,
+      accountsToFetch,
+    );
+
+    const binArrayAccounts = accounts.splice(0, binArrayPubkeys.length);
+    const bitmapExtensionAccount = accounts.splice(0, accounts.length).pop();
+
+    const uninitializedBinArrayCount = binArrayAccounts.filter(
+      (acc) => acc === null,
+    ).length;
+
+    let bitmapExtensionCost = 0;
+    if (requireBitmapExtension && !bitmapExtensionAccount) {
+      bitmapExtensionCost = BIN_ARRAY_BITMAP_FEE;
+    }
+
+    const binArrayCost = uninitializedBinArrayCount * BIN_ARRAY_FEE;
+
+    return {
+      limitOrderCost: limitOrderCost / LAMPORTS_PER_SOL,
+      binArraysCount: uninitializedBinArrayCount,
+      binArrayCost,
+      bitmapExtensionCost,
     };
   }
 
@@ -7988,63 +8076,39 @@ export class DLMM {
   }): Promise<Transaction> {
     const isAskSide = Boolean(params.isAskSide);
 
-    let lowestBinId = Number.MAX_SAFE_INTEGER;
-    let highestBinId = Number.MIN_SAFE_INTEGER;
-
-    for (const bin of params.bins) {
-      const binId =
-        params.relativeBin == null ? bin.id : bin.id + this.lbPair.activeId;
-      if (binId < lowestBinId) {
-        lowestBinId = binId;
-      }
-
-      if (binId > highestBinId) {
-        highestBinId = binId;
-      }
-    }
-
-    const binArrayIndexes = getBinArrayIndexesCoverage(
-      new BN(lowestBinId),
-      new BN(highestBinId),
+    const resolvedBinIds = params.bins.map((bin) =>
+      params.relativeBin == null ? bin.id : bin.id + this.lbPair.activeId,
     );
 
-    const binArrayAccountMetas = getBinArrayAccountMetasCoverage(
-      new BN(lowestBinId),
-      new BN(highestBinId),
-      this.pubkey,
-      this.program.programId,
-    );
+    const { binArrayIndexes, binArrayAccountMetas, binArrayBitmapExtension } =
+      getBinArrayInfoForNonContiguousBinIds(
+        resolvedBinIds,
+        this.program.programId,
+        this.pubkey,
+      );
 
     const createBinArrayIxs = await this.createBinArraysIfNeeded(
       binArrayIndexes,
       payer,
     );
 
-    let binArrayBitmapExtension = this.program.programId;
-
     const preInstructions = [...createBinArrayIxs];
     const postInstructions = [];
 
-    for (const index of binArrayIndexes) {
-      if (isOverflowDefaultBinArrayBitmap(index)) {
-        binArrayBitmapExtension = deriveBinArrayBitmapExtension(
-          this.pubkey,
-          this.program.programId,
-        )[0];
+    if (
+      !binArrayBitmapExtension.equals(this.program.programId) &&
+      !this.binArrayBitmapExtension
+    ) {
+      const initializeBitmapExtensionIx = await this.program.methods
+        .initializeBinArrayBitmapExtension()
+        .accountsPartial({
+          binArrayBitmapExtension: binArrayBitmapExtension,
+          funder: owner,
+          lbPair: this.pubkey,
+        })
+        .instruction();
 
-        if (!this.binArrayBitmapExtension) {
-          const initializeBitmapExtensionIx = await this.program.methods
-            .initializeBinArrayBitmapExtension()
-            .accountsPartial({
-              binArrayBitmapExtension: binArrayBitmapExtension,
-              funder: owner,
-              lbPair: this.pubkey,
-            })
-            .instruction();
-
-          preInstructions.push(initializeBitmapExtensionIx);
-        }
-      }
+      preInstructions.push(initializeBitmapExtensionIx);
     }
 
     const [reserve, tokenMint, tokenProgram, slices, transferHookAccounts] =
@@ -8162,38 +8226,12 @@ export class DLMM {
     const { slices, accounts: transferHookAccounts } =
       this.getPotentialToken2022IxDataAndAccounts(ActionType.Liquidity);
 
-    const binArrayIndexes = new Set<number>();
-
-    let binArrayBitmapExtension = this.program.programId;
-
-    for (const binId of binIds) {
-      const binArrayIndex = binIdToBinArrayIndex(new BN(binId));
-      if (
-        isOverflowDefaultBinArrayBitmap(binArrayIndex) &&
-        binArrayBitmapExtension.equals(this.program.programId)
-      ) {
-        binArrayBitmapExtension = deriveBinArrayBitmapExtension(
-          this.pubkey,
-          this.program.programId,
-        )[0];
-      }
-      binArrayIndexes.add(binArrayIndex.toNumber());
-    }
-
-    const binArrayPubkeys = [...binArrayIndexes].map(
-      (idx) =>
-        deriveBinArray(this.pubkey, new BN(idx), this.program.programId)[0],
-    );
-
-    const binArrayAccountMetas: AccountMeta[] = binArrayPubkeys.map(
-      (pubkey) => {
-        return {
-          pubkey,
-          isSigner: false,
-          isWritable: true,
-        };
-      },
-    );
+    const { binArrayAccountMetas, binArrayBitmapExtension } =
+      getBinArrayInfoForNonContiguousBinIds(
+        binIds,
+        this.program.programId,
+        this.pubkey,
+      );
 
     const preInstructions = [];
     const postInstructions = [];
