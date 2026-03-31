@@ -90,7 +90,7 @@ export const SIMULATION_USER = new PublicKey(
   "HrY9qR5TiB2xPzzvbBu5KrBorMfYGQXh9osXydz4jy9s",
 );
 
-export const PRECISION = 18446744073709551616;
+export const PRECISION = new Decimal("18446744073709551616"); // 2^64
 
 export const MAX_CLAIM_ALL_ALLOWED = 2;
 
