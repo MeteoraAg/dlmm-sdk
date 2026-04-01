@@ -8155,6 +8155,16 @@ export class DLMM {
         new BN(0),
       );
 
+      // Create ATA if it doesnt exist
+      preInstructions.push(
+        createAssociatedTokenAccountIdempotentInstruction(
+          owner,
+          userTokenAddress,
+          owner,
+          NATIVE_MINT,
+        ),
+      );
+
       const wrapSOLIxX = wrapSOLInstruction(
         sender,
         userTokenAddress,
