@@ -7625,29 +7625,31 @@ export class DLMM {
 
       const feeInfo = feeInfos[idx];
 
-      const newFeeX = posShare.isZero()
-        ? new BN(0)
-        : mulShr(
-            posShares[idx].shrn(SCALE_OFFSET),
-            bin.feeAmountXPerTokenStored.sub(feeInfo.feeXPerTokenComplete),
-            SCALE_OFFSET,
-            Rounding.Down
-          );
+      if (feeInfo) {
+        const newFeeX = posShare.isZero()
+          ? new BN(0)
+          : mulShr(
+              posShares[idx].shrn(SCALE_OFFSET),
+              bin.feeAmountXPerTokenStored.sub(feeInfo.feeXPerTokenComplete),
+              SCALE_OFFSET,
+              Rounding.Down
+            );
 
-      const newFeeY = posShare.isZero()
-        ? new BN(0)
-        : mulShr(
-            posShares[idx].shrn(SCALE_OFFSET),
-            bin.feeAmountYPerTokenStored.sub(feeInfo.feeYPerTokenComplete),
-            SCALE_OFFSET,
-            Rounding.Down
-          );
+        const newFeeY = posShare.isZero()
+          ? new BN(0)
+          : mulShr(
+              posShares[idx].shrn(SCALE_OFFSET),
+              bin.feeAmountYPerTokenStored.sub(feeInfo.feeYPerTokenComplete),
+              SCALE_OFFSET,
+              Rounding.Down
+            );
 
-      const claimableFeeX = newFeeX.add(feeInfo.feeXPending);
-      const claimableFeeY = newFeeY.add(feeInfo.feeYPending);
+        const claimableFeeX = newFeeX.add(feeInfo.feeXPending);
+        const claimableFeeY = newFeeY.add(feeInfo.feeYPending);
 
-      feeX = feeX.add(claimableFeeX);
-      feeY = feeY.add(claimableFeeY);
+        feeX = feeX.add(claimableFeeX);
+        feeY = feeY.add(claimableFeeY);
+      }
 
       const claimableRewardsInBin = [new BN(0), new BN(0)];
 
