@@ -124,7 +124,7 @@ export function wrapOracle(
 export class DynamicOracle implements IDynamicOracle {
   constructor(
     public oracleAddress: PublicKey,
-    private metadata: Oracle,
+    public metadata: Oracle,
     private observations: Observation[],
     private binStep: number,
     private currentActiveBinId: BN,
