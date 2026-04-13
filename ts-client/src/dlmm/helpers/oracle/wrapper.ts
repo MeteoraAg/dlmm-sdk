@@ -25,8 +25,6 @@ export interface TwapResult<T> {
  * Provides methods to retrieve TWAP active bin IDs and prices over arbitrary time ranges.
  */
 export interface IDynamicOracle {
-  /** Returns the earliest recorded timestamp in the oracle, or null if uninitialized. */
-  getEarliestTimestamp(): BN | null;
   /** Returns the maximum observable duration from the earliest sample to the given timestamp. */
   getMaxDuration(currentTimestamp: BN): BN;
   /**
@@ -93,7 +91,10 @@ export function wrapOracle(
       offset + 16,
     );
 
-    const cumulativeActiveBinId = new BN(cumulativeActiveBinIdSlice, "le");
+    const cumulativeActiveBinId = new BN(
+      cumulativeActiveBinIdSlice,
+      "le",
+    ).fromTwos(128);
 
     offset += 16;
 
@@ -134,7 +135,8 @@ export class DynamicOracle implements IDynamicOracle {
 
   nextIndex(): number {
     const currentIndex = this.metadata.idx.toNumber();
-    return (currentIndex + 1) % this.metadata.activeSize.toNumber();
+    const nextIndex = currentIndex + 1;
+    return nextIndex >= this.metadata.activeSize.toNumber() ? 0 : nextIndex;
   }
 
   getEarliestSample(): Observation {
@@ -202,10 +204,7 @@ export class DynamicOracle implements IDynamicOracle {
     }
   }
 
-  getActiveIdByTime(
-    timePoint0: BN,
-    timePoint1: BN,
-  ): TwapResult<BN> | null {
+  getActiveIdByTime(timePoint0: BN, timePoint1: BN): TwapResult<BN> | null {
     const t0 = BN.min(timePoint0, timePoint1);
     const t1 = BN.max(timePoint0, timePoint1);
     const duration = t1.sub(t0);
@@ -254,10 +253,7 @@ export class DynamicOracle implements IDynamicOracle {
     return earliestSample.isInitialized() ? earliestSample.lastUpdatedAt : null;
   }
 
-  getPriceByTime(
-    timePoint0: BN,
-    timePoint1: BN,
-  ): TwapResult<Decimal> | null {
+  getPriceByTime(timePoint0: BN, timePoint1: BN): TwapResult<Decimal> | null {
     const result = this.getActiveIdByTime(timePoint0, timePoint1);
 
     if (result === null) {
@@ -270,10 +266,7 @@ export class DynamicOracle implements IDynamicOracle {
     };
   }
 
-  getUiPriceByTime(
-    timePoint0: BN,
-    timePoint1: BN,
-  ): TwapResult<Decimal> | null {
+  getUiPriceByTime(timePoint0: BN, timePoint1: BN): TwapResult<Decimal> | null {
     const result = this.getPriceByTime(timePoint0, timePoint1);
 
     if (result === null) {
