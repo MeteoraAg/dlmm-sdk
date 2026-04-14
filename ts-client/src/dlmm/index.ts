@@ -99,7 +99,7 @@ import {
   unwrapSOLInstruction,
   wrapSOLInstruction,
   wrapOracle,
-  DynamicOracle,
+  IDynamicOracle,
 } from "./helpers";
 import {
   binArrayLbPairFilter,
@@ -8305,13 +8305,13 @@ export class DLMM {
   }
 
   /**
-   * Fetches the oracle account and returns a DynamicOracle instance that can be
+   * Fetches the oracle account and returns an IDynamicOracle instance that can be
    * used to query TWAP (Time-Weighted Average Price) data.
    *
-   * @returns A DynamicOracle instance with methods like getActiveIdByTime,
+   * @returns An IDynamicOracle instance with methods like getActiveIdByTime,
    * getPriceByTime, getUiPriceByTime, etc.
    */
-  public async getOracle(): Promise<DynamicOracle> {
+  public async getOracle(): Promise<IDynamicOracle> {
     const oracleAddress = this.lbPair.oracle;
     const [oracleAccountInfo, lbPairAccountInfo] =
       await this.program.provider.connection.getMultipleAccountsInfo([

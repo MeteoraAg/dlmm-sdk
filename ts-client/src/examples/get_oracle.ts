@@ -1,5 +1,6 @@
 import { Connection, PublicKey, SYSVAR_CLOCK_PUBKEY } from "@solana/web3.js";
 import { DLMM } from "../dlmm";
+import { IDynamicOracle } from "../dlmm/helpers";
 import { Clock, ClockLayout } from "../dlmm/types";
 import BN from "bn.js";
 
@@ -14,7 +15,7 @@ async function main() {
     cluster: "mainnet-beta",
   });
 
-  const oracle = await dlmmPool.getOracle();
+  const oracle: IDynamicOracle = await dlmmPool.getOracle();
 
   // Current on-chain timestamp from clock sysvar
   const clockAccInfo = await connection.getAccountInfo(SYSVAR_CLOCK_PUBKEY);
@@ -25,11 +26,7 @@ async function main() {
   const maxDuration = oracle.getMaxDuration(currentTimestamp);
   console.log("Max oracle duration (seconds):", maxDuration.toString());
 
-  // Earliest recorded timestamp
-  const earliestTimestamp = oracle.getEarliestTimestamp();
-  console.log("Earliest timestamp:", earliestTimestamp?.toString() ?? "N/A");
-
-  if (!earliestTimestamp) {
+  if (maxDuration.isZero()) {
     console.log("Oracle has no observations yet.");
     return;
   }

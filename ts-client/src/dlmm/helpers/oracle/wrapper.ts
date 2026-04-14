@@ -25,6 +25,12 @@ export interface TwapResult<T> {
  * Provides methods to retrieve TWAP active bin IDs and prices over arbitrary time ranges.
  */
 export interface IDynamicOracle {
+  /** The public key of the oracle account. */
+  readonly oracleAddress: PublicKey;
+  /** The on-chain oracle metadata (idx, activeSize, length). */
+  readonly metadata: Oracle;
+  /** The decoded observation entries. */
+  readonly observations: Observation[];
   /** Returns the maximum observable duration from the earliest sample to the given timestamp. */
   getMaxDuration(currentTimestamp: BN): BN;
   /**
@@ -124,9 +130,9 @@ export function wrapOracle(
 
 export class DynamicOracle implements IDynamicOracle {
   constructor(
-    public oracleAddress: PublicKey,
-    public metadata: Oracle,
-    private observations: Observation[],
+    public readonly oracleAddress: PublicKey,
+    public readonly metadata: Oracle,
+    public readonly observations: Observation[],
     private binStep: number,
     private currentActiveBinId: BN,
     private baseTokenDecimals: number,
@@ -241,7 +247,7 @@ export class DynamicOracle implements IDynamicOracle {
     const timePoint0 = this.getEarliestTimestamp();
 
     if (timePoint0 === null) {
-      return { value: this.currentActiveBinId, duration: new BN(0) };
+      return null;
     }
 
     const timePoint1 = currentTimestamp;
