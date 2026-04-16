@@ -16,8 +16,8 @@ pub async fn execute_set_pair_status_permissionless<C: Deref<Target = impl Signe
     let SetPairStatusPermissionlessParams { lb_pair, enable } = params;
 
     let accounts = dlmm::client::accounts::SetPairStatusPermissionless {
-        creator: program.payer(),
         lb_pair,
+        signer: program.payer(),
     }
     .to_account_metas(None);
 

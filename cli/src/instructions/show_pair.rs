@@ -27,7 +27,7 @@ pub async fn execute_show_pair<C: Deref<Target = impl Signer> + Clone>(
 
     let lb_pair_state: LbPair = rpc_client
         .get_account_and_deserialize(&lb_pair, |account| {
-            Ok(bytemuck::pod_read_unaligned(&account.data[8..]))
+            pod_read_unaligned_skip_disc(&account.data)
         })
         .await?;
 
@@ -47,7 +47,7 @@ pub async fn execute_show_pair<C: Deref<Target = impl Signer> + Clone>(
         .await?
         .into_iter()
         .filter_map(|(key, account)| {
-            let bin_array = bytemuck::pod_read_unaligned(&account.data[8..]);
+            let bin_array = pod_read_unaligned_skip_disc(&account.data).ok()?;
             Some((key, bin_array))
         })
         .collect();

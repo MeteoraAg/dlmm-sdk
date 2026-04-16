@@ -6,7 +6,11 @@ import {
   ProgramAccount,
 } from "@coral-xyz/anchor";
 import { LbClmm } from "../idl/idl";
-import { getPriceOfBinByBinId } from "../helpers";
+import {
+  decodeRewardPerTokenStored,
+  getPriceOfBinByBinId,
+  isSupportLimitOrder,
+} from "../helpers";
 import {
   AccountInfo,
   AccountMeta,
@@ -19,6 +23,8 @@ import { u64, i64, struct, rustEnum } from "@coral-xyz/borsh";
 import { Mint } from "@solana/spl-token";
 import { AllAccountsMap } from "@coral-xyz/anchor/dist/cjs/program/namespace/types";
 import { RebalancePosition, SimulateRebalanceResp } from "../helpers/rebalance";
+import { FunctionType } from "../constants";
+import { ParsedLimitOrder } from "../helpers/limitOrders";
 
 export interface FeeInfo {
   baseFeeRatePercentage: Decimal;
@@ -52,8 +58,8 @@ export type Bin = IdlTypes<LbClmm>["bin"];
 export type BinArray = IdlAccounts<LbClmm>["binArray"];
 export type BinArrayAccount = ProgramAccount<IdlAccounts<LbClmm>["binArray"]>;
 
-export type Position = IdlAccounts<LbClmm>["position"];
 export type PositionV2 = IdlAccounts<LbClmm>["positionV2"];
+export type LimitOrder = IdlAccounts<LbClmm>["limitOrder"];
 
 export type PresetParameter = IdlAccounts<LbClmm>["presetParameter"];
 export type PresetParameter2 = IdlAccounts<LbClmm>["presetParameter2"];
@@ -107,6 +113,14 @@ export type CompressedBinDepositAmounts = CompressedBinDepositAmount[];
 
 export type ResizeSideEnum = IdlTypes<LbClmm>["resizeSide"];
 export type ExtendedPositionBinData = IdlTypes<LbClmm>["positionBinData"];
+
+export type LimitOrderBinData = IdlTypes<LbClmm>["limitOrderBinData"];
+export type PlaceLimitOrderParams = IdlTypes<LbClmm>["placeLimitOrderParams"];
+
+export interface ParsedLimitOrderWithPubkey {
+  publicKey: PublicKey;
+  limitOrderData: ParsedLimitOrder;
+}
 
 export interface LbPosition {
   publicKey: PublicKey;
@@ -184,6 +198,9 @@ export enum ActivationType {
 export const POSITION_MIN_SIZE = 8112;
 export const POSITION_BIN_DATA_SIZE = 112;
 
+export const LIMIT_ORDER_MIN_SIZE = 112;
+export const LIMIT_ORDER_BIN_DATA_SIZE = 32;
+
 export interface StrategyParameters {
   maxBinId: number;
   minBinId: number;
@@ -249,6 +266,21 @@ export interface BinLiquidity {
   pricePerToken: string;
   feeAmountXPerTokenStored: BN;
   feeAmountYPerTokenStored: BN;
+  /**
+   * These fields only applicable to limit order based pool
+   */
+  fulfilledOrderAmountX: BN;
+  fulfilledOrderAmountY: BN;
+  limitOrderFeeAskSide: BN;
+  limitOrderFeeBidSide: BN;
+  openOrderAmount: BN;
+  totalProcessingOrderAmount: BN;
+  processedOrderRemainingAmount: BN;
+  orderAge: number;
+  limitOrderAskSide: boolean;
+  /**
+   * These fields only applicable to liquidity mining based pool
+   */
   rewardPerTokenStored: BN[];
 }
 
@@ -259,23 +291,66 @@ export module BinLiquidity {
     binStep: number,
     baseTokenDecimal: number,
     quoteTokenDecimal: number,
-    version: number
+    version: number,
+    lbPair: LbPair,
   ): BinLiquidity {
     const pricePerLamport = getPriceOfBinByBinId(binId, binStep).toString();
-    return {
-      binId,
-      xAmount: bin.amountX,
-      yAmount: bin.amountY,
-      supply: bin.liquiditySupply,
-      price: pricePerLamport,
-      version,
-      pricePerToken: new Decimal(pricePerLamport)
-        .mul(new Decimal(10 ** (baseTokenDecimal - quoteTokenDecimal)))
-        .toString(),
-      feeAmountXPerTokenStored: bin.feeAmountXPerTokenStored,
-      feeAmountYPerTokenStored: bin.feeAmountYPerTokenStored,
-      rewardPerTokenStored: bin.functionBytes,
-    };
+    const supportLimitOrder = isSupportLimitOrder(lbPair);
+
+    const xAmount = bin.amountX;
+    const yAmount = bin.amountY;
+    const supply = bin.liquiditySupply;
+    const pricePerToken = new Decimal(pricePerLamport)
+      .mul(new Decimal(10 ** (baseTokenDecimal - quoteTokenDecimal)))
+      .toString();
+    const feeAmountXPerTokenStored = bin.feeAmountXPerTokenStored;
+    const feeAmountYPerTokenStored = bin.feeAmountYPerTokenStored;
+
+    if (supportLimitOrder) {
+      return {
+        binId,
+        xAmount,
+        yAmount,
+        supply,
+        version,
+        price: pricePerLamport,
+        pricePerToken,
+        feeAmountXPerTokenStored,
+        feeAmountYPerTokenStored,
+        rewardPerTokenStored: [new BN(0), new BN(0)],
+        fulfilledOrderAmountX: bin.fulfilledOrderAmountX,
+        fulfilledOrderAmountY: bin.fulfilledOrderAmountY,
+        limitOrderFeeAskSide: bin.limitOrderFeeAskSide,
+        limitOrderFeeBidSide: bin.limitOrderFeeBidSide,
+        openOrderAmount: bin.openOrderAmount,
+        totalProcessingOrderAmount: bin.totalProcessingOrderAmount,
+        processedOrderRemainingAmount: bin.processedOrderRemainingAmount,
+        orderAge: bin.orderAge,
+        limitOrderAskSide: bin.limitOrderAskSide == 1,
+      };
+    } else {
+      return {
+        binId,
+        xAmount,
+        yAmount,
+        supply,
+        version,
+        price: pricePerLamport,
+        pricePerToken,
+        feeAmountXPerTokenStored,
+        feeAmountYPerTokenStored,
+        rewardPerTokenStored: decodeRewardPerTokenStored(bin),
+        fulfilledOrderAmountX: new BN(0),
+        fulfilledOrderAmountY: new BN(0),
+        limitOrderFeeAskSide: new BN(0),
+        limitOrderFeeBidSide: new BN(0),
+        openOrderAmount: new BN(0),
+        totalProcessingOrderAmount: new BN(0),
+        processedOrderRemainingAmount: new BN(0),
+        orderAge: 0,
+        limitOrderAskSide: false,
+      };
+    }
   }
 
   export function empty(
@@ -283,9 +358,10 @@ export module BinLiquidity {
     binStep: number,
     baseTokenDecimal: number,
     quoteTokenDecimal: number,
-    version: number
+    version: number,
   ): BinLiquidity {
     const pricePerLamport = getPriceOfBinByBinId(binId, binStep).toString();
+
     return {
       binId,
       xAmount: new BN(0),
@@ -299,6 +375,15 @@ export module BinLiquidity {
       feeAmountXPerTokenStored: new BN(0),
       feeAmountYPerTokenStored: new BN(0),
       rewardPerTokenStored: [new BN(0), new BN(0)],
+      fulfilledOrderAmountX: new BN(0),
+      fulfilledOrderAmountY: new BN(0),
+      limitOrderFeeAskSide: new BN(0),
+      limitOrderFeeBidSide: new BN(0),
+      openOrderAmount: new BN(0),
+      totalProcessingOrderAmount: new BN(0),
+      processedOrderRemainingAmount: new BN(0),
+      orderAge: 0,
+      limitOrderAskSide: false,
     };
   }
 }
@@ -312,6 +397,7 @@ export interface SwapQuote {
   priceImpact: Decimal;
   binArraysPubkey: any[];
   endPrice: Decimal;
+  feeOnInput: boolean;
 }
 
 export interface SwapQuoteExactOut {
@@ -526,7 +612,7 @@ export enum ResizeSide {
 }
 
 export const MEMO_PROGRAM_ID = new PublicKey(
-  "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"
+  "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",
 );
 
 export interface RebalancePositionResponse {
@@ -552,7 +638,7 @@ export interface ChunkCallbackInfo {
 
 export type ChunkCallback = (
   accounts: { pubkey: PublicKey; account: AccountInfo<Buffer> }[],
-  progress: ChunkCallbackInfo
+  progress: ChunkCallbackInfo,
 ) => void;
 
 /**
@@ -579,4 +665,14 @@ export interface GetPositionsOpt {
    * When true, callback progress is approximate due to parallel execution.
    */
   isParallelExecution?: boolean;
+}
+
+export enum PositionPermission {
+  ClaimFee,
+}
+
+export enum LimitOrderStatus {
+  NotFilled,
+  PartialFilled,
+  Fulfilled,
 }

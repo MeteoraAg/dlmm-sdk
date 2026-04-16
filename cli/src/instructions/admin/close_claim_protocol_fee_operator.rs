@@ -15,14 +15,14 @@ pub async fn execute_close_claim_protocol_fee_operator<C: Deref<Target = impl Si
 
     let (claim_fee_operator, _bump) = derive_claim_protocol_fee_operator_pda(operator);
 
-    let accounts = dlmm::client::accounts::CloseClaimProtocolFeeOperator {
+    let accounts = dlmm::client::accounts::CloseClaimFeeOperatorAccount {
         claim_fee_operator,
-        admin: program.payer(),
         rent_receiver: program.payer(),
+        signer: program.payer(),
     }
     .to_account_metas(None);
 
-    let data = dlmm::client::args::CloseClaimProtocolFeeOperator {}.data();
+    let data = dlmm::client::args::CloseClaimFeeOperatorAccount {}.data();
 
     let instruction = Instruction {
         program_id: dlmm::ID,

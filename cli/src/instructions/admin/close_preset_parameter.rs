@@ -19,11 +19,14 @@ pub async fn execute_close_preset_parameter<C: Deref<Target = impl Signer> + Clo
 
     let disc = &preset_parameter_account.data[..8];
 
+    let (operator, _bump) = derive_operator_pda(program.payer());
+
     let instruction = if disc == dlmm::accounts::PresetParameter::DISCRIMINATOR {
         let accounts = dlmm::client::accounts::ClosePresetParameter {
-            admin: program.payer(),
-            rent_receiver: program.payer(),
             preset_parameter,
+            operator,
+            signer: program.payer(),
+            rent_receiver: program.payer(),
         }
         .to_account_metas(None);
 
@@ -36,9 +39,10 @@ pub async fn execute_close_preset_parameter<C: Deref<Target = impl Signer> + Clo
         }
     } else if disc == dlmm::accounts::PresetParameter2::DISCRIMINATOR {
         let accounts = dlmm::client::accounts::ClosePresetParameter2 {
-            admin: program.payer(),
-            rent_receiver: program.payer(),
             preset_parameter,
+            operator,
+            signer: program.payer(),
+            rent_receiver: program.payer(),
         }
         .to_account_metas(None);
 

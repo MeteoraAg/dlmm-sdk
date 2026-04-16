@@ -19,11 +19,10 @@ import {
 import Decimal from "decimal.js";
 import fs from "fs";
 import {
+  ConcreteFunctionType,
   DEFAULT_BIN_PER_POSITION,
-  FunctionType,
   LBCLMM_PROGRAM_IDS,
 } from "../dlmm/constants";
-import IDL from "../dlmm/idl/idl.json";
 import {
   binIdToBinArrayIndex,
   deriveBinArray,
@@ -35,8 +34,15 @@ import {
 } from "../dlmm/helpers";
 import { computeBaseFactorFromFeeBps } from "../dlmm/helpers/math";
 import { wrapPosition } from "../dlmm/helpers/positions";
+import IDL from "../dlmm/idl/idl.json";
 import { DLMM } from "../dlmm/index";
-import { ActivationType, ChunkCallbackInfo, GetPositionsOpt, PairType, StrategyType } from "../dlmm/types";
+import {
+  ActivationType,
+  ChunkCallbackInfo,
+  GetPositionsOpt,
+  PairType,
+  StrategyType,
+} from "../dlmm/types";
 import {
   createTestProgram,
   createWhitelistOperator,
@@ -45,22 +51,24 @@ import {
 
 const keypairBuffer = fs.readFileSync(
   "../keys/localnet/admin-bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1.json",
-  "utf-8"
+  "utf-8",
 );
 const connection = new Connection("http://127.0.0.1:8899", "confirmed");
-const keypair = Keypair.fromSecretKey(
-  new Uint8Array(JSON.parse(keypairBuffer))
+const adminKeypair = Keypair.fromSecretKey(
+  new Uint8Array(JSON.parse(keypairBuffer)),
 );
+
+const operatorKeypair = Keypair.generate();
 
 const btcDecimal = 8;
 const usdcDecimal = 6;
 
 const CONSTANTS = Object.entries(IDL.constants);
 const BIN_ARRAY_BITMAP_SIZE = new BN(
-  CONSTANTS.find(([k, v]) => v.name == "BIN_ARRAY_BITMAP_SIZE")[1].value
+  CONSTANTS.find(([k, v]) => v.name == "BIN_ARRAY_BITMAP_SIZE")[1].value,
 );
 export const MAX_BIN_PER_ARRAY = new BN(
-  CONSTANTS.find(([k, v]) => v.name == "MAX_BIN_PER_ARRAY")[1].value
+  CONSTANTS.find(([k, v]) => v.name == "MAX_BIN_PER_ARRAY")[1].value,
 );
 
 const ACTIVE_ID_OUT_OF_RANGE = BIN_ARRAY_BITMAP_SIZE.addn(1);
@@ -87,7 +95,7 @@ const positionKeypair = Keypair.generate();
 function assertAmountWithPrecision(
   actualAmount: number,
   expectedAmount: number,
-  precisionPercent: number
+  precisionPercent: number,
 ) {
   if (expectedAmount == 0 && actualAmount == 0) {
     return;
@@ -106,84 +114,90 @@ function assertAmountWithPrecision(
 
 describe("SDK test", () => {
   beforeAll(async () => {
+    const txSig = await connection.requestAirdrop(
+      operatorKeypair.publicKey,
+      10 * LAMPORTS_PER_SOL,
+    );
+    await connection.confirmTransaction(txSig, "confirmed");
+
     BTC = await createMint(
       connection,
-      keypair,
-      keypair.publicKey,
+      adminKeypair,
+      adminKeypair.publicKey,
       null,
       btcDecimal,
       Keypair.generate(),
       null,
-      TOKEN_PROGRAM_ID
+      TOKEN_PROGRAM_ID,
     );
 
     USDC = await createMint(
       connection,
-      keypair,
-      keypair.publicKey,
+      adminKeypair,
+      adminKeypair.publicKey,
       null,
       usdcDecimal,
       Keypair.generate(),
       null,
-      TOKEN_PROGRAM_ID
+      TOKEN_PROGRAM_ID,
     );
 
     const userBtcInfo = await getOrCreateAssociatedTokenAccount(
       connection,
-      keypair,
+      adminKeypair,
       BTC,
-      keypair.publicKey,
+      adminKeypair.publicKey,
       false,
       "confirmed",
       {
         commitment: "confirmed",
       },
       TOKEN_PROGRAM_ID,
-      ASSOCIATED_TOKEN_PROGRAM_ID
+      ASSOCIATED_TOKEN_PROGRAM_ID,
     );
     userBTC = userBtcInfo.address;
 
     const userUsdcInfo = await getOrCreateAssociatedTokenAccount(
       connection,
-      keypair,
+      adminKeypair,
       USDC,
-      keypair.publicKey,
+      adminKeypair.publicKey,
       false,
       "confirmed",
       {
         commitment: "confirmed",
       },
       TOKEN_PROGRAM_ID,
-      ASSOCIATED_TOKEN_PROGRAM_ID
+      ASSOCIATED_TOKEN_PROGRAM_ID,
     );
     userUSDC = userUsdcInfo.address;
 
     await mintTo(
       connection,
-      keypair,
+      adminKeypair,
       BTC,
       userBTC,
-      keypair.publicKey,
+      adminKeypair.publicKey,
       100_000_000 * 10 ** btcDecimal,
       [],
       {
         commitment: "confirmed",
       },
-      TOKEN_PROGRAM_ID
+      TOKEN_PROGRAM_ID,
     );
 
     await mintTo(
       connection,
-      keypair,
+      adminKeypair,
       USDC,
       userUSDC,
-      keypair.publicKey,
+      adminKeypair.publicKey,
       100_000_000 * 10 ** usdcDecimal,
       [],
       {
         commitment: "confirmed",
       },
-      TOKEN_PROGRAM_ID
+      TOKEN_PROGRAM_ID,
     );
 
     [lbPairPubkey] = deriveLbPair2(
@@ -191,95 +205,28 @@ describe("SDK test", () => {
       USDC,
       DEFAULT_BIN_STEP,
       DEFAULT_BASE_FACTOR,
-      programId
+      programId,
     );
+
     [lbPairWithBitMapExtPubkey] = deriveLbPair2(
       NATIVE_MINT,
       USDC,
       DEFAULT_BIN_STEP,
       DEFAULT_BASE_FACTOR_2,
-      programId
+      programId,
     );
+
     [presetParamPda] = derivePresetParameter2(
       DEFAULT_BIN_STEP,
       DEFAULT_BASE_FACTOR,
-      programId
+      programId,
     );
+
     [presetParamPda2] = derivePresetParameter2(
       DEFAULT_BIN_STEP,
       DEFAULT_BASE_FACTOR_2,
-      programId
+      programId,
     );
-
-    const program = createTestProgram(connection, programId, keypair);
-
-    const operatorPda = await createWhitelistOperator(
-      connection,
-      keypair,
-      keypair.publicKey,
-      [OperatorPermission.InitializePresetParameter],
-      programId
-    );
-
-    const presetParamState =
-      await program.account.presetParameter.fetchNullable(presetParamPda);
-
-    if (!presetParamState) {
-      await program.methods
-        .initializePresetParameter({
-          index: 0,
-          binStep: DEFAULT_BIN_STEP.toNumber(),
-          baseFactor: DEFAULT_BASE_FACTOR.toNumber(),
-          functionType: FunctionType.LiquidityMining,
-          filterPeriod: 30,
-          decayPeriod: 600,
-          reductionFactor: 5000,
-          variableFeeControl: 40000,
-          protocolShare: 0,
-          maxVolatilityAccumulator: 350000,
-          baseFeePowerFactor: 0,
-        })
-        .accountsPartial({
-          signer: keypair.publicKey,
-          presetParameter: presetParamPda,
-          systemProgram: web3.SystemProgram.programId,
-          operator: operatorPda,
-        })
-        .signers([keypair])
-        .rpc({
-          commitment: "confirmed",
-        });
-    }
-
-    const presetParamState2 =
-      await program.account.presetParameter.fetchNullable(presetParamPda2);
-
-    if (!presetParamState2) {
-      await program.methods
-        .initializePresetParameter({
-          index: 0,
-          binStep: DEFAULT_BIN_STEP.toNumber(),
-          baseFactor: DEFAULT_BASE_FACTOR_2.toNumber(),
-          functionType: FunctionType.LiquidityMining,
-          filterPeriod: 30,
-          decayPeriod: 600,
-          reductionFactor: 5000,
-          variableFeeControl: 40000,
-          protocolShare: 0,
-          maxVolatilityAccumulator: 350000,
-          baseFeePowerFactor: 0,
-        })
-        .accountsPartial({
-          signer: keypair.publicKey,
-          presetParameter: presetParamPda2,
-          systemProgram: web3.SystemProgram.programId,
-          operator: operatorPda,
-        })
-        .signers([keypair])
-        .rpc({
-          commitment: "confirmed",
-        });
-    }
   });
 
   describe("Permissioned lb pair", () => {
@@ -293,7 +240,7 @@ describe("SDK test", () => {
     const customFeeOwnerPositionOwner = Keypair.generate();
 
     const normalPosition = Keypair.generate();
-    const normalPositionOwner = keypair.publicKey;
+    const normalPositionOwner = adminKeypair.publicKey;
 
     const btcInAmount = new BN(1).mul(new BN(10 ** btcDecimal));
     const usdcInAmount = new BN(24000).mul(new BN(10 ** usdcDecimal));
@@ -301,21 +248,21 @@ describe("SDK test", () => {
     beforeAll(async () => {
       await connection.requestAirdrop(
         customFeeOwnerPositionOwner.publicKey,
-        2 * LAMPORTS_PER_SOL
+        2 * LAMPORTS_PER_SOL,
       );
 
       const feeBps = new BN(50);
       const protocolFeeBps = new BN(50);
 
       try {
-        const program = createTestProgram(connection, programId, keypair);
+        const program = createTestProgram(connection, programId, adminKeypair);
 
         const operatorPda = await createWhitelistOperator(
           connection,
-          keypair,
-          keypair.publicKey,
+          adminKeypair,
+          operatorKeypair.publicKey,
           [OperatorPermission.InitializePermissionedPool],
-          programId
+          programId,
         );
 
         [pairKey] = derivePermissionLbPair(
@@ -323,7 +270,7 @@ describe("SDK test", () => {
           BTC,
           USDC,
           DEFAULT_BIN_STEP,
-          programId
+          programId,
         );
 
         const [reserveX] = deriveReserve(BTC, pairKey, programId);
@@ -333,7 +280,7 @@ describe("SDK test", () => {
 
         const [baseFactor, basePowerFactor] = computeBaseFactorFromFeeBps(
           DEFAULT_BIN_STEP,
-          feeBps
+          feeBps,
         );
 
         const initPermissionPairTx = await program.methods
@@ -344,6 +291,8 @@ describe("SDK test", () => {
             baseFeePowerFactor: basePowerFactor.toNumber(),
             activationType: ActivationType.Slot,
             protocolShare: protocolFeeBps.toNumber(),
+            concreteFunctionType: ConcreteFunctionType.LiquidityMining,
+            collectFeeMode: 0,
           })
           .accountsPartial({
             base: baseKeypair.publicKey,
@@ -354,18 +303,20 @@ describe("SDK test", () => {
             reserveX,
             reserveY,
             oracle,
-            signer: keypair.publicKey,
+            signer: operatorKeypair.publicKey,
             tokenBadgeX: program.programId,
             tokenBadgeY: program.programId,
             tokenProgramX: TOKEN_PROGRAM_ID,
             tokenProgramY: TOKEN_PROGRAM_ID,
             program: program.programId,
             operator: operatorPda,
+            payer: operatorKeypair.publicKey,
           })
+          .signers([operatorKeypair])
           .transaction();
 
         await sendAndConfirmTransaction(connection, initPermissionPairTx, [
-          keypair,
+          operatorKeypair,
           baseKeypair,
         ]);
 
@@ -403,30 +354,30 @@ describe("SDK test", () => {
           lowerBinIdBytes,
           widthBytes,
         ],
-        pair.program.programId
+        pair.program.programId,
       );
 
       const operatorTokenX = await getOrCreateAssociatedTokenAccount(
         connection,
-        keypair,
+        adminKeypair,
         BTC,
-        keypair.publicKey
+        adminKeypair.publicKey,
       );
 
       const ownerTokenX = await getOrCreateAssociatedTokenAccount(
         connection,
-        keypair,
+        adminKeypair,
         BTC,
-        customFeeOwnerPositionOwner.publicKey
+        customFeeOwnerPositionOwner.publicKey,
       );
 
       await transfer(
         connection,
-        keypair,
+        adminKeypair,
         operatorTokenX.address,
         ownerTokenX.address,
-        keypair,
-        BigInt(1)
+        adminKeypair,
+        BigInt(1),
       );
 
       console.log("Initialize position by operator");
@@ -436,25 +387,25 @@ describe("SDK test", () => {
           lowerBinId.toNumber(),
           width.toNumber(),
           customFeeOwnerPositionFeeOwner.publicKey,
-          new BN(0)
+          new BN(0),
         )
         .accountsPartial({
           lbPair: pair.pubkey,
           position: customFeeOwnerPosition,
           base: baseKeypair.publicKey,
-          operator: keypair.publicKey,
+          operator: adminKeypair.publicKey,
           operatorTokenX: operatorTokenX.address,
           ownerTokenX: ownerTokenX.address,
           owner: customFeeOwnerPositionOwner.publicKey,
           program: program.programId,
-          payer: keypair.publicKey,
+          payer: adminKeypair.publicKey,
         })
         .transaction();
 
       await sendAndConfirmTransaction(
         connection,
         initializePositionByOperatorTx,
-        [keypair, baseKeypair]
+        [adminKeypair, baseKeypair],
       ).catch((e) => {
         console.error(e);
         throw e;
@@ -463,7 +414,7 @@ describe("SDK test", () => {
       await pair.refetchStates();
 
       const position = await program.account.positionV2.fetch(
-        customFeeOwnerPosition
+        customFeeOwnerPosition,
       );
 
       console.log("Add liquidity by strategy");
@@ -477,11 +428,13 @@ describe("SDK test", () => {
           minBinId: position.lowerBinId,
           maxBinId: pair.lbPair.activeId - 1,
         },
-        user: keypair.publicKey,
+        user: adminKeypair.publicKey,
         slippage: 0,
       });
 
-      await sendAndConfirmTransaction(connection, addLiquidityTx, [keypair]);
+      await sendAndConfirmTransaction(connection, addLiquidityTx, [
+        adminKeypair,
+      ]);
 
       addLiquidityTx = await pair.addLiquidityByStrategy({
         positionPubKey: customFeeOwnerPosition,
@@ -492,7 +445,7 @@ describe("SDK test", () => {
           minBinId: pair.lbPair.activeId,
           maxBinId: position.upperBinId,
         },
-        user: keypair.publicKey,
+        user: adminKeypair.publicKey,
         slippage: 0,
       });
 
@@ -514,23 +467,23 @@ describe("SDK test", () => {
             maxBinId,
             minBinId,
           },
-          user: keypair.publicKey,
+          user: adminKeypair.publicKey,
           slippage: 0,
         });
 
       await sendAndConfirmTransaction(connection, initPositionAddLiquidityTx, [
-        keypair,
+        adminKeypair,
         normalPosition,
       ]);
 
       const positionAccount = await connection.getAccountInfo(
-        normalPosition.publicKey
+        normalPosition.publicKey,
       );
 
       const position = wrapPosition(
         pair.program,
         normalPosition.publicKey,
-        positionAccount
+        positionAccount,
       );
 
       const lowerBinId = position.lowerBinId();
@@ -548,29 +501,32 @@ describe("SDK test", () => {
     });
 
     it("update activation point", async () => {
+      const currentSlot = await connection.getSlot();
+      const activationPoint = new BN(currentSlot + 10);
       try {
-        const currentSlot = await connection.getSlot();
-        const activationPoint = new BN(currentSlot + 10);
         const rawTx = await pair.setActivationPoint(new BN(currentSlot + 10));
         const txHash = await sendAndConfirmTransaction(connection, rawTx, [
-          keypair,
+          operatorKeypair,
         ]);
+
         console.log("Update activation point", txHash);
         expect(txHash).not.toBeNull();
-
-        await pair.refetchStates();
-
-        const pairState = pair.lbPair;
-        expect(pairState.activationPoint.eq(activationPoint)).toBeTruthy();
       } catch (error) {
         console.log(JSON.parse(JSON.stringify(error)));
+        throw error;
       }
+
+      await pair.refetchStates();
+
+      const pairState = pair.lbPair;
+      expect(pairState.activationPoint.eq(activationPoint)).toBeTruthy();
     });
 
     it("normal position add liquidity both side with full position width after activation", async () => {
       while (true) {
+        await pair.refetchStates();
         const currentSlot = await connection.getSlot();
-        if (currentSlot >= pair.lbPair.activationPoint.toNumber()) {
+        if (new BN(currentSlot).gte(pair.lbPair.activationPoint)) {
           break;
         } else {
           await new Promise((res) => setTimeout(res, 1000));
@@ -578,7 +534,7 @@ describe("SDK test", () => {
       }
 
       const positionV2 = await pair.program.account.positionV2.fetch(
-        normalPosition.publicKey
+        normalPosition.publicKey,
       );
 
       const addLiquidityTx = await pair.addLiquidityByStrategy({
@@ -590,20 +546,22 @@ describe("SDK test", () => {
           minBinId: positionV2.lowerBinId,
           maxBinId: positionV2.upperBinId,
         },
-        user: keypair.publicKey,
+        user: adminKeypair.publicKey,
         slippage: 0,
       });
 
-      await sendAndConfirmTransaction(connection, addLiquidityTx, [keypair]);
+      await sendAndConfirmTransaction(connection, addLiquidityTx, [
+        adminKeypair,
+      ]);
 
       const positionAccount = await connection.getAccountInfo(
-        normalPosition.publicKey
+        normalPosition.publicKey,
       );
 
       const position = wrapPosition(
         pair.program,
         normalPosition.publicKey,
-        positionAccount
+        positionAccount,
       );
 
       const lowerBinId = position.lowerBinId();
@@ -618,53 +576,53 @@ describe("SDK test", () => {
 
     it("remove liquidity from position with custom owner, capital to position owner, but fee to fee owner", async () => {
       const activeBinArrayIdx = binIdToBinArrayIndex(
-        new BN(pair.lbPair.activeId)
+        new BN(pair.lbPair.activeId),
       );
       const [activeBinArray] = deriveBinArray(
         pair.pubkey,
         activeBinArrayIdx,
-        pair.program.programId
+        pair.program.programId,
       );
 
       let swapTx = await pair.swap({
         inAmount: new BN(10000000),
         outToken: USDC,
         minOutAmount: new BN(0),
-        user: keypair.publicKey,
+        user: adminKeypair.publicKey,
         inToken: BTC,
         lbPair: pair.pubkey,
         binArraysPubkey: [activeBinArray],
       });
 
-      await sendAndConfirmTransaction(connection, swapTx, [keypair]);
+      await sendAndConfirmTransaction(connection, swapTx, [adminKeypair]);
 
       swapTx = await pair.swap({
         inAmount: new BN(100).mul(new BN(10 ** usdcDecimal)),
         outToken: BTC,
         minOutAmount: new BN(0),
-        user: keypair.publicKey,
+        user: adminKeypair.publicKey,
         inToken: USDC,
         lbPair: pair.pubkey,
         binArraysPubkey: [activeBinArray],
       });
 
-      await sendAndConfirmTransaction(connection, swapTx, [keypair]);
+      await sendAndConfirmTransaction(connection, swapTx, [adminKeypair]);
 
       const ownerTokenXAta = getAssociatedTokenAddressSync(
         pair.tokenX.publicKey,
-        customFeeOwnerPositionOwner.publicKey
+        customFeeOwnerPositionOwner.publicKey,
       );
       const ownerTokenYAta = getAssociatedTokenAddressSync(
         pair.tokenY.publicKey,
-        customFeeOwnerPositionOwner.publicKey
+        customFeeOwnerPositionOwner.publicKey,
       );
       const feeOwnerTokenXAta = getAssociatedTokenAddressSync(
         pair.tokenX.publicKey,
-        customFeeOwnerPositionFeeOwner.publicKey
+        customFeeOwnerPositionFeeOwner.publicKey,
       );
       const feeOwnerTokenYAta = getAssociatedTokenAddressSync(
         pair.tokenY.publicKey,
-        customFeeOwnerPositionFeeOwner.publicKey
+        customFeeOwnerPositionFeeOwner.publicKey,
       );
 
       const [
@@ -692,7 +650,7 @@ describe("SDK test", () => {
       ]);
 
       const positionV2 = await pair.program.account.positionV2.fetch(
-        customFeeOwnerPosition
+        customFeeOwnerPosition,
       );
 
       const removeLiquidityTx = await pair.removeLiquidity({
@@ -715,7 +673,7 @@ describe("SDK test", () => {
         const txHash = await sendAndConfirmTransaction(
           connection,
           removeLiquidityTx,
-          [customFeeOwnerPositionOwner]
+          [customFeeOwnerPositionOwner],
         );
         console.log(txHash);
       }
@@ -741,16 +699,16 @@ describe("SDK test", () => {
       ]);
 
       expect(
-        afterOwnerTokenX.sub(beforeOwnerTokenX).toNumber()
+        afterOwnerTokenX.sub(beforeOwnerTokenX).toNumber(),
       ).toBeGreaterThan(0);
       expect(
-        afterOwnerTokenY.sub(beforeOwnerTokenY).toNumber()
+        afterOwnerTokenY.sub(beforeOwnerTokenY).toNumber(),
       ).toBeGreaterThan(0);
       expect(
-        afterFeeOwnerTokenX.sub(beforeFeeOwnerTokenX).toNumber()
+        afterFeeOwnerTokenX.sub(beforeFeeOwnerTokenX).toNumber(),
       ).toBeGreaterThan(0);
       expect(
-        afterFeeOwnerTokenY.sub(beforeFeeOwnerTokenY).toNumber()
+        afterFeeOwnerTokenY.sub(beforeFeeOwnerTokenY).toNumber(),
       ).toBeGreaterThan(0);
     });
 
@@ -761,29 +719,29 @@ describe("SDK test", () => {
         .getPositionsByUserAndLbPair(normalPositionOwner)
         .then((positions) => {
           return positions.userPositions.find((p) =>
-            p.publicKey.equals(normalPosition.publicKey)
+            p.publicKey.equals(normalPosition.publicKey),
           );
         });
 
       const fullAmountX = new Decimal(
-        positionState.positionData.feeX.toString()
+        positionState.positionData.feeX.toString(),
       )
         .add(positionState.positionData.totalXAmount)
         .floor();
 
       const fullAmountY = new Decimal(
-        positionState.positionData.feeY.toString()
+        positionState.positionData.feeY.toString(),
       )
         .add(positionState.positionData.totalYAmount)
         .floor();
 
       const ownerTokenXAta = getAssociatedTokenAddressSync(
         pair.tokenX.publicKey,
-        normalPositionOwner
+        normalPositionOwner,
       );
       const ownerTokenYAta = getAssociatedTokenAddressSync(
         pair.tokenY.publicKey,
-        normalPositionOwner
+        normalPositionOwner,
       );
 
       const [beforeOwnerTokenX, beforeOwnerTokenY] = await Promise.all([
@@ -796,11 +754,11 @@ describe("SDK test", () => {
       ]);
 
       const positionV2 = await pair.program.account.positionV2.fetch(
-        normalPosition.publicKey
+        normalPosition.publicKey,
       );
 
       const removeLiquidityTx = await pair.removeLiquidity({
-        user: keypair.publicKey,
+        user: adminKeypair.publicKey,
         fromBinId: positionV2.lowerBinId,
         toBinId: positionV2.upperBinId,
         position: normalPosition.publicKey,
@@ -811,7 +769,7 @@ describe("SDK test", () => {
       if (Array.isArray(removeLiquidityTx)) {
         for (const tx of removeLiquidityTx) {
           const txHash = await sendAndConfirmTransaction(connection, tx, [
-            keypair,
+            adminKeypair,
           ]);
           console.log(txHash);
         }
@@ -819,7 +777,7 @@ describe("SDK test", () => {
         const txHash = await sendAndConfirmTransaction(
           connection,
           removeLiquidityTx,
-          [keypair]
+          [adminKeypair],
         );
         console.log(txHash);
       }
@@ -845,22 +803,23 @@ describe("SDK test", () => {
     try {
       const rawTx = await DLMM.createLbPair(
         connection,
-        keypair.publicKey,
+        adminKeypair.publicKey,
         BTC,
         USDC,
         new BN(DEFAULT_BIN_STEP),
         new BN(DEFAULT_BASE_FACTOR),
         presetParamPda,
         DEFAULT_ACTIVE_ID,
-        { cluster: "localhost" }
+        { cluster: "localhost" },
       );
       const txHash = await sendAndConfirmTransaction(connection, rawTx, [
-        keypair,
+        adminKeypair,
       ]);
       expect(txHash).not.toBeNull();
       console.log("Create LB pair", txHash);
     } catch (error) {
       console.log(JSON.parse(JSON.stringify(error)));
+      throw error;
     }
   });
 
@@ -876,17 +835,17 @@ describe("SDK test", () => {
     try {
       const rawTx = await DLMM.createLbPair(
         connection,
-        keypair.publicKey,
+        adminKeypair.publicKey,
         NATIVE_MINT,
         USDC,
         new BN(DEFAULT_BIN_STEP),
         new BN(DEFAULT_BASE_FACTOR_2),
         presetParamPda2,
         ACTIVE_ID_OUT_OF_RANGE,
-        { cluster: "localhost" }
+        { cluster: "localhost" },
       );
       const txHash = await sendAndConfirmTransaction(connection, rawTx, [
-        keypair,
+        adminKeypair,
       ]);
       expect(txHash).not.toBeNull();
       console.log("Create LB pair with bitmap extension", txHash);
@@ -917,29 +876,29 @@ describe("SDK test", () => {
     [lbClmmWithBitMapExt] = await DLMM.createMultiple(
       connection,
       [lbPairWithBitMapExtPubkey],
-      { cluster: "localhost" }
+      { cluster: "localhost" },
     );
     expect(lbClmmWithBitMapExt).not.toBeNull();
     expect(lbClmmWithBitMapExt).toBeInstanceOf(DLMM);
     expect(lbClmmWithBitMapExt.tokenX.publicKey.toBase58()).toBe(
-      NATIVE_MINT.toBase58()
+      NATIVE_MINT.toBase58(),
     );
     expect(lbClmmWithBitMapExt.tokenY.publicKey.toBase58()).toBe(
-      USDC.toBase58()
+      USDC.toBase58(),
     );
 
     lbClmmWithBitMapExt = await DLMM.create(
       connection,
       lbPairWithBitMapExtPubkey,
-      { cluster: "localhost" }
+      { cluster: "localhost" },
     );
     expect(lbClmmWithBitMapExt).not.toBeNull();
     expect(lbClmmWithBitMapExt).toBeInstanceOf(DLMM);
     expect(lbClmmWithBitMapExt.tokenX.publicKey.toBase58()).toBe(
-      NATIVE_MINT.toBase58()
+      NATIVE_MINT.toBase58(),
     );
     expect(lbClmmWithBitMapExt.tokenY.publicKey.toBase58()).toBe(
-      USDC.toBase58()
+      USDC.toBase58(),
     );
   });
 
@@ -955,7 +914,9 @@ describe("SDK test", () => {
     const lbPairs = await DLMM.getLbPairs(connection, { cluster: "localhost" });
     expect(lbPairs.length).toBeGreaterThan(0);
     expect(
-      lbPairs.find((lps) => lps.publicKey.toBase58() == lbPairPubkey.toBase58())
+      lbPairs.find(
+        (lps) => lps.publicKey.toBase58() == lbPairPubkey.toBase58(),
+      ),
     ).not.toBeUndefined();
   });
 
@@ -968,7 +929,7 @@ describe("SDK test", () => {
     const maxBinId = lbClmm.lbPair.activeId + 5;
 
     const rawTxs = await lbClmm.initializePositionAndAddLiquidityByStrategy({
-      user: keypair.publicKey,
+      user: adminKeypair.publicKey,
       positionPubKey: positionKeypair.publicKey,
       totalXAmount: btcInAmount,
       totalYAmount: usdcInAmount,
@@ -983,7 +944,7 @@ describe("SDK test", () => {
       for (const rawTx of rawTxs) {
         // Do not alter the order of the signers. Some weird bug from solana where it keep throwing error about positionKeypair has no balance.
         const txHash = await sendAndConfirmTransaction(connection, rawTx, [
-          keypair,
+          adminKeypair,
           positionKeypair,
         ]);
         expect(txHash).not.toBeNull();
@@ -992,7 +953,7 @@ describe("SDK test", () => {
     } else {
       // console.log(rawTxs.instructions);
       const txHash = await sendAndConfirmTransaction(connection, rawTxs, [
-        keypair,
+        adminKeypair,
         positionKeypair,
       ]);
       expect(txHash).not.toBeNull();
@@ -1000,19 +961,19 @@ describe("SDK test", () => {
     }
 
     const positionState = await lbClmm.program.account.positionV2.fetch(
-      positionKeypair.publicKey
+      positionKeypair.publicKey,
     );
 
     const lbPairPositionsMap = await DLMM.getAllLbPairPositionsByUser(
       connection,
-      keypair.publicKey,
+      adminKeypair.publicKey,
       {
         cluster: "localhost",
-      }
+      },
     );
     const positions = lbPairPositionsMap.get(lbPairPubkey.toBase58());
     const position = positions.lbPairPositionsData.find(({ publicKey }) =>
-      publicKey.equals(positionKeypair.publicKey)
+      publicKey.equals(positionKeypair.publicKey),
     );
     const { positionData } = position;
 
@@ -1021,34 +982,34 @@ describe("SDK test", () => {
     assertAmountWithPrecision(
       +positionData.totalXAmount,
       btcInAmount.toNumber(),
-      5
+      5,
     );
     expect(+positionData.totalYAmount).toBeLessThan(usdcInAmount.toNumber());
     assertAmountWithPrecision(
       +positionData.totalYAmount,
       usdcInAmount.toNumber(),
-      5
+      5,
     );
 
     expect(positionData.positionBinData.length).toBe(
-      positionState.upperBinId - positionState.lowerBinId + 1
+      positionState.upperBinId - positionState.lowerBinId + 1,
     );
 
     const positionBinWithLiquidity = positionData.positionBinData.filter(
-      (p) => p.positionLiquidity != "0"
+      (p) => p.positionLiquidity != "0",
     );
     expect(positionBinWithLiquidity.length).toBe(maxBinId - minBinId + 1);
   });
 
   it("get user positions in pool", async () => {
     const positions = await lbClmm.getPositionsByUserAndLbPair(
-      keypair.publicKey
+      adminKeypair.publicKey,
     );
     expect(positions.userPositions.length).toBeGreaterThan(0);
     expect(
       positions.userPositions.find(
-        (ps) => ps.publicKey.toBase58() == positionKeypair.publicKey.toBase58()
-      )
+        (ps) => ps.publicKey.toBase58() == positionKeypair.publicKey.toBase58(),
+      ),
     ).not.toBeUndefined();
   });
 
@@ -1058,47 +1019,52 @@ describe("SDK test", () => {
 
     beforeAll(async () => {
       // Create additional positions to test chunking
-      console.log(`Creating ${NUM_ADDITIONAL_POSITIONS} additional positions for chunking test...`);
+      console.log(
+        `Creating ${NUM_ADDITIONAL_POSITIONS} additional positions for chunking test...`,
+      );
 
       for (let i = 0; i < NUM_ADDITIONAL_POSITIONS; i++) {
         const newPositionKeypair = Keypair.generate();
 
         // Each position covers different bin ranges
-        const minBinId = lbClmm.lbPair.activeId - 15 - (i * 5);
-        const maxBinId = lbClmm.lbPair.activeId - 5 - (i * 5);
+        const minBinId = lbClmm.lbPair.activeId - 15 - i * 5;
+        const maxBinId = lbClmm.lbPair.activeId - 5 - i * 5;
 
         const btcAmount = new BN(100).mul(new BN(10 ** btcDecimal));
         const usdcAmount = new BN(2400).mul(new BN(10 ** usdcDecimal));
 
         try {
-          const rawTxs = await lbClmm.initializePositionAndAddLiquidityByStrategy({
-            user: keypair.publicKey,
-            positionPubKey: newPositionKeypair.publicKey,
-            totalXAmount: btcAmount,
-            totalYAmount: usdcAmount,
-            strategy: {
-              minBinId,
-              maxBinId,
-              strategyType: StrategyType.Spot,
-            },
-          });
+          const rawTxs =
+            await lbClmm.initializePositionAndAddLiquidityByStrategy({
+              user: adminKeypair.publicKey,
+              positionPubKey: newPositionKeypair.publicKey,
+              totalXAmount: btcAmount,
+              totalYAmount: usdcAmount,
+              strategy: {
+                minBinId,
+                maxBinId,
+                strategyType: StrategyType.Spot,
+              },
+            });
 
           if (Array.isArray(rawTxs)) {
             for (const rawTx of rawTxs) {
               await sendAndConfirmTransaction(connection, rawTx, [
-                keypair,
+                adminKeypair,
                 newPositionKeypair,
               ]);
             }
           } else {
             await sendAndConfirmTransaction(connection, rawTxs, [
-              keypair,
+              adminKeypair,
               newPositionKeypair,
             ]);
           }
 
           additionalPositions.push(newPositionKeypair.publicKey);
-          console.log(`Created additional position ${i + 1}/${NUM_ADDITIONAL_POSITIONS}`);
+          console.log(
+            `Created additional position ${i + 1}/${NUM_ADDITIONAL_POSITIONS}`,
+          );
         } catch (error) {
           console.log(JSON.parse(JSON.stringify(error)));
           throw error;
@@ -1107,7 +1073,9 @@ describe("SDK test", () => {
         await lbClmm.refetchStates();
       }
 
-      console.log(`Successfully created ${additionalPositions.length} additional positions`);
+      console.log(
+        `Successfully created ${additionalPositions.length} additional positions`,
+      );
     });
 
     it("should fetch positions with callback and verify chunking", async () => {
@@ -1126,15 +1094,15 @@ describe("SDK test", () => {
           });
           console.log(
             `Chunk ${progress.chunksLoaded}/${progress.totalChunks}: ` +
-            `${accounts.length} accounts, ${progress.accountsLoaded}/${progress.totalAccounts} total`
+              `${accounts.length} accounts, ${progress.accountsLoaded}/${progress.totalAccounts} total`,
           );
         },
         isParallelExecution: false,
       };
 
       const result = await lbClmm.getPositionsByUserAndLbPair(
-        keypair.publicKey,
-        opt
+        adminKeypair.publicKey,
+        opt,
       );
 
       // Should have positions (original + additional)
@@ -1178,8 +1146,8 @@ describe("SDK test", () => {
       };
 
       const result = await lbClmm.getPositionsByUserAndLbPair(
-        keypair.publicKey,
-        opt
+        adminKeypair.publicKey,
+        opt,
       );
 
       const totalPositions = result.userPositions.length;
@@ -1199,24 +1167,24 @@ describe("SDK test", () => {
       const chunkSize = 2;
 
       const sequentialResult = await lbClmm.getPositionsByUserAndLbPair(
-        keypair.publicKey,
-        { chunkSize, isParallelExecution: false }
+        adminKeypair.publicKey,
+        { chunkSize, isParallelExecution: false },
       );
 
       const parallelResult = await lbClmm.getPositionsByUserAndLbPair(
-        keypair.publicKey,
-        { chunkSize, isParallelExecution: true }
+        adminKeypair.publicKey,
+        { chunkSize, isParallelExecution: true },
       );
 
       expect(sequentialResult.userPositions.length).toBe(
-        parallelResult.userPositions.length
+        parallelResult.userPositions.length,
       );
 
       const sequentialPubkeys = new Set(
-        sequentialResult.userPositions.map((p) => p.publicKey.toBase58())
+        sequentialResult.userPositions.map((p) => p.publicKey.toBase58()),
       );
       const parallelPubkeys = new Set(
-        parallelResult.userPositions.map((p) => p.publicKey.toBase58())
+        parallelResult.userPositions.map((p) => p.publicKey.toBase58()),
       );
 
       expect(sequentialPubkeys).toEqual(parallelPubkeys);
@@ -1236,8 +1204,8 @@ describe("SDK test", () => {
       };
 
       const result = await lbClmm.getPositionsByUserAndLbPair(
-        keypair.publicKey,
-        opt
+        adminKeypair.publicKey,
+        opt,
       );
 
       expect(callbackCount).toBe(1);
@@ -1279,8 +1247,8 @@ describe("SDK test", () => {
       };
 
       const result = await lbClmm.getPositionsByUserAndLbPair(
-        keypair.publicKey,
-        opt
+        adminKeypair.publicKey,
+        opt,
       );
 
       expect(callbackPubkeys.length).toBe(result.userPositions.length);
@@ -1290,7 +1258,9 @@ describe("SDK test", () => {
       expect(uniquePubkeys.size).toBe(callbackPubkeys.length);
 
       // Verify result matches callback data
-      const resultPubkeys = result.userPositions.map((p) => p.publicKey.toBase58());
+      const resultPubkeys = result.userPositions.map((p) =>
+        p.publicKey.toBase58(),
+      );
       expect(resultPubkeys.sort()).toEqual(callbackPubkeys.sort());
     });
   });
@@ -1302,7 +1272,7 @@ describe("SDK test", () => {
     }
 
     const { userPositions } = await lbClmm.getPositionsByUserAndLbPair(
-      keypair.publicKey
+      adminKeypair.publicKey,
     );
     expect(userPositions.length).toBeGreaterThan(0);
 
@@ -1326,14 +1296,14 @@ describe("SDK test", () => {
       it("quote X -> Y", async () => {
         const bins = await lbClmm.getBinsBetweenLowerAndUpperBound(
           lbClmm.lbPair.activeId,
-          lbClmm.lbPair.activeId
+          lbClmm.lbPair.activeId,
         );
 
         const activeBin = bins.bins.pop();
 
         const btcAmountToSwapHalfUsdcOfActiveBin = new BN(
           activeBin.yAmount.div(new BN(2)).toNumber() /
-            Number.parseFloat(activeBin.price)
+            Number.parseFloat(activeBin.price),
         );
 
         btcInAmount = btcAmountToSwapHalfUsdcOfActiveBin;
@@ -1345,7 +1315,7 @@ describe("SDK test", () => {
         expect(fee.toString()).not.toEqual("0");
         // Swap within active bin has no price impact
         expect(priceImpact.isZero()).toBeTruthy();
-        expect(protocolFee.toString()).toEqual("0");
+        expect(protocolFee.toNumber()).toBeGreaterThan(0);
         expect(binArraysPubkey.length).toBeGreaterThan(0);
 
         binArraysPubkeyForSwap = binArraysPubkey;
@@ -1366,13 +1336,13 @@ describe("SDK test", () => {
           inAmount: btcInAmount,
           outToken: USDC,
           minOutAmount: new BN(0),
-          user: keypair.publicKey,
+          user: adminKeypair.publicKey,
           inToken: BTC,
           lbPair: lbPairPubkey,
           binArraysPubkey: binArraysPubkeyForSwap,
         });
         const txHash = await sendAndConfirmTransaction(connection, rawTx, [
-          keypair,
+          adminKeypair,
         ]);
         expect(txHash).not.toBeNull();
         console.log("Swap X -> Y", txHash);
@@ -1399,14 +1369,14 @@ describe("SDK test", () => {
       it("quote Y -> X", async () => {
         const bins = await lbClmm.getBinsBetweenLowerAndUpperBound(
           lbClmm.lbPair.activeId,
-          lbClmm.lbPair.activeId
+          lbClmm.lbPair.activeId,
         );
 
         const activeBin = bins.bins.pop();
 
         const usdcAmountToSwapHalfBtcOfActiveBin = new BN(
           activeBin.xAmount.div(new BN(2)).toNumber() *
-            Number.parseFloat(activeBin.price)
+            Number.parseFloat(activeBin.price),
         );
 
         usdcInAmount = usdcAmountToSwapHalfBtcOfActiveBin;
@@ -1418,7 +1388,7 @@ describe("SDK test", () => {
         // Swap within active bin has no price impact
         expect(priceImpact.isZero()).toBeTruthy();
         // TODO: Now we disable protocol we. Re-enable it back later.
-        expect(protocolFee.toString()).toEqual("0");
+        expect(protocolFee.toNumber()).toBeGreaterThan(0);
         expect(binArraysPubkey.length).toBeGreaterThan(0);
 
         binArraysPubkeyForSwap = binArraysPubkey;
@@ -1439,13 +1409,13 @@ describe("SDK test", () => {
           inAmount: usdcInAmount,
           outToken: BTC,
           minOutAmount: new BN(0),
-          user: keypair.publicKey,
+          user: adminKeypair.publicKey,
           inToken: USDC,
           lbPair: lbPairPubkey,
           binArraysPubkey: binArraysPubkeyForSwap,
         });
         const txHash = await sendAndConfirmTransaction(connection, rawTx, [
-          keypair,
+          adminKeypair,
         ]);
         expect(txHash).not.toBeNull();
         console.log("Swap Y -> X", txHash);
@@ -1487,7 +1457,7 @@ describe("SDK test", () => {
         outAmount = new BN(0);
         const bins = await lbClmm.getBinsBetweenLowerAndUpperBound(
           lbClmm.lbPair.activeId,
-          lbClmm.lbPair.activeId
+          lbClmm.lbPair.activeId,
         );
 
         const activeBin = bins.bins.pop();
@@ -1506,7 +1476,7 @@ describe("SDK test", () => {
 
         expect(inAmount.toString()).not.toEqual("0");
         expect(fee.toString()).not.toEqual("0");
-        expect(protocolFee.toString()).toEqual("0");
+        expect(protocolFee.toNumber()).toBeGreaterThan(0);
         expect(binArraysPubkey.length).toBeGreaterThan(0);
         expect(priceImpact.toNumber()).toBe(0);
 
@@ -1531,13 +1501,13 @@ describe("SDK test", () => {
           inToken: BTC,
           outToken: USDC,
           outAmount,
-          user: keypair.publicKey,
+          user: adminKeypair.publicKey,
           lbPair: lbPairPubkey,
           binArraysPubkey: binArraysPubkeyForSwap,
         });
 
         const txHash = await sendAndConfirmTransaction(connection, rawTx, [
-          keypair,
+          adminKeypair,
         ]);
 
         expect(txHash).not.toBeNull();
@@ -1568,7 +1538,7 @@ describe("SDK test", () => {
         outAmount = new BN(0);
         const bins = await lbClmm.getBinsBetweenLowerAndUpperBound(
           lbClmm.lbPair.activeId,
-          lbClmm.lbPair.activeId
+          lbClmm.lbPair.activeId,
         );
 
         const activeBin = bins.bins.pop();
@@ -1587,7 +1557,7 @@ describe("SDK test", () => {
 
         expect(inAmount.toString()).not.toEqual("0");
         expect(fee.toString()).not.toEqual("0");
-        expect(protocolFee.toString()).toEqual("0");
+        expect(protocolFee.toNumber()).toBeGreaterThan(0);
         expect(binArraysPubkey.length).toBeGreaterThan(0);
         expect(priceImpact.toNumber()).toBe(0);
 
@@ -1612,13 +1582,13 @@ describe("SDK test", () => {
           inToken: USDC,
           outToken: BTC,
           outAmount,
-          user: keypair.publicKey,
+          user: adminKeypair.publicKey,
           lbPair: lbPairPubkey,
           binArraysPubkey: binArraysPubkeyForSwap,
         });
 
         const txHash = await sendAndConfirmTransaction(connection, rawTx, [
-          keypair,
+          adminKeypair,
         ]).catch((err) => {
           console.error(err);
           throw err;
@@ -1665,7 +1635,7 @@ describe("SDK test", () => {
       it("quote X -> Y", async () => {
         const bins = await lbClmm.getBinsBetweenLowerAndUpperBound(
           lbClmm.lbPair.activeId - 1,
-          lbClmm.lbPair.activeId
+          lbClmm.lbPair.activeId,
         );
 
         const beforeActiveBin = bins.bins.pop();
@@ -1685,7 +1655,7 @@ describe("SDK test", () => {
         expect(fee.toString()).not.toEqual("0");
         // Swap with crossing bins has price impact
         expect(!priceImpact.isZero()).toBeTruthy();
-        expect(protocolFee.toString()).toEqual("0");
+        expect(protocolFee.toNumber()).toBeGreaterThan(0);
         expect(binArraysPubkey.length).toBeGreaterThan(0);
 
         binArraysPubkeyForSwap = binArraysPubkey;
@@ -1706,13 +1676,13 @@ describe("SDK test", () => {
           inAmount: btcInAmount,
           outToken: USDC,
           minOutAmount: new BN(0),
-          user: keypair.publicKey,
+          user: adminKeypair.publicKey,
           inToken: BTC,
           lbPair: lbPairPubkey,
           binArraysPubkey: binArraysPubkeyForSwap,
         });
         const txHash = await sendAndConfirmTransaction(connection, rawTx, [
-          keypair,
+          adminKeypair,
         ]);
         expect(txHash).not.toBeNull();
         console.log("Swap X -> Y", txHash);
@@ -1739,7 +1709,7 @@ describe("SDK test", () => {
       it("quote Y -> X", async () => {
         const bins = await lbClmm.getBinsBetweenLowerAndUpperBound(
           lbClmm.lbPair.activeId,
-          lbClmm.lbPair.activeId + 1
+          lbClmm.lbPair.activeId + 1,
         );
 
         const activeBin = bins.bins.pop();
@@ -1758,7 +1728,7 @@ describe("SDK test", () => {
         expect(fee.toString()).not.toEqual("0");
         // Swap with crossing bins has price impact
         expect(!priceImpact.isZero()).toBeTruthy();
-        expect(protocolFee.toString()).toEqual("0");
+        expect(protocolFee.toNumber()).toBeGreaterThan(0);
         expect(binArraysPubkey.length).toBeGreaterThan(0);
 
         binArraysPubkeyForSwap = binArraysPubkey;
@@ -1779,13 +1749,13 @@ describe("SDK test", () => {
           inAmount: usdcInAmount,
           outToken: BTC,
           minOutAmount: new BN(0),
-          user: keypair.publicKey,
+          user: adminKeypair.publicKey,
           inToken: USDC,
           lbPair: lbPairPubkey,
           binArraysPubkey: binArraysPubkeyForSwap,
         });
         const txHash = await sendAndConfirmTransaction(connection, rawTx, [
-          keypair,
+          adminKeypair,
         ]);
         expect(txHash).not.toBeNull();
         console.log("Swap Y -> X", txHash);
@@ -1827,7 +1797,7 @@ describe("SDK test", () => {
         outAmount = new BN(0);
         const { bins } = await lbClmm.getBinsBetweenLowerAndUpperBound(
           lbClmm.lbPair.activeId - 1,
-          lbClmm.lbPair.activeId
+          lbClmm.lbPair.activeId,
         );
 
         const sortedBins = bins.sort((a, b) => b.binId - a.binId);
@@ -1850,7 +1820,7 @@ describe("SDK test", () => {
 
         expect(inAmount.toString()).not.toEqual("0");
         expect(fee.toString()).not.toEqual("0");
-        expect(protocolFee.toString()).toEqual("0");
+        expect(protocolFee.toNumber()).toBeGreaterThan(0);
         expect(binArraysPubkey.length).toBeGreaterThan(0);
         expect(priceImpact.toNumber()).toBeGreaterThan(0);
 
@@ -1875,13 +1845,13 @@ describe("SDK test", () => {
           inToken: BTC,
           outToken: USDC,
           outAmount,
-          user: keypair.publicKey,
+          user: adminKeypair.publicKey,
           lbPair: lbPairPubkey,
           binArraysPubkey: binArraysPubkeyForSwap,
         });
 
         const txHash = await sendAndConfirmTransaction(connection, rawTx, [
-          keypair,
+          adminKeypair,
         ]);
 
         expect(txHash).not.toBeNull();
@@ -1912,7 +1882,7 @@ describe("SDK test", () => {
         outAmount = new BN(0);
         const { bins } = await lbClmm.getBinsBetweenLowerAndUpperBound(
           lbClmm.lbPair.activeId,
-          lbClmm.lbPair.activeId + 1
+          lbClmm.lbPair.activeId + 1,
         );
 
         const sortedBins = bins.sort((a, b) => a.binId - b.binId);
@@ -1935,7 +1905,7 @@ describe("SDK test", () => {
 
         expect(inAmount.toString()).not.toEqual("0");
         expect(fee.toString()).not.toEqual("0");
-        expect(protocolFee.toString()).toEqual("0");
+        expect(protocolFee.toNumber()).toBeGreaterThan(0);
         expect(binArraysPubkey.length).toBeGreaterThan(0);
         expect(priceImpact.toNumber()).toBeGreaterThan(0);
 
@@ -1960,13 +1930,13 @@ describe("SDK test", () => {
           inToken: USDC,
           outToken: BTC,
           outAmount,
-          user: keypair.publicKey,
+          user: adminKeypair.publicKey,
           lbPair: lbPairPubkey,
           binArraysPubkey: binArraysPubkeyForSwap,
         });
 
         const txHash = await sendAndConfirmTransaction(connection, rawTx, [
-          keypair,
+          adminKeypair,
         ]);
 
         expect(txHash).not.toBeNull();
@@ -2021,13 +1991,12 @@ describe("SDK Test with Mainnet RPC", () => {
       allowedSlippage,
       binArrays,
       isPartialFill,
-      0
+      0,
     );
     expect(quote.binArraysPubkey.length).toEqual(1);
     const binArrayToSwapPubkey = quote.binArraysPubkey[0];
-    const binArrayToSwap = await lbPair.program.account.binArray.fetch(
-      binArrayToSwapPubkey
-    );
+    const binArrayToSwap =
+      await lbPair.program.account.binArray.fetch(binArrayToSwapPubkey);
 
     quote = lbPair.swapQuote(
       inAmount,
@@ -2035,7 +2004,7 @@ describe("SDK Test with Mainnet RPC", () => {
       allowedSlippage,
       binArrays,
       isPartialFill,
-      3
+      3,
     );
     expect(quote.binArraysPubkey.length).toEqual(4);
 
@@ -2046,9 +2015,8 @@ describe("SDK Test with Mainnet RPC", () => {
     for (let i = 1; i < binArrays.length; i++) {
       let assertBinArrayPubkey = quote.binArraysPubkey[i];
 
-      const assertBinArray = await lbPair.program.account.binArray.fetch(
-        assertBinArrayPubkey
-      );
+      const assertBinArray =
+        await lbPair.program.account.binArray.fetch(assertBinArrayPubkey);
       if (swapForY) {
         expect(assertBinArray.index).toEqual(lastBinArrayIdx.sub(new BN(1)));
       } else {
@@ -2075,14 +2043,13 @@ describe("SDK Test with Mainnet RPC", () => {
       allowedSlippage,
       binArrays,
       isPartialFill,
-      0
+      0,
     );
     expect(quote.binArraysPubkey.length).toEqual(1);
 
     const binArrayToSwapPubkey = quote.binArraysPubkey[0];
-    const binArrayToSwap = await lbPair.program.account.binArray.fetch(
-      binArrayToSwapPubkey
-    );
+    const binArrayToSwap =
+      await lbPair.program.account.binArray.fetch(binArrayToSwapPubkey);
 
     quote = lbPair.swapQuote(
       inAmount,
@@ -2090,7 +2057,7 @@ describe("SDK Test with Mainnet RPC", () => {
       allowedSlippage,
       binArrays,
       isPartialFill,
-      3
+      3,
     );
     expect(quote.binArraysPubkey.length).toEqual(4);
 
@@ -2101,9 +2068,8 @@ describe("SDK Test with Mainnet RPC", () => {
     for (let i = 1; i < binArrays.length; i++) {
       let assertBinArrayPubkey = quote.binArraysPubkey[i];
 
-      const assertBinArray = await lbPair.program.account.binArray.fetch(
-        assertBinArrayPubkey
-      );
+      const assertBinArray =
+        await lbPair.program.account.binArray.fetch(assertBinArrayPubkey);
       if (swapForY) {
         expect(assertBinArray.index).toEqual(lastBinArrayIdx.sub(new BN(1)));
       } else {

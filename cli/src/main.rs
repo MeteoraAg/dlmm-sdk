@@ -54,13 +54,20 @@ async fn main() -> Result<()> {
 
     let commitment_config = CommitmentConfig::confirmed();
 
+    let program_id = match &cli.config_override.cluster {
+        Cluster::Localnet => dlmm::ID,
+        _ => "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo"
+            .parse::<Pubkey>()
+            .unwrap(),
+    };
+
     let client = Client::new_with_options(
         cli.config_override.cluster,
         Rc::new(Keypair::from_bytes(&payer.to_bytes())?),
         commitment_config,
     );
 
-    let program = client.program(dlmm::ID)?;
+    let program = client.program(program_id)?;
 
     let transaction_config: RpcSendTransactionConfig = RpcSendTransactionConfig {
         skip_preflight: false,
@@ -202,6 +209,21 @@ async fn main() -> Result<()> {
         DLMMCommand::SyncPrice(params) => {
             execute_sync_price(params, &program, transaction_config, compute_unit_price_ix).await?;
         }
+        DLMMCommand::PlaceLimitOrder(params) => {
+            execute_place_limit_order(params, &program, transaction_config).await?;
+        }
+        DLMMCommand::CancelLimitOrder(params) => {
+            execute_cancel_limit_order(params, &program, transaction_config).await?;
+        }
+        DLMMCommand::CloseLimitOrderIfEmpty(params) => {
+            execute_close_limit_order_if_empty(params, &program, transaction_config).await?;
+        }
+        DLMMCommand::SetPermissionlessOperationBits(params) => {
+            execute_set_permissionless_operation_bits(params, &program, transaction_config).await?;
+        }
+        DLMMCommand::GetLimitOrders(params) => {
+            execute_get_limit_orders(params, &program).await?;
+        }
         DLMMCommand::Admin(command) => match command {
             AdminCommand::InitializePermissionPair(params) => {
                 execute_initialize_permission_lb_pair(params, &program, transaction_config).await?;
@@ -257,6 +279,12 @@ async fn main() -> Result<()> {
             }
             AdminCommand::UpdateBaseFee(params) => {
                 execute_update_base_fee(params, &program, transaction_config).await?;
+            }
+            AdminCommand::CloseOperatorAccount(params) => {
+                execute_close_operator_account(params, &program, transaction_config).await?;
+            }
+            AdminCommand::CloseTokenBadge(params) => {
+                execute_close_token_badge(params, &program, transaction_config).await?;
             }
         },
     };

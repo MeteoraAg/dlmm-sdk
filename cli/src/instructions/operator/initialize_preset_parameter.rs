@@ -1,5 +1,5 @@
 use anchor_lang::Discriminator;
-use commons::dlmm::{accounts::PresetParameter2, types::InitPresetParameters2Ix};
+use commons::dlmm::{accounts::PresetParameter2, types::InitPresetParametersIx};
 use solana_client::{
     rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig},
     rpc_filter::{Memcmp, RpcFilterType},
@@ -75,15 +75,19 @@ pub async fn execute_initialize_preset_parameter<C: Deref<Target = impl Signer> 
     let (preset_parameter, _bump) =
         derive_preset_parameter_pda_v2(preset_parameter_v2_count as u16);
 
-    let accounts = dlmm::client::accounts::InitializePresetParameter2 {
+    let (operator, _bump) = derive_operator_pda(program.payer());
+
+    let accounts = dlmm::client::accounts::InitializePresetParameter {
         preset_parameter,
-        admin: program.payer(),
+        operator,
+        signer: program.payer(),
+        payer: program.payer(),
         system_program: solana_sdk::system_program::ID,
     }
     .to_account_metas(None);
 
-    let data = dlmm::client::args::InitializePresetParameter2 {
-        ix: InitPresetParameters2Ix {
+    let data = dlmm::client::args::InitializePresetParameter {
+        ix: InitPresetParametersIx {
             index,
             bin_step,
             base_factor,
@@ -94,6 +98,8 @@ pub async fn execute_initialize_preset_parameter<C: Deref<Target = impl Signer> 
             max_volatility_accumulator,
             protocol_share,
             base_fee_power_factor,
+            concrete_function_type: 0,
+            collect_fee_mode: 0,
         },
     }
     .data();

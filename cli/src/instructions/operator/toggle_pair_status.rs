@@ -18,9 +18,12 @@ pub async fn execute_set_pair_status<C: Deref<Target = impl Signer> + Clone>(
         pair_status,
     } = params;
 
+    let (operator, _bump) = derive_operator_pda(program.payer());
+
     let accounts = dlmm::client::accounts::SetPairStatus {
-        admin: program.payer(),
         lb_pair,
+        operator,
+        signer: program.payer(),
     }
     .to_account_metas(None);
 

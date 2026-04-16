@@ -93,24 +93,27 @@ pub async fn execute_initialize_permission_lb_pair<C: Deref<Target = impl Signer
         .map(|_| token_badge_y)
         .or(Some(dlmm::ID));
 
+    let (operator, _bump) = derive_operator_pda(program.payer());
+
     let accounts = dlmm::client::accounts::InitializePermissionLbPair {
+        base: base_keypair.pubkey(),
         lb_pair,
         bin_array_bitmap_extension: Some(dlmm::ID),
-        reserve_x,
-        reserve_y,
         token_mint_x,
         token_mint_y,
+        reserve_x,
+        reserve_y,
+        oracle,
+        payer: program.payer(),
+        operator,
+        signer: program.payer(),
         token_badge_x,
         token_badge_y,
         token_program_x: token_mint_base_account.owner,
         token_program_y: token_mint_quote_account.owner,
-        oracle,
-        admin: program.payer(),
-        rent: solana_sdk::sysvar::rent::ID,
         system_program: solana_sdk::system_program::ID,
         event_authority,
         program: dlmm::ID,
-        base: base_keypair.pubkey(),
     }
     .to_account_metas(None);
 
@@ -122,9 +125,11 @@ pub async fn execute_initialize_permission_lb_pair<C: Deref<Target = impl Signer
             active_id: computed_active_id,
             bin_step,
             base_factor,
-            activation_type,
             base_fee_power_factor,
+            activation_type,
             protocol_share: ILM_PROTOCOL_SHARE,
+            concrete_function_type: 0,
+            collect_fee_mode: 0,
         },
     }
     .data();

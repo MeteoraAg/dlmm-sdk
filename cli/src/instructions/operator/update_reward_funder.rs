@@ -20,9 +20,12 @@ pub async fn execute_update_reward_funder<C: Deref<Target = impl Signer> + Clone
 
     let (event_authority, _bump) = derive_event_authority_pda();
 
+    let (operator, _bump) = derive_operator_pda(program.payer());
+
     let accounts = dlmm::client::accounts::UpdateRewardFunder {
         lb_pair,
-        admin: program.payer(),
+        operator,
+        signer: program.payer(),
         event_authority,
         program: dlmm::ID,
     }

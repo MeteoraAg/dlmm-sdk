@@ -37,7 +37,7 @@ export function getBinArrayKeysCoverage(
   lowerBinId: BN,
   upperBinId: BN,
   lbPair: PublicKey,
-  programId: PublicKey
+  programId: PublicKey,
 ) {
   const binArrayIndexes = getBinArrayIndexesCoverage(lowerBinId, upperBinId);
 
@@ -50,7 +50,7 @@ export function getBinArrayAccountMetasCoverage(
   lowerBinId: BN,
   upperBinId: BN,
   lbPair: PublicKey,
-  programId: PublicKey
+  programId: PublicKey,
 ): AccountMeta[] {
   return getBinArrayKeysCoverage(lowerBinId, upperBinId, lbPair, programId).map(
     (key) => {
@@ -59,12 +59,12 @@ export function getBinArrayAccountMetasCoverage(
         isSigner: false,
         isWritable: true,
       };
-    }
+    },
   );
 }
 
 export function getPositionLowerUpperBinIdWithLiquidity(
-  position: PositionData
+  position: PositionData,
 ): { lowerBinId: BN; upperBinId: BN } | null {
   const binWithLiquidity = position.positionBinData.filter(
     (b) =>
@@ -72,7 +72,7 @@ export function getPositionLowerUpperBinIdWithLiquidity(
       !new BN(b.positionFeeXAmount.toString()).isZero() ||
       !new BN(b.positionFeeYAmount.toString()).isZero() ||
       !new BN(b.positionRewardAmount[0].toString()).isZero() ||
-      !new BN(b.positionRewardAmount[1].toString()).isZero()
+      !new BN(b.positionRewardAmount[1].toString()).isZero(),
   );
 
   return binWithLiquidity.length > 0
@@ -103,7 +103,7 @@ export function isPositionNoReward(position: PositionData): boolean {
 
 export function chunkBinRangeIntoExtendedPositions(
   minBinId: number,
-  maxBinId: number
+  maxBinId: number,
 ): { lowerBinId: number; upperBinId: number }[] {
   const chunkedBinRange = [];
 
@@ -114,7 +114,7 @@ export function chunkBinRangeIntoExtendedPositions(
   ) {
     const currentMaxBinId = Math.min(
       currentMinBinId + POSITION_MAX_LENGTH.toNumber() - 1,
-      maxBinId
+      maxBinId,
     );
 
     chunkedBinRange.push({
@@ -138,23 +138,23 @@ export function chunkBinRangeIntoExtendedPositions(
  */
 export function chunkBinRange(
   minBinId: number,
-  maxBinId: number
+  maxBinId: number,
+  binPerChunk?: number,
 ): { lowerBinId: number; upperBinId: number }[] {
   const chunkedBinRange = [];
   let startBinId = minBinId;
 
+  binPerChunk = binPerChunk ?? DEFAULT_BIN_PER_POSITION.toNumber();
+
   while (startBinId <= maxBinId) {
-    const endBinId = Math.min(
-      startBinId + DEFAULT_BIN_PER_POSITION.toNumber() - 1,
-      maxBinId
-    );
+    const endBinId = Math.min(startBinId + binPerChunk - 1, maxBinId);
 
     chunkedBinRange.push({
       lowerBinId: startBinId,
       upperBinId: endBinId,
     });
 
-    startBinId += DEFAULT_BIN_PER_POSITION.toNumber();
+    startBinId += binPerChunk;
   }
 
   return chunkedBinRange;
@@ -163,7 +163,7 @@ export function chunkBinRange(
 export function chunkPositionBinRange(
   position: LbPosition,
   minBinId: number,
-  maxBinId: number
+  maxBinId: number,
 ) {
   const chunkedFeesAndRewards: {
     minBinId: number;
@@ -190,10 +190,10 @@ export function chunkPositionBinRange(
       positionBinData.binId <= maxBinId
     ) {
       totalFeeXAmount = totalFeeXAmount.add(
-        new BN(positionBinData.positionFeeXAmount)
+        new BN(positionBinData.positionFeeXAmount),
       );
       totalFeeYAmount = totalFeeYAmount.add(
-        new BN(positionBinData.positionFeeYAmount)
+        new BN(positionBinData.positionFeeYAmount),
       );
       totalAmountX = totalAmountX.add(new BN(positionBinData.positionXAmount));
       totalAmountY = totalAmountY.add(new BN(positionBinData.positionYAmount));
@@ -203,7 +203,7 @@ export function chunkPositionBinRange(
         reward,
       ] of positionBinData.positionRewardAmount.entries()) {
         totalRewardAmounts[index] = totalRewardAmounts[index].add(
-          new BN(reward)
+          new BN(reward),
         );
       }
 
@@ -242,7 +242,7 @@ export function calculatePositionSize(binCount: BN) {
     ? binCount.sub(DEFAULT_BIN_PER_POSITION)
     : new BN(0);
   return new BN(POSITION_MIN_SIZE).add(
-    extraBinCount.mul(new BN(POSITION_BIN_DATA_SIZE))
+    extraBinCount.mul(new BN(POSITION_BIN_DATA_SIZE)),
   );
 }
 
@@ -278,7 +278,7 @@ export async function getPositionExpandRentExemption(
   currentMinBinId: BN,
   currentMaxBinId: BN,
   connection: Connection,
-  binCountToExpand: BN
+  binCountToExpand: BN,
 ) {
   const currentPositionWidth = currentMaxBinId.sub(currentMinBinId).addn(1);
   const positionWidthAfterExpand = currentPositionWidth.add(binCountToExpand);
@@ -286,7 +286,7 @@ export async function getPositionExpandRentExemption(
     return 0;
   } else {
     const binCountInExpandedBytes = positionWidthAfterExpand.sub(
-      DEFAULT_BIN_PER_POSITION
+      DEFAULT_BIN_PER_POSITION,
     );
     const expandSize =
       binCountInExpandedBytes.toNumber() * POSITION_BIN_DATA_SIZE;
@@ -325,7 +325,7 @@ export function getExtendedPositionBinCount(minBinId: BN, maxBinId: BN) {
 export function decodeExtendedPosition(
   base: PositionV2,
   program: Program<LbClmm>,
-  bytes: Buffer
+  bytes: Buffer,
 ): ExtendedPositionBinData[] {
   const width = base.upperBinId - base.lowerBinId + 1;
   const extendedWidth = width - DEFAULT_BIN_PER_POSITION.toNumber();
@@ -338,7 +338,7 @@ export function decodeExtendedPosition(
     const decodedPositionBinData = program.coder.types.decode(
       // TODO: Find a type safe way
       "positionBinData",
-      data
+      data,
     ) as ExtendedPositionBinData;
     extendedPosition.push(decodedPositionBinData);
   }

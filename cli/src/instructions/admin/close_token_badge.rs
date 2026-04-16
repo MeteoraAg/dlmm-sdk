@@ -1,30 +1,31 @@
 use crate::*;
-use solana_sdk::system_program;
 
 #[derive(Debug, Parser)]
-pub struct InitializeTokenBadgeParams {
+pub struct CloseTokenBadgeParams {
     /// Token mint address
+    #[clap(long)]
     pub mint: Pubkey,
 }
 
-pub async fn execute_initialize_token_badge<C: Deref<Target = impl Signer> + Clone>(
-    params: InitializeTokenBadgeParams,
+pub async fn execute_close_token_badge<C: Deref<Target = impl Signer> + Clone>(
+    params: CloseTokenBadgeParams,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
 ) -> Result<()> {
-    let InitializeTokenBadgeParams { mint } = params;
+    let CloseTokenBadgeParams { mint } = params;
 
     let (token_badge, _bump) = derive_token_badge_pda(mint);
+    let (operator, _bump) = derive_operator_pda(program.payer());
 
-    let accounts = dlmm::client::accounts::InitializeTokenBadge {
-        admin: program.payer(),
-        token_mint: mint,
-        system_program: system_program::ID,
+    let accounts = dlmm::client::accounts::CloseTokenBadge {
         token_badge,
+        rent_receiver: program.payer(),
+        operator,
+        signer: program.payer(),
     }
     .to_account_metas(None);
 
-    let data = dlmm::client::args::InitializeTokenBadge {}.data();
+    let data = dlmm::client::args::CloseTokenBadge {}.data();
 
     let instruction = Instruction {
         program_id: dlmm::ID,
@@ -38,7 +39,7 @@ pub async fn execute_initialize_token_badge<C: Deref<Target = impl Signer> + Clo
         .send_with_spinner_and_config(transaction_config)
         .await;
 
-    println!("Initialize token badge {}. Signature: {signature:#?}", mint);
+    println!("Close token badge {}. Signature: {signature:#?}", mint);
 
     signature?;
 

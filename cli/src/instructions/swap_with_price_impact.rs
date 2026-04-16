@@ -29,7 +29,7 @@ pub async fn execute_swap_with_price_impact<C: Deref<Target = impl Signer> + Clo
     let rpc_client = program.rpc();
     let lb_pair_state: LbPair = rpc_client
         .get_account_and_deserialize(&lb_pair, |account| {
-            Ok(bytemuck::pod_read_unaligned(&account.data[8..]))
+            pod_read_unaligned_skip_disc(&account.data)
         })
         .await?;
 
@@ -67,7 +67,7 @@ pub async fn execute_swap_with_price_impact<C: Deref<Target = impl Signer> + Clo
 
     let bitmap_extension = rpc_client
         .get_account_and_deserialize(&bitmap_extension_key, |account| {
-            Ok(bytemuck::pod_read_unaligned(&account.data[8..]))
+            pod_read_unaligned_skip_disc(&account.data)
         })
         .await
         .ok();
