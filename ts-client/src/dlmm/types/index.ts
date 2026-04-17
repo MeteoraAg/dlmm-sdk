@@ -153,6 +153,8 @@ export enum PositionVersion {
 export enum PairType {
   Permissionless,
   Permissioned,
+  CustomizablePermissionless,
+  PermissionlessV2,
 }
 
 export enum ShrinkMode {
