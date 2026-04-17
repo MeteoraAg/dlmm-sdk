@@ -19,6 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.9.6] - [PR #285](https://github.com/MeteoraAg/dlmm-sdk/pull/285)
+
+### Fixed
+
+- isSwapDisabled for missing pair types (`CustomizablePermissionless`)
+- Add missing `PairType`: `CustomizablePermissionless` `PermissionlessV2`
+
 ## @meteora-ag/dlmm [1.9.5] - [PR #282](https://github.com/MeteoraAg/dlmm-sdk/pull/282)
 
 ### Added

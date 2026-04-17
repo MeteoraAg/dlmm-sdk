@@ -6735,7 +6735,10 @@ export class DLMM {
       return true;
     }
 
-    if (this.lbPair.pairType == PairType.Permissioned) {
+    if (
+      this.lbPair.pairType == PairType.Permissioned ||
+      this.lbPair.pairType == PairType.CustomizablePermissionless
+    ) {
       const currentPoint =
         this.lbPair.activationType == ActivationType.Slot
           ? this.clock.slot
