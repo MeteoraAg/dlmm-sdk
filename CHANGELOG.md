@@ -19,6 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.9.5] - [PR #282](https://github.com/MeteoraAg/dlmm-sdk/pull/282)
+
+### Added
+
+- Added `getOracle` function to fetch oracle account for TWAP.
+- Added `increaseOracleLength` function to increase oracle length.
+
 ## @meteora-ag/dlmm [1.9.4] - [PR #272](https://github.com/MeteoraAg/dlmm-sdk/pull/272)
 
 ### Fixed

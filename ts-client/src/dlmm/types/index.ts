@@ -108,6 +108,8 @@ export type CompressedBinDepositAmounts = CompressedBinDepositAmount[];
 export type ResizeSideEnum = IdlTypes<LbClmm>["resizeSide"];
 export type ExtendedPositionBinData = IdlTypes<LbClmm>["positionBinData"];
 
+export type Oracle = IdlTypes<LbClmm>["oracle"];
+
 export interface LbPosition {
   publicKey: PublicKey;
   positionData: PositionData;
@@ -259,7 +261,7 @@ export module BinLiquidity {
     binStep: number,
     baseTokenDecimal: number,
     quoteTokenDecimal: number,
-    version: number
+    version: number,
   ): BinLiquidity {
     const pricePerLamport = getPriceOfBinByBinId(binId, binStep).toString();
     return {
@@ -283,7 +285,7 @@ export module BinLiquidity {
     binStep: number,
     baseTokenDecimal: number,
     quoteTokenDecimal: number,
-    version: number
+    version: number,
   ): BinLiquidity {
     const pricePerLamport = getPriceOfBinByBinId(binId, binStep).toString();
     return {
@@ -526,7 +528,7 @@ export enum ResizeSide {
 }
 
 export const MEMO_PROGRAM_ID = new PublicKey(
-  "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"
+  "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",
 );
 
 export interface RebalancePositionResponse {
@@ -552,7 +554,7 @@ export interface ChunkCallbackInfo {
 
 export type ChunkCallback = (
   accounts: { pubkey: PublicKey; account: AccountInfo<Buffer> }[],
-  progress: ChunkCallbackInfo
+  progress: ChunkCallbackInfo,
 ) => void;
 
 /**
