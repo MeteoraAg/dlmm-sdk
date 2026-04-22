@@ -353,7 +353,7 @@ describe("Rebalance", () => {
     }
   });
 
-  it.only("Rebalance with single bin deposit", async () => {
+  it("Rebalance with single bin deposit", async () => {
     const dlmm = await DLMM.create(connection, lbPairPubkey, {
       cluster: "localhost",
     });
