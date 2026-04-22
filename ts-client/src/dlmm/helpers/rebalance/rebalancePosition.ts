@@ -954,7 +954,7 @@ function validateAndSortRebalanceDeposit(deposits: RebalanceWithDeposit[]) {
   );
 
   for (const deposit of deposits) {
-    if (deposit.minDeltaId.gte(deposit.maxDeltaId)) {
+    if (deposit.minDeltaId.gt(deposit.maxDeltaId)) {
       throw "Invalid minDeltaId or maxDeltaId";
     }
   }

@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.9.7] - [PR #286](https://github.com/MeteoraAg/dlmm-sdk/pull/286)
+
+### Fixed
+
+- Allow `dlmm.simulateRebalancePosition` on single bin
+
 ## @meteora-ag/dlmm [1.9.6] - [PR #285](https://github.com/MeteoraAg/dlmm-sdk/pull/285)
 
 ### Fixed
