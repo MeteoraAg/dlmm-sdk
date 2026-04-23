@@ -1,4 +1,4 @@
-import { BN } from "@coral-xyz/anchor";
+import BN from "bn.js";
 import { AccountMeta, Connection, PublicKey } from "@solana/web3.js";
 import { DLMM } from "..";
 import { ILM_BASE } from "../constants";
