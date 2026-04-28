@@ -4185,16 +4185,18 @@ export class DLMM {
     const chunkedBinRange = chunkBinRange(fromBinId, toBinId);
     const groupedInstructions: TransactionInstruction[][] = [];
 
-    for (const { lowerBinId, upperBinId } of chunkedBinRange) {
+    const { slices, accounts: transferHookAccounts } =
+      this.getPotentialToken2022IxDataAndAccounts(ActionType.Liquidity);
+
+    for (let i = 0; i < chunkedBinRange.length; i++) {
+      const { lowerBinId, upperBinId } = chunkedBinRange[i];
+      const isFirstChunk = i === 0;
       const binArrayAccountsMeta = getBinArrayAccountMetasCoverage(
         new BN(lowerBinId),
         new BN(upperBinId),
         this.pubkey,
         this.program.programId,
       );
-
-      const { slices, accounts: transferHookAccounts } =
-        this.getPotentialToken2022IxDataAndAccounts(ActionType.Liquidity);
 
       const preInstructions: Array<TransactionInstruction> = [];
       const postInstructions: Array<TransactionInstruction> = [];
@@ -4222,8 +4224,11 @@ export class DLMM {
           .remainingAccounts(binArrayAccountsMeta)
           .instruction();
 
-        preInstructions.push(createFeeOwnerTokenXIx);
-        preInstructions.push(createFeeOwnerTokenYIx);
+        if (isFirstChunk) {
+          preInstructions.push(createFeeOwnerTokenXIx);
+          preInstructions.push(createFeeOwnerTokenYIx);
+        }
+
         postInstructions.push(claimSwapFeeIx);
 
         for (let i = 0; i < 2; i++) {
@@ -4273,19 +4278,22 @@ export class DLMM {
           postInstructions.push(claimRewardIx);
         }
 
-        const closePositionIx = await this.program.methods
-          .closePositionIfEmpty()
-          .accountsPartial({
-            rentReceiver: owner, // Must be position owner
-            position,
-            sender: user,
-          })
-          .instruction();
+        if (isFirstChunk) {
+          const closePositionIx = await this.program.methods
+            .closePositionIfEmpty()
+            .accountsPartial({
+              rentReceiver: owner, // Must be position owner
+              position,
+              sender: user,
+            })
+            .instruction();
 
-        postInstructions.push(closePositionIx);
+          postInstructions.push(closePositionIx);
+        }
       }
 
       if (
+        isFirstChunk &&
         [
           this.tokenX.publicKey.toBase58(),
           this.tokenY.publicKey.toBase58(),
@@ -4296,9 +4304,11 @@ export class DLMM {
         closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
       }
 
-      preInstructions.push(createUserTokenXIx);
-      preInstructions.push(createUserTokenYIx);
-
+      if (isFirstChunk) {
+        preInstructions.push(createUserTokenXIx);
+        preInstructions.push(createUserTokenYIx);
+      }
+      
       const binArrayBitmapExtension = this.binArrayBitmapExtension
         ? this.binArrayBitmapExtension.publicKey
         : this.program.programId;
