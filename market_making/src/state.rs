@@ -52,7 +52,7 @@ impl SinglePosition {
     ) -> Result<u64> {
         let lb_pair_state = self.lb_pair_state.context("Missing lb pair state")?;
         let price = get_price_from_id(lb_pair_state.active_id, lb_pair_state.bin_step)?;
-        let out_amount = Bin::get_amount_out(amount_in, price, swap_for_y)?;
+        let out_amount = Bin::get_amount_out(amount_in, price, swap_for_y, Rounding::Down)?;
 
         let min_out_amount = out_amount
             .checked_mul(BASIC_POINT_MAX - SLIPPAGE_RATE)

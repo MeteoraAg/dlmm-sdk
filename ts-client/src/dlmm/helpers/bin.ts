@@ -31,6 +31,41 @@ export function getAmountOut(bin: Bin, inAmount: BN, swapForY: boolean) {
     : shlDiv(inAmount, bin.price, SCALE_OFFSET, Rounding.Down);
 }
 
+function getExcludedFeeAmountIn(
+  bin: Bin,
+  includedFeeOutAmount: BN,
+  swapForY: boolean,
+): BN {
+  const mmAmount = swapForY ? bin.amountY : bin.amountX;
+
+  const { openOrderAmount, processedOrderRemainingAmount } =
+    getLimitOrderAmountsBySwapDirection(bin, swapForY);
+
+  let remainingOutAmount = includedFeeOutAmount;
+  let totalAmountIn = new BN(0);
+
+  let exactOutAmount = BN.min(remainingOutAmount, mmAmount);
+  let amountIn = getAmountIn(exactOutAmount, bin.price, swapForY, Rounding.Up);
+
+  remainingOutAmount = remainingOutAmount.sub(exactOutAmount);
+  totalAmountIn = totalAmountIn.add(amountIn);
+
+  if (remainingOutAmount.gt(new BN(0))) {
+    exactOutAmount = BN.min(remainingOutAmount, processedOrderRemainingAmount);
+    amountIn = getAmountIn(exactOutAmount, bin.price, swapForY, Rounding.Up);
+    remainingOutAmount = remainingOutAmount.sub(exactOutAmount);
+    totalAmountIn = totalAmountIn.add(amountIn);
+
+    if (remainingOutAmount.gt(new BN(0))) {
+      exactOutAmount = BN.min(remainingOutAmount, openOrderAmount);
+      amountIn = getAmountIn(exactOutAmount, bin.price, swapForY, Rounding.Up);
+      totalAmountIn = totalAmountIn.add(amountIn);
+    }
+  }
+
+  return totalAmountIn;
+}
+
 export function swapExactOutQuoteAtBin(
   bin: Bin,
   binStep: number,
@@ -73,11 +108,10 @@ export function swapExactOutQuoteAtBin(
       feeOnInput,
     );
   } else {
-    const excludedFeeAmountIn = getAmountIn(
+    const excludedFeeAmountIn = getExcludedFeeAmountIn(
+      bin,
       includedFeeAmountOut,
-      bin.price,
       swapForY,
-      Rounding.Up,
     );
 
     let includedFeeAmountIn = excludedFeeAmountIn;
