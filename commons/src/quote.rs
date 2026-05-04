@@ -47,7 +47,7 @@ fn calculate_exact_in_fill_amount(
             out_amount: 0,
         });
     }
-    let max_amount_in = Bin::get_amount_in(max_amount_out, bin.price, swap_for_y)?;
+    let max_amount_in = Bin::get_amount_in(max_amount_out, bin.price, swap_for_y, Rounding::Up)?;
     if amount >= max_amount_in {
         Ok(FillResult {
             amount_in: max_amount_in,
@@ -55,7 +55,7 @@ fn calculate_exact_in_fill_amount(
             out_amount: max_amount_out,
         })
     } else {
-        let out_amount = Bin::get_amount_out(amount, bin.price, swap_for_y)?;
+        let out_amount = Bin::get_amount_out(amount, bin.price, swap_for_y, Rounding::Down)?;
         Ok(FillResult {
             amount_in: amount,
             amount_left: 0,
@@ -262,6 +262,55 @@ fn swap_exact_in_quote_at_bin(
     })
 }
 
+fn get_excluded_fee_amount_in(
+    bin: &Bin,
+    swap_for_y: bool,
+    included_fee_amount_out: u64,
+) -> Result<u64> {
+    let mm_amount = if swap_for_y {
+        bin.amount_y
+    } else {
+        bin.amount_x
+    };
+
+    let (open_order_amount, processed_order_remaining_amount) =
+        bin.get_limit_order_amounts_by_direction(swap_for_y);
+
+    let mut remaining_amount_out = included_fee_amount_out;
+    let mut total_amount_in: u64 = 0;
+
+    let exact_out_amount = remaining_amount_out.min(mm_amount);
+    let amount_in = Bin::get_amount_in(exact_out_amount, bin.price, swap_for_y, Rounding::Up)?;
+    remaining_amount_out = remaining_amount_out
+        .checked_sub(exact_out_amount)
+        .context("MathOverflow")?;
+    total_amount_in = total_amount_in
+        .checked_add(amount_in)
+        .context("MathOverflow")?;
+
+    if remaining_amount_out > 0 {
+        let exact_out_amount = remaining_amount_out.min(processed_order_remaining_amount);
+        let amount_in = Bin::get_amount_in(exact_out_amount, bin.price, swap_for_y, Rounding::Up)?;
+        remaining_amount_out = remaining_amount_out
+            .checked_sub(exact_out_amount)
+            .context("MathOverflow")?;
+        total_amount_in = total_amount_in
+            .checked_add(amount_in)
+            .context("MathOverflow")?;
+
+        if remaining_amount_out > 0 {
+            let exact_out_amount = remaining_amount_out.min(open_order_amount);
+            let amount_in =
+                Bin::get_amount_in(exact_out_amount, bin.price, swap_for_y, Rounding::Up)?;
+            total_amount_in = total_amount_in
+                .checked_add(amount_in)
+                .context("MathOverflow")?;
+        }
+    }
+
+    Ok(total_amount_in)
+}
+
 /// Per-bin exact-out quote with limit order and fee mode support.
 fn swap_exact_out_quote_at_bin(
     bin: &Bin,
@@ -294,7 +343,7 @@ fn swap_exact_out_quote_at_bin(
 
     // Calculate required input for exact output
     let excluded_fee_amount_in =
-        Bin::get_amount_in(included_fee_amount_out, bin.price, swap_for_y)?;
+        get_excluded_fee_amount_in(bin, swap_for_y, included_fee_amount_out)?;
 
     let included_fee_amount_in = if fee_on_input {
         let fee = lb_pair.compute_fee(excluded_fee_amount_in)?;

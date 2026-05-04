@@ -16,8 +16,18 @@ pub trait BinExtension {
         host_fee_bps: Option<u16>,
     ) -> Result<SwapResult>;
 
-    fn get_amount_out(amount_in: u64, price: u128, swap_for_y: bool) -> Result<u64>;
-    fn get_amount_in(amount_out: u64, price: u128, swap_for_y: bool) -> Result<u64>;
+    fn get_amount_out(
+        amount_in: u64,
+        price: u128,
+        swap_for_y: bool,
+        rounding: Rounding,
+    ) -> Result<u64>;
+    fn get_amount_in(
+        amount_out: u64,
+        price: u128,
+        swap_for_y: bool,
+        rounding: Rounding,
+    ) -> Result<u64>;
 
     /// Returns (open_order_amount, processed_order_remaining_amount) for the matching limit order
     /// side based on swap direction. Returns (0, 0) if limit orders don't match the swap direction.
@@ -64,19 +74,29 @@ impl BinExtension for Bin {
         }
     }
 
-    fn get_amount_in(amount_out: u64, price: u128, swap_for_y: bool) -> Result<u64> {
+    fn get_amount_in(
+        amount_out: u64,
+        price: u128,
+        swap_for_y: bool,
+        rounding: Rounding,
+    ) -> Result<u64> {
         if swap_for_y {
-            safe_shl_div_cast(amount_out.into(), price, SCALE_OFFSET, Rounding::Up)
+            safe_shl_div_cast(amount_out.into(), price, SCALE_OFFSET, rounding)
         } else {
-            safe_mul_shr_cast(amount_out.into(), price, SCALE_OFFSET, Rounding::Up)
+            safe_mul_shr_cast(amount_out.into(), price, SCALE_OFFSET, rounding)
         }
     }
 
-    fn get_amount_out(amount_in: u64, price: u128, swap_for_y: bool) -> Result<u64> {
+    fn get_amount_out(
+        amount_in: u64,
+        price: u128,
+        swap_for_y: bool,
+        rounding: Rounding,
+    ) -> Result<u64> {
         if swap_for_y {
-            safe_mul_shr_cast(price, amount_in.into(), SCALE_OFFSET, Rounding::Down)
+            safe_mul_shr_cast(price, amount_in.into(), SCALE_OFFSET, rounding)
         } else {
-            safe_shl_div_cast(amount_in.into(), price, SCALE_OFFSET, Rounding::Down)
+            safe_shl_div_cast(amount_in.into(), price, SCALE_OFFSET, rounding)
         }
     }
 
@@ -102,7 +122,10 @@ impl BinExtension for Bin {
         // swap_for_y (selling X for Y) can fill bid side orders (!is_ask_side)
         // !swap_for_y (selling Y for X) can fill ask side orders (is_ask_side)
         if (swap_for_y && !is_ask_side) || (!swap_for_y && is_ask_side) {
-            (self.open_order_amount, self.processed_order_remaining_amount)
+            (
+                self.open_order_amount,
+                self.processed_order_remaining_amount,
+            )
         } else {
             (0, 0)
         }
@@ -148,7 +171,8 @@ impl BinExtension for Bin {
         } else {
             let fee = lb_pair.compute_fee_from_amount(amount_in)?;
             let amount_in_after_fee = amount_in.checked_sub(fee).context("overflow")?;
-            let amount_out = Bin::get_amount_out(amount_in_after_fee, price, swap_for_y)?;
+            let amount_out =
+                Bin::get_amount_out(amount_in_after_fee, price, swap_for_y, Rounding::Down)?;
             (
                 amount_in,
                 std::cmp::min(amount_out, max_amount_out),
