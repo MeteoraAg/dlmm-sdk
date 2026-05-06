@@ -379,14 +379,14 @@ describe("Rebalance", () => {
 
       const initPositionTx = await dlmm.createEmptyPosition({
         positionPubKey: positionKeypair.publicKey,
-        user: keypair.publicKey,
+        user: adminKeypair.publicKey,
         minBinId: dlmm.lbPair.activeId - 30,
         maxBinId: dlmm.lbPair.activeId + 30,
       });
 
       await sendAndConfirmTransaction(connection, initPositionTx, [
         positionKeypair,
-        keypair,
+        adminKeypair,
       ]);
 
       const beforePositionLamports = await connection
@@ -412,7 +412,7 @@ describe("Rebalance", () => {
         new BN(dlmm.lbPair.binStep),
         favorXInActiveBin,
         new BN(dlmm.lbPair.activeId),
-        strategyParamBuilder
+        strategyParamBuilder,
       );
 
       const { simulationResult, rebalancePosition } =
@@ -438,13 +438,13 @@ describe("Rebalance", () => {
               maxBinId: new BN(beforePosition.positionData.upperBinId),
               bps: new BN(BASIS_POINT_MAX),
             },
-          ]
+          ],
         );
 
       const { initBinArrayInstructions, rebalancePositionInstruction } =
         await dlmm.rebalancePosition(
           { simulationResult, rebalancePosition },
-          new BN(0)
+          new BN(0),
         );
 
       const { lastValidBlockHeight, blockhash } =
@@ -457,8 +457,10 @@ describe("Rebalance", () => {
             blockhash,
           }).add(ix);
 
-          return sendAndConfirmTransaction(connection, transaction, [keypair]);
-        })
+          return sendAndConfirmTransaction(connection, transaction, [
+            adminKeypair,
+          ]);
+        }),
       );
 
       const rebalanceTx = new Transaction({
@@ -466,9 +468,9 @@ describe("Rebalance", () => {
         blockhash,
       }).add(...rebalancePositionInstruction);
 
-      await sendAndConfirmTransaction(connection, rebalanceTx, [keypair]).then(
-        console.log
-      );
+      await sendAndConfirmTransaction(connection, rebalanceTx, [
+        adminKeypair,
+      ]).then(console.log);
 
       const afterPositionLamports = await connection
         .getAccountInfo(positionKeypair.publicKey)
@@ -477,20 +479,20 @@ describe("Rebalance", () => {
 
       assertEqRebalanceSimulationWithActualResult(
         rebalancePosition,
-        afterPosition
+        afterPosition,
       );
 
       const rentalChanges = new BN(afterPositionLamports).sub(
-        new BN(beforePositionLamports)
+        new BN(beforePositionLamports),
       );
 
       expect(rentalChanges.toString()).toBe(
-        simulationResult.rentalCostLamports.toString()
+        simulationResult.rentalCostLamports.toString(),
       );
 
       const [_beforeWidth, afterWidth] = getBeforeAfterPositionWidth(
         beforePosition,
-        afterPosition
+        afterPosition,
       );
 
       expect(afterWidth).toBe(1);

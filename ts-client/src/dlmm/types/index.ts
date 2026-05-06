@@ -114,7 +114,6 @@ export type CompressedBinDepositAmounts = CompressedBinDepositAmount[];
 export type ResizeSideEnum = IdlTypes<LbClmm>["resizeSide"];
 export type ExtendedPositionBinData = IdlTypes<LbClmm>["positionBinData"];
 
-<<<<<<< HEAD
 export type LimitOrderBinData = IdlTypes<LbClmm>["limitOrderBinData"];
 export type PlaceLimitOrderParams = IdlTypes<LbClmm>["placeLimitOrderParams"];
 
@@ -122,9 +121,7 @@ export interface ParsedLimitOrderWithPubkey {
   publicKey: PublicKey;
   limitOrderData: ParsedLimitOrder;
 }
-=======
 export type Oracle = IdlTypes<LbClmm>["oracle"];
->>>>>>> origin/main
 
 export interface LbPosition {
   publicKey: PublicKey;
@@ -672,7 +669,6 @@ export interface GetPositionsOpt {
    */
   isParallelExecution?: boolean;
 }
-<<<<<<< HEAD
 
 export enum PositionPermission {
   ClaimFee,
@@ -683,5 +679,3 @@ export enum LimitOrderStatus {
   PartialFilled,
   Fulfilled,
 }
-=======
->>>>>>> origin/main

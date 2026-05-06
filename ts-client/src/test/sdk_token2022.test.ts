@@ -3034,9 +3034,9 @@ describe("SDK token2022 test", () => {
       const lengthToAdd = new BN(5);
       const tx = await dlmm.increaseOracleLength(
         lengthToAdd,
-        keypair.publicKey,
+        adminKeypair.publicKey,
       );
-      await sendAndConfirmTransaction(connection, tx, [keypair]);
+      await sendAndConfirmTransaction(connection, tx, [adminKeypair]);
 
       const oracleAfter = await dlmm.getOracle();
       expect(oracleAfter.metadata.length.toNumber()).toBe(

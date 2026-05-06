@@ -44,7 +44,6 @@ import {
   LimitOrder,
   PositionPermission,
   Oracle,
-  Position,
   PositionV2,
   PresetParameter,
   PresetParameter2,
