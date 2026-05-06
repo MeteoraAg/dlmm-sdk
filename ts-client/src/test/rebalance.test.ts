@@ -369,6 +369,135 @@ describe("Rebalance", () => {
     }
   });
 
+  it("Rebalance with single bin deposit", async () => {
+    const dlmm = await DLMM.create(connection, lbPairPubkey, {
+      cluster: "localhost",
+    });
+
+    for (const strategy of strategySet) {
+      const positionKeypair = Keypair.generate();
+
+      const initPositionTx = await dlmm.createEmptyPosition({
+        positionPubKey: positionKeypair.publicKey,
+        user: keypair.publicKey,
+        minBinId: dlmm.lbPair.activeId - 30,
+        maxBinId: dlmm.lbPair.activeId + 30,
+      });
+
+      await sendAndConfirmTransaction(connection, initPositionTx, [
+        positionKeypair,
+        keypair,
+      ]);
+
+      const beforePositionLamports = await connection
+        .getAccountInfo(positionKeypair.publicKey)
+        .then((account) => account.lamports);
+
+      const beforePosition = await dlmm.getPosition(positionKeypair.publicKey);
+
+      const strategyParamBuilder =
+        getLiquidityStrategyParameterBuilder(strategy);
+
+      const minDeltaId = new BN(0);
+      const maxDeltaId = new BN(0);
+      const amountX = new BN(10_000_000);
+      const amountY = new BN(10_000_000);
+      const favorXInActiveBin = false;
+
+      const { x0, y0, deltaX, deltaY } = buildLiquidityStrategyParameters(
+        amountX,
+        amountY,
+        minDeltaId,
+        maxDeltaId,
+        new BN(dlmm.lbPair.binStep),
+        favorXInActiveBin,
+        new BN(dlmm.lbPair.activeId),
+        strategyParamBuilder
+      );
+
+      const { simulationResult, rebalancePosition } =
+        await dlmm.simulateRebalancePosition(
+          positionKeypair.publicKey,
+          beforePosition.positionData,
+          true,
+          true,
+          [
+            {
+              x0,
+              y0,
+              deltaX,
+              deltaY,
+              minDeltaId,
+              maxDeltaId,
+              favorXInActiveBin,
+            },
+          ],
+          [
+            {
+              minBinId: new BN(beforePosition.positionData.lowerBinId),
+              maxBinId: new BN(beforePosition.positionData.upperBinId),
+              bps: new BN(BASIS_POINT_MAX),
+            },
+          ]
+        );
+
+      const { initBinArrayInstructions, rebalancePositionInstruction } =
+        await dlmm.rebalancePosition(
+          { simulationResult, rebalancePosition },
+          new BN(0)
+        );
+
+      const { lastValidBlockHeight, blockhash } =
+        await connection.getLatestBlockhash();
+
+      await Promise.all(
+        initBinArrayInstructions.map((ix) => {
+          const transaction = new Transaction({
+            lastValidBlockHeight,
+            blockhash,
+          }).add(ix);
+
+          return sendAndConfirmTransaction(connection, transaction, [keypair]);
+        })
+      );
+
+      const rebalanceTx = new Transaction({
+        lastValidBlockHeight,
+        blockhash,
+      }).add(...rebalancePositionInstruction);
+
+      await sendAndConfirmTransaction(connection, rebalanceTx, [keypair]).then(
+        console.log
+      );
+
+      const afterPositionLamports = await connection
+        .getAccountInfo(positionKeypair.publicKey)
+        .then((account) => account.lamports);
+      const afterPosition = await dlmm.getPosition(positionKeypair.publicKey);
+
+      assertEqRebalanceSimulationWithActualResult(
+        rebalancePosition,
+        afterPosition
+      );
+
+      const rentalChanges = new BN(afterPositionLamports).sub(
+        new BN(beforePositionLamports)
+      );
+
+      expect(rentalChanges.toString()).toBe(
+        simulationResult.rentalCostLamports.toString()
+      );
+
+      const [_beforeWidth, afterWidth] = getBeforeAfterPositionWidth(
+        beforePosition,
+        afterPosition
+      );
+
+      expect(afterWidth).toBe(1);
+      await dlmm.refetchStates();
+    }
+  });
+
   it("Rebalance with only deposit and auto expand position", async () => {
     const dlmm = await DLMM.create(connection, lbPairPubkey, {
       cluster: "localhost",

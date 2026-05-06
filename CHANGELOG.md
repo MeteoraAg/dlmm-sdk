@@ -40,7 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `quote_exact_in()` and `quote_exact_out()` now support limit order liquidity
 
-## @meteora-ag/dlmm [1.9.5] - [PR #273](https://github.com/MeteoraAg/dlmm-sdk/pull/273)
+## @meteora-ag/dlmm [1.9.8] - [PR #273](https://github.com/MeteoraAg/dlmm-sdk/pull/273)
 
 ### Added
 
@@ -67,6 +67,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Update logic of `swapQuote` and `swapQuoteExactOut` to limit order and collect fee mode.
 - `swapExactOutQuoteAtBin` function's 'amountIn` now include fee.
+
+## @meteora-ag/dlmm [1.9.7] - [PR #286](https://github.com/MeteoraAg/dlmm-sdk/pull/286)
+
+### Fixed
+
+- Allow `dlmm.simulateRebalancePosition` on single bin
+
+## @meteora-ag/dlmm [1.9.6] - [PR #285](https://github.com/MeteoraAg/dlmm-sdk/pull/285)
+
+### Fixed
+
+- isSwapDisabled for missing pair types (`CustomizablePermissionless`)
+- Add missing `PairType`: `CustomizablePermissionless` `PermissionlessV2`
+
+## @meteora-ag/dlmm [1.9.5] - [PR #282](https://github.com/MeteoraAg/dlmm-sdk/pull/282)
+
+### Added
+
+- Added `getOracle` function to fetch oracle account for TWAP.
+- Added `increaseOracleLength` function to increase oracle length.
 
 ## @meteora-ag/dlmm [1.9.4] - [PR #272](https://github.com/MeteoraAg/dlmm-sdk/pull/272)
 

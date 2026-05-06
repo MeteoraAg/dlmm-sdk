@@ -43,6 +43,8 @@ import {
   LbPair,
   LimitOrder,
   PositionPermission,
+  Oracle,
+  Position,
   PositionV2,
   PresetParameter,
   PresetParameter2,
@@ -86,6 +88,7 @@ export * from "./token_2022";
 export * from "./weight";
 export * from "./weightToAmounts";
 export * from "./bin";
+export * from "./oracle";
 
 export function chunks<T>(array: T[], size: number): T[][] {
   return Array.apply(0, new Array(Math.ceil(array.length / size))).map(
@@ -479,7 +482,8 @@ export function decodeAccount<
     | PositionV2
     | PresetParameter
     | LimitOrder
-    | PresetParameter2,
+    | PresetParameter2
+    | Oracle,
 >(program: Program<LbClmm>, accountName: AccountName, buffer: Buffer): T {
   return program.coder.accounts.decode(accountName, buffer);
 }

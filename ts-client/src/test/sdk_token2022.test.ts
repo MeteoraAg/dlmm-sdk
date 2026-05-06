@@ -3025,6 +3025,26 @@ describe("SDK token2022 test", () => {
     });
   });
 
+  describe("Oracle", () => {
+    it("increaseOracleLength", async () => {
+      const dlmm = await DLMM.create(connection, pairKey, opt);
+      const oracleBefore = await dlmm.getOracle();
+      const lengthBefore = oracleBefore.metadata.length;
+
+      const lengthToAdd = new BN(5);
+      const tx = await dlmm.increaseOracleLength(
+        lengthToAdd,
+        keypair.publicKey,
+      );
+      await sendAndConfirmTransaction(connection, tx, [keypair]);
+
+      const oracleAfter = await dlmm.getOracle();
+      expect(oracleAfter.metadata.length.toNumber()).toBe(
+        lengthBefore.toNumber() + lengthToAdd.toNumber(),
+      );
+    });
+  });
+
   describe("Position fetcher", () => {
     const pairWithPositionKey: {
       pair: PublicKey;

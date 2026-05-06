@@ -106,6 +106,8 @@ import {
   getAmountOut,
   encodePositionPermissions,
   getBinArrayInfoForNonContiguousBinIds,
+  wrapOracle,
+  IDynamicOracle,
 } from "./helpers";
 import {
   binArrayLbPairFilter,
@@ -7319,7 +7321,10 @@ export class DLMM {
       return true;
     }
 
-    if (this.lbPair.pairType == PairType.Permissioned) {
+    if (
+      this.lbPair.pairType == PairType.Permissioned ||
+      this.lbPair.pairType == PairType.CustomizablePermissionless
+    ) {
       const currentPoint =
         this.lbPair.activationType == ActivationType.Slot
           ? this.clock.slot
@@ -8494,6 +8499,13 @@ export class DLMM {
 
   /** Private static method */
 
+  private static async getBinArrays(
+    program: ClmmProgram,
+    lbPairPubkey: PublicKey,
+  ): Promise<Array<BinArrayAccount>> {
+    return program.account.binArray.all([binArrayLbPairFilter(lbPairPubkey)]);
+  }
+
   private static async processPosition(
     program: ClmmProgram,
     lbPair: LbPair,
@@ -9230,5 +9242,69 @@ export class DLMM {
       ],
       accounts: this.rewards[rewardIndex].transferHookAccountMetas,
     };
+  }
+
+  /**
+   * Fetches the oracle account and returns an IDynamicOracle instance that can be
+   * used to query TWAP (Time-Weighted Average Price) data.
+   *
+   * @returns An IDynamicOracle instance with methods like getActiveIdByTime,
+   * getPriceByTime, getUiPriceByTime, etc.
+   */
+  public async getOracle(): Promise<IDynamicOracle> {
+    const oracleAddress = this.lbPair.oracle;
+    const [oracleAccountInfo, lbPairAccountInfo] =
+      await this.program.provider.connection.getMultipleAccountsInfo([
+        oracleAddress,
+        this.pubkey,
+      ]);
+
+    const lbPairState: LbPair = decodeAccount(
+      this.program,
+      "lbPair",
+      lbPairAccountInfo.data,
+    );
+
+    return wrapOracle(
+      oracleAddress,
+      oracleAccountInfo.data,
+      this.lbPair.binStep,
+      new BN(lbPairState.activeId),
+      this.tokenX.mint.decimals,
+      this.tokenY.mint.decimals,
+      this.program,
+    );
+  }
+
+  /**
+   * Returns a transaction to increase the oracle observation storage length.
+   * A longer oracle stores more historical data, enabling TWAP queries over
+   * longer time ranges.
+   *
+   * @param lengthToAdd - Number of observation slots to add.
+   * @param funder - The public key of the account funding the reallocation.
+   * @returns A Transaction that can be signed and sent.
+   */
+  public async increaseOracleLength(
+    lengthToAdd: BN,
+    funder: PublicKey,
+  ): Promise<Transaction> {
+    const oracleAddress = this.lbPair.oracle;
+
+    const increaseOracleLengthIx = await this.program.methods
+      .increaseOracleLength(lengthToAdd)
+      .accountsPartial({
+        oracle: oracleAddress,
+        funder,
+      })
+      .instruction();
+
+    const { blockhash, lastValidBlockHeight } =
+      await this.program.provider.connection.getLatestBlockhash("confirmed");
+    return new Transaction({
+      blockhash,
+      lastValidBlockHeight,
+      feePayer: funder,
+    }).add(increaseOracleLengthIx);
   }
 }

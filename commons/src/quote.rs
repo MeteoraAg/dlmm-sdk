@@ -393,7 +393,7 @@ fn validate_swap_activation(
     );
 
     let pair_type = lb_pair.pair_type()?;
-    if pair_type.eq(&PairType::Permission) {
+    if pair_type.eq(&PairType::Permission) || pair_type.eq(&PairType::CustomizablePermissionless) {
         let activation_type = lb_pair.activation_type()?;
         let current_point = match activation_type {
             ActivationType::Slot => current_slot,
