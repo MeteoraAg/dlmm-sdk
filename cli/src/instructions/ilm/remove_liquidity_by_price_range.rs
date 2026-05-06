@@ -32,7 +32,7 @@ pub async fn execute_remove_liquidity_by_price_range<C: Deref<Target = impl Sign
 
     let lb_pair_state: LbPair = rpc_client
         .get_account_and_deserialize(&lb_pair, |account| {
-            Ok(bytemuck::pod_read_unaligned(&account.data[8..]))
+            pod_read_unaligned_skip_disc(&account.data)
         })
         .await?;
 
@@ -121,7 +121,7 @@ pub async fn execute_remove_liquidity_by_price_range<C: Deref<Target = impl Sign
 
         let position_account = rpc_client.get_account(&position).await;
         if let std::result::Result::Ok(account) = position_account {
-            let position_state: PositionV2 = bytemuck::pod_read_unaligned(&account.data[8..]);
+            let position_state: PositionV2 = pod_read_unaligned_skip_disc(&account.data)?;
 
             let bin_arrays_account_meta = position_state.get_bin_array_accounts_meta_coverage()?;
 

@@ -19,6 +19,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## cli [0.6.3] [PR #273](https://github.com/MeteoraAg/dlmm-sdk/pull/273)
+
+### Added
+
+- Added `place_limit_order` command to place limit orders
+- Added `cancel_limit_order` command to cancel existing limit orders
+- Added `close_limit_order_if_empty` command to close empty limit order account
+- Added `get_limit_orders` command to query limit orders for a user on a specific pair
+- Added `set_permissionless_operation_bits` command to set operation bits on a position
+
+## commons [0.3.3] [PR #273](https://github.com/MeteoraAg/dlmm-sdk/pull/273)
+
+### Added
+
+- Added `DynamicPosition` in `dynamic_position.rs` to support parsing on position account
+- Added `LimitOrder` in `limit_order.rs` to support parsing on limit order account
+
+### Changed
+
+- `quote_exact_in()` and `quote_exact_out()` now support limit order liquidity
+
+## @meteora-ag/dlmm [1.9.8] - [PR #273](https://github.com/MeteoraAg/dlmm-sdk/pull/273)
+
+### Added
+
+- Added function `placeLimitOrder` to place a new limit order. Only applicable for pair with function type of LimitOrder.
+- Added function `cancelLimitOrder` to cancel an existing limit order.
+- Added function `closeLimitOrderIfEmpty` to close a limit order if it's empty.
+- Added function `enablePositionPermissionlessClaimFee`. This allow non position owner to invoke claim fee instruction for other's position.
+- Added function `getLimitOrderByUserAndLbPair` to get all limit orders of a user for a given pair.
+- Added function `getLimitOrder` to get limit order data by limit order pubkey.
+- Added function `addLiquidityByWeight2` which support token 2022 add liquidity by weight.
+- Added function `quoteCreateLimitOrder` which returns the cost for creating a Limit Order
+
+### Breaking Changes
+
+- Added `concreteFunctionType`, `collectFeeMode` parameters in `createCustomizablePermissionlessLbPair` function. This allow user to create pair with function of LimitOrder or LiquidityMining and collect fee in InputToken, or TokenY (single sided fee).
+- Added `concreteFunctionType`, `collectFeeMode` parameters in `getPairPubkeyIfExists` function. This allow user to query existing pair with addition filter of function type and collect fee mode.
+
+### Removed
+
+- `Position` type (v1) removed, there's no more v1 position on chain anymore.
+- `updateBinArray` function removed since it's not used anywhere.
+
+### Changes
+
+- Update logic of `swapQuote` and `swapQuoteExactOut` to limit order and collect fee mode.
+- `swapExactOutQuoteAtBin` function's 'amountIn` now include fee.
+
 ## @meteora-ag/dlmm [1.9.7] - [PR #286](https://github.com/MeteoraAg/dlmm-sdk/pull/286)
 
 ### Fixed

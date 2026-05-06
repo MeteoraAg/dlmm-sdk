@@ -17,8 +17,8 @@ pub async fn execute_set_pre_activation_swap_address<C: Deref<Target = impl Sign
     } = params;
 
     let accounts = dlmm::client::accounts::SetPreActivationSwapAddress {
-        creator: program.payer(),
         lb_pair,
+        signer: program.payer(),
     }
     .to_account_metas(None);
 

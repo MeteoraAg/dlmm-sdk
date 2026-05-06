@@ -180,7 +180,7 @@ pub async fn fetch_quote_required_accounts(
         .get(index)
         .and_then(ToOwned::to_owned)
         .context("Failed to fetch lb pair account")?;
-    let lb_pair_state = bytemuck::pod_read_unaligned(&mut lb_pair_account.data[8..].as_ref());
+    let lb_pair_state = pod_read_unaligned_skip_disc(&lb_pair_account.data)?;
 
     index.inc();
     let clock_account = accounts
@@ -213,7 +213,7 @@ pub async fn fetch_quote_required_accounts(
             let account = account?;
             Some((
                 key,
-                bytemuck::pod_read_unaligned(&account.data[8..].as_ref()),
+                pod_read_unaligned_skip_disc::<BinArray>(&account.data).ok()?,
             ))
         })
         .collect::<Vec<_>>();

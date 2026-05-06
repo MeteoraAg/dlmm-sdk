@@ -36,14 +36,17 @@ pub async fn execute_initialize_reward<C: Deref<Target = impl Signer> + Clone>(
         .map(|_| token_badge)
         .or(Some(dlmm::ID));
 
+    let (operator, _bump) = derive_operator_pda(program.payer());
+
     let accounts = dlmm::client::accounts::InitializeReward {
         lb_pair,
         reward_vault,
         reward_mint,
-        admin: program.payer(),
-        token_program: reward_mint_account.owner,
         token_badge,
-        rent: solana_sdk::sysvar::rent::ID,
+        operator,
+        signer: program.payer(),
+        payer: program.payer(),
+        token_program: reward_mint_account.owner,
         system_program: solana_sdk::system_program::ID,
         event_authority,
         program: dlmm::ID,

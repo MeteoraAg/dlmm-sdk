@@ -184,7 +184,7 @@ pub async fn execute_seed_liquidity_by_operator<C: Deref<Target = impl Signer> +
 
     let lb_pair_state: LbPair = rpc_client
         .get_account_and_deserialize(&lb_pair, |account| {
-            Ok(bytemuck::pod_read_unaligned(&account.data[8..]))
+            pod_read_unaligned_skip_disc(&account.data)
         })
         .await?;
 
@@ -501,9 +501,9 @@ pub async fn execute_seed_liquidity_by_operator<C: Deref<Target = impl Signer> +
         instructions.clear();
 
         let position_deposited = position_account
-            .map(|account| {
-                let state: PositionV2 = bytemuck::pod_read_unaligned(&account.data[8..]);
-                state.liquidity_shares.iter().any(|share| *share > 0)
+            .and_then(|account| {
+                let state: PositionV2 = pod_read_unaligned_skip_disc(&account.data).ok()?;
+                Some(state.liquidity_shares.iter().any(|share| *share > 0))
             })
             .unwrap_or(false);
 

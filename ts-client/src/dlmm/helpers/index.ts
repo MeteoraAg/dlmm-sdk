@@ -41,8 +41,9 @@ import {
   ClmmProgram,
   GetOrCreateATAResponse,
   LbPair,
+  LimitOrder,
+  PositionPermission,
   Oracle,
-  Position,
   PositionV2,
   PresetParameter,
   PresetParameter2,
@@ -78,11 +79,14 @@ export * from "./binArray";
 export * from "./derive";
 export * from "./fee";
 export * from "./lbPair";
+export * from "./math";
 export * from "./positions";
 export * from "./rebalance";
 export * from "./strategy";
+export * from "./token_2022";
 export * from "./weight";
 export * from "./weightToAmounts";
+export * from "./bin";
 export * from "./oracle";
 
 export function chunks<T>(array: T[], size: number): T[][] {
@@ -126,12 +130,6 @@ export async function chunkedFetchMultipleBinArrayBitmapExtensionAccount(
   ).flat();
 
   return accounts;
-}
-
-export function getOutAmount(bin: Bin, inAmount: BN, swapForY: boolean) {
-  return swapForY
-    ? mulShr(inAmount, bin.price, SCALE_OFFSET, Rounding.Down)
-    : shlDiv(inAmount, bin.price, SCALE_OFFSET, Rounding.Down);
 }
 
 export async function getTokenDecimals(conn: Connection, mint: PublicKey) {
@@ -226,7 +224,7 @@ export const wrapSOLInstruction = (
   ];
 };
 
-export const unwrapSOLInstruction = async (
+export const unwrapSOLInstruction = (
   owner: PublicKey,
   allowOwnerOffCurve = true,
 ) => {
@@ -481,8 +479,8 @@ export function decodeAccount<
     | BinArrayBitmapExtension
     | BinArray
     | PositionV2
-    | Position
     | PresetParameter
+    | LimitOrder
     | PresetParameter2
     | Oracle,
 >(program: Program<LbClmm>, accountName: AccountName, buffer: Buffer): T {
@@ -982,4 +980,12 @@ export async function chunkDepositWithRebalanceEndpoint(
   }
 
   return chunkedAddLiquidityIx;
+}
+
+export function encodePositionPermissions(
+  permissions: PositionPermission[],
+): number {
+  return permissions.reduce((acc, perm) => {
+    return acc | (1 << perm);
+  }, 0);
 }

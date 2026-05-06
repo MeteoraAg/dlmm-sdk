@@ -157,3 +157,7 @@ pub fn derive_token_badge_pda(mint: Pubkey) -> (Pubkey, u8) {
 pub fn derive_claim_protocol_fee_operator_pda(operator: Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(&[CLAIM_PROTOCOL_FEE_OPERATOR, operator.as_ref()], &dlmm::ID)
 }
+
+pub fn derive_operator_pda(whitelisted_signer: Pubkey) -> (Pubkey, u8) {
+    Pubkey::find_program_address(&[OPERATOR, whitelisted_signer.as_ref()], &dlmm::ID)
+}

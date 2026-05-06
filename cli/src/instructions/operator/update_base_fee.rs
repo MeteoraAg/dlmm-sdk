@@ -36,9 +36,12 @@ pub async fn execute_update_base_fee<C: Deref<Target = impl Signer> + Clone>(
 
     let event_authority = derive_event_authority_pda().0;
 
+    let (operator, _bump) = derive_operator_pda(program.payer());
+
     let accounts = dlmm::client::accounts::UpdateBaseFeeParameters {
         lb_pair,
-        admin: program.payer(),
+        operator,
+        signer: program.payer(),
         event_authority,
         program: dlmm::ID,
     }

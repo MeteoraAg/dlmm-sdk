@@ -28,7 +28,7 @@ pub async fn execute_initialize_bin_array_with_price_range<
     let rpc_client = program.rpc();
     let lb_pair_state: LbPair = rpc_client
         .get_account_and_deserialize(&lb_pair, |account| {
-            Ok(bytemuck::pod_read_unaligned(&account.data[8..]))
+            pod_read_unaligned_skip_disc(&account.data)
         })
         .await?;
 

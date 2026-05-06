@@ -4,7 +4,7 @@ import BN from "bn.js";
 import { getAccountDiscriminator } from ".";
 
 export const presetParameter2BinStepFilter = (
-  binStep: BN
+  binStep: BN,
 ): GetProgramAccountsFilter => {
   return {
     memcmp: {
@@ -15,7 +15,7 @@ export const presetParameter2BinStepFilter = (
 };
 
 export const presetParameter2BaseFactorFilter = (
-  baseFactor: BN
+  baseFactor: BN,
 ): GetProgramAccountsFilter => {
   return {
     memcmp: {
@@ -26,7 +26,7 @@ export const presetParameter2BaseFactorFilter = (
 };
 
 export const presetParameter2BaseFeePowerFactor = (
-  baseFeePowerFactor: BN
+  baseFeePowerFactor: BN,
 ): GetProgramAccountsFilter => {
   return {
     memcmp: {
@@ -37,7 +37,7 @@ export const presetParameter2BaseFeePowerFactor = (
 };
 
 export const binArrayLbPairFilter = (
-  lbPair: PublicKey
+  lbPair: PublicKey,
 ): GetProgramAccountsFilter => {
   return {
     memcmp: {
@@ -48,7 +48,7 @@ export const binArrayLbPairFilter = (
 };
 
 export const positionOwnerFilter = (
-  owner: PublicKey
+  owner: PublicKey,
 ): GetProgramAccountsFilter => {
   return {
     memcmp: {
@@ -59,7 +59,7 @@ export const positionOwnerFilter = (
 };
 
 export const positionLbPairFilter = (
-  lbPair: PublicKey
+  lbPair: PublicKey,
 ): GetProgramAccountsFilter => {
   return {
     memcmp: {
@@ -74,6 +74,37 @@ export const positionV2Filter = (): GetProgramAccountsFilter => {
     memcmp: {
       bytes: bs58.encode(Buffer.from(getAccountDiscriminator("positionV2"))),
       offset: 0,
+    },
+  };
+};
+
+export const limitOrderFilter = (): GetProgramAccountsFilter => {
+  return {
+    memcmp: {
+      bytes: bs58.encode(Buffer.from(getAccountDiscriminator("limitOrder"))),
+      offset: 0,
+    },
+  };
+};
+
+export const limitOrderOwnerFilter = (
+  owner: PublicKey,
+): GetProgramAccountsFilter => {
+  return {
+    memcmp: {
+      bytes: owner.toBase58(),
+      offset: 8 + 32,
+    },
+  };
+};
+
+export const limitOrderLbPairFilter = (
+  lbPair: PublicKey,
+): GetProgramAccountsFilter => {
+  return {
+    memcmp: {
+      bytes: lbPair.toBase58(),
+      offset: 8,
     },
   };
 };

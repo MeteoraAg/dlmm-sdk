@@ -32,6 +32,12 @@ pub trait LbPairExtension {
     fn update_references(&mut self, current_timestamp: i64) -> Result<()>;
     fn update_volatility_accumulator(&mut self) -> Result<()>;
     fn advance_active_bin(&mut self, swap_for_y: bool) -> Result<()>;
+
+    /// Whether this pair supports limit orders based on its function_type and reward configuration.
+    fn is_support_limit_order(&self) -> bool;
+
+    /// Whether the fee is charged on the input token for the given swap direction.
+    fn fee_on_input(&self, swap_for_y: bool) -> bool;
 }
 
 impl LbPairExtension for LbPair {
@@ -253,6 +259,31 @@ impl LbPairExtension for LbPair {
 
     fn get_bin_array_offset(bin_array_index: i32) -> usize {
         (bin_array_index + BIN_ARRAY_BITMAP_SIZE) as usize
+    }
+
+    fn is_support_limit_order(&self) -> bool {
+        let Some(function_type) = FunctionType::try_from(self.parameters.function_type).ok()
+        else {
+            return false;
+        };
+        match function_type {
+            FunctionType::LimitOrder => true,
+            FunctionType::LiquidityMining => false,
+            FunctionType::Undetermined => self
+                .reward_infos
+                .iter()
+                .any(|r| r.mint != Pubkey::default()),
+        }
+    }
+
+    fn fee_on_input(&self, swap_for_y: bool) -> bool {
+        let Some(mode) = CollectFeeMode::try_from(self.parameters.collect_fee_mode).ok() else {
+            return true;
+        };
+        match mode {
+            CollectFeeMode::InputOnly => true,
+            CollectFeeMode::OnlyY => !swap_for_y,
+        }
     }
 
     fn next_bin_array_index_with_liquidity_internal(

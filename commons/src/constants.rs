@@ -74,3 +74,6 @@ pub const MAX_BASE_FEE: u128 = 100_000_000; // 10% (10^9 * 10 / 100)
 
 /// Minimum base fee
 pub const MIN_BASE_FEE: u128 = 100_000; // 0.01% (10^9 * 0.01 / 100)
+
+/// Limit order fee share (BPS). Portion of limit order trading fee that goes to the order placer.
+pub const LIMIT_ORDER_FEE_SHARE: u16 = 5000;

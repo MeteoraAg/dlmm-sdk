@@ -1,9 +1,10 @@
 import { BN } from "@coral-xyz/anchor";
-import { PublicKey } from "@solana/web3.js";
+import { AccountMeta, PublicKey } from "@solana/web3.js";
 import {
-  MAX_BIN_ARRAY_SIZE,
+  BIN_ARRAY_BITMAP_SIZE,
   DEFAULT_BIN_PER_POSITION,
-  SCALE_OFFSET,
+  EXTENSION_BINARRAY_BITMAP_SIZE,
+  MAX_BIN_ARRAY_SIZE,
 } from "../constants";
 import {
   Bin,
@@ -12,17 +13,11 @@ import {
   BinArrayBitmapExtension,
   BinLiquidity,
   BitmapType,
-  Clock,
   LbPair,
   RewardInfo,
-  RewardInfos,
 } from "../types";
-import {
-  EXTENSION_BINARRAY_BITMAP_SIZE,
-  BIN_ARRAY_BITMAP_SIZE,
-} from "../constants";
-import { getPositionCount } from "./math";
 import { deriveBinArray } from "./derive";
+import { getPositionCount } from "./math";
 
 /** private */
 function internalBitmapRange() {
@@ -35,7 +30,7 @@ function buildBitmapFromU64Arrays(u64Arrays: BN[], type: BitmapType) {
   const buffer = Buffer.concat(
     u64Arrays.map((b) => {
       return b.toArrayLike(Buffer, "le", 8);
-    })
+    }),
   );
 
   return new BN(buffer, "le");
@@ -84,10 +79,10 @@ function leastSignificantBit(number: BN, bitLength: number) {
 function extensionBitmapRange() {
   return [
     BIN_ARRAY_BITMAP_SIZE.neg().mul(
-      EXTENSION_BINARRAY_BITMAP_SIZE.add(new BN(1))
+      EXTENSION_BINARRAY_BITMAP_SIZE.add(new BN(1)),
     ),
     BIN_ARRAY_BITMAP_SIZE.mul(
-      EXTENSION_BINARRAY_BITMAP_SIZE.add(new BN(1))
+      EXTENSION_BINARRAY_BITMAP_SIZE.add(new BN(1)),
     ).sub(new BN(1)),
   ];
 }
@@ -95,7 +90,7 @@ function extensionBitmapRange() {
 function findSetBit(
   startIndex: number,
   endIndex: number,
-  binArrayBitmapExtension: BinArrayBitmapExtension
+  binArrayBitmapExtension: BinArrayBitmapExtension,
 ): number | null {
   const getBinArrayOffset = (binArrayIndex: BN) => {
     return binArrayIndex.gt(new BN(0))
@@ -154,11 +149,11 @@ export function isOverflowDefaultBinArrayBitmap(binArrayIndex: BN) {
 
 export function deriveBinArrayBitmapExtension(
   lbPair: PublicKey,
-  programId: PublicKey
+  programId: PublicKey,
 ) {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("bitmap"), lbPair.toBytes()],
-    programId
+    programId,
   );
 }
 
@@ -197,7 +192,7 @@ export function findNextBinArrayIndexWithLiquidity(
   swapForY: boolean,
   activeId: BN,
   lbPairState: LbPair,
-  binArrayBitmapExtension: BinArrayBitmapExtension | null
+  binArrayBitmapExtension: BinArrayBitmapExtension | null,
 ): BN | null {
   const [lowerBinArrayIndex, upperBinArrayIndex] = internalBitmapRange();
   let startBinArrayIndex = binIdToBinArrayIndex(activeId);
@@ -216,7 +211,7 @@ export function findNextBinArrayIndexWithLiquidity(
           const binArrayIndex = findSetBit(
             startBinArrayIndex.toNumber(),
             minBinArrayIndex.toNumber(),
-            binArrayBitmapExtension
+            binArrayBitmapExtension,
           );
 
           if (binArrayIndex !== null) {
@@ -228,7 +223,7 @@ export function findNextBinArrayIndexWithLiquidity(
           const binArrayIndex = findSetBit(
             startBinArrayIndex.toNumber(),
             BIN_ARRAY_BITMAP_SIZE.neg().sub(new BN(1)).toNumber(),
-            binArrayBitmapExtension
+            binArrayBitmapExtension,
           );
 
           if (binArrayIndex !== null) {
@@ -243,7 +238,7 @@ export function findNextBinArrayIndexWithLiquidity(
           const binArrayIndex = findSetBit(
             startBinArrayIndex.toNumber(),
             BIN_ARRAY_BITMAP_SIZE.toNumber(),
-            binArrayBitmapExtension
+            binArrayBitmapExtension,
           );
 
           if (binArrayIndex !== null) {
@@ -256,7 +251,7 @@ export function findNextBinArrayIndexWithLiquidity(
           const binArrayIndex = findSetBit(
             startBinArrayIndex.toNumber(),
             maxBinArrayIndex.toNumber(),
-            binArrayBitmapExtension
+            binArrayBitmapExtension,
           );
 
           if (binArrayIndex !== null) {
@@ -274,7 +269,7 @@ export function findNextBinArrayIndexWithLiquidity(
 
       const bitmap = buildBitmapFromU64Arrays(
         lbPairState.binArrayBitmap,
-        bitmapType
+        bitmapType,
       );
 
       if (swapForY) {
@@ -309,13 +304,13 @@ export function findNextBinArrayWithLiquidity(
   activeBinId: BN,
   lbPairState: LbPair,
   binArrayBitmapExtension: BinArrayBitmapExtension | null,
-  binArrays: BinArrayAccount[]
+  binArrays: BinArrayAccount[],
 ): BinArrayAccount | null {
   const nearestBinArrayIndexWithLiquidity = findNextBinArrayIndexWithLiquidity(
     swapForY,
     activeBinId,
     lbPairState,
-    binArrayBitmapExtension
+    binArrayBitmapExtension,
   );
 
   if (nearestBinArrayIndexWithLiquidity == null) {
@@ -323,7 +318,7 @@ export function findNextBinArrayWithLiquidity(
   }
 
   const binArrayAccount = binArrays.find((ba) =>
-    ba.account.index.eq(nearestBinArrayIndexWithLiquidity)
+    ba.account.index.eq(nearestBinArrayIndexWithLiquidity),
   );
   if (!binArrayAccount) {
     // Cached bin array couldn't cover more bins, partial quoted.
@@ -345,7 +340,7 @@ export function getBinArraysRequiredByPositionRange(
   pair: PublicKey,
   fromBinId: BN,
   toBinId: BN,
-  programId: PublicKey
+  programId: PublicKey,
 ): { key: PublicKey; index: BN }[] {
   const [minBinId, maxBinId] = fromBinId.lt(toBinId)
     ? [fromBinId, toBinId]
@@ -380,7 +375,8 @@ export function* enumerateBins(
   binStep: number,
   baseTokenDecimal: number,
   quoteTokenDecimal: number,
-  version: number
+  version: number,
+  lbPair: LbPair,
 ) {
   for (
     let currentBinId = lowerBinId;
@@ -395,7 +391,8 @@ export function* enumerateBins(
         binStep,
         baseTokenDecimal,
         quoteTokenDecimal,
-        version
+        version,
+        lbPair,
       );
     } else {
       yield BinLiquidity.empty(
@@ -403,7 +400,7 @@ export function* enumerateBins(
         binStep,
         baseTokenDecimal,
         quoteTokenDecimal,
-        version
+        version,
       );
     }
   }
@@ -416,61 +413,12 @@ function isRewardInitialized(reward: RewardInfo) {
 export function getBinIdIndexInBinArray(
   binId: BN,
   lowerBinId: BN,
-  upperBinId: BN
+  upperBinId: BN,
 ) {
   if (binId.lt(lowerBinId) || binId.gt(upperBinId)) {
     return null;
   }
   return binId.sub(lowerBinId);
-}
-
-/// Update bin array LM rewards
-export function updateBinArray(
-  activeId: BN,
-  clock: Clock,
-  allRewardInfos: RewardInfos,
-  binArray: BinArray
-) {
-  const [lowerBinId, upperBinId] = getBinArrayLowerUpperBinId(binArray.index);
-  const binIdx = getBinIdIndexInBinArray(activeId, lowerBinId, upperBinId);
-
-  if (binIdx == null) {
-    return binArray;
-  }
-
-  const binArrayClone = Object.assign({}, binArray);
-  const activeBin = binArrayClone.bins[binIdx.toNumber()];
-
-  if (activeBin.liquiditySupply.isZero()) {
-    return binArrayClone;
-  }
-
-  for (const [rewardIdx, reward] of allRewardInfos.entries()) {
-    if (!isRewardInitialized(reward)) {
-      continue;
-    }
-
-    const currentTime = new BN(
-      Math.min(
-        clock.unixTimestamp.toNumber(),
-        reward.rewardDurationEnd.toNumber()
-      )
-    );
-
-    const delta = currentTime.sub(reward.lastUpdateTime);
-    const liquiditySupply = activeBin.liquiditySupply.shrn(SCALE_OFFSET);
-
-    const rewardPerTokenStoredDelta = reward.rewardRate
-      .mul(delta)
-      .div(new BN(15))
-      .div(liquiditySupply);
-
-    activeBin.functionBytes[rewardIdx] = activeBin.functionBytes[rewardIdx].add(
-      rewardPerTokenStoredDelta
-    );
-  }
-
-  return binArrayClone;
 }
 
 export function binDeltaToMinMaxBinId(binDelta: number, activeBinId: number) {
@@ -479,5 +427,82 @@ export function binDeltaToMinMaxBinId(binDelta: number, activeBinId: number) {
   return {
     minBinId,
     maxBinId,
+  };
+}
+
+export function decodeRewardPerTokenStored(bin: Bin) {
+  const rewardPerTokenStored0Buf0 = bin.fulfilledOrderAmountX.toArrayLike(
+    Buffer,
+    "le",
+    8,
+  );
+  const rewardPerTokenStored0Buf1 = bin.fulfilledOrderAmountY.toArrayLike(
+    Buffer,
+    "le",
+    8,
+  );
+
+  const rewardPerTokenStored0 = new BN(
+    Buffer.concat([rewardPerTokenStored0Buf0, rewardPerTokenStored0Buf1]),
+    "le",
+  );
+
+  const rewardPerTokenStored1Buf0 = bin.limitOrderFeeAskSide.toArrayLike(
+    Buffer,
+    "le",
+    8,
+  );
+  const rewardPerTokenStored1Buf1 = bin.limitOrderFeeBidSide.toArrayLike(
+    Buffer,
+    "le",
+    8,
+  );
+
+  const rewardPerTokenStored1 = new BN(
+    Buffer.concat([rewardPerTokenStored1Buf0, rewardPerTokenStored1Buf1]),
+    "le",
+  );
+
+  return [rewardPerTokenStored0, rewardPerTokenStored1];
+}
+
+export function getBinArrayInfoForNonContiguousBinIds(
+  binIds: number[],
+  programId: PublicKey,
+  lbPair: PublicKey,
+) {
+  let binArrayBitmapExtension = programId;
+  const binArrayIndexes = new Set<number>();
+
+  for (const binId of binIds) {
+    const binArrayIndex = binIdToBinArrayIndex(new BN(binId));
+    if (
+      isOverflowDefaultBinArrayBitmap(binArrayIndex) &&
+      binArrayBitmapExtension.equals(programId)
+    ) {
+      binArrayBitmapExtension = deriveBinArrayBitmapExtension(
+        lbPair,
+        programId,
+      )[0];
+    }
+    binArrayIndexes.add(binArrayIndex.toNumber());
+  }
+
+  const binArrayPubkeys = [...binArrayIndexes].map(
+    (idx) => deriveBinArray(lbPair, new BN(idx), programId)[0],
+  );
+
+  const binArrayAccountMetas: AccountMeta[] = binArrayPubkeys.map((pubkey) => {
+    return {
+      pubkey,
+      isSigner: false,
+      isWritable: true,
+    };
+  });
+
+  return {
+    binArrayAccountMetas,
+    binArrayBitmapExtension,
+    binArrayIndexes: [...binArrayIndexes].map((idx) => new BN(idx)),
   };
 }

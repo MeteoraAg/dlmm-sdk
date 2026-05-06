@@ -4,7 +4,15 @@ import { DLMM } from "../dlmm";
 import { BinArrayAccount, LbPosition } from "../dlmm/types";
 import { BN } from "bn.js";
 import { convertToPosition } from "./utils";
-import { FunctionType } from "../dlmm/constants";
+import {
+  CollectFeeMode,
+  ConcreteFunctionType,
+  FunctionType,
+} from "../dlmm/constants";
+import {
+  decodeRewardPerTokenStored,
+  isSupportLimitOrder,
+} from "../dlmm/helpers";
 
 declare global {
   namespace Express {
@@ -75,7 +83,7 @@ app.post("/dlmm/get-all-lb-pair-positions-by-user", async (req, res) => {
     const userPublicKey = new PublicKey(req.body.user);
     const positions = await DLMM.getAllLbPairPositionsByUser(
       req.connect,
-      userPublicKey
+      userPublicKey,
     );
     return res.status(200).send(safeStringify(Object.fromEntries(positions)));
   } catch (error) {
@@ -96,11 +104,17 @@ app.post(
       const activationType = parseInt(req.body.activationType);
       const hasAlphaVault = Boolean(req.body.hasAlphaVault);
       const creatorKey = new PublicKey(req.body.creatorKey);
-      const functionType = FunctionType.LiquidityMining;
       const activationPoint =
         req.body.activationPoint !== null
           ? new BN(req.body.activationPoint)
           : null;
+      const creatorOnOffControl = Boolean(req.body.creatorOnOffControl);
+      const concreteFunctionType = req.body.concreteFunctionType
+        ? parseInt(req.body.concreteFunctionType)
+        : ConcreteFunctionType.LimitOrder;
+      const collectFeeMode = req.body.collectFeeMode
+        ? parseInt(req.body.collectFeeMode)
+        : CollectFeeMode.InputOnly;
       const transaction = DLMM.createCustomizablePermissionlessLbPair(
         req.connect,
         binStep,
@@ -111,15 +125,17 @@ app.post(
         activationType,
         hasAlphaVault,
         creatorKey,
-        functionType,
-        activationPoint
+        activationPoint,
+        creatorOnOffControl,
+        concreteFunctionType,
+        collectFeeMode,
       );
       return res.status(200).send(safeStringify(transaction));
     } catch (error) {
       console.log(error);
       return res.status(400).send(error);
     }
-  }
+  },
 );
 
 app.get("/dlmm/get-active-bin", async (req, res) => {
@@ -187,15 +203,14 @@ app.post(
 
       const poolAddress = req.pool;
       const dlmm = await DLMM.create(req.connect, poolAddress);
-      const position = await dlmm.initializePositionAndAddLiquidityByStrategy(
-        data
-      );
+      const position =
+        await dlmm.initializePositionAndAddLiquidityByStrategy(data);
       return res.status(200).send(safeStringify(position));
     } catch (error) {
       console.log(error);
       return res.status(400).send(error);
     }
-  }
+  },
 );
 
 app.post("/dlmm/add-liquidity-by-strategy", async (req, res) => {
@@ -236,7 +251,7 @@ app.post("/dlmm/get-positions-by-user-and-lb-pair", async (req, res) => {
     const poolAddress = req.pool;
     const dlmm = await DLMM.create(req.connect, poolAddress);
     const positions = await dlmm.getPositionsByUserAndLbPair(
-      new PublicKey(userPublicKey)
+      new PublicKey(userPublicKey),
     );
     return res.status(200).send(safeStringify(positions));
   } catch (error) {
@@ -296,25 +311,29 @@ app.post("/dlmm/get-bin-array-for-swap", async (req, res) => {
 
     const poolAddress = req.pool;
     const dlmm = await DLMM.create(req.connect, poolAddress);
+    const supportLimitOrder = isSupportLimitOrder(dlmm.lbPair);
     const binArray = (await dlmm.getBinArrayForSwap(swapYtoX, count)).map(
-      (bin) => ({
-        publicKey: bin.publicKey,
+      (binArray) => ({
+        publicKey: binArray.publicKey,
         account: {
-          ...bin.account,
-          index: bin.account.index.toString("hex"),
-          bins: bin.account.bins.map((b) => ({
-            amountX: b.amountX.toString("hex"),
-            amountY: b.amountY.toString("hex"),
+          ...binArray.account,
+          index: binArray.account.index.toString("hex"),
+          bins: binArray.account.bins.map((bin) => ({
+            amountX: bin.amountX.toString("hex"),
+            amountY: bin.amountY.toString("hex"),
             feeAmountXPerTokenStored:
-              b.feeAmountXPerTokenStored.toString("hex"),
+              bin.feeAmountXPerTokenStored.toString("hex"),
             feeAmountYPerTokenStored:
-              b.feeAmountYPerTokenStored.toString("hex"),
-            liquiditySupply: b.liquiditySupply.toString("hex"),
-            price: b.price.toString("hex"),
-            rewardPerTokenStored: b.functionBytes.map((r) => r.toString("hex")),
+              bin.feeAmountYPerTokenStored.toString("hex"),
+            liquiditySupply: bin.liquiditySupply.toString("hex"),
+            price: bin.price.toString("hex"),
+            rewardPerTokenStored: (supportLimitOrder
+              ? [new BN(0), new BN(0)]
+              : decodeRewardPerTokenStored(bin)
+            ).map((r) => r.toString("hex")),
           })),
         },
-      })
+      }),
     );
 
     return res.status(200).send(safeStringify(binArray));
@@ -343,7 +362,7 @@ app.post("/dlmm/swap-quote", async (req, res) => {
           liquiditySupply: new BN(b["liquiditySupply"], 16),
           price: new BN(b["price"], 16),
           rewardPerTokenStored: b["rewardPerTokenStored"].map(
-            (r) => new BN(r, 16)
+            (r) => new BN(r, 16),
           ),
         })),
       },
@@ -358,7 +377,7 @@ app.post("/dlmm/swap-quote", async (req, res) => {
       swapYtoX,
       allowedSlippage,
       binArrays,
-      isPartialFill
+      isPartialFill,
     );
     return res.status(200).send(safeStringify(quote));
   } catch (error) {
@@ -376,7 +395,7 @@ app.post("/dlmm/swap", async (req, res) => {
     const lbPair = new PublicKey(req.body.lbPair);
     const user = new PublicKey(req.body.userPublicKey);
     const binArraysPubkey = req.body.binArrays.map(
-      (bin: string) => new PublicKey(bin)
+      (bin: string) => new PublicKey(bin),
     );
 
     const poolAddress = req.pool;
@@ -413,6 +432,7 @@ app.get("/dlmm/get-bin-arrays", async (req, res) => {
   try {
     const poolAddress = req.pool;
     const dlmm = await DLMM.create(req.connect, poolAddress);
+    const supportLimitOrder = isSupportLimitOrder(dlmm.lbPair);
     const binArray = (await dlmm.getBinArrays()).map((bin) => ({
       publicKey: bin.publicKey,
       account: {
@@ -425,7 +445,10 @@ app.get("/dlmm/get-bin-arrays", async (req, res) => {
           feeAmountYPerTokenStored: b.feeAmountYPerTokenStored.toString("hex"),
           liquiditySupply: b.liquiditySupply.toString("hex"),
           price: b.price.toString("hex"),
-          rewardPerTokenStored: b.functionBytes.map((r) => r.toString("hex")),
+          rewardPerTokenStored: (supportLimitOrder
+            ? [new BN(0), new BN(0)]
+            : decodeRewardPerTokenStored(b)
+          ).map((r) => r.toString("hex")),
         })),
       },
     }));
@@ -484,7 +507,7 @@ app.post("/dlmm/get-bins-around-active-bin", async (req, res) => {
     const dlmm = await DLMM.create(req.connect, poolAddress);
     const bins = await dlmm.getBinsAroundActiveBin(
       numberOfBinsToTheLeft,
-      numberOfBinsToTheRight
+      numberOfBinsToTheRight,
     );
     return res.status(200).send(safeStringify(bins));
   } catch (error) {
@@ -517,7 +540,7 @@ app.post("/dlmm/get-bins-between-lower-and-upper-bound", async (req, res) => {
     const dlmm = await DLMM.create(req.connect, poolAddress);
     const bins = await dlmm.getBinsBetweenLowerAndUpperBound(
       lowerBound,
-      upperBound
+      upperBound,
     );
     return res.status(200).send(safeStringify(bins));
   } catch (error) {

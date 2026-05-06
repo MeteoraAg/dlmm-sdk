@@ -23,7 +23,7 @@ pub async fn execute_show_preset_parameters<C: Deref<Target = impl Signer> + Clo
         let preset_param_state = PresetParameter::try_deserialize(&mut account.data.as_ref())?;
         println!("{:#?}", preset_param_state);
     } else if disc == PresetParameter2::DISCRIMINATOR {
-        let preset_param_state: PresetParameter2 = bytemuck::pod_read_unaligned(&account.data[8..]);
+        let preset_param_state: PresetParameter2 = pod_read_unaligned_skip_disc(&account.data)?;
         println!("{:#?}", preset_param_state);
     } else {
         bail!("Not a valid preset parameter account");

@@ -22,7 +22,7 @@ import { ActivationType } from "../dlmm/types";
 
 const keypairBuffer = fs.readFileSync(
   "../keys/localnet/admin-bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1.json",
-  "utf-8"
+  "utf-8",
 );
 const connection = new Connection("http://127.0.0.1:8899", "confirmed");
 const owner = Keypair.fromSecretKey(new Uint8Array(JSON.parse(keypairBuffer)));
@@ -52,12 +52,12 @@ describe("Single Bin Seed Liquidity Test", () => {
     const initialPricePerLamport = DLMM.getPricePerLamport(
       wenDecimal,
       usdcDecimal,
-      initialPrice
+      initialPrice,
     );
     const binId = DLMM.getBinIdFromPrice(
       initialPricePerLamport,
       binStep,
-      false
+      false,
     );
 
     beforeAll(async () => {
@@ -69,7 +69,7 @@ describe("Single Bin Seed Liquidity Test", () => {
         wenDecimal,
         Keypair.generate(),
         null,
-        TOKEN_PROGRAM_ID
+        TOKEN_PROGRAM_ID,
       );
 
       USDC = await createMint(
@@ -80,7 +80,7 @@ describe("Single Bin Seed Liquidity Test", () => {
         usdcDecimal,
         Keypair.generate(),
         null,
-        TOKEN_PROGRAM_ID
+        TOKEN_PROGRAM_ID,
       );
 
       const userWenInfo = await getOrCreateAssociatedTokenAccount(
@@ -94,7 +94,7 @@ describe("Single Bin Seed Liquidity Test", () => {
           commitment: "confirmed",
         },
         TOKEN_PROGRAM_ID,
-        ASSOCIATED_TOKEN_PROGRAM_ID
+        ASSOCIATED_TOKEN_PROGRAM_ID,
       );
       userWEN = userWenInfo.address;
 
@@ -109,7 +109,7 @@ describe("Single Bin Seed Liquidity Test", () => {
           commitment: "confirmed",
         },
         TOKEN_PROGRAM_ID,
-        ASSOCIATED_TOKEN_PROGRAM_ID
+        ASSOCIATED_TOKEN_PROGRAM_ID,
       );
       userUSDC = userUsdcInfo.address;
 
@@ -124,7 +124,7 @@ describe("Single Bin Seed Liquidity Test", () => {
         {
           commitment: "confirmed",
         },
-        TOKEN_PROGRAM_ID
+        TOKEN_PROGRAM_ID,
       );
 
       await mintTo(
@@ -138,7 +138,7 @@ describe("Single Bin Seed Liquidity Test", () => {
         {
           commitment: "confirmed",
         },
-        TOKEN_PROGRAM_ID
+        TOKEN_PROGRAM_ID,
       );
 
       const slot = await connection.getSlot();
@@ -156,9 +156,11 @@ describe("Single Bin Seed Liquidity Test", () => {
         owner.publicKey,
         activationPoint,
         false,
+        null,
+        null,
         {
           cluster: "localhost",
-        }
+        },
       );
 
       let txHash = await sendAndConfirmTransaction(connection, rawTx, [
@@ -178,7 +180,7 @@ describe("Single Bin Seed Liquidity Test", () => {
       positionOwnerTokenX = getAssociatedTokenAddressSync(
         WEN,
         positionOwnerKeypair.publicKey,
-        true
+        true,
       );
     });
 
@@ -193,7 +195,7 @@ describe("Single Bin Seed Liquidity Test", () => {
         feeOwnerKeypair.publicKey,
         owner.publicKey,
         new BN(0),
-        true
+        true,
       );
 
       const { blockhash, lastValidBlockHeight } =
@@ -222,7 +224,7 @@ describe("Single Bin Seed Liquidity Test", () => {
       const actualDepositedAmount = beforeTokenXBalance.sub(afterTokenXBalance);
       expect(actualDepositedAmount.toString()).toEqual(
         // 1 prove token was sent to positionOwnerTokenX
-        wenSeedAmount.addn(1).toString()
+        wenSeedAmount.addn(1).toString(),
       );
     });
   });
