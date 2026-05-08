@@ -1,16 +1,13 @@
 import BN from "bn.js";
-import { mulShr, Rounding, shlDiv } from "./math";
+import { SCALE_OFFSET, U64_MAX } from "../constants";
+import { Bin, sParameters, vParameters } from "../types";
 import {
-  Bin,
   getExcludedFeeAmount,
   getIncludedFeeAmount,
   getTotalFee,
-  SCALE_OFFSET,
-  sParameters,
   splitFee,
-  U64_MAX,
-  vParameters,
-} from "../..";
+} from "./fee";
+import { mulShr, Rounding, shlDiv } from "./math";
 
 export function getAmountIn(
   amountOut: BN,

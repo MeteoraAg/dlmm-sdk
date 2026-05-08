@@ -15,14 +15,14 @@ function sortTokenMints(tokenX: PublicKey, tokenY: PublicKey) {
 
 export function derivePresetParameterWithIndex(
   index: BN,
-  programId: PublicKey
+  programId: PublicKey,
 ) {
   return PublicKey.findProgramAddressSync(
     [
       Buffer.from("preset_parameter2"),
       new Uint8Array(index.toArrayLike(Buffer, "le", 2)),
     ],
-    programId
+    programId,
   );
 }
 
@@ -30,12 +30,12 @@ export function deriveLbPairWithPresetParamWithIndexKey(
   presetParameterKey: PublicKey,
   tokenX: PublicKey,
   tokenY: PublicKey,
-  programId: PublicKey
+  programId: PublicKey,
 ) {
   const [minKey, maxKey] = sortTokenMints(tokenX, tokenY);
   return PublicKey.findProgramAddressSync(
     [presetParameterKey.toBuffer(), minKey.toBuffer(), maxKey.toBuffer()],
-    programId
+    programId,
   );
 }
 
@@ -49,14 +49,14 @@ export function derivePresetParameter(binStep: BN, programId: PublicKey) {
       Buffer.from("preset_parameter"),
       new Uint8Array(binStep.toArrayLike(Buffer, "le", 2)),
     ],
-    programId
+    programId,
   );
 }
 
 export function derivePresetParameter2(
   binStep: BN,
   baseFactor: BN,
-  programId: PublicKey
+  programId: PublicKey,
 ) {
   return PublicKey.findProgramAddressSync(
     [
@@ -64,7 +64,7 @@ export function derivePresetParameter2(
       new Uint8Array(binStep.toArrayLike(Buffer, "le", 2)),
       new Uint8Array(baseFactor.toArrayLike(Buffer, "le", 2)),
     ],
-    programId
+    programId,
   );
 }
 
@@ -73,7 +73,7 @@ export function deriveLbPair2(
   tokenY: PublicKey,
   binStep: BN,
   baseFactor: BN,
-  programId: PublicKey
+  programId: PublicKey,
 ) {
   const [minKey, maxKey] = sortTokenMints(tokenX, tokenY);
   return PublicKey.findProgramAddressSync(
@@ -83,7 +83,7 @@ export function deriveLbPair2(
       new Uint8Array(binStep.toArrayLike(Buffer, "le", 2)),
       new Uint8Array(baseFactor.toArrayLike(Buffer, "le", 2)),
     ],
-    programId
+    programId,
   );
 }
 
@@ -96,7 +96,7 @@ export function deriveLbPair(
   tokenX: PublicKey,
   tokenY: PublicKey,
   binStep: BN,
-  programId: PublicKey
+  programId: PublicKey,
 ) {
   const [minKey, maxKey] = sortTokenMints(tokenX, tokenY);
   return PublicKey.findProgramAddressSync(
@@ -105,19 +105,19 @@ export function deriveLbPair(
       maxKey.toBuffer(),
       new Uint8Array(binStep.toArrayLike(Buffer, "le", 2)),
     ],
-    programId
+    programId,
   );
 }
 
 export function deriveCustomizablePermissionlessLbPair(
   tokenX: PublicKey,
   tokenY: PublicKey,
-  programId: PublicKey
+  programId: PublicKey,
 ) {
   const [minKey, maxKey] = sortTokenMints(tokenX, tokenY);
   return PublicKey.findProgramAddressSync(
     [ILM_BASE.toBuffer(), minKey.toBuffer(), maxKey.toBuffer()],
-    programId
+    programId,
   );
 }
 
@@ -126,7 +126,7 @@ export function derivePermissionLbPair(
   tokenX: PublicKey,
   tokenY: PublicKey,
   binStep: BN,
-  programId: PublicKey
+  programId: PublicKey,
 ) {
   const [minKey, maxKey] = sortTokenMints(tokenX, tokenY);
   return PublicKey.findProgramAddressSync(
@@ -136,14 +136,14 @@ export function derivePermissionLbPair(
       maxKey.toBuffer(),
       new Uint8Array(binStep.toArrayLike(Buffer, "le", 2)),
     ],
-    programId
+    programId,
   );
 }
 
 export function deriveOracle(lbPair: PublicKey, programId: PublicKey) {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("oracle"), lbPair.toBytes()],
-    programId
+    programId,
   );
 }
 
@@ -152,12 +152,12 @@ export function derivePosition(
   base: PublicKey,
   lowerBinId: BN,
   width: BN,
-  programId: PublicKey
+  programId: PublicKey,
 ) {
   let lowerBinIdBytes: Uint8Array;
   if (lowerBinId.isNeg()) {
     lowerBinIdBytes = new Uint8Array(
-      lowerBinId.toTwos(32).toArrayLike(Buffer, "le", 4)
+      lowerBinId.toTwos(32).toArrayLike(Buffer, "le", 4),
     );
   } else {
     lowerBinIdBytes = new Uint8Array(lowerBinId.toArrayLike(Buffer, "le", 4));
@@ -170,67 +170,67 @@ export function derivePosition(
       lowerBinIdBytes,
       new Uint8Array(width.toArrayLike(Buffer, "le", 4)),
     ],
-    programId
+    programId,
   );
 }
 
 export function deriveBinArray(
   lbPair: PublicKey,
   index: BN,
-  programId: PublicKey
+  programId: PublicKey,
 ) {
   let binArrayBytes: Uint8Array;
   if (index.isNeg()) {
     binArrayBytes = new Uint8Array(
-      index.toTwos(64).toArrayLike(Buffer, "le", 8)
+      index.toTwos(64).toArrayLike(Buffer, "le", 8),
     );
   } else {
     binArrayBytes = new Uint8Array(index.toArrayLike(Buffer, "le", 8));
   }
   return PublicKey.findProgramAddressSync(
     [Buffer.from("bin_array"), lbPair.toBytes(), binArrayBytes],
-    programId
+    programId,
   );
 }
 
 export function deriveReserve(
   token: PublicKey,
   lbPair: PublicKey,
-  programId: PublicKey
+  programId: PublicKey,
 ) {
   return PublicKey.findProgramAddressSync(
     [lbPair.toBuffer(), token.toBuffer()],
-    programId
+    programId,
   );
 }
 
 export function deriveTokenBadge(mint: PublicKey, programId: PublicKey) {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("token_badge"), mint.toBuffer()],
-    programId
+    programId,
   );
 }
 
 export function deriveEventAuthority(programId: PublicKey) {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("__event_authority")],
-    programId
+    programId,
   );
 }
 
 export function deriveRewardVault(
   lbPair: PublicKey,
   rewardIndex: BN,
-  programId: PublicKey
+  programId: PublicKey,
 ) {
   return PublicKey.findProgramAddressSync(
     [lbPair.toBuffer(), rewardIndex.toArrayLike(Buffer, "le", 8)],
-    programId
+    programId,
   );
 }
 
 export function derivePlaceHolderAccountMeta(
-  programId: PublicKey
+  programId: PublicKey,
 ): AccountMeta {
   return {
     pubkey: programId,
@@ -241,10 +241,10 @@ export function derivePlaceHolderAccountMeta(
 
 export function deriveOperator(
   whitelistedSigner: PublicKey,
-  programId: PublicKey
+  programId: PublicKey,
 ) {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("operator"), whitelistedSigner.toBuffer()],
-    programId
+    programId,
   )[0];
 }
