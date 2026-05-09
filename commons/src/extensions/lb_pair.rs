@@ -272,7 +272,7 @@ impl LbPairExtension for LbPair {
             FunctionType::Undetermined => self
                 .reward_infos
                 .iter()
-                .any(|r| r.mint != Pubkey::default()),
+                .all(|r| r.mint == Pubkey::default()),
         }
     }
 
