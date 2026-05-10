@@ -3094,7 +3094,7 @@ export class DLMM {
   }: TInitializePositionAndAddLiquidityParamsByStrategy) {
     const { maxBinId, minBinId } = strategy;
 
-    const maxActiveBinSlippage = slippage
+    const maxActiveBinSlippage = slippage !== null && slippage !== undefined
       ? Math.ceil(slippage / (this.lbPair.binStep / 100))
       : MAX_ACTIVE_BIN_SLIPPAGE;
 
@@ -3294,7 +3294,7 @@ export class DLMM {
     const { lowerBinId, upperBinId, binIds } =
       this.processXYAmountDistribution(xYAmountDistribution);
 
-    const maxActiveBinSlippage = slippage
+    const maxActiveBinSlippage = slippage !== null && slippage !== undefined
       ? Math.ceil(slippage / (this.lbPair.binStep / 100))
       : MAX_ACTIVE_BIN_SLIPPAGE;
 
@@ -3581,7 +3581,7 @@ export class DLMM {
   }: TInitializePositionAndAddLiquidityParamsByStrategy): Promise<Transaction> {
     const { maxBinId, minBinId } = strategy;
 
-    const maxActiveBinSlippage = slippage
+    const maxActiveBinSlippage = slippage !== null && slippage !== undefined
       ? Math.ceil(slippage / (this.lbPair.binStep / 100))
       : MAX_ACTIVE_BIN_SLIPPAGE;
 
@@ -3766,7 +3766,7 @@ export class DLMM {
   }: TInitializePositionAndAddLiquidityParams): Promise<
     Transaction | Transaction[]
   > {
-    const maxActiveBinSlippage = slippage
+    const maxActiveBinSlippage = slippage !== null && slippage !== undefined
       ? Math.ceil(slippage / (this.lbPair.binStep / 100))
       : MAX_ACTIVE_BIN_SLIPPAGE;
 
