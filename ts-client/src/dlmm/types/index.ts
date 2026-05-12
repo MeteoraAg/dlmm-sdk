@@ -114,7 +114,12 @@ export type CompressedBinDepositAmounts = CompressedBinDepositAmount[];
 export type ResizeSideEnum = IdlTypes<LbClmm>["resizeSide"];
 export type ExtendedPositionBinData = IdlTypes<LbClmm>["positionBinData"];
 
-export type LimitOrderBinData = IdlTypes<LbClmm>["limitOrderBinData"];
+export interface LimitOrderBinData {
+  amount: BN;
+  age: number;
+  binId: number;
+  isAsk: number;
+}
 export type PlaceLimitOrderParams = IdlTypes<LbClmm>["placeLimitOrderParams"];
 
 export interface ParsedLimitOrderWithPubkey {

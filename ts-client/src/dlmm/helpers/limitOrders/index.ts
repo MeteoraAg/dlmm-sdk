@@ -1,4 +1,4 @@
-import { Program } from "@coral-xyz/anchor";
+import { BN, Program } from "@coral-xyz/anchor";
 import { LbClmm } from "../../idl/idl";
 import {
   LIMIT_ORDER_BIN_DATA_SIZE,
@@ -8,24 +8,27 @@ import {
 
 export * from "./wrapper";
 
+function decodeLimitOrderBinDataSlice(data: Buffer): LimitOrderBinData {
+  return {
+    amount: new BN(data.subarray(0, 8), "le"),
+    age: data.readUInt32LE(8),
+    binId: data.readInt32LE(16),
+    isAsk: data.readUInt8(20),
+  };
+}
+
 export function decodeLimitOrderBinData(
   limitOrder: LimitOrder,
-  program: Program<LbClmm>,
+  _program: Program<LbClmm>,
   bytes: Buffer,
 ): LimitOrderBinData[] {
-  const limitOrderBinData: LimitOrderBinData[] = [];
+  const out: LimitOrderBinData[] = [];
 
   for (let i = 0; i < limitOrder.binCount; i++) {
     const offset = i * LIMIT_ORDER_BIN_DATA_SIZE;
-    const data = bytes.subarray(offset, offset + LIMIT_ORDER_BIN_DATA_SIZE);
-    const decodedLimitOrderBinData = program.coder.types.decode(
-      // TODO: Find a type safe way
-      "limitOrderBinData",
-      data,
-    ) as LimitOrderBinData;
-
-    limitOrderBinData.push(decodedLimitOrderBinData);
+    const slice = bytes.subarray(offset, offset + LIMIT_ORDER_BIN_DATA_SIZE);
+    out.push(decodeLimitOrderBinDataSlice(slice));
   }
 
-  return limitOrderBinData;
+  return out;
 }
