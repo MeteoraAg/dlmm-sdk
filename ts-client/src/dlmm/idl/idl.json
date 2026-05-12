@@ -1,5 +1,5 @@
 {
-  "address": "LbVRzDTvBDEcrthxfZ4RL6yiq3uZw8bS6MwtdY6UhFQ",
+  "address": "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo",
   "metadata": {
     "name": "lb_clmm",
     "version": "0.12.0",
@@ -8099,6 +8099,9 @@
             "fields": [
               "u8"
             ]
+          },
+          {
+            "name": "TransferHookReferral"
           }
         ]
       }
@@ -9049,14 +9052,6 @@
                 "name": "PositionBinData"
               }
             }
-          },
-          {
-            "name": "limit_order_bin_data",
-            "type": {
-              "defined": {
-                "name": "LimitOrderBinData"
-              }
-            }
           }
         ]
       }
@@ -9195,6 +9190,10 @@
           {
             "name": "base_factor",
             "type": "u16"
+          },
+          {
+            "name": "base_fee_power_factor",
+            "type": "u8"
           }
         ]
       }
@@ -9313,7 +9312,7 @@
             "type": "u8"
           },
           {
-            "name": "protocol_share",
+            "name": "padding0",
             "type": "u16"
           },
           {
@@ -9848,52 +9847,6 @@
               "array": [
                 "u64",
                 4
-              ]
-            }
-          }
-        ]
-      }
-    },
-    {
-      "name": "LimitOrderBinData",
-      "serialization": "bytemuck",
-      "repr": {
-        "kind": "c"
-      },
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "amount",
-            "type": "u64"
-          },
-          {
-            "name": "age",
-            "type": "u32"
-          },
-          {
-            "name": "_padding_0",
-            "type": {
-              "array": [
-                "u8",
-                4
-              ]
-            }
-          },
-          {
-            "name": "bin_id",
-            "type": "i32"
-          },
-          {
-            "name": "is_ask",
-            "type": "u8"
-          },
-          {
-            "name": "_padding_1",
-            "type": {
-              "array": [
-                "u8",
-                11
               ]
             }
           }
