@@ -127,7 +127,7 @@ pub async fn execute_initialize_permission_lb_pair<C: Deref<Target = impl Signer
             base_factor,
             base_fee_power_factor,
             activation_type,
-            protocol_share: ILM_PROTOCOL_SHARE,
+            padding0: 0,
             concrete_function_type: 0,
             collect_fee_mode: 0,
         },

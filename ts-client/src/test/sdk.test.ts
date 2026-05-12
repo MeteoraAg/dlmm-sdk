@@ -290,7 +290,7 @@ describe("SDK test", () => {
             baseFactor: baseFactor.toNumber(),
             baseFeePowerFactor: basePowerFactor.toNumber(),
             activationType: ActivationType.Slot,
-            protocolShare: protocolFeeBps.toNumber(),
+            padding0: 0,
             concreteFunctionType: ConcreteFunctionType.LiquidityMining,
             collectFeeMode: 0,
           })
