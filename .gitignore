@@ -19,3 +19,4 @@ ts-client/.env
 ts-client/scripts
 
 .pnpm-debug.log
+.pnpm-store

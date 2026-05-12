@@ -252,7 +252,6 @@ describe("SDK test", () => {
       );
 
       const feeBps = new BN(50);
-      const protocolFeeBps = new BN(50);
 
       try {
         const program = createTestProgram(connection, programId, adminKeypair);
@@ -290,9 +289,9 @@ describe("SDK test", () => {
             baseFactor: baseFactor.toNumber(),
             baseFeePowerFactor: basePowerFactor.toNumber(),
             activationType: ActivationType.Slot,
-            protocolShare: protocolFeeBps.toNumber(),
             concreteFunctionType: ConcreteFunctionType.LiquidityMining,
             collectFeeMode: 0,
+            padding0: 0,
           })
           .accountsPartial({
             base: baseKeypair.publicKey,
