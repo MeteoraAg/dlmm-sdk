@@ -289,9 +289,9 @@ describe("SDK test", () => {
             baseFactor: baseFactor.toNumber(),
             baseFeePowerFactor: basePowerFactor.toNumber(),
             activationType: ActivationType.Slot,
+            padding0: 0,
             concreteFunctionType: ConcreteFunctionType.LiquidityMining,
             collectFeeMode: 0,
-            padding0: 0,
           })
           .accountsPartial({
             base: baseKeypair.publicKey,
