@@ -19,6 +19,7 @@ import {
   Connection,
   GetProgramAccountsFilter,
   PublicKey,
+  SYSVAR_RENT_PUBKEY,
   SystemProgram,
   TransactionInstruction,
 } from "@solana/web3.js";
@@ -730,6 +731,7 @@ export async function chunkDepositWithRebalanceEndpoint(
           binArrayBitmapExtension: bitmapPubkey,
           lbPair: dlmm.pubkey,
           funder: payer,
+          rent: SYSVAR_RENT_PUBKEY,
         })
         .instruction();
 

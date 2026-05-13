@@ -4850,8 +4850,12 @@ export class DLMM {
       preInstructions.push(createUserTokenXIx);
       preInstructions.push(createUserTokenYIx);
 
-      const binArrayBitmapExtension = this.binArrayBitmapExtension
-        ? this.binArrayBitmapExtension.publicKey
+      // Some corrupted bitmap extension accounts were initialized with the default
+      // lbPair; ignore them so remove-liquidity uses the program id fallback.
+      const binArrayBitmapExtension =
+        this.binArrayBitmapExtension &&
+        !this.binArrayBitmapExtension.account.lbPair.equals(PublicKey.default)
+          ? this.binArrayBitmapExtension.publicKey
         : this.program.programId;
 
       const instructions = [...preInstructions];
@@ -6475,6 +6479,7 @@ export class DLMM {
                     binArrayBitmapExtension,
                     funder: payer,
                     lbPair: this.pubkey,
+                    rent: SYSVAR_RENT_PUBKEY,
                   })
                   .instruction(),
               );
@@ -6725,6 +6730,7 @@ export class DLMM {
               binArrayBitmapExtension,
               funder: payer,
               lbPair: this.pubkey,
+              rent: SYSVAR_RENT_PUBKEY,
             })
             .instruction(),
         );
@@ -7246,6 +7252,7 @@ export class DLMM {
             binArrayBitmapExtension: binArrayBitMapExtensionPubkey,
             funder: owner,
             lbPair: this.pubkey,
+            rent: SYSVAR_RENT_PUBKEY,
           })
           .instruction();
         preInstructions.push(initializeBitmapExtensionIx);
@@ -7819,6 +7826,7 @@ export class DLMM {
             binArrayBitmapExtension: binArrayBitmap,
             funder: owner,
             lbPair: this.pubkey,
+            rent: SYSVAR_RENT_PUBKEY,
           })
           .preInstructions([
             ComputeBudgetProgram.setComputeUnitLimit({
@@ -8110,6 +8118,7 @@ export class DLMM {
           binArrayBitmapExtension: binArrayBitmapExtension,
           funder: owner,
           lbPair: this.pubkey,
+          rent: SYSVAR_RENT_PUBKEY,
         })
         .instruction();
 
