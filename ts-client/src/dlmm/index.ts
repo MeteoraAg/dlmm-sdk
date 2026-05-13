@@ -8225,7 +8225,8 @@ export class DLMM {
    *    - `limitOrderPubkey`: The public key of the limit-order account to cancel.
    *    - `owner`: The owner of the limit-order account and transaction fee payer.
    *    - `binIds`: Bin IDs to cancel from the limit order.
-   * @returns {Promise<Transaction>} A transaction that cancels the limit order and handles SOL unwrap when needed.
+   * @returns {Promise<Transaction>} A transaction that cancels the limit order, ensures owner ATAs for both pool
+   *    mints (including idempotent creates for non-SOL legs), and unwraps SOL when applicable.
    */
   public async cancelLimitOrder({
     limitOrderPubkey,
@@ -8265,10 +8266,23 @@ export class DLMM {
       this.tokenY.owner,
     );
 
-    if (
-      this.tokenX.mint.address.equals(NATIVE_MINT) &&
-      !this.opt?.skipSolWrappingOperation
-    ) {
+    // cancel_limit_order always loads owner_token_x and owner_token_y; ensure both ATAs exist
+
+    if (this.tokenX.mint.address.equals(NATIVE_MINT)) {
+      if (!this.opt?.skipSolWrappingOperation) {
+        preInstructions.push(
+          createAssociatedTokenAccountIdempotentInstruction(
+            owner,
+            userTokenX,
+            owner,
+            this.tokenX.mint.address,
+            this.tokenX.owner,
+          ),
+        );
+
+        postInstructions.push(unwrapSOLInstruction(owner));
+      }
+    } else {
       preInstructions.push(
         createAssociatedTokenAccountIdempotentInstruction(
           owner,
@@ -8278,14 +8292,23 @@ export class DLMM {
           this.tokenX.owner,
         ),
       );
-
-      postInstructions.push(unwrapSOLInstruction(owner));
     }
 
-    if (
-      this.tokenY.mint.address.equals(NATIVE_MINT) &&
-      !this.opt?.skipSolWrappingOperation
-    ) {
+    if (this.tokenY.mint.address.equals(NATIVE_MINT)) {
+      if (!this.opt?.skipSolWrappingOperation) {
+        preInstructions.push(
+          createAssociatedTokenAccountIdempotentInstruction(
+            owner,
+            userTokenY,
+            owner,
+            this.tokenY.mint.address,
+            this.tokenY.owner,
+          ),
+        );
+
+        postInstructions.push(unwrapSOLInstruction(owner));
+      }
+    } else {
       preInstructions.push(
         createAssociatedTokenAccountIdempotentInstruction(
           owner,
@@ -8295,8 +8318,6 @@ export class DLMM {
           this.tokenY.owner,
         ),
       );
-
-      postInstructions.push(unwrapSOLInstruction(owner));
     }
 
     const closeLimitOrderIx = await this.program.methods

@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.9.9] - [PR #290](https://github.com/MeteoraAg/dlmm-sdk/pull/290)
+
+### Fixed
+
+- Fixed `cancelLimitOrder` to ensure both owner token X and Y ATAs exist.
+
 ## cli [0.6.3] [PR #273](https://github.com/MeteoraAg/dlmm-sdk/pull/273)
 
 ### Added
