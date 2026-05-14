@@ -4850,12 +4850,8 @@ export class DLMM {
       preInstructions.push(createUserTokenXIx);
       preInstructions.push(createUserTokenYIx);
 
-      // Some corrupted bitmap extension accounts were initialized with the default
-      // lbPair; ignore them so remove-liquidity uses the program id fallback.
-      const binArrayBitmapExtension =
-        this.binArrayBitmapExtension &&
-        !this.binArrayBitmapExtension.account.lbPair.equals(PublicKey.default)
-          ? this.binArrayBitmapExtension.publicKey
+      const binArrayBitmapExtension = this.binArrayBitmapExtension
+        ? this.binArrayBitmapExtension.publicKey
         : this.program.programId;
 
       const instructions = [...preInstructions];
