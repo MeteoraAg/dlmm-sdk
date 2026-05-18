@@ -19,11 +19,9 @@
       "default": "./dist/index.mjs"
     }
   },
-  "files": [
-    "dist/**"
-  ],
   "scripts": {
     "build": "tsup",
+    "prepare": "tsup",
     "start": "npm run build -- --watch",
     "test": "tsup && jest 'src/test/.*\\.test\\.ts'",
     "unit-test": "jest src/test/sdk_token2022.test.ts",
