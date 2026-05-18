@@ -1,5 +1,16 @@
 {
+  "name": "dlmm-sdk",
+  "packageManager": "bun@1.3.4",
+  "scripts": {
+    "build": "turbo run build"
+  },
   "dependencies": {
     "pako": "^2.1.0"
+  },
+  "workspaces": [
+    "ts-client"
+  ],
+  "devDependencies": {
+    "turbo": "^2.9.14"
   }
 }
