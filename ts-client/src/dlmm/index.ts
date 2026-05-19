@@ -6475,6 +6475,7 @@ export class DLMM {
                     binArrayBitmapExtension,
                     funder: payer,
                     lbPair: this.pubkey,
+                    rent: SYSVAR_RENT_PUBKEY,
                   })
                   .instruction(),
               );
@@ -6725,6 +6726,7 @@ export class DLMM {
               binArrayBitmapExtension,
               funder: payer,
               lbPair: this.pubkey,
+              rent: SYSVAR_RENT_PUBKEY,
             })
             .instruction(),
         );
@@ -7246,6 +7248,7 @@ export class DLMM {
             binArrayBitmapExtension: binArrayBitMapExtensionPubkey,
             funder: owner,
             lbPair: this.pubkey,
+            rent: SYSVAR_RENT_PUBKEY,
           })
           .instruction();
         preInstructions.push(initializeBitmapExtensionIx);
@@ -7819,6 +7822,7 @@ export class DLMM {
             binArrayBitmapExtension: binArrayBitmap,
             funder: owner,
             lbPair: this.pubkey,
+            rent: SYSVAR_RENT_PUBKEY,
           })
           .preInstructions([
             ComputeBudgetProgram.setComputeUnitLimit({
@@ -8110,6 +8114,7 @@ export class DLMM {
           binArrayBitmapExtension: binArrayBitmapExtension,
           funder: owner,
           lbPair: this.pubkey,
+          rent: SYSVAR_RENT_PUBKEY,
         })
         .instruction();
 

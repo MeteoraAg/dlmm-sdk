@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.9.10] - [PR #293](https://github.com/MeteoraAg/dlmm-sdk/pull/292)
+
+### Fixed
+
+ - Fixed a missing Rent account in all `initializeBinArrayBitmapExtension` callsites, which caused failures in `chunkDepositWithRebalanceEndpoint`, `seedLiquidity`, `seedLiquiditySingleBin`, `syncWithMarketPrice`, `rebalancePosition`, and `placeLimitOrder` when the pool traded outside the default bin array bitmap.
+
 ## @meteora-ag/dlmm [1.9.9] - [PR #293](https://github.com/MeteoraAg/dlmm-sdk/pull/290)
 
 ### Fixed
