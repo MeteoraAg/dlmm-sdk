@@ -247,7 +247,7 @@ export class DLMM {
     public rewards: Array<TokenReserve | null>,
     public clock: Clock,
     private opt?: Opt,
-  ) {}
+  ) { }
 
   /** Static public method */
 
@@ -333,7 +333,7 @@ export class DLMM {
     presetParametersWithIndex = presetParametersWithIndex.filter((p) => {
       return (
         p.account.concreteFunctionType ==
-          (concreteFunctionType ?? ConcreteFunctionType.LiquidityMining) &&
+        (concreteFunctionType ?? ConcreteFunctionType.LiquidityMining) &&
         p.account.collectFeeMode == (collectFeeMode ?? CollectFeeMode.InputOnly)
       );
     });
@@ -511,17 +511,17 @@ export class DLMM {
       ),
       reward0MintAccount
         ? getExtraAccountMetasForTransferHook(
-            connection,
-            lbPairAccInfo.rewardInfos[0].mint,
-            reward0MintAccount,
-          )
+          connection,
+          lbPairAccInfo.rewardInfos[0].mint,
+          reward0MintAccount,
+        )
         : [],
       reward1MintAccount
         ? getExtraAccountMetasForTransferHook(
-            connection,
-            lbPairAccInfo.rewardInfos[1].mint,
-            reward1MintAccount,
-          )
+          connection,
+          lbPairAccInfo.rewardInfos[1].mint,
+          reward1MintAccount,
+        )
         : [],
     ]);
 
@@ -547,34 +547,34 @@ export class DLMM {
       PublicKey.default,
     )
       ? {
-          publicKey: lbPairAccInfo.rewardInfos[0].mint,
-          reserve: lbPairAccInfo.rewardInfos[0].vault,
-          amount: AccountLayout.decode(reward0VaultAccount.data).amount,
-          mint: unpackMint(
-            lbPairAccInfo.rewardInfos[0].mint,
-            reward0MintAccount,
-            reward0MintAccount.owner,
-          ),
-          owner: reward0MintAccount.owner,
-          transferHookAccountMetas: reward0TransferHook,
-        }
+        publicKey: lbPairAccInfo.rewardInfos[0].mint,
+        reserve: lbPairAccInfo.rewardInfos[0].vault,
+        amount: AccountLayout.decode(reward0VaultAccount.data).amount,
+        mint: unpackMint(
+          lbPairAccInfo.rewardInfos[0].mint,
+          reward0MintAccount,
+          reward0MintAccount.owner,
+        ),
+        owner: reward0MintAccount.owner,
+        transferHookAccountMetas: reward0TransferHook,
+      }
       : null;
 
     const reward1: TokenReserve = !lbPairAccInfo.rewardInfos[1].mint.equals(
       PublicKey.default,
     )
       ? {
-          publicKey: lbPairAccInfo.rewardInfos[1].mint,
-          reserve: lbPairAccInfo.rewardInfos[1].vault,
-          amount: AccountLayout.decode(reward1VaultAccount.data).amount,
-          mint: unpackMint(
-            lbPairAccInfo.rewardInfos[1].mint,
-            reward1MintAccount,
-            reward1MintAccount.owner,
-          ),
-          owner: reward1MintAccount.owner,
-          transferHookAccountMetas: reward1TransferHook,
-        }
+        publicKey: lbPairAccInfo.rewardInfos[1].mint,
+        reserve: lbPairAccInfo.rewardInfos[1].vault,
+        amount: AccountLayout.decode(reward1VaultAccount.data).amount,
+        mint: unpackMint(
+          lbPairAccInfo.rewardInfos[1].mint,
+          reward1MintAccount,
+          reward1MintAccount.owner,
+        ),
+        owner: reward1MintAccount.owner,
+        transferHookAccountMetas: reward1TransferHook,
+      }
       : null;
 
     return new DLMM(
@@ -818,40 +818,40 @@ export class DLMM {
         PublicKey.default,
       )
         ? {
-            publicKey: lbPairState.rewardInfos[0].mint,
-            reserve: lbPairState.rewardInfos[0].vault,
-            amount: AccountLayout.decode(reward0VaultAccountInfo.data).amount,
-            mint: unpackMint(
-              lbPairState.rewardInfos[0].mint,
-              reward0MintAccountInfo,
-              reward0MintAccountInfo.owner,
-            ),
-            owner: reward0MintAccountInfo.owner,
-            transferHookAccountMetas:
-              mintHookAccountsMap.get(
-                lbPairState.rewardInfos[0].mint.toBase58(),
-              ) ?? [],
-          }
+          publicKey: lbPairState.rewardInfos[0].mint,
+          reserve: lbPairState.rewardInfos[0].vault,
+          amount: AccountLayout.decode(reward0VaultAccountInfo.data).amount,
+          mint: unpackMint(
+            lbPairState.rewardInfos[0].mint,
+            reward0MintAccountInfo,
+            reward0MintAccountInfo.owner,
+          ),
+          owner: reward0MintAccountInfo.owner,
+          transferHookAccountMetas:
+            mintHookAccountsMap.get(
+              lbPairState.rewardInfos[0].mint.toBase58(),
+            ) ?? [],
+        }
         : null;
 
       const reward1: TokenReserve = !lbPairState.rewardInfos[1].mint.equals(
         PublicKey.default,
       )
         ? {
-            publicKey: lbPairState.rewardInfos[1].mint,
-            reserve: lbPairState.rewardInfos[1].vault,
-            amount: AccountLayout.decode(reward1VaultAccountInfo.data).amount,
-            mint: unpackMint(
-              lbPairState.rewardInfos[1].mint,
-              reward1MintAccountInfo,
-              reward1MintAccountInfo.owner,
-            ),
-            owner: reward1MintAccountInfo.owner,
-            transferHookAccountMetas:
-              mintHookAccountsMap.get(
-                lbPairState.rewardInfos[1].mint.toBase58(),
-              ) ?? [],
-          }
+          publicKey: lbPairState.rewardInfos[1].mint,
+          reserve: lbPairState.rewardInfos[1].vault,
+          amount: AccountLayout.decode(reward1VaultAccountInfo.data).amount,
+          mint: unpackMint(
+            lbPairState.rewardInfos[1].mint,
+            reward1MintAccountInfo,
+            reward1MintAccountInfo.owner,
+          ),
+          owner: reward1MintAccountInfo.owner,
+          transferHookAccountMetas:
+            mintHookAccountsMap.get(
+              lbPairState.rewardInfos[1].mint.toBase58(),
+            ) ?? [],
+        }
         : null;
 
       return new DLMM(
@@ -1933,17 +1933,17 @@ export class DLMM {
       ),
       rewardMint0AccountInfo
         ? getExtraAccountMetasForTransferHook(
-            this.program.provider.connection,
-            lbPairState.rewardInfos[0].mint,
-            rewardMint0AccountInfo,
-          )
+          this.program.provider.connection,
+          lbPairState.rewardInfos[0].mint,
+          rewardMint0AccountInfo,
+        )
         : [],
       rewardMint1AccountInfo
         ? getExtraAccountMetasForTransferHook(
-            this.program.provider.connection,
-            lbPairState.rewardInfos[1].mint,
-            rewardMint1AccountInfo,
-          )
+          this.program.provider.connection,
+          lbPairState.rewardInfos[1].mint,
+          rewardMint1AccountInfo,
+        )
         : [],
     ]);
 
@@ -2570,18 +2570,18 @@ export class DLMM {
     const promiseResults = await Promise.all([
       this.getActiveBin(),
       userPubKey &&
-        chunkedGetProgramAccounts(
-          this.program.provider.connection,
-          this.program.programId,
-          [
-            positionV2Filter(),
-            positionOwnerFilter(userPubKey),
-            positionLbPairFilter(this.pubkey),
-          ],
-          getPositionsOpt?.chunkSize,
-          getPositionsOpt?.onChunkFetched,
-          getPositionsOpt?.isParallelExecution,
-        ),
+      chunkedGetProgramAccounts(
+        this.program.provider.connection,
+        this.program.programId,
+        [
+          positionV2Filter(),
+          positionOwnerFilter(userPubKey),
+          positionLbPairFilter(this.pubkey),
+        ],
+        getPositionsOpt?.chunkSize,
+        getPositionsOpt?.onChunkFetched,
+        getPositionsOpt?.isParallelExecution,
+      ),
     ]);
 
     const [activeBin, positionsV2] = promiseResults;
@@ -2931,7 +2931,7 @@ export class DLMM {
   /**
    * The function `getPosition` retrieves position information for a given public key and processes it
    * using various data to return a `LbPosition` object.
-   * @param {PublicKey} positionPubKey - The `getPosition` function you provided is an asynchronous
+   * @param {PublicKey | IPosition} positionOrPublickey - The `getPosition` function you provided is an asynchronous
    * function that fetches position information based on a given public key. Here's a breakdown of the
    * parameters used in the function:
    * @returns The `getPosition` function returns a Promise that resolves to an object of type
@@ -2940,22 +2940,28 @@ export class DLMM {
    * - `positionData`: Position Object
    * - `version`: The version of the position (in this case, `Position.V2`)
    */
-  public async getPosition(positionPubKey: PublicKey): Promise<LbPosition> {
-    const positionAccountInfo =
-      await this.program.provider.connection.getAccountInfo(positionPubKey);
+  public async getPosition(positionOrPublickey: PublicKey | IPosition): Promise<LbPosition> {
+    let position: IPosition;
+    if (positionOrPublickey instanceof PublicKey) {
+      const positionAccountInfo =
+        await this.program.provider.connection.getAccountInfo(positionOrPublickey);
+  
+      if (!positionAccountInfo) {
+        throw new Error(
+          `Position account ${positionOrPublickey.toBase58()} not found`,
+        );
+      }
 
-    if (!positionAccountInfo) {
-      throw new Error(
-        `Position account ${positionPubKey.toBase58()} not found`,
+      position = wrapPosition(
+        this.program,
+        positionOrPublickey,
+        positionAccountInfo,
       );
-    }
+    } else {
+      position = positionOrPublickey;
+   }
 
-    let position: IPosition = wrapPosition(
-      this.program,
-      positionPubKey,
-      positionAccountInfo,
-    );
-
+    const positionPubKey = position.address();
     const binArrayKeys = position.getBinArrayKeysCoverage(
       this.program.programId,
     );
@@ -4593,26 +4599,32 @@ export class DLMM {
    */
   public async removeLiquidity({
     user,
-    position,
     fromBinId,
     toBinId,
     bps,
     shouldClaimAndClose = false,
     skipUnwrapSOL = false,
+    ...params
   }: {
     user: PublicKey;
-    position: PublicKey;
     fromBinId: number;
     toBinId: number;
     bps: BN;
     shouldClaimAndClose?: boolean;
     skipUnwrapSOL?: boolean;
-  }): Promise<Transaction[]> {
-    const positionAccount =
-      await this.program.provider.connection.getAccountInfo(position);
-
-    const positionState = wrapPosition(this.program, position, positionAccount);
-
+    } & ({
+      position: PublicKey;
+    } | {positionState: IPosition})): Promise<Transaction[]> {
+    let positionState: IPosition;
+    if ("positionState" in params) {
+      positionState = params.positionState;
+    } else {
+      const positionAccount =
+        await this.program.provider.connection.getAccountInfo(params.position);
+     positionState = wrapPosition(this.program, params.position, positionAccount);
+    }
+    
+    const position = positionState.address();
     const lbPair = positionState.lbPair();
     const owner = positionState.owner();
     const feeOwner = positionState.feeOwner();
@@ -4843,7 +4855,7 @@ export class DLMM {
         ].includes(NATIVE_MINT.toBase58()) &&
         (!skipUnwrapSOL || !this.opt?.skipSolWrappingOperation)
       ) {
-        const closeWrappedSOLIx = await unwrapSOLInstruction(user);
+        const closeWrappedSOLIx = unwrapSOLInstruction(user);
         closeWrappedSOLIx && postInstructions.push(closeWrappedSOLIx);
       }
 
