@@ -1,8 +1,8 @@
 {
-  "name": "dlmm-sdk",
+  "private": true,
   "packageManager": "bun@1.3.4",
   "scripts": {
-    "build": "./prebuild.sh"
+    "build": "turbo build"
   },
   "dependencies": {
     "pako": "^2.1.0"
