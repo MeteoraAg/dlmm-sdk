@@ -3,11 +3,6 @@ set -e
 
 cd ts-client
 
-if [ "$INSTALLING" != "false" ]; then
-  INSTALLING=false
-  bun install
-fi
-
 bun run build
 
 cp -r dist ../
