@@ -2,8 +2,9 @@
 set -e
 
 cd ts-client
-if [ "$INSTALL" != "" ]; then
-  INSTALL=false
+
+if [ "$INSTALLING" != "false" ]; then
+  INSTALLING=false
   bun install
 fi
 
