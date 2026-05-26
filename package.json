@@ -20,8 +20,8 @@
     }
   },
   "scripts": {
-    "build": "cd ts-client && tsup && cp dist/* ../dist/ && cd -",
-    "prepare": "cd ts-client && tsup && cp dist/* ../dist/ && cd -"
+    "build": "cd ts-client && tsup && cp dist/* .. && cd -",
+    "prepare": "cd ts-client && tsup && cp dist/* .. && cd -"
   },
   "devDependencies": {
     "@babel/preset-env": "^7.22.5",
