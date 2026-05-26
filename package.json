@@ -2,6 +2,7 @@
   "name": "dlmm-sdk",
   "packageManager": "bun@1.3.4",
   "scripts": {
+    "preinstall": "./preinstall.sh",
     "build": "turbo run build"
   },
   "dependencies": {

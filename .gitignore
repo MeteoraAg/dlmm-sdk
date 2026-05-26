@@ -20,3 +20,4 @@ ts-client/scripts
 
 .pnpm-debug.log
 .turbo
+dist
