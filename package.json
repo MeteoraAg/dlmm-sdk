@@ -2,10 +2,10 @@
   "name": "@meteora-ag/dlmm",
   "version": "1.9.9",
   "description": "",
-  "main": "./dist/index.js",
-  "module": "./dist/index.mjs",
-  "source": "./src/index.ts",
-  "types": "./dist/index.d.ts",
+  "main": "./ts-client/src/index.ts",
+  "module": "./ts-client/src/index.ts",
+  "source": "./ts-client/src/index.ts",
+  "types": "./ts-client/src/index.ts",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/MeteoraAg/dlmm-sdk.git",
@@ -13,15 +13,11 @@
   },
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.js",
-      "default": "./dist/index.mjs"
+      "types": "./ts-client/src/index.d.ts",
+      "import": "./ts-client/src/index.ts",
+      "require": "./ts-client/src/index.ts",
+      "default": "./ts-client/src/index.ts"
     }
-  },
-  "scripts": {
-    "build": "cd ts-client && tsup && mv dist .. && cd -",
-    "prepare": "cd ts-client && tsup && mv dist .. && cd -"
   },
   "devDependencies": {
     "@babel/preset-env": "^7.22.5",
@@ -50,7 +46,7 @@
     "gaussian": "^1.3.0"
   },
   "files": [
-     "dist"
+     "ts-client"
    ],
   "keywords": [],
   "author": "McSam",
