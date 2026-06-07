@@ -197,6 +197,7 @@ import {
   MEMO_PROGRAM_ID,
   PairLockInfo,
   PairStatus,
+  LimitOrderInfo,
   PairType,
   PositionBinData,
   PositionData,
@@ -1170,6 +1171,280 @@ export class DLMM {
     }
 
     return positionsMap;
+  }
+
+  /**
+   * The function `getPositionsByUserAndTokenAddress` retrieves all of a user's positions across every
+   * DLMM pool that includes the given token mint as either the X or Y token.
+   * @param {Connection} connection - The `connection` parameter is an instance of the `Connection`
+   * class, which represents the connection to the Solana blockchain.
+   * @param {PublicKey} userPubKey - The user's wallet public key.
+   * @param {PublicKey} tokenMint - The token mint used to filter pools. Only positions in pools whose
+   * `tokenXMint` or `tokenYMint` matches this mint are returned.
+   * @param {Opt} [opt] - An optional object that contains additional options for the function.
+   * @param {GetPositionsOpt} [getPositionsOpt] - Optional settings for chunked position fetching
+   * @returns The function `getPositionsByUserAndTokenAddress` returns a `Promise` that resolves to a
+   * `Map` object. The `Map` object contains key-value pairs, where the key is a string representing the
+   * LB Pair account, and the value is an object of PositionInfo. Only pools containing `tokenMint` are
+   * included.
+   */
+  static async getPositionsByUserAndTokenAddress(
+    connection: Connection,
+    userPubKey: PublicKey,
+    tokenMint: PublicKey,
+    opt?: Opt,
+    getPositionsOpt?: GetPositionsOpt,
+  ): Promise<Map<string, PositionInfo>> {
+    // Position accounts only store the lbPair and owner (no token mints), so we cannot
+    // filter positions by token mint directly. Instead we resolve the user's positions
+    // (which decodes each lbPair) and then keep only the pools that contain the token.
+    const allPositions = await DLMM.getAllLbPairPositionsByUser(
+      connection,
+      userPubKey,
+      opt,
+      getPositionsOpt,
+    );
+
+    const targetMint = tokenMint.toBase58();
+    const filteredPositions = new Map<string, PositionInfo>();
+
+    for (const [lbPairKey, positionInfo] of allPositions) {
+      const tokenXMint = positionInfo.lbPair.tokenXMint.toBase58();
+      const tokenYMint = positionInfo.lbPair.tokenYMint.toBase58();
+
+      if (tokenXMint === targetMint || tokenYMint === targetMint) {
+        filteredPositions.set(lbPairKey, positionInfo);
+      }
+    }
+
+    return filteredPositions;
+  }
+
+  /**
+   * The function `getLimitOrdersByUserAndTokenAddress` retrieves all of a user's limit orders across
+   * every DLMM pool that includes the given token mint as either the X or Y token.
+   * @param {Connection} connection - The `connection` parameter is an instance of the `Connection`
+   * class, which represents the connection to the Solana blockchain.
+   * @param {PublicKey} userPubKey - The user's wallet public key.
+   * @param {PublicKey} tokenMint - The token mint used to filter pools. Only limit orders in pools
+   * whose `tokenXMint` or `tokenYMint` matches this mint are returned.
+   * @param {Opt} [opt] - An optional object that contains additional options for the function.
+   * @returns The function `getLimitOrdersByUserAndTokenAddress` returns a `Promise` that resolves to a
+   * `Map` object keyed by LB Pair account (base58), where each value is a `LimitOrderInfo` containing
+   * the LB pair state, token reserves, and the parsed limit orders for that pool.
+   */
+  static async getLimitOrdersByUserAndTokenAddress(
+    connection: Connection,
+    userPubKey: PublicKey,
+    tokenMint: PublicKey,
+    opt?: Opt,
+  ): Promise<Map<string, LimitOrderInfo>> {
+    const program = createProgram(connection, opt);
+
+    // Limit order accounts only store the lbPair and owner (no token mints), so we resolve the user's
+    // limit orders first, then keep only the ones whose pool contains the requested token mint.
+    const limitOrderAccounts = await chunkedGetProgramAccounts(
+      program.provider.connection,
+      program.programId,
+      [limitOrderFilter(), limitOrderOwnerFilter(userPubKey)],
+    );
+
+    const limitOrderWrappers: ILimitOrder[] = limitOrderAccounts.map(
+      ({ pubkey, account }) => wrapLimitOrder(program, pubkey, account),
+    );
+
+    if (limitOrderWrappers.length === 0) {
+      return new Map();
+    }
+
+    // Resolve the unique set of LB pairs the orders belong to, then decode them
+    const lbPairKeys = Array.from(
+      new Set(limitOrderWrappers.map((lo) => lo.lbPair().toBase58())),
+    ).map((key) => new PublicKey(key));
+
+    const lbPairAccInfos = await chunkedGetMultipleAccountInfos(
+      connection,
+      lbPairKeys,
+    );
+
+    const lbPairMap = new Map<string, LbPair>();
+    lbPairKeys.forEach((lbPairPubkey, i) => {
+      const accInfo = lbPairAccInfos[i];
+      if (!accInfo) {
+        throw new Error(`LB Pair account ${lbPairPubkey.toBase58()} not found`);
+      }
+      lbPairMap.set(
+        lbPairPubkey.toBase58(),
+        decodeAccount<LbPair>(program, "lbPair", accInfo.data),
+      );
+    });
+
+    // Keep only the pools that contain the requested token mint
+    const targetMint = tokenMint.toBase58();
+    const matchingLbPairKeys = lbPairKeys.filter((lbPairPubkey) => {
+      const lbPairState = lbPairMap.get(lbPairPubkey.toBase58());
+      return (
+        lbPairState.tokenXMint.toBase58() === targetMint ||
+        lbPairState.tokenYMint.toBase58() === targetMint
+      );
+    });
+
+    if (matchingLbPairKeys.length === 0) {
+      return new Map();
+    }
+
+    const matchingLbPairSet = new Set(
+      matchingLbPairKeys.map((key) => key.toBase58()),
+    );
+
+    const matchingLimitOrders = limitOrderWrappers.filter((lo) =>
+      matchingLbPairSet.has(lo.lbPair().toBase58()),
+    );
+
+    // Reserve + mint accounts for each matching pool (4 per pool), used to build TokenReserve
+    const reserveAndMintKeys = matchingLbPairKeys
+      .map((lbPairPubkey) => {
+        const { reserveX, reserveY, tokenXMint, tokenYMint } = lbPairMap.get(
+          lbPairPubkey.toBase58(),
+        );
+        return [reserveX, reserveY, tokenXMint, tokenYMint];
+      })
+      .flat();
+
+    // Bin arrays covered by the matching limit orders (needed to parse fill state)
+    const binArrayPubkeySet = new Set<string>();
+    matchingLimitOrders.forEach((lo) => {
+      lo.getBinArrayKeysCoverage(program.programId).forEach((key) => {
+        binArrayPubkeySet.add(key.toBase58());
+      });
+    });
+    const binArrayKeys = Array.from(binArrayPubkeySet).map(
+      (key) => new PublicKey(key),
+    );
+
+    const [clockAccInfo, ...rest] = await chunkedGetMultipleAccountInfos(
+      connection,
+      [SYSVAR_CLOCK_PUBKEY, ...binArrayKeys, ...reserveAndMintKeys],
+    );
+
+    const binArraysAccInfo = rest.slice(0, binArrayKeys.length);
+    const reserveAndMintAccInfo = rest.slice(binArrayKeys.length);
+
+    const clock: Clock = ClockLayout.decode(clockAccInfo.data);
+
+    const binArrayMap = new Map<string, BinArray>();
+    binArrayKeys.forEach((binArrayPubkey, i) => {
+      const accInfo = binArraysAccInfo[i];
+      if (accInfo) {
+        binArrayMap.set(
+          binArrayPubkey.toBase58(),
+          decodeAccount<BinArray>(program, "binArray", accInfo.data),
+        );
+      }
+    });
+
+    const lbPairTokenMap = new Map<
+      string,
+      { tokenX: TokenReserve; tokenY: TokenReserve; mintX: Mint; mintY: Mint }
+    >();
+
+    matchingLbPairKeys.forEach((lbPairPubkey, idx) => {
+      const index = idx * 4;
+      const reserveXAccount = reserveAndMintAccInfo[index];
+      const reserveYAccount = reserveAndMintAccInfo[index + 1];
+      const mintXAccount = reserveAndMintAccInfo[index + 2];
+      const mintYAccount = reserveAndMintAccInfo[index + 3];
+
+      if (!reserveXAccount || !reserveYAccount) {
+        throw new Error(
+          `Reserve account for LB Pair ${lbPairPubkey.toBase58()} not found`,
+        );
+      }
+      if (!mintXAccount || !mintYAccount) {
+        throw new Error(
+          `Mint account for LB Pair ${lbPairPubkey.toBase58()} not found`,
+        );
+      }
+
+      const lbPairState = lbPairMap.get(lbPairPubkey.toBase58());
+      const reserveAccX = AccountLayout.decode(reserveXAccount.data);
+      const reserveAccY = AccountLayout.decode(reserveYAccount.data);
+
+      const mintX = unpackMint(
+        reserveAccX.mint,
+        mintXAccount,
+        mintXAccount.owner,
+      );
+      const mintY = unpackMint(
+        reserveAccY.mint,
+        mintYAccount,
+        mintYAccount.owner,
+      );
+
+      const { tokenXProgram, tokenYProgram } = getTokenProgramId(lbPairState);
+
+      const tokenX: TokenReserve = {
+        publicKey: lbPairState.tokenXMint,
+        reserve: lbPairState.reserveX,
+        amount: reserveAccX.amount,
+        mint: mintX,
+        owner: tokenXProgram,
+        transferHookAccountMetas: [], // Not required for read-only limit order processing
+      };
+
+      const tokenY: TokenReserve = {
+        publicKey: lbPairState.tokenYMint,
+        reserve: lbPairState.reserveY,
+        amount: reserveAccY.amount,
+        mint: mintY,
+        owner: tokenYProgram,
+        transferHookAccountMetas: [], // Not required for read-only limit order processing
+      };
+
+      lbPairTokenMap.set(lbPairPubkey.toBase58(), {
+        tokenX,
+        tokenY,
+        mintX,
+        mintY,
+      });
+    });
+
+    const limitOrdersMap = new Map<string, LimitOrderInfo>();
+
+    for (const lo of matchingLimitOrders) {
+      const lbPairKey = lo.lbPair().toBase58();
+      const lbPairState = lbPairMap.get(lbPairKey);
+      const { tokenX, tokenY, mintX, mintY } = lbPairTokenMap.get(lbPairKey);
+
+      const parsedLo = lo.parseInfo(
+        program.programId,
+        lbPairState,
+        mintX,
+        mintY,
+        clock,
+        binArrayMap,
+      );
+
+      const entry: ParsedLimitOrderWithPubkey = {
+        publicKey: lo.address(),
+        limitOrderData: parsedLo,
+      };
+
+      const existing = limitOrdersMap.get(lbPairKey);
+      if (existing) {
+        existing.limitOrders.push(entry);
+      } else {
+        limitOrdersMap.set(lbPairKey, {
+          publicKey: lo.lbPair(),
+          lbPair: lbPairState,
+          tokenX,
+          tokenY,
+          limitOrders: [entry],
+        });
+      }
+    }
+
+    return limitOrdersMap;
   }
 
   public static getPricePerLamport(

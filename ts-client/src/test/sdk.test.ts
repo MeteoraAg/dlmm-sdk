@@ -1013,6 +1013,76 @@ describe("SDK test", () => {
     ).not.toBeUndefined();
   });
 
+  it("get user positions by token address", async () => {
+    const positionsByToken = await DLMM.getPositionsByUserAndTokenAddress(
+      connection,
+      adminKeypair.publicKey,
+      BTC,
+      {
+        cluster: "localhost",
+      },
+    );
+
+    // Pool containing BTC should be included
+    const positions = positionsByToken.get(lbPairPubkey.toBase58());
+    expect(positions).not.toBeUndefined();
+    expect(
+      positions.lbPairPositionsData.find(({ publicKey }) =>
+        publicKey.equals(positionKeypair.publicKey),
+      ),
+    ).not.toBeUndefined();
+
+    // Every returned pool must contain the requested token mint
+    for (const [, positionInfo] of positionsByToken) {
+      const containsToken =
+        positionInfo.lbPair.tokenXMint.equals(BTC) ||
+        positionInfo.lbPair.tokenYMint.equals(BTC);
+      expect(containsToken).toBe(true);
+    }
+
+    // A mint the user has no positions for should yield an empty map
+    const emptyPositions = await DLMM.getPositionsByUserAndTokenAddress(
+      connection,
+      adminKeypair.publicKey,
+      Keypair.generate().publicKey,
+      {
+        cluster: "localhost",
+      },
+    );
+    expect(emptyPositions.size).toBe(0);
+  });
+
+  it("get user limit orders by token address", async () => {
+    // Every returned pool must contain the requested token mint
+    const limitOrdersByToken = await DLMM.getLimitOrdersByUserAndTokenAddress(
+      connection,
+      adminKeypair.publicKey,
+      BTC,
+      {
+        cluster: "localhost",
+      },
+    );
+
+    for (const [, limitOrderInfo] of limitOrdersByToken) {
+      const containsToken =
+        limitOrderInfo.lbPair.tokenXMint.equals(BTC) ||
+        limitOrderInfo.lbPair.tokenYMint.equals(BTC);
+      expect(containsToken).toBe(true);
+      expect(Array.isArray(limitOrderInfo.limitOrders)).toBe(true);
+    }
+
+    // A mint the user has no limit orders for should yield an empty map
+    const emptyLimitOrders = await DLMM.getLimitOrdersByUserAndTokenAddress(
+      connection,
+      adminKeypair.publicKey,
+      Keypair.generate().publicKey,
+      {
+        cluster: "localhost",
+      },
+    );
+    expect(emptyLimitOrders.size).toBe(0);
+  });
+
   describe("getPositionsByUserAndLbPair with GetPositionsOpt", () => {
     const additionalPositions: PublicKey[] = [];
     const NUM_ADDITIONAL_POSITIONS = 4; // Create 4 more positions (total 5 with existing one)
