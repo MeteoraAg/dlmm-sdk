@@ -19,6 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+
+## @meteora-ag/dlmm [1.9.11] - [PR #297](https://github.com/MeteoraAg/dlmm-sdk/pull/297)
+
+### Fixed
+
+- Fixed bin array account evaluation not including bin slippage bins
+
 ## @meteora-ag/dlmm [1.9.10] - [PR #293](https://github.com/MeteoraAg/dlmm-sdk/pull/292)
 
 ### Fixed
