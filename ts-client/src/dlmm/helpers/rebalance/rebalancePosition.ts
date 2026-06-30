@@ -1087,19 +1087,20 @@ export function getRebalanceBinArrayIndexesAndBitmapCoverage(
   activeId: number,
   pairAddress: PublicKey,
   programId: PublicKey,
+  maxActiveBinSlippage: number = 0,
 ): {
   binArrayIndexes: BN[];
   binArrayBitmap: PublicKey;
 } {
   let indexMap: Map<number, boolean> = new Map();
   removes.forEach((value) => {
-    let minBinId = value.minBinId;
+    let minBinId = value.minBinId - maxActiveBinSlippage;
     if (minBinId == null) {
-      minBinId = activeId;
+      minBinId = activeId - maxActiveBinSlippage;
     }
-    let maxBinId = value.maxBinId;
+    let maxBinId = value.maxBinId + maxActiveBinSlippage;
     if (maxBinId == null) {
-      maxBinId = activeId;
+      maxBinId = activeId + maxActiveBinSlippage;
     }
     let binArrayIndex = binIdToBinArrayIndex(new BN(minBinId));
     const upperBinId = new BN(maxBinId);
@@ -1120,8 +1121,8 @@ export function getRebalanceBinArrayIndexesAndBitmapCoverage(
   });
 
   adds.forEach((value) => {
-    const minBinId = activeId + value.minDeltaId;
-    const maxBinId = activeId + value.maxDeltaId;
+    const minBinId = activeId + value.minDeltaId - maxActiveBinSlippage;
+    const maxBinId = activeId + value.maxDeltaId + maxActiveBinSlippage;
     let binArrayIndex = binIdToBinArrayIndex(new BN(minBinId));
     const upperBinId = new BN(maxBinId);
     while (true) {

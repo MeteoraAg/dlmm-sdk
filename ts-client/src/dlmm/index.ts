@@ -7777,6 +7777,7 @@ export class DLMM {
         activeId.toNumber(),
         this.pubkey,
         this.program.programId,
+        maxActiveBinSlippage.toNumber(),
       );
 
     const binArrayPublicKeys = binArrayIndexes.map((index) => {
