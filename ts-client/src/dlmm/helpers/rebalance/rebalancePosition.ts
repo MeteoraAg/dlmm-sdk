@@ -1126,7 +1126,6 @@ export function getRebalanceBinArrayIndexesAndBitmapCoverage(
   adds.forEach((value) => {
     const minBinId = activeId + value.minDeltaId;
     const maxBinId = activeId + value.maxDeltaId;
-    const positionBinCount = maxBinId - minBinId + 1;
 
     // Take into account slippage
     let binArrayIndex = binIdToBinArrayIndex(
