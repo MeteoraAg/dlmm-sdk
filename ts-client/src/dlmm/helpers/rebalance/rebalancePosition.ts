@@ -1094,13 +1094,13 @@ export function getRebalanceBinArrayIndexesAndBitmapCoverage(
 } {
   let indexMap: Map<number, boolean> = new Map();
   removes.forEach((value) => {
-    let minBinId = value.minBinId - maxActiveBinSlippage;
+    let minBinId = value.minBinId;
     if (minBinId == null) {
-      minBinId = activeId - maxActiveBinSlippage;
+      minBinId = activeId;
     }
-    let maxBinId = value.maxBinId + maxActiveBinSlippage;
+    let maxBinId = value.maxBinId;
     if (maxBinId == null) {
-      maxBinId = activeId + maxActiveBinSlippage;
+      maxBinId = activeId;
     }
     let binArrayIndex = binIdToBinArrayIndex(new BN(minBinId));
     const upperBinId = new BN(maxBinId);
