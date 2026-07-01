@@ -8,6 +8,8 @@ import {
   BASIS_POINT_MAX,
   DEFAULT_BIN_PER_POSITION,
   FEE_PRECISION,
+  MAX_ALLOWED_REBALANCE_BIN_ARRAY_COUNT,
+  MAX_BIN_ARRAY_SIZE,
   SCALE_OFFSET,
 } from "../../constants";
 import { LbClmm } from "../../idl/idl";
@@ -1121,12 +1123,17 @@ export function getRebalanceBinArrayIndexesAndBitmapCoverage(
   });
 
   adds.forEach((value) => {
-    const minBinId = activeId + value.minDeltaId - maxActiveBinSlippage;
-    const maxBinId = activeId + value.maxDeltaId + maxActiveBinSlippage;
-    let binArrayIndex = binIdToBinArrayIndex(new BN(minBinId));
-    const upperBinId = new BN(maxBinId);
+    const minBinId = activeId + value.minDeltaId;
+    const maxBinId = activeId + value.maxDeltaId;
+    const positionBinCount = maxBinId - minBinId + 1;
+
+    // Take into account slippage
+    let binArrayIndex = binIdToBinArrayIndex(new BN(minBinId - maxActiveBinSlippage));
+    let binArrayIndexes = [];
+    // Take into account slippage
+    const upperBinId = new BN(maxBinId + maxActiveBinSlippage);
     while (true) {
-      indexMap.set(binArrayIndex.toNumber(), true);
+      binArrayIndexes.push(binArrayIndex.toNumber());
       const [binArrayLowerBinId, binArrayUpperBinId] =
         getBinArrayLowerUpperBinId(binArrayIndex);
 
@@ -1139,7 +1146,23 @@ export function getRebalanceBinArrayIndexesAndBitmapCoverage(
         binArrayIndex = binArrayIndex.add(new BN(1));
       }
     }
+
+    // Each add can contribute maximum of 5 Bin array account if the position bin count is <=70
+    // Considering rebalance use case the adds should have min/max delta id that is close to each other so should be fine, but omitting the case where its more than 70 for now
+    // The cap assumes the real (non-slippage) range fits in <=2 bin arrays, so the excess entries are purely symmetric slippage padding and centering can safely drop them.
+    // When positionBinCount > 70 we skip the cap entirely: the real range alone spans >1 array, so a large slippage add can still overflow the tx size limit (accepted for now).
+    if(positionBinCount <= MAX_BIN_ARRAY_SIZE.toNumber() && binArrayIndexes.length > MAX_ALLOWED_REBALANCE_BIN_ARRAY_COUNT) {
+      // Take maximum 5 bin array account if it exceeds 5 (i.e huge slippage % on really low bin step pool)
+      // For even number bin array length, takes the lower extra bin (arbitrary since we dont know about the price movement)
+      const start = Math.floor((binArrayIndexes.length - MAX_ALLOWED_REBALANCE_BIN_ARRAY_COUNT)/2);
+      binArrayIndexes =  binArrayIndexes.slice(start, start + MAX_ALLOWED_REBALANCE_BIN_ARRAY_COUNT);
+    }
+
+    binArrayIndexes.forEach((index) => {
+      indexMap.set(index, true);
+    })
   });
+
   const binArrayIndexes = Array.from(indexMap.keys()).map((idx) => new BN(idx));
 
   const requireBitmapExtension = binArrayIndexes.some((index) =>
