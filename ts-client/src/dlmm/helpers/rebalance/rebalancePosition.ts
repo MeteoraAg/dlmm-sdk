@@ -1090,6 +1090,7 @@ export function getRebalanceBinArrayIndexesAndBitmapCoverage(
   pairAddress: PublicKey,
   programId: PublicKey,
   maxActiveBinSlippage: number = 0,
+  includeSlippageForBinArray: boolean = false,
 ): {
   binArrayIndexes: BN[];
   binArrayBitmap: PublicKey;
@@ -1128,10 +1129,16 @@ export function getRebalanceBinArrayIndexesAndBitmapCoverage(
     const positionBinCount = maxBinId - minBinId + 1;
 
     // Take into account slippage
-    let binArrayIndex = binIdToBinArrayIndex(new BN(minBinId - maxActiveBinSlippage));
+    let binArrayIndex = binIdToBinArrayIndex(
+      includeSlippageForBinArray 
+      ? new BN(minBinId - maxActiveBinSlippage)
+      : new BN(minBinId)
+    );
     let binArrayIndexes = [];
     // Take into account slippage
-    const upperBinId = new BN(maxBinId + maxActiveBinSlippage);
+    const upperBinId = includeSlippageForBinArray 
+    ? new BN(maxBinId + maxActiveBinSlippage)
+    : new BN(maxBinId);
     while (true) {
       binArrayIndexes.push(binArrayIndex.toNumber());
       const [binArrayLowerBinId, binArrayUpperBinId] =
@@ -1147,11 +1154,7 @@ export function getRebalanceBinArrayIndexesAndBitmapCoverage(
       }
     }
 
-    // Each add can contribute maximum of 5 Bin array account if the position bin count is <=70
-    // Considering rebalance use case the adds should have min/max delta id that is close to each other so should be fine, but omitting the case where its more than 70 for now
-    // The cap assumes the real (non-slippage) range fits in <=2 bin arrays, so the excess entries are purely symmetric slippage padding and centering can safely drop them.
-    // When positionBinCount > 70 we skip the cap entirely: the real range alone spans >1 array, so a large slippage add can still overflow the tx size limit (accepted for now).
-    if(positionBinCount <= MAX_BIN_ARRAY_SIZE.toNumber() && binArrayIndexes.length > MAX_ALLOWED_REBALANCE_BIN_ARRAY_COUNT) {
+    if(includeSlippageForBinArray && binArrayIndexes.length > MAX_ALLOWED_REBALANCE_BIN_ARRAY_COUNT) {
       // Take maximum 5 bin array account if it exceeds 5 (i.e huge slippage % on really low bin step pool)
       // For even number bin array length, takes the lower extra bin (arbitrary since we dont know about the price movement)
       const start = Math.floor((binArrayIndexes.length - MAX_ALLOWED_REBALANCE_BIN_ARRAY_COUNT)/2);

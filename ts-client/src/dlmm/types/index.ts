@@ -231,6 +231,7 @@ export interface TInitializePositionAndAddLiquidityParamsByStrategy {
   strategy: StrategyParameters;
   user: PublicKey;
   slippage?: number;
+  includeSlippageForBinArray?: boolean;
 }
 
 export interface InitializeMultiplePositionAndAddLiquidityByStrategyResponse {

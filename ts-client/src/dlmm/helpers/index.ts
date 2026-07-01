@@ -661,6 +661,7 @@ export async function chunkDepositWithRebalanceEndpoint(
   // When isParallel = false, instructions must be executed sequentially
   isParallel: boolean,
   skipSolWrappingOperation: boolean = false,
+  includeSlippageForBinArray: boolean = false,
 ) {
   const { slices, accounts: transferHookAccounts } =
     dlmm.getPotentialToken2022IxDataAndAccounts(ActionType.Liquidity);
@@ -715,10 +716,10 @@ export async function chunkDepositWithRebalanceEndpoint(
     const initBitmapIxs: TransactionInstruction[] = [];
 
     let binArrayIndexes = getBinArrayIndexesCoverage(
-      new BN(chunkMinBinId - maxActiveBinSlippage),
-      new BN(chunkMaxBinId + maxActiveBinSlippage),
+      includeSlippageForBinArray ? new BN(chunkMinBinId - maxActiveBinSlippage): new BN(chunkMinBinId),
+      includeSlippageForBinArray ? new BN(chunkMaxBinId + maxActiveBinSlippage): new BN(chunkMaxBinId),
     );
-    if(binArrayIndexes.length > MAX_ALLOWED_REBALANCE_BIN_ARRAY_COUNT) {
+    if(includeSlippageForBinArray && binArrayIndexes.length > MAX_ALLOWED_REBALANCE_BIN_ARRAY_COUNT) {
       // Take maximum 5 bin array account if it exceeds 5 (i.e huge slippage % on really low bin step pool)
       // For even number bin array length, takes the lower extra bin (arbitrary since we dont know about the price movement)
       const start = Math.floor((binArrayIndexes.length - MAX_ALLOWED_REBALANCE_BIN_ARRAY_COUNT)/2);
