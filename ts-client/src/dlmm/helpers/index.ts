@@ -26,6 +26,7 @@ import {
 import { DLMM } from "..";
 import {
   LBCLMM_PROGRAM_IDS,
+  MAX_ALLOWED_REBALANCE_BIN_ARRAY_COUNT,
   MAX_BINS_PER_POSITION,
   SCALE_OFFSET,
   U64_MAX,
@@ -660,6 +661,7 @@ export async function chunkDepositWithRebalanceEndpoint(
   // When isParallel = false, instructions must be executed sequentially
   isParallel: boolean,
   skipSolWrappingOperation: boolean = false,
+  includeSlippageForBinArray: boolean = false,
 ) {
   const { slices, accounts: transferHookAccounts } =
     dlmm.getPotentialToken2022IxDataAndAccounts(ActionType.Liquidity);
@@ -713,10 +715,16 @@ export async function chunkDepositWithRebalanceEndpoint(
     const initBinArrayIxs: TransactionInstruction[] = [];
     const initBitmapIxs: TransactionInstruction[] = [];
 
-    const binArrayIndexes = getBinArrayIndexesCoverage(
-      new BN(chunkMinBinId),
-      new BN(chunkMaxBinId),
+    let binArrayIndexes = getBinArrayIndexesCoverage(
+      includeSlippageForBinArray ? new BN(chunkMinBinId - maxActiveBinSlippage): new BN(chunkMinBinId),
+      includeSlippageForBinArray ? new BN(chunkMaxBinId + maxActiveBinSlippage): new BN(chunkMaxBinId),
     );
+    if(includeSlippageForBinArray && binArrayIndexes.length > MAX_ALLOWED_REBALANCE_BIN_ARRAY_COUNT) {
+      // Take maximum 5 bin array account if it exceeds 5 (i.e huge slippage % on really low bin step pool)
+      // For even number bin array length, takes the lower extra bin (arbitrary since we dont know about the price movement)
+      const start = Math.floor((binArrayIndexes.length - MAX_ALLOWED_REBALANCE_BIN_ARRAY_COUNT)/2);
+      binArrayIndexes =  binArrayIndexes.slice(start, start + MAX_ALLOWED_REBALANCE_BIN_ARRAY_COUNT)
+    }
 
     const overflowDefaultBinArrayBitmap = binArrayIndexes.reduce(
       (acc, binArrayIndex) =>

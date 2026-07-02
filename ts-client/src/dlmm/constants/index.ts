@@ -134,3 +134,7 @@ export enum CollectFeeMode {
   InputOnly = 0,
   OnlyY = 1,
 }
+
+// Max bin array account we can take to account for slippage
+// Max we can support is 5 bin array account (tx at ~1110 bytes)
+export const MAX_ALLOWED_REBALANCE_BIN_ARRAY_COUNT = 5;
