@@ -179,30 +179,18 @@ function findX0AndDeltaX(
   );
 
   const x0 = minDeltaId.neg().mul(baseDeltaX).add(baseDeltaX);
-
-  while (true) {
-    const amountInBins = getAmountInBinsAskSide(
-      activeId,
-      binStep,
-      minDeltaId,
-      maxDeltaId,
-      baseDeltaX,
-      x0
-    );
-
-    const totalAmountX = amountInBins.reduce((acc, { amountX }) => {
-      return acc.add(amountX);
-    }, new BN(0));
-
-    if (totalAmountX.gt(amountX)) {
-      baseDeltaX = baseDeltaX.sub(new BN(1));
-    } else {
-      return {
-        base: x0,
-        delta: baseDeltaX,
-      };
-    }
+  
+  let lo = new BN(0), hi = baseDeltaX, best = new BN(0);
+  while (lo.lte(hi)) {
+    const mid = lo.add(hi).divn(2);
+    const total = getAmountInBinsAskSide(activeId, binStep, minDeltaId, maxDeltaId, mid, x0)
+      .reduce((a, { amountX }) => a.add(amountX), new BN(0));
+    
+    if (total.gt(amountX)) hi = mid.subn(1);
+    else { best = mid; lo = mid.addn(1); }
   }
+
+  return { base: x0, delta: best };
 }
 
 export class BidAskStrategyParameterBuilder
