@@ -8,8 +8,6 @@ import {
   BASIS_POINT_MAX,
   DEFAULT_BIN_PER_POSITION,
   FEE_PRECISION,
-  MAX_ALLOWED_REBALANCE_BIN_ARRAY_COUNT,
-  MAX_BIN_ARRAY_SIZE,
   SCALE_OFFSET,
 } from "../../constants";
 import { LbClmm } from "../../idl/idl";
@@ -1089,8 +1087,6 @@ export function getRebalanceBinArrayIndexesAndBitmapCoverage(
   activeId: number,
   pairAddress: PublicKey,
   programId: PublicKey,
-  maxActiveBinSlippage: number = 0,
-  includeSlippageForBinArray: boolean = false,
 ): {
   binArrayIndexes: BN[];
   binArrayBitmap: PublicKey;
@@ -1127,19 +1123,10 @@ export function getRebalanceBinArrayIndexesAndBitmapCoverage(
     const minBinId = activeId + value.minDeltaId;
     const maxBinId = activeId + value.maxDeltaId;
 
-    // Take into account slippage
-    let binArrayIndex = binIdToBinArrayIndex(
-      includeSlippageForBinArray 
-      ? new BN(minBinId - maxActiveBinSlippage)
-      : new BN(minBinId)
-    );
-    let binArrayIndexes = [];
-    // Take into account slippage
-    const upperBinId = includeSlippageForBinArray 
-    ? new BN(maxBinId + maxActiveBinSlippage)
-    : new BN(maxBinId);
+    let binArrayIndex = binIdToBinArrayIndex(new BN(minBinId));
+    const upperBinId = new BN(maxBinId);
     while (true) {
-      binArrayIndexes.push(binArrayIndex.toNumber());
+      indexMap.set(binArrayIndex.toNumber(), true);
       const [binArrayLowerBinId, binArrayUpperBinId] =
         getBinArrayLowerUpperBinId(binArrayIndex);
 
@@ -1152,17 +1139,6 @@ export function getRebalanceBinArrayIndexesAndBitmapCoverage(
         binArrayIndex = binArrayIndex.add(new BN(1));
       }
     }
-
-    if(includeSlippageForBinArray && binArrayIndexes.length > MAX_ALLOWED_REBALANCE_BIN_ARRAY_COUNT) {
-      // Take maximum 5 bin array account if it exceeds 5 (i.e huge slippage % on really low bin step pool)
-      // For even number bin array length, takes the lower extra bin (arbitrary since we dont know about the price movement)
-      const start = Math.floor((binArrayIndexes.length - MAX_ALLOWED_REBALANCE_BIN_ARRAY_COUNT)/2);
-      binArrayIndexes =  binArrayIndexes.slice(start, start + MAX_ALLOWED_REBALANCE_BIN_ARRAY_COUNT);
-    }
-
-    binArrayIndexes.forEach((index) => {
-      indexMap.set(index, true);
-    })
   });
 
   const binArrayIndexes = Array.from(indexMap.keys()).map((idx) => new BN(idx));
