@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.9.12] - [PR #298](https://github.com/MeteoraAg/dlmm-sdk/pull/298)
+
+### Fixed
+
+- Fixed Bid Ask `findX0AndDeltaX` hangs JS thread due to extremely high probe count
+- Revert #297 due to Tx exceeding CU limit in first rebalance transaction
 
 ## @meteora-ag/dlmm [1.9.11] - [PR #297](https://github.com/MeteoraAg/dlmm-sdk/pull/297)
 

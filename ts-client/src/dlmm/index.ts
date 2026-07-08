@@ -3019,7 +3019,6 @@ export class DLMM {
     payer: PublicKey,
     slippagePercentage: number,
     altAddress?: PublicKey,
-    includeSlippageForBinArray: boolean = false,
   ): Promise<InitializeMultiplePositionAndAddLiquidityByStrategyResponse2> {
     const maxActiveBinSlippage = getAndCapMaxActiveBinSlippage(
       slippagePercentage,
@@ -3126,7 +3125,6 @@ export class DLMM {
         payer,
         true,
         this.opt?.skipSolWrappingOperation,
-        includeSlippageForBinArray,
       );
 
       for (const instructions of addLiquidityIxs) {
@@ -3177,7 +3175,6 @@ export class DLMM {
     owner: PublicKey,
     payer: PublicKey,
     slippagePercentage: number,
-    includeSlippageForBinArray: boolean = false,
   ): Promise<InitializeMultiplePositionAndAddLiquidityByStrategyResponse> {
     const maxActiveBinSlippage = getAndCapMaxActiveBinSlippage(
       slippagePercentage,
@@ -3279,7 +3276,6 @@ export class DLMM {
         payer,
         false,
         this.opt?.skipSolWrappingOperation,
-        includeSlippageForBinArray,
       );
 
       instructionsByPositions.push({
@@ -3319,7 +3315,6 @@ export class DLMM {
     strategy,
     user,
     slippage,
-    includeSlippageForBinArray = false,
   }: TInitializePositionAndAddLiquidityParamsByStrategy): Promise<
     Transaction[]
   > {
@@ -3355,7 +3350,6 @@ export class DLMM {
       user,
       true,
       this.opt?.skipSolWrappingOperation,
-      includeSlippageForBinArray,
     );
 
     const latestBlockhashInfo =
@@ -7691,7 +7685,6 @@ export class DLMM {
     maxActiveBinSlippage: BN,
     rentPayer?: PublicKey,
     slippage: number = 100,
-    includeSlippageForBinArray: boolean = false,
   ) {
     const { rebalancePosition, simulationResult } = rebalancePositionResponse;
 
@@ -7784,8 +7777,6 @@ export class DLMM {
         activeId.toNumber(),
         this.pubkey,
         this.program.programId,
-        maxActiveBinSlippage.toNumber(),
-        includeSlippageForBinArray,
       );
 
     const binArrayPublicKeys = binArrayIndexes.map((index) => {
