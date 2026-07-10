@@ -1195,9 +1195,6 @@ export class DLMM {
     opt?: Opt,
     getPositionsOpt?: GetPositionsOpt,
   ): Promise<Map<string, PositionInfo>> {
-    // Position accounts only store the lbPair and owner (no token mints), so we cannot
-    // filter positions by token mint directly. Instead we resolve the user's positions
-    // (which decodes each lbPair) and then keep only the pools that contain the token.
     const allPositions = await DLMM.getAllLbPairPositionsByUser(
       connection,
       userPubKey,
@@ -1241,8 +1238,6 @@ export class DLMM {
   ): Promise<Map<string, LimitOrderInfo>> {
     const program = createProgram(connection, opt);
 
-    // Limit order accounts only store the lbPair and owner (no token mints), so we resolve the user's
-    // limit orders first, then keep only the ones whose pool contains the requested token mint.
     const limitOrderAccounts = await chunkedGetProgramAccounts(
       program.provider.connection,
       program.programId,
@@ -1257,7 +1252,6 @@ export class DLMM {
       return new Map();
     }
 
-    // Resolve the unique set of LB pairs the orders belong to, then decode them
     const lbPairKeys = Array.from(
       new Set(limitOrderWrappers.map((lo) => lo.lbPair().toBase58())),
     ).map((key) => new PublicKey(key));
@@ -1279,7 +1273,6 @@ export class DLMM {
       );
     });
 
-    // Keep only the pools that contain the requested token mint
     const targetMint = tokenMint.toBase58();
     const matchingLbPairKeys = lbPairKeys.filter((lbPairPubkey) => {
       const lbPairState = lbPairMap.get(lbPairPubkey.toBase58());
@@ -1301,7 +1294,6 @@ export class DLMM {
       matchingLbPairSet.has(lo.lbPair().toBase58()),
     );
 
-    // Reserve + mint accounts for each matching pool (4 per pool), used to build TokenReserve
     const reserveAndMintKeys = matchingLbPairKeys
       .map((lbPairPubkey) => {
         const { reserveX, reserveY, tokenXMint, tokenYMint } = lbPairMap.get(
@@ -1311,7 +1303,6 @@ export class DLMM {
       })
       .flat();
 
-    // Bin arrays covered by the matching limit orders (needed to parse fill state)
     const binArrayPubkeySet = new Set<string>();
     matchingLimitOrders.forEach((lo) => {
       lo.getBinArrayKeysCoverage(program.programId).forEach((key) => {
@@ -1342,6 +1333,38 @@ export class DLMM {
         );
       }
     });
+
+    const seenMints = new Set<string>();
+    const mintsWithAccount = matchingLbPairKeys
+      .flatMap((lbPairPubkey, idx) => {
+        const { tokenXMint, tokenYMint } = lbPairMap.get(
+          lbPairPubkey.toBase58(),
+        );
+        const index = idx * 4;
+        return [
+          {
+            mintAddress: tokenXMint,
+            mintAccountInfo: reserveAndMintAccInfo[index + 2],
+          },
+          {
+            mintAddress: tokenYMint,
+            mintAccountInfo: reserveAndMintAccInfo[index + 3],
+          },
+        ];
+      })
+      .filter(({ mintAddress, mintAccountInfo }) => {
+        if (!mintAccountInfo || seenMints.has(mintAddress.toBase58())) {
+          return false;
+        }
+        seenMints.add(mintAddress.toBase58());
+        return true;
+      });
+
+    const mintHookAccountsMap =
+      await getMultipleMintsExtraAccountMetasForTransferHook(
+        connection,
+        mintsWithAccount,
+      );
 
     const lbPairTokenMap = new Map<
       string,
@@ -1389,7 +1412,8 @@ export class DLMM {
         amount: reserveAccX.amount,
         mint: mintX,
         owner: tokenXProgram,
-        transferHookAccountMetas: [], // Not required for read-only limit order processing
+        transferHookAccountMetas:
+          mintHookAccountsMap.get(lbPairState.tokenXMint.toBase58()) ?? [],
       };
 
       const tokenY: TokenReserve = {
@@ -1398,7 +1422,8 @@ export class DLMM {
         amount: reserveAccY.amount,
         mint: mintY,
         owner: tokenYProgram,
-        transferHookAccountMetas: [], // Not required for read-only limit order processing
+        transferHookAccountMetas:
+          mintHookAccountsMap.get(lbPairState.tokenYMint.toBase58()) ?? [],
       };
 
       lbPairTokenMap.set(lbPairPubkey.toBase58(), {
