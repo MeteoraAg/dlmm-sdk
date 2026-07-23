@@ -19,6 +19,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.9.14]
+
+### Added
+
+- Added `getBinArraysRequiredByPositionRange2`, which returns the exact contiguous set of bin arrays covering a bin ID range. Unlike the deprecated `getBinArraysRequiredByPositionRange`, it no longer over-includes an extra trailing bin array which suitable for v2 liquidity transactions (e.g. `addLiquidity2`, `removeLiquidity2`, `claimFee2`, etc).
+
+### Deprecated
+
+- Deprecated `getBinArraysRequiredByPositionRange`; use `getBinArraysRequiredByPositionRange2` instead. Keep the old helper only when manually constructing v1 liquidity transactions (e.g. `addLiquidity`, `removeLiquidity`, `claimFee`, etc).
+
 ## @meteora-ag/dlmm [1.9.13]
 
 ### Added
