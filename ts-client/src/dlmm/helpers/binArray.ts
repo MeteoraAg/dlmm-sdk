@@ -18,6 +18,7 @@ import {
 } from "../types";
 import { deriveBinArray } from "./derive";
 import { getPositionCount } from "./math";
+import { getBinArrayIndexesCoverage } from "./positions";
 
 /** private */
 function internalBitmapRange() {
@@ -329,6 +330,7 @@ export function findNextBinArrayWithLiquidity(
 }
 
 /**
+ * @deprecated Use `getBinArraysRequiredByPositionRange2` instead, unless you're manually constructing a transaction for v1 liquidity related endpoint such as addLiquidity, removeLiquidity, claimFee, etc.
  * Retrieves the bin arrays required to initialize multiple positions in continuous range.
  *
  * @param {PublicKey} pair - The public key of the pair.
@@ -366,6 +368,35 @@ export function getBinArraysRequiredByPositionRange(
     key: new PublicKey(key),
     index,
   }));
+}
+
+/**
+ * Retrieves the bin arrays required to initialize multiple positions in continuous range.
+ *
+ * @param {PublicKey} pair - The public key of the pair.
+ * @param {BN} fromBinId - The starting bin ID.
+ * @param {BN} toBinId - The ending bin ID.
+ * @return {[{key: PublicKey, index: BN }]} An array of bin arrays required for the given position range.
+ */
+export function getBinArraysRequiredByPositionRange2(
+  pair: PublicKey,
+  fromBinId: BN,
+  toBinId: BN,
+  programId: PublicKey,
+): { key: PublicKey; index: BN }[] {
+  const [minBinId, maxBinId] = fromBinId.lt(toBinId)
+    ? [fromBinId, toBinId]
+    : [toBinId, fromBinId];
+
+  const binArrayIndexes = getBinArrayIndexesCoverage(minBinId, maxBinId);
+
+  return Array.from(binArrayIndexes, (index) => {
+    const [binArrayPubkey] = deriveBinArray(pair, index, programId);
+    return {
+      key: binArrayPubkey,
+      index,
+    };
+  });
 }
 
 export function* enumerateBins(
