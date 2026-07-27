@@ -10,6 +10,8 @@ import {
   decodeRewardPerTokenStored,
   getPriceOfBinByBinId,
   isSupportLimitOrder,
+  scaleAmountByMultiplier,
+  scalePricePerToken,
 } from "../helpers";
 import {
   AccountInfo,
@@ -304,16 +306,24 @@ export module BinLiquidity {
     quoteTokenDecimal: number,
     version: number,
     lbPair: LbPair,
+    baseMultiplier: Decimal = new Decimal(1),
+    quoteMultiplier: Decimal = new Decimal(1),
   ): BinLiquidity {
     const pricePerLamport = getPriceOfBinByBinId(binId, binStep).toString();
     const supportLimitOrder = isSupportLimitOrder(lbPair);
 
-    const xAmount = bin.amountX;
-    const yAmount = bin.amountY;
+    // Amounts and price are scaled in place by the Token-2022 ScaledUiAmount
+    // multipliers (base for X, quote for Y). No-op when the mint has no extension.
+    const xAmount = scaleAmountByMultiplier(bin.amountX, baseMultiplier);
+    const yAmount = scaleAmountByMultiplier(bin.amountY, quoteMultiplier);
     const supply = bin.liquiditySupply;
-    const pricePerToken = new Decimal(pricePerLamport)
-      .mul(new Decimal(10 ** (baseTokenDecimal - quoteTokenDecimal)))
-      .toString();
+    const pricePerToken = scalePricePerToken(
+      new Decimal(pricePerLamport)
+        .mul(new Decimal(10 ** (baseTokenDecimal - quoteTokenDecimal)))
+        .toString(),
+      baseMultiplier,
+      quoteMultiplier,
+    );
     const feeAmountXPerTokenStored = bin.feeAmountXPerTokenStored;
     const feeAmountYPerTokenStored = bin.feeAmountYPerTokenStored;
 
@@ -370,6 +380,8 @@ export module BinLiquidity {
     baseTokenDecimal: number,
     quoteTokenDecimal: number,
     version: number,
+    baseMultiplier: Decimal = new Decimal(1),
+    quoteMultiplier: Decimal = new Decimal(1),
   ): BinLiquidity {
     const pricePerLamport = getPriceOfBinByBinId(binId, binStep).toString();
 
@@ -380,9 +392,13 @@ export module BinLiquidity {
       supply: new BN(0),
       price: pricePerLamport,
       version,
-      pricePerToken: new Decimal(pricePerLamport)
-        .mul(new Decimal(10 ** (baseTokenDecimal - quoteTokenDecimal)))
-        .toString(),
+      pricePerToken: scalePricePerToken(
+        new Decimal(pricePerLamport)
+          .mul(new Decimal(10 ** (baseTokenDecimal - quoteTokenDecimal)))
+          .toString(),
+        baseMultiplier,
+        quoteMultiplier,
+      ),
       feeAmountXPerTokenStored: new BN(0),
       feeAmountYPerTokenStored: new BN(0),
       rewardPerTokenStored: [new BN(0), new BN(0)],

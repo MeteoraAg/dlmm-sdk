@@ -82,6 +82,8 @@ export function wrapOracle(
   baseTokenDecimals: number,
   quoteTokenDecimals: number,
   program: Program<LbClmm>,
+  baseMultiplier: Decimal = new Decimal(1),
+  quoteMultiplier: Decimal = new Decimal(1),
 ) {
   const oracleBaseData = data.subarray(0, ORACLE_METADATA_SIZE);
   const oracleState: Oracle = decodeAccount(program, "oracle", oracleBaseData);
@@ -125,6 +127,8 @@ export function wrapOracle(
     currentActiveBinId,
     baseTokenDecimals,
     quoteTokenDecimals,
+    baseMultiplier,
+    quoteMultiplier,
   );
 }
 
@@ -137,6 +141,8 @@ export class DynamicOracle implements IDynamicOracle {
     private currentActiveBinId: BN,
     private baseTokenDecimals: number,
     private quoteTokenDecimals: number,
+    private baseMultiplier: Decimal = new Decimal(1),
+    private quoteMultiplier: Decimal = new Decimal(1),
   ) {}
 
   nextIndex(): number {
@@ -284,12 +290,19 @@ export class DynamicOracle implements IDynamicOracle {
     );
     const quoteAdjustment = new Decimal(10).pow(this.quoteTokenDecimals);
 
+    // Scale in place by the Token-2022 ScaledUiAmount multipliers (quote / base).
+    // No-op when neither mint has the extension.
+    const priceScaleFactor = this.baseMultiplier.isZero()
+      ? new Decimal(1)
+      : this.quoteMultiplier.div(this.baseMultiplier);
+
     return {
       value: result.value
         .mul(uiMultiplier)
         .mul(quoteAdjustment)
         .floor()
-        .div(quoteAdjustment),
+        .div(quoteAdjustment)
+        .mul(priceScaleFactor),
       duration: result.duration,
     };
   }

@@ -1,5 +1,6 @@
 import { BN } from "@coral-xyz/anchor";
 import { AccountMeta, PublicKey } from "@solana/web3.js";
+import Decimal from "decimal.js";
 import {
   BIN_ARRAY_BITMAP_SIZE,
   DEFAULT_BIN_PER_POSITION,
@@ -408,6 +409,8 @@ export function* enumerateBins(
   quoteTokenDecimal: number,
   version: number,
   lbPair: LbPair,
+  baseMultiplier: Decimal = new Decimal(1),
+  quoteMultiplier: Decimal = new Decimal(1),
 ) {
   for (
     let currentBinId = lowerBinId;
@@ -424,6 +427,8 @@ export function* enumerateBins(
         quoteTokenDecimal,
         version,
         lbPair,
+        baseMultiplier,
+        quoteMultiplier,
       );
     } else {
       yield BinLiquidity.empty(
@@ -432,6 +437,8 @@ export function* enumerateBins(
         baseTokenDecimal,
         quoteTokenDecimal,
         version,
+        baseMultiplier,
+        quoteMultiplier,
       );
     }
   }
