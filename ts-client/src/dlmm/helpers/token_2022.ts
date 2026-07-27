@@ -3,7 +3,6 @@ import {
   calculateFee,
   createTransferCheckedInstruction,
   getEpochFee,
-  getScaledUiAmountConfig,
   getTransferFeeConfig,
   getTransferHook,
   MAX_FEE_BASIS_POINTS,
@@ -236,6 +235,11 @@ export function calculateTransferFeeExcludedAmount(
   };
 }
 
+/** Token-2022 ScaledUiAmount extension discriminator in the mint TLV data. */
+const SCALED_UI_AMOUNT_CONFIG_EXTENSION_TYPE = 25;
+/** Byte size of the ScaledUiAmount config: authority(32) + multiplier(8) + timestamp(8) + newMultiplier(8). */
+const SCALED_UI_AMOUNT_CONFIG_SIZE = 56;
+
 /**
  * Returns the Token-2022 ScaledUiAmount extension multiplier for a mint at the
  * given unix timestamp. Returns 1 when the mint has no ScaledUiAmount extension,
@@ -249,18 +253,46 @@ export function getScaledUiAmountMultiplier(
   mint: Mint,
   unixTimestamp: number
 ): Decimal {
-  const config = getScaledUiAmountConfig(mint);
-
-  if (config === null) {
+  const tlvData = mint.tlvData;
+  if (!tlvData || tlvData.length === 0) {
     return new Decimal(1);
   }
 
-  const effectiveMultiplier =
-    unixTimestamp >= Number(config.newMultiplierEffectiveTimestamp)
-      ? config.newMultiplier
-      : config.multiplier;
+  // Walk the mint's TLV entries (type: u16 LE, length: u16 LE, then `length`
+  // bytes of data) and decode the ScaledUiAmount config directly. Decoding it
+  // here — rather than importing `getScaledUiAmountConfig` from
+  // @solana/spl-token — keeps this working regardless of the installed
+  // spl-token version (the getter only exists in newer 0.4.x releases).
+  let offset = 0;
+  while (offset + 4 <= tlvData.length) {
+    const extensionType = tlvData.readUInt16LE(offset);
+    const length = tlvData.readUInt16LE(offset + 2);
+    const dataStart = offset + 4;
 
-  return new Decimal(effectiveMultiplier);
+    if (
+      extensionType === SCALED_UI_AMOUNT_CONFIG_EXTENSION_TYPE &&
+      dataStart + SCALED_UI_AMOUNT_CONFIG_SIZE <= tlvData.length
+    ) {
+      // Layout: authority(32) | multiplier f64(8) |
+      //         newMultiplierEffectiveTimestamp u64(8) | newMultiplier f64(8)
+      const multiplier = tlvData.readDoubleLE(dataStart + 32);
+      const newMultiplierEffectiveTimestamp = tlvData.readBigUInt64LE(
+        dataStart + 40
+      );
+      const newMultiplier = tlvData.readDoubleLE(dataStart + 48);
+
+      const effectiveMultiplier =
+        BigInt(unixTimestamp) >= newMultiplierEffectiveTimestamp
+          ? newMultiplier
+          : multiplier;
+
+      return new Decimal(effectiveMultiplier);
+    }
+
+    offset = dataStart + length;
+  }
+
+  return new Decimal(1);
 }
 
 /**
