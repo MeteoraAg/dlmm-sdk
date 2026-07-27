@@ -166,6 +166,8 @@ import {
   calculateTransferFeeIncludedAmount,
   getExtraAccountMetasForTransferHook,
   getMultipleMintsExtraAccountMetasForTransferHook,
+  getScaledUiAmountMultiplier,
+  scaleAmountByMultiplier,
 } from "./helpers/token_2022";
 import {
   ActionType,
@@ -2650,12 +2652,21 @@ export class DLMM {
    * @returns {string} real price of bin
    */
   public fromPricePerLamport(pricePerLamport: number): string {
+    const nowTs = this.clock.unixTimestamp.toNumber();
+    const baseMultiplier = getScaledUiAmountMultiplier(this.tokenX.mint, nowTs);
+    const quoteMultiplier = getScaledUiAmountMultiplier(this.tokenY.mint, nowTs);
+    // Token-2022 ScaledUiAmount price adjustment (quote / base). No-op without the extension.
+    const priceScaleFactor = baseMultiplier.isZero()
+      ? new Decimal(1)
+      : quoteMultiplier.div(baseMultiplier);
+
     return new Decimal(pricePerLamport)
       .div(
         new Decimal(
           10 ** (this.tokenY.mint.decimals - this.tokenX.mint.decimals),
         ),
       )
+      .mul(priceScaleFactor)
       .toString();
   }
 
@@ -5755,6 +5766,21 @@ export class DLMM {
       .mul(new BN(BASIS_POINT_MAX).sub(allowedSlippage))
       .div(new BN(BASIS_POINT_MAX));
 
+    // Scale the display end price by the Token-2022 ScaledUiAmount multipliers
+    // (quote / base). Amounts are left raw — they feed the on-chain swap instruction.
+    const nowTs = this.clock.unixTimestamp.toNumber();
+    const endPriceBaseMultiplier = getScaledUiAmountMultiplier(
+      this.tokenX.mint,
+      nowTs,
+    );
+    const endPriceQuoteMultiplier = getScaledUiAmountMultiplier(
+      this.tokenY.mint,
+      nowTs,
+    );
+    const scaledEndPrice = endPriceBaseMultiplier.isZero()
+      ? endPrice
+      : endPrice.mul(endPriceQuoteMultiplier).div(endPriceBaseMultiplier);
+
     return {
       consumedInAmount: transferFeeIncludedInAmount,
       outAmount: transferFeeExcludedAmountOut,
@@ -5763,7 +5789,7 @@ export class DLMM {
       minOutAmount,
       priceImpact,
       binArraysPubkey,
-      endPrice,
+      endPrice: scaledEndPrice,
       feeOnInput,
     };
   }
@@ -8858,6 +8884,19 @@ export class DLMM {
 
     const feeOwner = position.feeOwner();
 
+    // Token-2022 ScaledUiAmount multipliers (1 when the mint has no extension).
+    // Bin amounts/price come back already scaled from getBinsBetweenLowerAndUpperBound,
+    // so position/total amounts inherit the scale; fees and rewards are scaled here.
+    const nowTs = clock.unixTimestamp.toNumber();
+    const baseMultiplier = getScaledUiAmountMultiplier(baseMint, nowTs);
+    const quoteMultiplier = getScaledUiAmountMultiplier(quoteMint, nowTs);
+    const rewardOneMultiplier = rewardMint0
+      ? getScaledUiAmountMultiplier(rewardMint0, nowTs)
+      : new Decimal(1);
+    const rewardTwoMultiplier = rewardMint1
+      ? getScaledUiAmountMultiplier(rewardMint1, nowTs)
+      : new Decimal(1);
+
     const bins = this.getBinsBetweenLowerAndUpperBound(
       lbPairKey,
       lbPair,
@@ -8867,6 +8906,8 @@ export class DLMM {
       quoteMint.decimals,
       binArrayMap,
       program.programId,
+      baseMultiplier,
+      quoteMultiplier,
     );
 
     if (!bins.length) return null;
@@ -8990,10 +9031,19 @@ export class DLMM {
         positionLiquidity: posShare.toString(),
         positionXAmount: positionXAmount.toString(),
         positionYAmount: positionYAmount.toString(),
-        positionFeeXAmount: claimableFeeX.toString(),
-        positionFeeYAmount: claimableFeeY.toString(),
-        positionRewardAmount: claimableRewardsInBin.map((amount) =>
-          amount.toString(),
+        positionFeeXAmount: scaleAmountByMultiplier(
+          claimableFeeX,
+          baseMultiplier,
+        ).toString(),
+        positionFeeYAmount: scaleAmountByMultiplier(
+          claimableFeeY,
+          quoteMultiplier,
+        ).toString(),
+        positionRewardAmount: claimableRewardsInBin.map((amount, j) =>
+          scaleAmountByMultiplier(
+            amount,
+            j === 0 ? rewardOneMultiplier : rewardTwoMultiplier,
+          ).toString(),
         ),
       });
     });
@@ -9047,25 +9097,44 @@ export class DLMM {
     ).amount;
 
     return {
+      // totals inherit the scale from the already-scaled bin amounts
       totalXAmount: totalXAmount.toString(),
       totalYAmount: totalYAmount.toString(),
       positionBinData: positionData,
       lastUpdatedAt,
       lowerBinId: lowerBinId.toNumber(),
       upperBinId: upperBinId.toNumber(),
-      feeX,
-      feeY,
-      rewardOne,
-      rewardTwo,
+      feeX: scaleAmountByMultiplier(feeX, baseMultiplier),
+      feeY: scaleAmountByMultiplier(feeY, quoteMultiplier),
+      rewardOne: scaleAmountByMultiplier(rewardOne, rewardOneMultiplier),
+      rewardTwo: scaleAmountByMultiplier(rewardTwo, rewardTwoMultiplier),
       feeOwner,
-      totalClaimedFeeXAmount,
-      totalClaimedFeeYAmount,
+      totalClaimedFeeXAmount: scaleAmountByMultiplier(
+        totalClaimedFeeXAmount,
+        baseMultiplier,
+      ),
+      totalClaimedFeeYAmount: scaleAmountByMultiplier(
+        totalClaimedFeeYAmount,
+        quoteMultiplier,
+      ),
       totalXAmountExcludeTransferFee,
       totalYAmountExcludeTransferFee,
-      rewardOneExcludeTransferFee,
-      rewardTwoExcludeTransferFee,
-      feeXExcludeTransferFee,
-      feeYExcludeTransferFee,
+      rewardOneExcludeTransferFee: scaleAmountByMultiplier(
+        rewardOneExcludeTransferFee,
+        rewardOneMultiplier,
+      ),
+      rewardTwoExcludeTransferFee: scaleAmountByMultiplier(
+        rewardTwoExcludeTransferFee,
+        rewardTwoMultiplier,
+      ),
+      feeXExcludeTransferFee: scaleAmountByMultiplier(
+        feeXExcludeTransferFee,
+        baseMultiplier,
+      ),
+      feeYExcludeTransferFee: scaleAmountByMultiplier(
+        feeYExcludeTransferFee,
+        quoteMultiplier,
+      ),
       owner: position.owner(),
     };
   }
@@ -9079,6 +9148,8 @@ export class DLMM {
     quoteTokenDecimal: number,
     binArrayMap: Map<String, BinArray>,
     programId: PublicKey,
+    baseMultiplier: Decimal = new Decimal(1),
+    quoteMultiplier: Decimal = new Decimal(1),
   ): BinLiquidity[] {
     const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(lowerBinId));
     const upperBinArrayIndex = binIdToBinArrayIndex(new BN(upperBinId));
@@ -9114,6 +9185,8 @@ export class DLMM {
                 baseTokenDecimal,
                 quoteTokenDecimal,
                 BIN_ARRAY_DEFAULT_VERSION,
+                baseMultiplier,
+                quoteMultiplier,
               ),
             );
           } else {
@@ -9128,6 +9201,8 @@ export class DLMM {
                 quoteTokenDecimal,
                 binArray.version,
                 lbPair,
+                baseMultiplier,
+                quoteMultiplier,
               ),
             );
           }
@@ -9214,6 +9289,16 @@ export class DLMM {
     const version =
       binArrays.find((binArray) => binArray != null)?.version ?? 1;
 
+    const nowTs = this.clock.unixTimestamp.toNumber();
+    const baseMultiplier = getScaledUiAmountMultiplier(
+      this.tokenX.mint,
+      nowTs,
+    );
+    const quoteMultiplier = getScaledUiAmountMultiplier(
+      this.tokenY.mint,
+      nowTs,
+    );
+
     return Array.from(
       enumerateBins(
         binsById,
@@ -9224,6 +9309,8 @@ export class DLMM {
         quoteTokenDecimal,
         version,
         this.lbPair,
+        baseMultiplier,
+        quoteMultiplier,
       ),
     );
   }
@@ -9591,6 +9678,8 @@ export class DLMM {
       lbPairAccountInfo.data,
     );
 
+    const nowTs = this.clock.unixTimestamp.toNumber();
+
     return wrapOracle(
       oracleAddress,
       oracleAccountInfo.data,
@@ -9599,6 +9688,8 @@ export class DLMM {
       this.tokenX.mint.decimals,
       this.tokenY.mint.decimals,
       this.program,
+      getScaledUiAmountMultiplier(this.tokenX.mint, nowTs),
+      getScaledUiAmountMultiplier(this.tokenY.mint, nowTs),
     );
   }
 

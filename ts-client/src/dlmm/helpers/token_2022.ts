@@ -3,6 +3,7 @@ import {
   calculateFee,
   createTransferCheckedInstruction,
   getEpochFee,
+  getScaledUiAmountConfig,
   getTransferFeeConfig,
   getTransferHook,
   MAX_FEE_BASIS_POINTS,
@@ -19,6 +20,7 @@ import {
   PublicKey,
 } from "@solana/web3.js";
 import BN from "bn.js";
+import Decimal from "decimal.js";
 
 export async function getMultipleMintsExtraAccountMetasForTransferHook(
   connection: Connection,
@@ -232,4 +234,68 @@ export function calculateTransferFeeExcludedAmount(
     amount: transferFeeExcludedAmount,
     transferFee: new BN(transferFee.toString()),
   };
+}
+
+/**
+ * Returns the Token-2022 ScaledUiAmount extension multiplier for a mint at the
+ * given unix timestamp. Returns 1 when the mint has no ScaledUiAmount extension,
+ * so callers can multiply unconditionally.
+ *
+ * The extension supports a scheduled multiplier switch: once the current time
+ * reaches `newMultiplierEffectiveTimestamp`, `newMultiplier` takes over from
+ * `multiplier`. This mirrors the on-chain UI amount computation.
+ */
+export function getScaledUiAmountMultiplier(
+  mint: Mint,
+  unixTimestamp: number
+): Decimal {
+  const config = getScaledUiAmountConfig(mint);
+
+  if (config === null) {
+    return new Decimal(1);
+  }
+
+  const effectiveMultiplier =
+    unixTimestamp >= Number(config.newMultiplierEffectiveTimestamp)
+      ? config.newMultiplier
+      : config.multiplier;
+
+  return new Decimal(effectiveMultiplier);
+}
+
+/**
+ * Scales a raw token amount by a ScaledUiAmount multiplier, flooring to the
+ * nearest integer lamport. Returns the amount unchanged when the multiplier is 1.
+ */
+export function scaleAmountByMultiplier(amount: BN, multiplier: Decimal): BN {
+  if (multiplier.eq(1)) {
+    return amount;
+  }
+
+  return new BN(
+    new Decimal(amount.toString()).mul(multiplier).floor().toString()
+  );
+}
+
+/**
+ * Scales a decimals-adjusted price (`pricePerToken`, expressed as quote per base)
+ * by the ScaledUiAmount multipliers of both mints:
+ * `pricePerToken * quoteMultiplier / baseMultiplier`.
+ *
+ * Falls back to the unscaled price when `baseMultiplier` is zero (a pathological
+ * mint configuration) to avoid producing `Infinity`.
+ */
+export function scalePricePerToken(
+  pricePerToken: string,
+  baseMultiplier: Decimal,
+  quoteMultiplier: Decimal
+): string {
+  if (baseMultiplier.isZero()) {
+    return pricePerToken;
+  }
+
+  return new Decimal(pricePerToken)
+    .mul(quoteMultiplier)
+    .div(baseMultiplier)
+    .toString();
 }
