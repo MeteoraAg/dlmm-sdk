@@ -86,6 +86,10 @@ export const MAX_RESIZE_LENGTH = new BN(
   CONSTANTS.find(([_, v]) => v.name == "MAX_RESIZE_LENGTH")?.[1].value ?? 0,
 );
 
+export const MAX_BIN_ID_PER_BIN_STEP = Number(
+  CONSTANTS.find(([_, v]) => v.name == "MAX_BIN_ID_PER_BIN_STEP")?.[1].value ?? 0,
+);
+
 export const SIMULATION_USER = new PublicKey(
   "HrY9qR5TiB2xPzzvbBu5KrBorMfYGQXh9osXydz4jy9s",
 );

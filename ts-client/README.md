@@ -44,7 +44,7 @@ const dlmmPool = await DLMM.createMultiple(connection, [USDC_USDT_POOL, ...]);
 const activeBin = await dlmmPool.getActiveBin();
 const activeBinPriceLamport = activeBin.price;
 const activeBinPricePerToken = dlmmPool.fromPricePerLamport(
-  Number(activeBin.price)
+  Number(activeBin.price),
 );
 ```
 
@@ -64,7 +64,7 @@ const totalYAmount = autoFillYByStrategy(
   activeBin.yAmount,
   minBinId,
   maxBinId,
-  StrategyType.Spot // can be StrategyType.Spot, StrategyType.BidAsk, StrategyType.Curve
+  StrategyType.Spot, // can be StrategyType.Spot, StrategyType.BidAsk, StrategyType.Curve
 );
 const newBalancePosition = new Keypair();
 
@@ -86,7 +86,7 @@ try {
   const createBalancePositionTxHash = await sendAndConfirmTransaction(
     connection,
     createPositionTx,
-    [user, newBalancePosition]
+    [user, newBalancePosition],
   );
 } catch (error) {}
 ```
@@ -120,7 +120,7 @@ try {
   const createBalancePositionTxHash = await sendAndConfirmTransaction(
     connection,
     createPositionTx,
-    [user, newImbalancePosition]
+    [user, newImbalancePosition],
   );
 } catch (error) {}
 ```
@@ -154,7 +154,7 @@ try {
   const createOneSidePositionTxHash = await sendAndConfirmTransaction(
     connection,
     createPositionTx,
-    [user, newOneSidePosition]
+    [user, newOneSidePosition],
   );
 } catch (error) {}
 ```
@@ -163,7 +163,7 @@ try {
 
 ```ts
 const { userPositions } = await dlmmPool.getPositionsByUserAndLbPair(
-  user.publicKey
+  user.publicKey,
 );
 const binData = userPositions[0].positionData.positionBinData;
 ```
@@ -184,7 +184,7 @@ const totalYAmount = autoFillYByStrategy(
   activeBin.yAmount,
   minBinId,
   maxBinId,
-  StrategyType.Spot // can be StrategyType.Spot, StrategyType.BidAsk, StrategyType.Curve
+  StrategyType.Spot, // can be StrategyType.Spot, StrategyType.BidAsk, StrategyType.Curve
 );
 
 // Add Liquidity to existing position
@@ -204,7 +204,7 @@ try {
   const addLiquidityTxHash = await sendAndConfirmTransaction(
     connection,
     addLiquidityTx,
-    [user]
+    [user],
   );
 } catch (error) {}
 ```
@@ -213,11 +213,11 @@ try {
 
 ```ts
 const userPosition = userPositions.find(({ publicKey }) =>
-  publicKey.equals(newBalancePosition.publicKey)
+  publicKey.equals(newBalancePosition.publicKey),
 );
 // Remove Liquidity
 const binIdsToRemove = userPosition.positionData.positionBinData.map(
-  (bin) => bin.binId
+  (bin) => bin.binId,
 );
 const removeLiquidityTx = await dlmmPool.removeLiquidity({
   position: userPosition.publicKey,
@@ -225,7 +225,7 @@ const removeLiquidityTx = await dlmmPool.removeLiquidity({
   fromBinId: binIdsToRemove[0],
   toBinId: binIdsToRemove[binIdsToRemove.length - 1],
   liquiditiesBpsToRemove: new Array(binIdsToRemove.length).fill(
-    new BN(100 * 100)
+    new BN(100 * 100),
   ), // 100% (range from 0 to 100)
   shouldClaimAndClose: true, // should claim swap fee and close position together
 });
@@ -238,7 +238,7 @@ try {
       connection,
       tx,
       [user],
-      { skipPreflight: false, preflightCommitment: "singleGossip" }
+      { skipPreflight: false, preflightCommitment: "singleGossip" },
     );
   }
 } catch (error) {}
@@ -258,7 +258,7 @@ async function claimFee(dlmmPool: DLMM) {
       const claimFeeTxHash = await sendAndConfirmTransaction(
         connection,
         claimFeeTx,
-        [user]
+        [user],
       );
     }
   } catch (error) {}
@@ -278,7 +278,7 @@ try {
     connection,
     closePositionTx,
     [user],
-    { skipPreflight: false, preflightCommitment: "singleGossip" }
+    { skipPreflight: false, preflightCommitment: "singleGossip" },
   );
 } catch (error) {}
 ```
@@ -295,7 +295,7 @@ const swapQuote = await dlmmPool.swapQuote(
   swapAmount,
   swapYtoX,
   new BN(1),
-  binArrays
+  binArrays,
 );
 
 // Swap
@@ -318,15 +318,17 @@ try {
 
 ## Static functions
 
-| Function                      | Description                                                                        | Return                               |
-| ----------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------ |
-| `create`                      | Given the DLMM address, create an instance to access the state and functions       | `Promise<DLMM>`                      |
-| `createMultiple`              | Given a list of DLMM addresses, create instances to access the state and functions | `Promise<Array<DLMM>>`               |
-| `getAllPresetParameters`      | Get all the preset params (use to create DLMM pool)                                | `Promise<PresetParams>`              |
-| `createPermissionLbPair`      | Create DLMM Pool                                                                   | `Promise<Transcation>`               |
-| `getClaimableLMReward`        | Get Claimable LM reward for a position                                             | `Promise<LMRewards>`                 |
-| `getClaimableSwapFee`         | Get Claimable Swap Fee for a position                                              | `Promise<SwapFee>`                   |
-| `getAllLbPairPositionsByUser` | Get user's all positions for all DLMM pools                                        | `Promise<Map<string, PositionInfo>>` |
+| Function                            | Description                                                                        | Return                               |
+| ----------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------ |
+| `create`                            | Given the DLMM address, create an instance to access the state and functions       | `Promise<DLMM>`                      |
+| `createMultiple`                    | Given a list of DLMM addresses, create instances to access the state and functions | `Promise<Array<DLMM>>`               |
+| `getAllPresetParameters`            | Get all the preset params (use to create DLMM pool)                                | `Promise<PresetParams>`              |
+| `createPermissionLbPair`            | Create DLMM Pool                                                                   | `Promise<Transcation>`               |
+| `getClaimableLMReward`              | Get Claimable LM reward for a position                                             | `Promise<LMRewards>`                 |
+| `getClaimableSwapFee`               | Get Claimable Swap Fee for a position                                              | `Promise<SwapFee>`                   |
+| `getAllLbPairPositionsByUser`       | Get user's all positions for all DLMM pools                                        | `Promise<Map<string, PositionInfo>>` |
+| `getPositionsByUserAndTokenAddress` | Get user's positions across all DLMM pools that contain a given token mint         | `Promise<Map<string, PositionInfo>>` |
+| `getLimitOrdersByUserAndTokenAddress` | Get user's limit orders across all DLMM pools that contain a given token mint, grouped by LB pair | `Promise<Map<string, LimitOrderInfo>>` |
 
 ## DLMM instance functions
 

@@ -137,6 +137,14 @@ export interface PositionInfo {
   lbPairPositionsData: Array<LbPosition>;
 }
 
+export interface LimitOrderInfo {
+  publicKey: PublicKey;
+  lbPair: LbPair;
+  tokenX: TokenReserve;
+  tokenY: TokenReserve;
+  limitOrders: Array<ParsedLimitOrderWithPubkey>;
+}
+
 export interface FeeInfo {
   baseFeeRatePercentage: Decimal;
   maxFeeRatePercentage: Decimal;

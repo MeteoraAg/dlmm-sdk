@@ -1122,6 +1122,7 @@ export function getRebalanceBinArrayIndexesAndBitmapCoverage(
   adds.forEach((value) => {
     const minBinId = activeId + value.minDeltaId;
     const maxBinId = activeId + value.maxDeltaId;
+
     let binArrayIndex = binIdToBinArrayIndex(new BN(minBinId));
     const upperBinId = new BN(maxBinId);
     while (true) {
@@ -1139,6 +1140,7 @@ export function getRebalanceBinArrayIndexesAndBitmapCoverage(
       }
     }
   });
+
   const binArrayIndexes = Array.from(indexMap.keys()).map((idx) => new BN(idx));
 
   const requireBitmapExtension = binArrayIndexes.some((index) =>

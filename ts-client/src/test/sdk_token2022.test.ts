@@ -1838,6 +1838,7 @@ describe("SDK token2022 test", () => {
 
           expect(claimedAmount.gte(totalClaimableReward0)).toBeTruthy();
 
+          await dlmm.refetchStates();
           const [afterP0, afterP1] = await Promise.all([
             dlmm.getPosition(nonExtendedPositionKeypair0.publicKey),
             dlmm.getPosition(nonExtendedPositionKeypair1.publicKey),

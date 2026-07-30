@@ -1,6 +1,6 @@
 {
   "name": "@meteora-ag/dlmm",
-  "version": "1.9.9",
+  "version": "1.9.14",
   "description": "",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -26,7 +26,9 @@
     "test": "tsup && jest 'src/test/.*\\.test\\.ts'",
     "unit-test": "jest src/test/sdk_token2022.test.ts",
     "example": "dotenv -e .env npx ts-node src/examples/example.ts",
-    "start-server": "npx tsc && node dist/src/server/index.js"
+    "start-server": "npx tsc && node dist/src/server/index.js",
+    "pre-release": "npm publish --tag next",
+    "release": "npm publish --access public"
   },
   "devDependencies": {
     "@babel/preset-env": "^7.22.5",

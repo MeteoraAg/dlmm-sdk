@@ -19,6 +19,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.9.14]
+
+### Added
+
+- Added `getBinArraysRequiredByPositionRange2`, which returns the exact contiguous set of bin arrays covering a bin ID range. Unlike the deprecated `getBinArraysRequiredByPositionRange`, it no longer over-includes an extra trailing bin array which suitable for v2 liquidity transactions (e.g. `addLiquidity2`, `removeLiquidity2`, `claimFee2`, etc).
+
+### Deprecated
+
+- Deprecated `getBinArraysRequiredByPositionRange`; use `getBinArraysRequiredByPositionRange2` instead. Keep the old helper only when manually constructing v1 liquidity transactions (e.g. `addLiquidity`, `removeLiquidity`, `claimFee`, etc).
+
+## @meteora-ag/dlmm [1.9.13]
+
+### Added
+
+- Added `getPositionsByUserAndTokenAddress` static method to retrieve a user's positions across all DLMM pools that contain a given token mint (as either `tokenXMint` or `tokenYMint`).
+- Added `getLimitOrdersByUserAndTokenAddress` static method to retrieve a user's limit orders across all DLMM pools that contain a given token mint (as either `tokenXMint` or `tokenYMint`), grouped by LB pair. Also exported a new `LimitOrderInfo` type.
+
+## @meteora-ag/dlmm [1.9.12] - [PR #298](https://github.com/MeteoraAg/dlmm-sdk/pull/298)
+
+### Fixed
+
+- Fixed Bid Ask `findX0AndDeltaX` hangs JS thread due to extremely high probe count
+- Revert #297 due to Tx exceeding CU limit in first rebalance transaction
+
+## @meteora-ag/dlmm [1.9.11] - [PR #297](https://github.com/MeteoraAg/dlmm-sdk/pull/297)
+
+### Fixed
+
+- Fixed bin array account evaluation not including bin slippage bins
+
+## @meteora-ag/dlmm [1.9.10] - [PR #293](https://github.com/MeteoraAg/dlmm-sdk/pull/292)
+
+### Fixed
+
+- Fixed a missing Rent account in all `initializeBinArrayBitmapExtension` callsites, which caused failures in `chunkDepositWithRebalanceEndpoint`, `seedLiquidity`, `seedLiquiditySingleBin`, `syncWithMarketPrice`, `rebalancePosition`, and `placeLimitOrder` when the pool traded outside the default bin array bitmap.
+
 ## @meteora-ag/dlmm [1.9.9] - [PR #293](https://github.com/MeteoraAg/dlmm-sdk/pull/290)
 
 ### Fixed
