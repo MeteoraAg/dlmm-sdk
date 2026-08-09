@@ -288,10 +288,9 @@ export class DynamicOracle implements IDynamicOracle {
     );
     const quoteAdjustment = new Decimal(10).pow(this.quoteTokenDecimals);
 
-    // The ScaledUiAmount correction goes on before `quoteAdjustment`, so the
-    // floor truncates the final scaled value to `quoteTokenDecimals` places.
-    // Scaling after the floor would round at the unscaled magnitude and leave
-    // more decimal places than this method promises.
+    // Apply the correction before `quoteAdjustment`.
+    // This ensures the floor function cuts the value to `quoteTokenDecimals` decimal places.
+    // If you scale after the floor, the result has too many decimal places.
     const uiPrice = this.priceScale.scale(result.value.mul(uiMultiplier));
 
     return {

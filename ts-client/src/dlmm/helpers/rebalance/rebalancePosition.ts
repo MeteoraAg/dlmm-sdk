@@ -393,16 +393,6 @@ export interface CreateRebalancePositionParams {
   positionData: PositionData;
   shouldClaimFee: boolean;
   shouldClaimReward: boolean;
-  /**
-   * The pair's mints. Used to build the Token-2022 ScaledUiAmount correction
-   * for the `pricePerToken` of bins created when the position range expands.
-   *
-   * The mints are passed rather than a ready-made `PriceScale` so the scale can
-   * be resolved against the same clock `create` decodes for `currentTimestamp`.
-   * A caller-built scale would come from the caller's own, possibly staler,
-   * clock — and a scheduled multiplier switch between the two would resolve
-   * against the wrong one.
-   */
   baseMint: Mint;
   quoteMint: Mint;
 }
@@ -418,10 +408,6 @@ export class RebalancePosition {
   public rebalancePositionBinData: RebalancePositionBinData[];
   public activeBin: Bin | null;
   public currentTimestamp: BN;
-  /**
-   * Derived from `currentTimestamp`, so the two never disagree about when a
-   * scheduled multiplier switch takes effect.
-   */
   private readonly priceScale: PriceScale;
 
   constructor(
