@@ -297,19 +297,7 @@ export interface BinLiquidity {
 }
 
 export module BinLiquidity {
-  /**
-   * Converts a bin's lamport-space price into the human-facing token-space
-   * price, then applies the Token-2022 ScaledUiAmount correction.
-   *
-   * The lamport-space `price` is deliberately left alone by callers — it feeds
-   * amount math that must not be scaled.
-   *
-   * @param {string} pricePerLamport - quote lamports per base lamport.
-   * @param {number} baseTokenDecimal - decimals of the base (X) mint.
-   * @param {number} quoteTokenDecimal - decimals of the quote (Y) mint.
-   * @param {PriceScale} priceScale - the pair's ScaledUiAmount correction.
-   * @returns {string} quote tokens per base token, as displayed.
-   */
+
   function toPricePerToken(
     pricePerLamport: string,
     baseTokenDecimal: number,
@@ -412,8 +400,6 @@ export module BinLiquidity {
       supply: new BN(0),
       price: pricePerLamport,
       version,
-      // An empty bin has to sit on the same price scale as a full one, or a
-      // bin list mixes two scales.
       pricePerToken: toPricePerToken(
         pricePerLamport,
         baseTokenDecimal,

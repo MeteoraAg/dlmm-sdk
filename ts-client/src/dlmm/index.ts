@@ -2636,13 +2636,6 @@ export class DLMM {
   }
 
   /**
-   * Builds the Token-2022 ScaledUiAmount correction for this pair, from the
-   * two mints and the cached on-chain clock.
-   *
-   * Resolved on each call rather than cached, so it never goes stale against
-   * `refetchStates`, which refreshes the mints and the clock together. The
-   * value is therefore exactly as fresh as `this.clock` — see `PriceScale`.
-   *
    * @returns {PriceScale} the pair's correction, or an identity scale when
    * neither mint carries the extension.
    */
@@ -2660,12 +2653,6 @@ export class DLMM {
    * @returns {string} price per Lamport of bin
    */
   public toPricePerLamport(price: number): string {
-    // Inverse of `fromPricePerLamport`: undo the ScaledUiAmount correction
-    // before the decimals conversion, so `to(from(x)) === x`.
-    //
-    // The `toNumber` is forced by `getPricePerLamport`, whose `price` parameter
-    // is a `number`; its signature is public and left unchanged. Exact for an
-    // identity scale, since `unscale` then returns the input untouched.
     const rawPrice = this.getPriceScale().unscale(new Decimal(price));
 
     return DLMM.getPricePerLamport(
