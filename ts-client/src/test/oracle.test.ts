@@ -7,6 +7,11 @@ import {
 } from "../dlmm/helpers/oracle/wrapper";
 import { Oracle } from "../dlmm/types";
 import { getPriceOfBinByBinId } from "../dlmm/helpers/weight";
+import { PriceScale } from "../dlmm/helpers/token_2022";
+import {
+  mintWithScaledUiAmountMultiplier,
+  mintWithoutExtensions,
+} from "./scaled_ui_amount_helper";
 
 function obs(
   cumulative: number,
@@ -30,6 +35,7 @@ function createOracle(params: {
   currentActiveBinId?: number;
   baseTokenDecimals?: number;
   quoteTokenDecimals?: number;
+  priceScale?: PriceScale;
 }): DynamicOracle {
   const metadata = {
     idx: new BN(params.idx),
@@ -44,7 +50,8 @@ function createOracle(params: {
     params.binStep ?? 1,
     new BN(params.currentActiveBinId ?? 100),
     params.baseTokenDecimals ?? 9,
-    params.quoteTokenDecimals ?? 6
+    params.quoteTokenDecimals ?? 6,
+    params.priceScale ?? PriceScale.identity()
   );
 }
 
@@ -295,6 +302,41 @@ describe("DynamicOracle", () => {
 
       expect(result.value.eq(expectedUiPrice)).toBe(true);
       expect(result.duration.toNumber()).toBe(200);
+    });
+
+    it("applies the ScaledUiAmount factor before flooring to quoteDecimals", () => {
+      const scaledMint = mintWithScaledUiAmountMultiplier(2);
+      const priceScale = PriceScale.fromMints(
+        scaledMint,
+        mintWithoutExtensions(),
+        1_000
+      );
+
+      const oracle = createOracle({
+        idx: 2,
+        activeSize: 3,
+        observations: standardObs(),
+        binStep: 10,
+        baseTokenDecimals: 9,
+        quoteTokenDecimals: 6,
+        priceScale,
+      });
+      const result = oracle.getUiPriceByTime(new BN(100), new BN(300));
+
+      const rawPrice = getPriceOfBinByBinId(100, 10);
+      const uiMultiplier = new Decimal(10).pow(9 - 6);
+      const quoteAdjustment = new Decimal(10).pow(6);
+      // Scale first, floor second. Flooring first would truncate at the
+      // unscaled magnitude and leave more than 6 decimal places.
+      const expectedUiPrice = rawPrice
+        .mul(uiMultiplier)
+        .mul(priceScale.factor)
+        .mul(quoteAdjustment)
+        .floor()
+        .div(quoteAdjustment);
+
+      expect(result.value.eq(expectedUiPrice)).toBe(true);
+      expect(result.value.decimalPlaces()).toBeLessThanOrEqual(6);
     });
   });
 });

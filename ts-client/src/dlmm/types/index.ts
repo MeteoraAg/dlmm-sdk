@@ -10,6 +10,7 @@ import {
   decodeRewardPerTokenStored,
   getPriceOfBinByBinId,
   isSupportLimitOrder,
+  PriceScale,
 } from "../helpers";
 import {
   AccountInfo,
@@ -296,6 +297,32 @@ export interface BinLiquidity {
 }
 
 export module BinLiquidity {
+  /**
+   * Converts a bin's lamport-space price into the human-facing token-space
+   * price, then applies the Token-2022 ScaledUiAmount correction.
+   *
+   * The lamport-space `price` is deliberately left alone by callers — it feeds
+   * amount math that must not be scaled.
+   *
+   * @param {string} pricePerLamport - quote lamports per base lamport.
+   * @param {number} baseTokenDecimal - decimals of the base (X) mint.
+   * @param {number} quoteTokenDecimal - decimals of the quote (Y) mint.
+   * @param {PriceScale} priceScale - the pair's ScaledUiAmount correction.
+   * @returns {string} quote tokens per base token, as displayed.
+   */
+  function toPricePerToken(
+    pricePerLamport: string,
+    baseTokenDecimal: number,
+    quoteTokenDecimal: number,
+    priceScale: PriceScale,
+  ): string {
+    return priceScale.scaleString(
+      new Decimal(pricePerLamport)
+        .mul(new Decimal(10 ** (baseTokenDecimal - quoteTokenDecimal)))
+        .toString(),
+    );
+  }
+
   export function fromBin(
     bin: Bin,
     binId: number,
@@ -304,6 +331,7 @@ export module BinLiquidity {
     quoteTokenDecimal: number,
     version: number,
     lbPair: LbPair,
+    priceScale: PriceScale,
   ): BinLiquidity {
     const pricePerLamport = getPriceOfBinByBinId(binId, binStep).toString();
     const supportLimitOrder = isSupportLimitOrder(lbPair);
@@ -311,9 +339,12 @@ export module BinLiquidity {
     const xAmount = bin.amountX;
     const yAmount = bin.amountY;
     const supply = bin.liquiditySupply;
-    const pricePerToken = new Decimal(pricePerLamport)
-      .mul(new Decimal(10 ** (baseTokenDecimal - quoteTokenDecimal)))
-      .toString();
+    const pricePerToken = toPricePerToken(
+      pricePerLamport,
+      baseTokenDecimal,
+      quoteTokenDecimal,
+      priceScale,
+    );
     const feeAmountXPerTokenStored = bin.feeAmountXPerTokenStored;
     const feeAmountYPerTokenStored = bin.feeAmountYPerTokenStored;
 
@@ -370,6 +401,7 @@ export module BinLiquidity {
     baseTokenDecimal: number,
     quoteTokenDecimal: number,
     version: number,
+    priceScale: PriceScale,
   ): BinLiquidity {
     const pricePerLamport = getPriceOfBinByBinId(binId, binStep).toString();
 
@@ -380,9 +412,14 @@ export module BinLiquidity {
       supply: new BN(0),
       price: pricePerLamport,
       version,
-      pricePerToken: new Decimal(pricePerLamport)
-        .mul(new Decimal(10 ** (baseTokenDecimal - quoteTokenDecimal)))
-        .toString(),
+      // An empty bin has to sit on the same price scale as a full one, or a
+      // bin list mixes two scales.
+      pricePerToken: toPricePerToken(
+        pricePerLamport,
+        baseTokenDecimal,
+        quoteTokenDecimal,
+        priceScale,
+      ),
       feeAmountXPerTokenStored: new BN(0),
       feeAmountYPerTokenStored: new BN(0),
       rewardPerTokenStored: [new BN(0), new BN(0)],
