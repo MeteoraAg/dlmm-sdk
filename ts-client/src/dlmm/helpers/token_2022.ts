@@ -236,32 +236,15 @@ export function calculateTransferFeeExcludedAmount(
 }
 
 /**
- * Token-2022 `ScaledUiAmountConfig` extension discriminator, matching
- * `ExtensionType.ScaledUiAmountConfig` in @solana/spl-token.
+ * Token-2022 `ScaledUiAmountConfig` extension `ExtensionType.ScaledUiAmountConfig`in @solana/spl-token.
  */
 export const SCALED_UI_AMOUNT_CONFIG_EXTENSION_TYPE = 25;
 
-/**
- * Byte size of the ScaledUiAmountConfig payload:
- * authority(32) + multiplier(8) + newMultiplierEffectiveTimestamp(8) + newMultiplier(8).
- */
 export const SCALED_UI_AMOUNT_CONFIG_SIZE = 56;
 
 const ONE = new Decimal(1);
 
 /**
- * Reads the Token-2022 ScaledUiAmount multiplier for a mint at the given unix
- * timestamp. Returns 1 when the mint does not carry the extension, so callers
- * can multiply unconditionally.
- *
- * The extension supports a scheduled switch: once the given timestamp reaches
- * `newMultiplierEffectiveTimestamp`, `newMultiplier` replaces `multiplier`.
- * This mirrors the on-chain UI amount computation.
- *
- * The TLV entries are walked and decoded here rather than via
- * `getScaledUiAmountConfig` from @solana/spl-token, because this package
- * declares `^0.4.6` and that getter only exists in later 0.4.x releases.
- *
  * @param {Mint} mint - the mint whose TLV data is searched for the extension.
  * @param {number} unixTimestamp - on-chain unix timestamp, used to resolve a
  * scheduled multiplier switch.
@@ -318,33 +301,13 @@ export function getScaledUiAmountMultiplier(
   return ONE;
 }
 
-/**
- * The Token-2022 ScaledUiAmount correction for a price quoted as quote token
- * per base token, held as a single factor: `quoteMultiplier / baseMultiplier`.
- *
- * Prices are stored on-chain against raw token amounts. A wallet displays
- * `rawAmount * multiplier`, so the price a person should see is the ratio of
- * the two displayed amounts, which collapses to one multiplication.
- *
- * Holding one factor rather than two multipliers means the division happens in
- * exactly one place, so no call site can invert it by mistake.
- *
- * This corrects *token-space* prices only — `pricePerToken` and the oracle UI
- * price. Lamport-space values such as `BinLiquidity.price` stay raw, because
- * they feed amount math that must not be scaled.
- *
- * The multipliers are read from the mints at a given timestamp, so a value is
- * only as fresh as the clock it was built with. Within the SDK that clock is
- * refreshed by `DLMM.refetchStates()`, alongside the mints themselves.
- */
 export class PriceScale {
   private constructor(
-    /** `quoteMultiplier / baseMultiplier`. 1 when neither mint is scaled. */
     public readonly factor: Decimal
   ) {}
 
   /**
-   * A no-op scale, for mints without the extension and for tests.
+   * A no-op scale, for mints without the extension
    * @returns {PriceScale} a scale that leaves every price unchanged.
    */
   static identity(): PriceScale {
