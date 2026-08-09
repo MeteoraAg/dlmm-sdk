@@ -19,6 +19,7 @@ import {
   PublicKey,
 } from "@solana/web3.js";
 import BN from "bn.js";
+import Decimal from "decimal.js";
 
 export async function getMultipleMintsExtraAccountMetasForTransferHook(
   connection: Connection,
@@ -232,4 +233,184 @@ export function calculateTransferFeeExcludedAmount(
     amount: transferFeeExcludedAmount,
     transferFee: new BN(transferFee.toString()),
   };
+}
+
+/**
+ * Token-2022 `ScaledUiAmountConfig` extension discriminator, matching
+ * `ExtensionType.ScaledUiAmountConfig` in @solana/spl-token.
+ */
+export const SCALED_UI_AMOUNT_CONFIG_EXTENSION_TYPE = 25;
+
+/**
+ * Byte size of the ScaledUiAmountConfig payload:
+ * authority(32) + multiplier(8) + newMultiplierEffectiveTimestamp(8) + newMultiplier(8).
+ */
+export const SCALED_UI_AMOUNT_CONFIG_SIZE = 56;
+
+const ONE = new Decimal(1);
+
+/**
+ * Reads the Token-2022 ScaledUiAmount multiplier for a mint at the given unix
+ * timestamp. Returns 1 when the mint does not carry the extension, so callers
+ * can multiply unconditionally.
+ *
+ * The extension supports a scheduled switch: once the given timestamp reaches
+ * `newMultiplierEffectiveTimestamp`, `newMultiplier` replaces `multiplier`.
+ * This mirrors the on-chain UI amount computation.
+ *
+ * The TLV entries are walked and decoded here rather than via
+ * `getScaledUiAmountConfig` from @solana/spl-token, because this package
+ * declares `^0.4.6` and that getter only exists in later 0.4.x releases.
+ *
+ * @param {Mint} mint - the mint whose TLV data is searched for the extension.
+ * @param {number} unixTimestamp - on-chain unix timestamp, used to resolve a
+ * scheduled multiplier switch.
+ * @returns {Decimal} the effective multiplier, or 1 when the mint has no
+ * ScaledUiAmount extension.
+ * @throws {Error} if the effective multiplier is zero, negative or NaN. Such a
+ * mint is malformed, and silently falling back to an unscaled price would
+ * produce a plausible but wrong number with no signal to the caller.
+ */
+export function getScaledUiAmountMultiplier(
+  mint: Mint,
+  unixTimestamp: number
+): Decimal {
+  const tlvData = mint.tlvData;
+  if (!tlvData || tlvData.length === 0) {
+    return ONE;
+  }
+
+  // Each TLV entry is: type (u16 LE), length (u16 LE), then `length` bytes.
+  let offset = 0;
+  while (offset + 4 <= tlvData.length) {
+    const extensionType = tlvData.readUInt16LE(offset);
+    const length = tlvData.readUInt16LE(offset + 2);
+    const dataStart = offset + 4;
+
+    if (
+      extensionType === SCALED_UI_AMOUNT_CONFIG_EXTENSION_TYPE &&
+      dataStart + SCALED_UI_AMOUNT_CONFIG_SIZE <= tlvData.length
+    ) {
+      // Layout: authority(32) | multiplier f64 | newMultiplierEffectiveTimestamp u64 | newMultiplier f64
+      const multiplier = tlvData.readDoubleLE(dataStart + 32);
+      const newMultiplierEffectiveTimestamp = tlvData.readBigUInt64LE(
+        dataStart + 40
+      );
+      const newMultiplier = tlvData.readDoubleLE(dataStart + 48);
+
+      const effectiveMultiplier =
+        BigInt(unixTimestamp) >= newMultiplierEffectiveTimestamp
+          ? newMultiplier
+          : multiplier;
+
+      if (!Number.isFinite(effectiveMultiplier) || effectiveMultiplier <= 0) {
+        throw new Error(
+          `Invalid ScaledUiAmount multiplier ${effectiveMultiplier} for mint ${mint.address.toBase58()}`
+        );
+      }
+
+      return new Decimal(effectiveMultiplier);
+    }
+
+    offset = dataStart + length;
+  }
+
+  return ONE;
+}
+
+/**
+ * The Token-2022 ScaledUiAmount correction for a price quoted as quote token
+ * per base token, held as a single factor: `quoteMultiplier / baseMultiplier`.
+ *
+ * Prices are stored on-chain against raw token amounts. A wallet displays
+ * `rawAmount * multiplier`, so the price a person should see is the ratio of
+ * the two displayed amounts, which collapses to one multiplication.
+ *
+ * Holding one factor rather than two multipliers means the division happens in
+ * exactly one place, so no call site can invert it by mistake.
+ *
+ * This corrects *token-space* prices only — `pricePerToken` and the oracle UI
+ * price. Lamport-space values such as `BinLiquidity.price` stay raw, because
+ * they feed amount math that must not be scaled.
+ *
+ * The multipliers are read from the mints at a given timestamp, so a value is
+ * only as fresh as the clock it was built with. Within the SDK that clock is
+ * refreshed by `DLMM.refetchStates()`, alongside the mints themselves.
+ */
+export class PriceScale {
+  private constructor(
+    /** `quoteMultiplier / baseMultiplier`. 1 when neither mint is scaled. */
+    public readonly factor: Decimal
+  ) {}
+
+  /**
+   * A no-op scale, for mints without the extension and for tests.
+   * @returns {PriceScale} a scale that leaves every price unchanged.
+   */
+  static identity(): PriceScale {
+    return new PriceScale(ONE);
+  }
+
+  /**
+   * Builds the scale for a pair from its two mints.
+   *
+   * @param {Mint} baseMint - the pair's base (X) mint.
+   * @param {Mint} quoteMint - the pair's quote (Y) mint.
+   * @param {number} unixTimestamp - on-chain unix timestamp, used to resolve a
+   * scheduled multiplier switch. Prefer `DLMM.clock.unixTimestamp` over
+   * wall-clock time, and use the same clock for every value derived alongside it.
+   * @returns {PriceScale} the correction for this pair.
+   * @throws {Error} if either mint carries an invalid multiplier.
+   */
+  static fromMints(
+    baseMint: Mint,
+    quoteMint: Mint,
+    unixTimestamp: number
+  ): PriceScale {
+    const baseMultiplier = getScaledUiAmountMultiplier(baseMint, unixTimestamp);
+    const quoteMultiplier = getScaledUiAmountMultiplier(
+      quoteMint,
+      unixTimestamp
+    );
+
+    if (baseMultiplier.eq(quoteMultiplier)) {
+      return PriceScale.identity();
+    }
+
+    return new PriceScale(quoteMultiplier.div(baseMultiplier));
+  }
+
+  /**
+   * @returns {boolean} true when this scale leaves every price unchanged.
+   */
+  get isIdentity(): boolean {
+    return this.factor.eq(ONE);
+  }
+
+  /**
+   * Converts a raw token-space price to the price a person should see.
+   * @param {Decimal} price - an unscaled token-space price.
+   * @returns {Decimal} the displayed price.
+   */
+  scale(price: Decimal): Decimal {
+    return this.isIdentity ? price : price.mul(this.factor);
+  }
+
+  /**
+   * Converts a displayed price back to the raw token-space price.
+   * @param {Decimal} price - a displayed token-space price.
+   * @returns {Decimal} the unscaled price.
+   */
+  unscale(price: Decimal): Decimal {
+    return this.isIdentity ? price : price.div(this.factor);
+  }
+
+  /**
+   * {@link scale}, for the call sites that hold prices as strings.
+   * @param {string} price - an unscaled token-space price.
+   * @returns {string} the displayed price.
+   */
+  scaleString(price: string): string {
+    return this.isIdentity ? price : this.scale(new Decimal(price)).toString();
+  }
 }

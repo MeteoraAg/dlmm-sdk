@@ -6,6 +6,7 @@ import { getPriceOfBinByBinId } from "../weight";
 import { Program } from "@coral-xyz/anchor";
 import { LbClmm } from "../../idl/idl";
 import { decodeAccount } from "..";
+import { PriceScale } from "../token_2022";
 
 /** Size in bytes of the oracle account metadata (discriminator + header fields). */
 const ORACLE_METADATA_SIZE = 8 + 24;
@@ -82,6 +83,7 @@ export function wrapOracle(
   baseTokenDecimals: number,
   quoteTokenDecimals: number,
   program: Program<LbClmm>,
+  priceScale: PriceScale,
 ) {
   const oracleBaseData = data.subarray(0, ORACLE_METADATA_SIZE);
   const oracleState: Oracle = decodeAccount(program, "oracle", oracleBaseData);
@@ -125,6 +127,7 @@ export function wrapOracle(
     currentActiveBinId,
     baseTokenDecimals,
     quoteTokenDecimals,
+    priceScale,
   );
 }
 
@@ -137,6 +140,7 @@ export class DynamicOracle implements IDynamicOracle {
     private currentActiveBinId: BN,
     private baseTokenDecimals: number,
     private quoteTokenDecimals: number,
+    private priceScale: PriceScale,
   ) {}
 
   nextIndex(): number {
@@ -284,12 +288,14 @@ export class DynamicOracle implements IDynamicOracle {
     );
     const quoteAdjustment = new Decimal(10).pow(this.quoteTokenDecimals);
 
+    // The ScaledUiAmount correction goes on before `quoteAdjustment`, so the
+    // floor truncates the final scaled value to `quoteTokenDecimals` places.
+    // Scaling after the floor would round at the unscaled magnitude and leave
+    // more decimal places than this method promises.
+    const uiPrice = this.priceScale.scale(result.value.mul(uiMultiplier));
+
     return {
-      value: result.value
-        .mul(uiMultiplier)
-        .mul(quoteAdjustment)
-        .floor()
-        .div(quoteAdjustment),
+      value: uiPrice.mul(quoteAdjustment).floor().div(quoteAdjustment),
       duration: result.duration,
     };
   }

@@ -1,4 +1,5 @@
 import { Program } from "@coral-xyz/anchor";
+import { Mint } from "@solana/spl-token";
 import { Connection, PublicKey, SYSVAR_CLOCK_PUBKEY } from "@solana/web3.js";
 import BN from "bn.js";
 import Decimal from "decimal.js";
@@ -33,6 +34,7 @@ import {
 } from "../binArray";
 import { getTotalFee } from "../fee";
 import { getQPriceBaseFactor, getQPriceFromId } from "../math";
+import { PriceScale } from "../token_2022";
 import { pow } from "../u64xu64_math";
 import { getPriceOfBinByBinId } from "../weight";
 
@@ -391,6 +393,18 @@ export interface CreateRebalancePositionParams {
   positionData: PositionData;
   shouldClaimFee: boolean;
   shouldClaimReward: boolean;
+  /**
+   * The pair's mints. Used to build the Token-2022 ScaledUiAmount correction
+   * for the `pricePerToken` of bins created when the position range expands.
+   *
+   * The mints are passed rather than a ready-made `PriceScale` so the scale can
+   * be resolved against the same clock `create` decodes for `currentTimestamp`.
+   * A caller-built scale would come from the caller's own, possibly staler,
+   * clock — and a scheduled multiplier switch between the two would resolve
+   * against the wrong one.
+   */
+  baseMint: Mint;
+  quoteMint: Mint;
 }
 
 export class RebalancePosition {
@@ -404,6 +418,11 @@ export class RebalancePosition {
   public rebalancePositionBinData: RebalancePositionBinData[];
   public activeBin: Bin | null;
   public currentTimestamp: BN;
+  /**
+   * Derived from `currentTimestamp`, so the two never disagree about when a
+   * scheduled multiplier switch takes effect.
+   */
+  private readonly priceScale: PriceScale;
 
   constructor(
     positionAddress: PublicKey,
@@ -413,6 +432,7 @@ export class RebalancePosition {
     shouldClaimFee: boolean,
     shouldClaimReward: boolean,
     currentTimestamp: BN,
+    priceScale: PriceScale,
   ) {
     this.address = positionAddress;
     this.rebalancePositionBinData = toRebalancePositionBinData(positionData);
@@ -424,6 +444,7 @@ export class RebalancePosition {
     this.owner = positionData.owner;
     this.activeBin = activeBin;
     this.currentTimestamp = currentTimestamp;
+    this.priceScale = priceScale;
   }
 
   static async create(
@@ -436,6 +457,8 @@ export class RebalancePosition {
       positionData,
       shouldClaimFee,
       shouldClaimReward,
+      baseMint,
+      quoteMint,
     } = params;
     const [lbPairAccount, clockAccount] =
       await program.provider.connection.getMultipleAccountsInfo([
@@ -478,6 +501,12 @@ export class RebalancePosition {
       shouldClaimFee,
       shouldClaimReward,
       clock.unixTimestamp,
+      // Same clock as `currentTimestamp` above — see `CreateRebalancePositionParams`.
+      PriceScale.fromMints(
+        baseMint,
+        quoteMint,
+        clock.unixTimestamp.toNumber(),
+      ),
     );
   }
 
@@ -696,8 +725,13 @@ export class RebalancePosition {
 
         this.rebalancePositionBinData.unshift({
           binId: binId.toNumber(),
+          // TODO(units): `price` here is token space, but `toRebalancePositionBinData`
+          // fills it from `PositionData.price`, which is lamport space.
+          // `getAutoFillAmountByRebalancedPosition` multiplies it by `amountX`
+          // and so needs lamport space. Left untouched deliberately — fixing it
+          // changes deposit sizing and belongs in its own PR.
           price: adjustedPrice.toString(),
-          pricePerToken: adjustedPrice.toString(),
+          pricePerToken: this.priceScale.scaleString(adjustedPrice.toString()),
           amountX: new BN(0),
           amountY: new BN(0),
           claimableRewardAmount: [new BN(0), new BN(0)],
@@ -724,8 +758,9 @@ export class RebalancePosition {
 
         this.rebalancePositionBinData.push({
           binId: binId.toNumber(),
+          // TODO(units): see the matching note in the lower-bound branch above.
           price: adjustedPrice.toString(),
-          pricePerToken: adjustedPrice.toString(),
+          pricePerToken: this.priceScale.scaleString(adjustedPrice.toString()),
           amountX: new BN(0),
           amountY: new BN(0),
           claimableRewardAmount: [new BN(0), new BN(0)],

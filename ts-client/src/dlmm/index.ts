@@ -166,6 +166,7 @@ import {
   calculateTransferFeeIncludedAmount,
   getExtraAccountMetasForTransferHook,
   getMultipleMintsExtraAccountMetasForTransferHook,
+  PriceScale,
 } from "./helpers/token_2022";
 import {
   ActionType,
@@ -2578,7 +2579,11 @@ export class DLMM {
    * use for filtering the bins.
    * @returns an object with two properties: "activeBin" and "bins". The value of "activeBin" is the
    * active bin ID of the lbPair, and the value of "bins" is an array of BinLiquidity objects.
+   *
+   * WARNING (Token-2022 ScaledUiAmount):: `minPrice` and `maxPrice` are treated as
+   * unscaled. Passing back a scaled `pricePerToken` selects the wrong bin range.
    */
+  // TODO(scaled-ui-amount): un-scale the price bounds. See `getBinIdFromPrice`.
   public async getBinsBetweenMinAndMaxPrice(
     minPrice: number,
     maxPrice: number,
@@ -2631,15 +2636,42 @@ export class DLMM {
   }
 
   /**
+   * Builds the Token-2022 ScaledUiAmount correction for this pair, from the
+   * two mints and the cached on-chain clock.
+   *
+   * Resolved on each call rather than cached, so it never goes stale against
+   * `refetchStates`, which refreshes the mints and the clock together. The
+   * value is therefore exactly as fresh as `this.clock` — see `PriceScale`.
+   *
+   * @returns {PriceScale} the pair's correction, or an identity scale when
+   * neither mint carries the extension.
+   */
+  private getPriceScale(): PriceScale {
+    return PriceScale.fromMints(
+      this.tokenX.mint,
+      this.tokenY.mint,
+      this.clock.unixTimestamp.toNumber(),
+    );
+  }
+
+  /**
    * The function converts a real price of bin to a lamport value
    * @param {number} price - The `price` parameter is a number representing the price of a token.
    * @returns {string} price per Lamport of bin
    */
   public toPricePerLamport(price: number): string {
+    // Inverse of `fromPricePerLamport`: undo the ScaledUiAmount correction
+    // before the decimals conversion, so `to(from(x)) === x`.
+    //
+    // The `toNumber` is forced by `getPricePerLamport`, whose `price` parameter
+    // is a `number`; its signature is public and left unchanged. Exact for an
+    // identity scale, since `unscale` then returns the input untouched.
+    const rawPrice = this.getPriceScale().unscale(new Decimal(price));
+
     return DLMM.getPricePerLamport(
       this.tokenX.mint.decimals,
       this.tokenY.mint.decimals,
-      price,
+      rawPrice.toNumber(),
     );
   }
 
@@ -2650,10 +2682,12 @@ export class DLMM {
    * @returns {string} real price of bin
    */
   public fromPricePerLamport(pricePerLamport: number): string {
-    return new Decimal(pricePerLamport)
-      .div(
-        new Decimal(
-          10 ** (this.tokenY.mint.decimals - this.tokenX.mint.decimals),
+    return this.getPriceScale()
+      .scale(
+        new Decimal(pricePerLamport).div(
+          new Decimal(
+            10 ** (this.tokenY.mint.decimals - this.tokenX.mint.decimals),
+          ),
         ),
       )
       .toString();
@@ -2684,7 +2718,14 @@ export class DLMM {
    * otherwise it will be rounded up (ceil).
    * @returns {number} which is the binId calculated based on the given price and whether the minimum
    * value should be used.
+   *
+   * WARNING (Token-2022 ScaledUiAmount):: `price` is treated as an unscaled price. If
+   * you took it from a scaled field such as `BinLiquidity.pricePerToken`, undo
+   * the correction first with {@link toPricePerLamport}, or the resulting bin
+   * ID will be wrong by the pair's scale factor.
    */
+  // TODO(scaled-ui-amount): un-scale `price` here so a value read straight from
+  // `pricePerToken` round-trips. Deferred: this feeds instruction paths.
   public getBinIdFromPrice(price: number, min: boolean): number {
     return DLMM.getBinIdFromPrice(price, this.lbPair.binStep, min);
   }
@@ -6480,7 +6521,12 @@ export class DLMM {
    *    - `lockReleasePoint`: Timelock. Point (slot/timestamp) the position can withdraw the liquidity,
    *    - `shouldSeedPositionOwner` (optional): Whether to send 1 lamport amount of token X to the position owner to prove ownership.
    * @returns {Promise<SeedLiquidityResponse>}
+   *
+   * WARNING (Token-2022 ScaledUiAmount):: `minPrice` and `maxPrice` are treated as
+   * unscaled. Passing back a scaled `pricePerToken` seeds the wrong bin range,
+   * which deposits liquidity at prices you did not intend.
    */
+  // TODO(scaled-ui-amount): un-scale the price bounds. See `getBinIdFromPrice`.
   public async seedLiquidity(
     owner: PublicKey,
     seedAmount: BN,
@@ -6931,7 +6977,11 @@ export class DLMM {
    *
    * The returned instructions need to be executed sequentially if it was separated into multiple transactions.
    * @returns {Promise<SeedLiquiditySingleBinResponse>}
+   *
+   * WARNING (Token-2022 ScaledUiAmount):: `price` is treated as unscaled. Passing back
+   * a scaled `pricePerToken` seeds the wrong bin.
    */
+  // TODO(scaled-ui-amount): un-scale `price`. See `getBinIdFromPrice`.
   public async seedLiquiditySingleBin(
     payer: PublicKey,
     base: PublicKey,
@@ -7432,6 +7482,10 @@ export class DLMM {
     );
   }
 
+  /**
+   * WARNING (Token-2022 ScaledUiAmount):: `marketPrice` is treated as unscaled.
+   */
+  // TODO(scaled-ui-amount): un-scale `marketPrice`. See `getBinIdFromPrice`.
   public canSyncWithMarketPrice(marketPrice: number, activeBinId: number) {
     const marketPriceBinId = this.getBinIdFromPrice(
       Number(
@@ -7468,7 +7522,11 @@ export class DLMM {
    *    - `marketPrice`: The market price to sync with.
    *    - `owner`: The public key of the owner of the liquidity pool.
    * @returns {Promise<Transaction>}
+   *
+   * WARNING (Token-2022 ScaledUiAmount):: `marketPrice` is treated as unscaled.
+   * Passing back a scaled `pricePerToken` syncs the pool to the wrong bin.
    */
+  // TODO(scaled-ui-amount): un-scale `marketPrice`. See `getBinIdFromPrice`.
   public async syncWithMarketPrice(marketPrice: number, owner: PublicKey) {
     const marketPriceBinId = this.getBinIdFromPrice(
       Number(
@@ -7800,6 +7858,8 @@ export class DLMM {
       shouldClaimFee: true,
       shouldClaimReward: true,
       pairAddress: this.pubkey,
+      baseMint: this.tokenX.mint,
+      quoteMint: this.tokenY.mint,
     });
 
     const rebalanceStrategyBuilder = new BalancedStrategyBuilder(
@@ -7947,6 +8007,8 @@ export class DLMM {
       shouldClaimFee,
       shouldClaimReward,
       pairAddress: this.pubkey,
+      baseMint: this.tokenX.mint,
+      quoteMint: this.tokenY.mint,
     });
 
     const simulationResult = await rebalancePosition.simulateRebalance(
@@ -8858,6 +8920,12 @@ export class DLMM {
 
     const feeOwner = position.feeOwner();
 
+    const priceScale = PriceScale.fromMints(
+      baseMint,
+      quoteMint,
+      clock.unixTimestamp.toNumber(),
+    );
+
     const bins = this.getBinsBetweenLowerAndUpperBound(
       lbPairKey,
       lbPair,
@@ -8867,6 +8935,7 @@ export class DLMM {
       quoteMint.decimals,
       binArrayMap,
       program.programId,
+      priceScale,
     );
 
     if (!bins.length) return null;
@@ -9079,6 +9148,7 @@ export class DLMM {
     quoteTokenDecimal: number,
     binArrayMap: Map<String, BinArray>,
     programId: PublicKey,
+    priceScale: PriceScale,
   ): BinLiquidity[] {
     const lowerBinArrayIndex = binIdToBinArrayIndex(new BN(lowerBinId));
     const upperBinArrayIndex = binIdToBinArrayIndex(new BN(upperBinId));
@@ -9114,6 +9184,7 @@ export class DLMM {
                 baseTokenDecimal,
                 quoteTokenDecimal,
                 BIN_ARRAY_DEFAULT_VERSION,
+                priceScale,
               ),
             );
           } else {
@@ -9128,6 +9199,7 @@ export class DLMM {
                 quoteTokenDecimal,
                 binArray.version,
                 lbPair,
+                priceScale,
               ),
             );
           }
@@ -9224,6 +9296,7 @@ export class DLMM {
         quoteTokenDecimal,
         version,
         this.lbPair,
+        this.getPriceScale(),
       ),
     );
   }
@@ -9599,6 +9672,7 @@ export class DLMM {
       this.tokenX.mint.decimals,
       this.tokenY.mint.decimals,
       this.program,
+      this.getPriceScale(),
     );
   }
 

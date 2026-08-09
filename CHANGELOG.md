@@ -19,6 +19,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.9.15]
+
+> **Versioning note:** released as a patch so it can be verified against live
+> pools first. By semver this should be a **minor** — `BinLiquidity.fromBin`,
+> `BinLiquidity.empty`, `enumerateBins` and the `DynamicOracle` constructor all
+> gain a required parameter. Promote to 1.10.0 before the next release if this
+> has not shipped yet.
+
+### Added
+
+- `PriceScale` and `getScaledUiAmountMultiplier`, which read the Token-2022 [ScaledUiAmount](https://solana.com/docs/tokens/extensions/scaled-ui-amount) multiplier from a mint and express the pair's price correction as a single factor (`quoteMultiplier / baseMultiplier`). Build one with `PriceScale.fromMints(baseMint, quoteMint, unixTimestamp)`, or `PriceScale.identity()` for pairs without the extension. Throws on a zero, negative or `NaN` multiplier rather than silently returning an unscaled price.
+
+### Changed
+
+- **Displayed prices now reflect the Token-2022 ScaledUiAmount multiplier.** If either mint of a pair carries the extension, `pricePerToken` (from `getActiveBin`, `getBinsAroundActiveBin`, `getBinsBetweenMinAndMaxPrice`, `getPositionsByUserAndLbPair`), `fromPricePerLamport` and the oracle's `getUiPriceByTime` all change value, and now agree with what a wallet shows. Charts built on these fields will move. Pairs without the extension are unaffected.
+- `toPricePerLamport` applies the inverse correction, so `toPricePerLamport(fromPricePerLamport(x)) === x` still holds when a multiplier is in effect.
+- Lamport-space values are deliberately **not** scaled — `BinLiquidity.price`, `SwapQuote.endPrice`, and every amount path that feeds an instruction. Scaling those would change deposit and swap sizing.
+- **Known gap:** `getBinIdFromPrice`, `getBinsBetweenMinAndMaxPrice`, `seedLiquidity`, `seedLiquiditySingleBin`, `canSyncWithMarketPrice` and `syncWithMarketPrice` still treat their `price` arguments as **unscaled**. Feeding a scaled `pricePerToken` straight back into any of them selects the wrong bin range, and the last four build instructions. Convert with `toPricePerLamport` first. Tracked by the `TODO(scaled-ui-amount)` markers in `ts-client/src/dlmm/index.ts`.
+
+### Breaking Changes
+
+- `BinLiquidity.fromBin`, `BinLiquidity.empty`, `enumerateBins` and the `DynamicOracle` constructor take a required `PriceScale`. A default would have silently returned unscaled prices at any call site that missed the change.
+- `CreateRebalancePositionParams` gains required `baseMint` and `quoteMint` fields. The mints are passed rather than a ready-made `PriceScale` so `RebalancePosition.create` can resolve the scale against the same clock it decodes for `currentTimestamp`.
+
+### Fixed
+
+- `getUiPriceByTime` applies the scale before truncating to the quote mint's decimals, so the result keeps the decimal precision its contract promises.
+
 ## @meteora-ag/dlmm [1.9.14]
 
 ### Added

@@ -19,6 +19,7 @@ import {
 import { deriveBinArray } from "./derive";
 import { getPositionCount } from "./math";
 import { getBinArrayIndexesCoverage } from "./positions";
+import { PriceScale } from "./token_2022";
 
 /** private */
 function internalBitmapRange() {
@@ -408,6 +409,7 @@ export function* enumerateBins(
   quoteTokenDecimal: number,
   version: number,
   lbPair: LbPair,
+  priceScale: PriceScale,
 ) {
   for (
     let currentBinId = lowerBinId;
@@ -424,6 +426,7 @@ export function* enumerateBins(
         quoteTokenDecimal,
         version,
         lbPair,
+        priceScale,
       );
     } else {
       yield BinLiquidity.empty(
@@ -432,6 +435,7 @@ export function* enumerateBins(
         baseTokenDecimal,
         quoteTokenDecimal,
         version,
+        priceScale,
       );
     }
   }
