@@ -138,7 +138,7 @@ export function calculateSpotDistribution(
     const { div: dist, mod: rem } = new BN(10_000).divmod(
       new BN(binIds.length)
     );
-    const loss = rem.isZero() ? new BN(0) : new BN(1);
+    const loss = rem;
 
     const distributions =
       binIds[0] < activeBin
@@ -155,11 +155,13 @@ export function calculateSpotDistribution(
 
     // Add the loss to the left most bin
     if (binIds[0] < activeBin) {
-      distributions[0].yAmountBpsOfTotal.add(loss);
+      distributions[0].yAmountBpsOfTotal =
+        distributions[0].yAmountBpsOfTotal.add(loss);
     }
     // Add the loss to the right most bin
     else {
-      distributions[binIds.length - 1].xAmountBpsOfTotal.add(loss);
+      distributions[binIds.length - 1].xAmountBpsOfTotal =
+        distributions[binIds.length - 1].xAmountBpsOfTotal.add(loss);
     }
 
     return distributions;
