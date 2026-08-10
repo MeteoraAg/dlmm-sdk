@@ -8,10 +8,7 @@ import {
 import { Oracle } from "../dlmm/types";
 import { getPriceOfBinByBinId } from "../dlmm/helpers/weight";
 import { PriceScale } from "../dlmm/helpers/token_2022";
-import {
-  mintWithScaledUiAmountMultiplier,
-  mintWithoutExtensions,
-} from "./scaled_ui_amount_helper";
+import { mintWithScaledUiAmountMultiplier, mintWithoutExtensions } from "./scaled_ui_amount_helper";
 
 function obs(
   cumulative: number,
