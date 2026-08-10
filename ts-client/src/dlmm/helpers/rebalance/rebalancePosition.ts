@@ -711,11 +711,6 @@ export class RebalancePosition {
 
         this.rebalancePositionBinData.unshift({
           binId: binId.toNumber(),
-          // TODO(units): `price` here is token space, but `toRebalancePositionBinData`
-          // fills it from `PositionData.price`, which is lamport space.
-          // `getAutoFillAmountByRebalancedPosition` multiplies it by `amountX`
-          // and so needs lamport space. Left untouched deliberately — fixing it
-          // changes deposit sizing and belongs in its own PR.
           price: adjustedPrice.toString(),
           pricePerToken: this.priceScale.scaleString(adjustedPrice.toString()),
           amountX: new BN(0),
@@ -744,7 +739,6 @@ export class RebalancePosition {
 
         this.rebalancePositionBinData.push({
           binId: binId.toNumber(),
-          // TODO(units): see the matching note in the lower-bound branch above.
           price: adjustedPrice.toString(),
           pricePerToken: this.priceScale.scaleString(adjustedPrice.toString()),
           amountX: new BN(0),
