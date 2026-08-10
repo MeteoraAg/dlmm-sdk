@@ -2583,7 +2583,6 @@ export class DLMM {
    * WARNING (Token-2022 ScaledUiAmount):: `minPrice` and `maxPrice` are treated as
    * unscaled. Passing back a scaled `pricePerToken` selects the wrong bin range.
    */
-  // TODO(scaled-ui-amount): un-scale the price bounds. See `getBinIdFromPrice`.
   public async getBinsBetweenMinAndMaxPrice(
     minPrice: number,
     maxPrice: number,
@@ -2711,8 +2710,6 @@ export class DLMM {
    * the correction first with {@link toPricePerLamport}, or the resulting bin
    * ID will be wrong by the pair's scale factor.
    */
-  // TODO(scaled-ui-amount): un-scale `price` here so a value read straight from
-  // `pricePerToken` round-trips. Deferred: this feeds instruction paths.
   public getBinIdFromPrice(price: number, min: boolean): number {
     return DLMM.getBinIdFromPrice(price, this.lbPair.binStep, min);
   }
@@ -6513,7 +6510,6 @@ export class DLMM {
    * unscaled. Passing back a scaled `pricePerToken` seeds the wrong bin range,
    * which deposits liquidity at prices you did not intend.
    */
-  // TODO(scaled-ui-amount): un-scale the price bounds. See `getBinIdFromPrice`.
   public async seedLiquidity(
     owner: PublicKey,
     seedAmount: BN,
@@ -6968,7 +6964,6 @@ export class DLMM {
    * WARNING (Token-2022 ScaledUiAmount):: `price` is treated as unscaled. Passing back
    * a scaled `pricePerToken` seeds the wrong bin.
    */
-  // TODO(scaled-ui-amount): un-scale `price`. See `getBinIdFromPrice`.
   public async seedLiquiditySingleBin(
     payer: PublicKey,
     base: PublicKey,
@@ -7472,7 +7467,6 @@ export class DLMM {
   /**
    * WARNING (Token-2022 ScaledUiAmount):: `marketPrice` is treated as unscaled.
    */
-  // TODO(scaled-ui-amount): un-scale `marketPrice`. See `getBinIdFromPrice`.
   public canSyncWithMarketPrice(marketPrice: number, activeBinId: number) {
     const marketPriceBinId = this.getBinIdFromPrice(
       Number(
@@ -7513,7 +7507,6 @@ export class DLMM {
    * WARNING (Token-2022 ScaledUiAmount):: `marketPrice` is treated as unscaled.
    * Passing back a scaled `pricePerToken` syncs the pool to the wrong bin.
    */
-  // TODO(scaled-ui-amount): un-scale `marketPrice`. See `getBinIdFromPrice`.
   public async syncWithMarketPrice(marketPrice: number, owner: PublicKey) {
     const marketPriceBinId = this.getBinIdFromPrice(
       Number(

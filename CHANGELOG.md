@@ -39,6 +39,7 @@ Prices in token space now apply the ScaledUiAmount multiplier, so they match wha
 | `toPricePerLamport` | Inverse-scaled, so it still round-trips with `fromPricePerLamport` |
 | `BinLiquidity.price`, `SwapQuote.endPrice` | Unchanged — lamport space |
 | All amount fields, and every value passed to an instruction | Unchanged |
+| Price *inputs* — `getBinIdFromPrice`, `getBinsBetweenMinAndMaxPrice`, `seedLiquidity`, `seedLiquiditySingleBin`, `canSyncWithMarketPrice`, `syncWithMarketPrice` | Unchanged — still accept raw (unscaled) prices. Convert a scaled `pricePerToken` with `toPricePerLamport` before passing it in |
 
 ### Fixed
 
@@ -54,10 +55,6 @@ Signature changes on exported internals. **No change is required if you use the 
 | `enumerateBins` | Requires a `PriceScale` argument | You iterate bins without going through `getBins*` |
 | `DynamicOracle` constructor | Requires a `PriceScale` argument | You call `new DynamicOracle(...)` instead of `dlmm.getOracle()` |
 | `CreateRebalancePositionParams` | Requires `baseMint` and `quoteMint` | You call `RebalancePosition.create()` instead of `dlmm.simulateRebalancePosition()` |
-
-### Known Issues
-
-- `getBinIdFromPrice`, `getBinsBetweenMinAndMaxPrice`, `seedLiquidity`, `seedLiquiditySingleBin`, `canSyncWithMarketPrice` and `syncWithMarketPrice` treat their `price` arguments as unscaled. Convert a scaled `pricePerToken` with `toPricePerLamport` before passing it in. Tracked by `TODO(scaled-ui-amount)` in `ts-client/src/dlmm/index.ts`.
 
 ## @meteora-ag/dlmm [1.9.14]
 
