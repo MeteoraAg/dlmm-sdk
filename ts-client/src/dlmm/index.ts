@@ -2638,8 +2638,7 @@ export class DLMM {
    * Reads the ScaledUiAmount multipliers of both mints of this pair, at the
    * timestamp of the clock that this instance was loaded with.
    *
-   * @return The scale for this pair. It is an identity scale if neither mint
-   *     carries the extension.
+   * @return The scale for this pair. It is an scale instance with default multiplier if neither mint carries the extension.
    */
   private getTokenScale(): TokenScale {
     return TokenScale.fromMints(
