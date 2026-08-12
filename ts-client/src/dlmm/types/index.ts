@@ -298,17 +298,6 @@ export interface BinLiquidity {
 }
 
 export module BinLiquidity {
-
-  function toPricePerToken(
-    pricePerLamport: string,
-    baseTokenDecimal: number,
-    quoteTokenDecimal: number,
-  ): string {
-    return new Decimal(pricePerLamport)
-      .mul(new Decimal(10 ** (baseTokenDecimal - quoteTokenDecimal)))
-      .toString();
-  }
-
   export function fromBin(
     bin: Bin,
     binId: number,
@@ -325,11 +314,9 @@ export module BinLiquidity {
     const xAmount = bin.amountX;
     const yAmount = bin.amountY;
     const supply = bin.liquiditySupply;
-    const pricePerToken = toPricePerToken(
-      pricePerLamport,
-      baseTokenDecimal,
-      quoteTokenDecimal,
-    );
+    const pricePerToken = new Decimal(pricePerLamport)
+      .mul(new Decimal(10 ** (baseTokenDecimal - quoteTokenDecimal)))
+      .toString();
     const pricePerTokenScaled = tokenScale.scalePriceString(pricePerToken);
     const feeAmountXPerTokenStored = bin.feeAmountXPerTokenStored;
     const feeAmountYPerTokenStored = bin.feeAmountYPerTokenStored;
@@ -392,11 +379,9 @@ export module BinLiquidity {
     tokenScale: TokenScale,
   ): BinLiquidity {
     const pricePerLamport = getPriceOfBinByBinId(binId, binStep).toString();
-    const pricePerToken = toPricePerToken(
-      pricePerLamport,
-      baseTokenDecimal,
-      quoteTokenDecimal,
-    );
+    const pricePerToken = new Decimal(pricePerLamport)
+      .mul(new Decimal(10 ** (baseTokenDecimal - quoteTokenDecimal)))
+      .toString();
 
     return {
       binId,
