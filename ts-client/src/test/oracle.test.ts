@@ -7,7 +7,7 @@ import {
 } from "../dlmm/helpers/oracle/wrapper";
 import { Oracle } from "../dlmm/types";
 import { getPriceOfBinByBinId } from "../dlmm/helpers/weight";
-import { PriceScale } from "../dlmm/helpers/token_2022";
+import { TokenScale } from "../dlmm/helpers/token_2022";
 import { mintWithScaledUiAmountMultiplier, mintWithoutExtensions } from "./scaled_ui_amount_helper";
 
 function obs(
@@ -32,7 +32,7 @@ function createOracle(params: {
   currentActiveBinId?: number;
   baseTokenDecimals?: number;
   quoteTokenDecimals?: number;
-  priceScale?: PriceScale;
+  tokenScale?: TokenScale;
 }): DynamicOracle {
   const metadata = {
     idx: new BN(params.idx),
@@ -48,7 +48,7 @@ function createOracle(params: {
     new BN(params.currentActiveBinId ?? 100),
     params.baseTokenDecimals ?? 9,
     params.quoteTokenDecimals ?? 6,
-    params.priceScale ?? PriceScale.identity()
+    params.tokenScale ?? TokenScale.default()
   );
 }
 
@@ -303,7 +303,7 @@ describe("DynamicOracle", () => {
 
     it("applies the ScaledUiAmount factor before flooring to quoteDecimals", () => {
       const scaledMint = mintWithScaledUiAmountMultiplier(2);
-      const priceScale = PriceScale.fromMints(
+      const tokenScale = TokenScale.fromMints(
         scaledMint,
         mintWithoutExtensions(),
         1_000
@@ -316,7 +316,7 @@ describe("DynamicOracle", () => {
         binStep: 10,
         baseTokenDecimals: 9,
         quoteTokenDecimals: 6,
-        priceScale,
+        tokenScale,
       });
       const result = oracle.getUiPriceByTime(new BN(100), new BN(300));
 
@@ -327,7 +327,7 @@ describe("DynamicOracle", () => {
       // unscaled magnitude and leave more than 6 decimal places.
       const expectedUiPrice = rawPrice
         .mul(uiMultiplier)
-        .mul(priceScale.factor)
+        .mul(tokenScale.priceFactor)
         .mul(quoteAdjustment)
         .floor()
         .div(quoteAdjustment);

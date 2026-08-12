@@ -25,21 +25,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added `PriceScale` and `getScaledUiAmountMultiplier` to read the Token-2022 [ScaledUiAmount](https://solana.com/docs/tokens/extensions/scaled-ui-amount) multiplier from a mint. `PriceScale.fromMints(baseMint, quoteMint, unixTimestamp)` returns the pair's price correction as a single factor (`quoteMultiplier / baseMultiplier`); `PriceScale.identity()` for pairs without the extension. Throws on a zero, negative or `NaN` multiplier.
+- Added `getScaledUiAmountMultiplier` to read the Token-2022 [ScaledUiAmount](https://solana.com/docs/tokens/extensions/scaled-ui-amount) multiplier from a mint. It throws on a zero, negative or `NaN` multiplier.
+- Added `TokenScale`, which holds the multiplier of each mint of a pair and applies them. `TokenScale.fromMints(baseMint, quoteMint, unixTimestamp)` reads both mints; `TokenScale.default()` is the no-op scale. An amount is scaled by the multiplier of its own mint, so `scaleAmount(amount, isBaseToken)` selects between `baseMultiplier` and `quoteMultiplier`; it returns a `Decimal`, which the caller rounds down before putting it in a `BN`. A price is quote per base, so it is scaled by `priceFactor`, the quote multiplier divided by the base multiplier (`scalePrice`, `unscalePrice`, `scalePriceString`).
+- Added `DLMM.fromPricePerLamportScale` and `DLMM.toPricePerLamportScale`. They are the scaled counterparts of `fromPricePerLamport` and `toPricePerLamport`: `fromPricePerLamportScale` applies the pair's price factor, `toPricePerLamportScale` removes it. The two round-trip with each other. For a pair whose mints do not carry the extension, they return the same values as the unscaled pair.
+- Added `*Scaled` fields that carry the ScaledUiAmount correction next to the raw value. **No existing field changes value** — every scaled value is a new field.
+
+| Type | New field | Multiplier used |
+| --- | --- | --- |
+| `BinLiquidity` | `pricePerTokenScaled` | price factor |
+| `PositionBinData` | `pricePerTokenScaled` | price factor |
+| `PositionBinData` | `positionXAmountScaled`, `positionFeeXAmountScaled` | base mint |
+| `PositionBinData` | `positionYAmountScaled`, `positionFeeYAmountScaled` | quote mint |
+| `PositionData` | `totalXAmountScaled`, `feeXScaled` | base mint |
+| `PositionData` | `totalYAmountScaled`, `feeYScaled` | quote mint |
+
+`feeXScaled` and `feeYScaled` are `BN`, so they round down to a whole lamport. The `string` fields keep the full fractional value.
 
 ### Changed
 
-Prices in token space now apply the ScaledUiAmount multiplier, so they match what a wallet displays. Pairs whose mints do not carry the extension are unaffected — every value below is byte-identical to 1.9.14.
+Prices and amounts in token space are unchanged. The ScaledUiAmount correction is exposed through the new `*Scaled` fields and the new `*Scale` methods listed above, never applied in place.
 
 | API | Behaviour |
 | --- | --- |
-| `pricePerToken` — from `getActiveBin`, `getBinsAroundActiveBin`, `getBinsBetweenMinAndMaxPrice`, `getPositionsByUserAndLbPair` | Scaled |
-| `fromPricePerLamport` | Scaled |
 | `getUiPriceByTime` (oracle) | Scaled |
-| `toPricePerLamport` | Inverse-scaled, so it still round-trips with `fromPricePerLamport` |
+| `pricePerToken` — from `getActiveBin`, `getBinsAroundActiveBin`, `getBinsBetweenMinAndMaxPrice`, `getPositionsByUserAndLbPair` | Unchanged — unscaled. Read `pricePerTokenScaled` for the displayed price |
+| `fromPricePerLamport`, `toPricePerLamport` | Unchanged — unscaled. Use `fromPricePerLamportScale` / `toPricePerLamportScale` for the scaled values |
+| `pricePerToken` — from `simulateRebalancePosition` and the other `RebalancePosition` paths | Unchanged — unscaled |
 | `BinLiquidity.price`, `SwapQuote.endPrice` | Unchanged — lamport space |
-| All amount fields, and every value passed to an instruction | Unchanged |
-| Price *inputs* — `getBinIdFromPrice`, `getBinsBetweenMinAndMaxPrice`, `seedLiquidity`, `seedLiquiditySingleBin`, `canSyncWithMarketPrice`, `syncWithMarketPrice` | Unchanged — still accept raw (unscaled) prices. Convert a scaled `pricePerToken` with `toPricePerLamport` before passing it in |
+| All existing amount fields, and every value passed to an instruction | Unchanged |
+| Price *inputs* — `getBinIdFromPrice`, `getBinsBetweenMinAndMaxPrice`, `seedLiquidity`, `seedLiquiditySingleBin` | Unchanged — still accept raw (unscaled) prices. Convert a `pricePerTokenScaled` with `toPricePerLamportScale` before passing it in |
+| `canSyncWithMarketPrice`, `syncWithMarketPrice` | Unchanged — `marketPrice` is a raw market price and carries no scale |
 
 ### Fixed
 
@@ -51,10 +66,10 @@ Signature changes on exported internals. **No change is required if you use the 
 
 | Symbol | Change | Affects you only if |
 | --- | --- | --- |
-| `BinLiquidity.fromBin`, `BinLiquidity.empty` | Require a `PriceScale` argument | You build `BinLiquidity` objects yourself |
-| `enumerateBins` | Requires a `PriceScale` argument | You iterate bins without going through `getBins*` |
-| `DynamicOracle` constructor | Requires a `PriceScale` argument | You call `new DynamicOracle(...)` instead of `dlmm.getOracle()` |
-| `CreateRebalancePositionParams` | Requires `baseMint` and `quoteMint` | You call `RebalancePosition.create()` instead of `dlmm.simulateRebalancePosition()` |
+| `BinLiquidity.fromBin`, `BinLiquidity.empty` | Require a `TokenScale` argument | You build `BinLiquidity` objects yourself |
+| `enumerateBins` | Requires a `TokenScale` argument | You iterate bins without going through `getBins*` |
+| `DynamicOracle` constructor | Requires a `TokenScale` argument | You call `new DynamicOracle(...)` instead of `dlmm.getOracle()` |
+| `BinLiquidity`, `PositionBinData`, `PositionData` | Gained the required `*Scaled` fields listed under Added | You build these objects yourself. Reading them is unaffected |
 
 ## @meteora-ag/dlmm [1.9.14]
 
