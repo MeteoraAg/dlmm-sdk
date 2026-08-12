@@ -1,5 +1,4 @@
 import { Program } from "@coral-xyz/anchor";
-import { Mint } from "@solana/spl-token";
 import { Connection, PublicKey, SYSVAR_CLOCK_PUBKEY } from "@solana/web3.js";
 import BN from "bn.js";
 import Decimal from "decimal.js";
@@ -34,7 +33,6 @@ import {
 } from "../binArray";
 import { getTotalFee } from "../fee";
 import { getQPriceBaseFactor, getQPriceFromId } from "../math";
-import { PriceScale } from "../token_2022";
 import { pow } from "../u64xu64_math";
 import { getPriceOfBinByBinId } from "../weight";
 
@@ -393,8 +391,6 @@ export interface CreateRebalancePositionParams {
   positionData: PositionData;
   shouldClaimFee: boolean;
   shouldClaimReward: boolean;
-  baseMint: Mint;
-  quoteMint: Mint;
 }
 
 export class RebalancePosition {
@@ -408,7 +404,6 @@ export class RebalancePosition {
   public rebalancePositionBinData: RebalancePositionBinData[];
   public activeBin: Bin | null;
   public currentTimestamp: BN;
-  private readonly priceScale: PriceScale;
 
   constructor(
     positionAddress: PublicKey,
@@ -418,7 +413,6 @@ export class RebalancePosition {
     shouldClaimFee: boolean,
     shouldClaimReward: boolean,
     currentTimestamp: BN,
-    priceScale: PriceScale,
   ) {
     this.address = positionAddress;
     this.rebalancePositionBinData = toRebalancePositionBinData(positionData);
@@ -430,7 +424,6 @@ export class RebalancePosition {
     this.owner = positionData.owner;
     this.activeBin = activeBin;
     this.currentTimestamp = currentTimestamp;
-    this.priceScale = priceScale;
   }
 
   static async create(
@@ -443,8 +436,6 @@ export class RebalancePosition {
       positionData,
       shouldClaimFee,
       shouldClaimReward,
-      baseMint,
-      quoteMint,
     } = params;
     const [lbPairAccount, clockAccount] =
       await program.provider.connection.getMultipleAccountsInfo([
@@ -487,12 +478,6 @@ export class RebalancePosition {
       shouldClaimFee,
       shouldClaimReward,
       clock.unixTimestamp,
-      // Same clock as `currentTimestamp` above — see `CreateRebalancePositionParams`.
-      PriceScale.fromMints(
-        baseMint,
-        quoteMint,
-        clock.unixTimestamp.toNumber(),
-      ),
     );
   }
 
@@ -712,7 +697,7 @@ export class RebalancePosition {
         this.rebalancePositionBinData.unshift({
           binId: binId.toNumber(),
           price: adjustedPrice.toString(),
-          pricePerToken: this.priceScale.scaleString(adjustedPrice.toString()),
+          pricePerToken: adjustedPrice.toString(),
           amountX: new BN(0),
           amountY: new BN(0),
           claimableRewardAmount: [new BN(0), new BN(0)],
@@ -740,7 +725,7 @@ export class RebalancePosition {
         this.rebalancePositionBinData.push({
           binId: binId.toNumber(),
           price: adjustedPrice.toString(),
-          pricePerToken: this.priceScale.scaleString(adjustedPrice.toString()),
+          pricePerToken: adjustedPrice.toString(),
           amountX: new BN(0),
           amountY: new BN(0),
           claimableRewardAmount: [new BN(0), new BN(0)],

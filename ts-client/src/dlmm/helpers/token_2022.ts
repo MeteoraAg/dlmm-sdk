@@ -301,79 +301,105 @@ export function getScaledUiAmountMultiplier(
   return ONE;
 }
 
-export class PriceScale {
-  private constructor(
-    public readonly factor: Decimal
-  ) {}
+/**
+ * The ScaledUiAmount multipliers of both mints of a pair, and the conversions
+ * that apply them.
+ *
+ * An amount is scaled by the multiplier of the mint that the amount belongs to.
+ * A price is quote per base, so it is scaled by the quote multiplier divided by
+ * the base multiplier.
+ */
+export class TokenScale {
+  /** The quote multiplier divided by the base multiplier. */
+  readonly priceFactor: Decimal;
 
-  /**
-   * A no-op scale, for mints without the extension
-   * @returns {PriceScale} a scale that leaves every price unchanged.
-   */
-  static identity(): PriceScale {
-    return new PriceScale(ONE);
+  private constructor(
+    readonly baseMultiplier: Decimal,
+    readonly quoteMultiplier: Decimal
+  ) {
+    this.priceFactor = quoteMultiplier.div(baseMultiplier);
   }
 
   /**
-   * Builds the scale for a pair from its two mints.
+   * Returns a scale whose multipliers are both 1, so it leaves every value
+   * unchanged. Use it for a pair whose mints do not carry the ScaledUiAmount
+   * extension.
+   */
+  static default(): TokenScale {
+    return new TokenScale(ONE, ONE);
+  }
+
+  /**
+   * Reads the multiplier of each mint of a pair.
    *
-   * @param {Mint} baseMint - the pair's base (X) mint.
-   * @param {Mint} quoteMint - the pair's quote (Y) mint.
-   * @param {number} unixTimestamp - on-chain unix timestamp, used to resolve a
-   * scheduled multiplier switch. Prefer `DLMM.clock.unixTimestamp` over
-   * wall-clock time, and use the same clock for every value derived alongside it.
-   * @returns {PriceScale} the correction for this pair.
-   * @throws {Error} if either mint carries an invalid multiplier.
+   * @param baseMint The base (X) mint of the pair.
+   * @param quoteMint The quote (Y) mint of the pair.
+   * @param unixTimestamp An on-chain unix timestamp. It resolves a scheduled
+   *     multiplier switch. Pass `DLMM.clock.unixTimestamp` instead of
+   *     wall-clock time, and pass the same value to every call in one read.
+   * @return The scale for the pair.
+   * @throws Error If either mint carries an invalid multiplier.
    */
   static fromMints(
     baseMint: Mint,
     quoteMint: Mint,
     unixTimestamp: number
-  ): PriceScale {
-    const baseMultiplier = getScaledUiAmountMultiplier(baseMint, unixTimestamp);
-    const quoteMultiplier = getScaledUiAmountMultiplier(
-      quoteMint,
-      unixTimestamp
+  ): TokenScale {
+    return new TokenScale(
+      getScaledUiAmountMultiplier(baseMint, unixTimestamp),
+      getScaledUiAmountMultiplier(quoteMint, unixTimestamp)
     );
-
-    if (baseMultiplier.eq(quoteMultiplier)) {
-      return PriceScale.identity();
-    }
-
-    return new PriceScale(quoteMultiplier.div(baseMultiplier));
   }
 
   /**
-   * @returns {boolean} true when this scale leaves every price unchanged.
+   * Converts a raw price to the price that a wallet displays.
+   *
+   * @param price A raw price, in token space.
+   * @return The displayed price.
    */
-  get isIdentity(): boolean {
-    return this.factor.eq(ONE);
+  scalePrice(price: Decimal): Decimal {
+    return price.mul(this.priceFactor);
   }
 
   /**
-   * Converts a raw token-space price to the price a person should see.
-   * @param {Decimal} price - an unscaled token-space price.
-   * @returns {Decimal} the displayed price.
+   * Converts a displayed price back to a raw price. It is the inverse of
+   * {@link scalePrice}.
+   *
+   * @param price A displayed price, in token space.
+   * @return The raw price.
    */
-  scale(price: Decimal): Decimal {
-    return this.isIdentity ? price : price.mul(this.factor);
+  unscalePrice(price: Decimal): Decimal {
+    return price.div(this.priceFactor);
   }
 
   /**
-   * Converts a displayed price back to the raw token-space price.
-   * @param {Decimal} price - a displayed token-space price.
-   * @returns {Decimal} the unscaled price.
+   * Applies {@link scalePrice} to a price held as a string. The string is
+   * returned unchanged if the price factor is 1.
+   *
+   * @param price A raw price, in token space.
+   * @return The displayed scaled price.
    */
-  unscale(price: Decimal): Decimal {
-    return this.isIdentity ? price : price.div(this.factor);
+  scalePriceString(price: string): string {
+    return this.priceFactor.eq(ONE)
+      ? price
+      : this.scalePrice(new Decimal(price)).toString();
   }
 
   /**
-   * {@link scale}, for the call sites that hold prices as strings.
-   * @param {string} price - an unscaled token-space price.
-   * @returns {string} the displayed price.
+   * Applies one of the pair's two multipliers to an amount.
+   *
+   * @param amount A raw amount.
+   * @param isBaseToken True if the amount is an amount of the base (X) token,
+   *     which uses {@link baseMultiplier}. False if it is an amount of the
+   *     quote (Y) token, which uses {@link quoteMultiplier}.
+   * @return The scaled amount, in the same unit. It is fractional if the
+   *     multiplier is fractional. Round it down before you put it in a `BN`.
    */
-  scaleString(price: string): string {
-    return this.isIdentity ? price : this.scale(new Decimal(price)).toString();
+  scaleAmount(amount: BN | Decimal, isBaseToken: boolean): Decimal {
+    const multiplier = isBaseToken ? this.baseMultiplier : this.quoteMultiplier;
+    const decimalAmount =
+      amount instanceof Decimal ? amount : new Decimal(amount.toString());
+
+    return decimalAmount.mul(multiplier);
   }
 }
