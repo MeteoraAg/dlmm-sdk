@@ -9688,7 +9688,6 @@ export class DLMM {
       this.tokenX.mint.decimals,
       this.tokenY.mint.decimals,
       this.program,
-      this.getTokenScale(),
     );
   }
 
