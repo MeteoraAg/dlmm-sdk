@@ -53,13 +53,8 @@ New `*Scaled` fields. Each one holds the scaled value next to the raw field. For
 
 ### Changed
 
-- `getUiPriceByTime` (oracle) now returns a scaled price.
-- All other prices and amounts are unchanged. `pricePerToken`, `BinLiquidity.price`, `SwapQuote.endPrice`, the existing amount fields, and every value passed to an instruction keep their current value. Read the matching `*Scaled` field for a scaled value.
+- No existing price or amount changes value. `pricePerToken`, `BinLiquidity.price`, `SwapQuote.endPrice`, the oracle TWAP methods, the existing amount fields, and every value passed to an instruction keep their current value. Read the matching `*Scaled` field for a scaled value.
 - Convert a scaled price with `toPricePerLamportScale` before you pass it in.
-
-### Fixed
-
-- Fixed `getUiPriceByTime`. It truncated to the decimals of the quote mint before it applied the scale, which returned more decimal places than documented.
 
 ### Breaking Changes
 
@@ -69,7 +64,6 @@ Signature changes on exported internals. No change is required if you use the `D
 | --- | --- | --- |
 | `BinLiquidity.fromBin`, `BinLiquidity.empty` | Require a `TokenScale` argument | You build `BinLiquidity` objects yourself |
 | `enumerateBins` | Requires a `TokenScale` argument | You iterate bins without `getBins*` |
-| `DynamicOracle` constructor, `wrapOracle` | Require a `TokenScale` argument | You call them instead of `dlmm.getOracle()` |
 | `BinLiquidity`, `PositionBinData`, `PositionData` | Gained the required `*Scaled` fields listed under Added | You build these objects yourself. Reading them is unaffected |
 
 ## @meteora-ag/dlmm [1.9.14]
