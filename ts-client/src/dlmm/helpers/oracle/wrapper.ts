@@ -54,9 +54,7 @@ export interface IDynamicOracle {
    */
   getPriceByTime(timePoint0: BN, timePoint1: BN): TwapResult<Decimal> | null;
   /**
-   * Computes the TWAP price adjusted for token decimals (human-readable)
-   * between two time points. The price carries no ScaledUiAmount correction.
-   * Multiply it by `TokenScale.priceFactor` to get the displayed price.
+   * Computes the TWAP price adjusted for token decimals (human-readable) between two time points.
    * @param timePoint0 - First time boundary.
    * @param timePoint1 - Second time boundary.
    * @returns The UI-friendly TWAP price and duration, or null if the range is not covered.

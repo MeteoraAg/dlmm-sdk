@@ -32,7 +32,6 @@ New symbols:
 | `getScaledUiAmountMultiplier(mint, unixTimestamp)` | Returns the effective multiplier of a mint, or `1` if the mint has no ScaledUiAmount extension. Throws if the multiplier is zero, negative or `NaN` |
 | `TokenScale` | Holds the multiplier of each mint of a pair and applies them |
 | `TokenScale.fromMints(baseMint, quoteMint, unixTimestamp)` | Reads the multiplier of both mints |
-| `TokenScale.default()` | Returns a scale that leaves every value unchanged |
 | `TokenScale.scaleAmount(amount, isBaseToken)` | Applies `baseMultiplier` or `quoteMultiplier`. Returns a `Decimal`. Round it down before you put it in a `BN` |
 | `TokenScale.scalePrice`, `unscalePrice`, `scalePriceString` | Apply `priceFactor`, which is the quote multiplier divided by the base multiplier. A price is quote per base |
 | `DLMM.fromPricePerLamportScale(pricePerLamport)` | Applies `priceFactor` to the result of `fromPricePerLamport` |
@@ -50,21 +49,6 @@ New `*Scaled` fields. Each one holds the scaled value next to the raw field. For
 | `PositionData` | `totalYAmountScaled`, `feeYScaled` | quote mint |
 
 `feeXScaled` and `feeYScaled` are `BN`, so they are rounded down to a whole lamport. The `string` fields keep the fraction.
-
-### Changed
-
-- No existing price or amount changes value. `pricePerToken`, `BinLiquidity.price`, `SwapQuote.endPrice`, the oracle TWAP methods, the existing amount fields, and every value passed to an instruction keep their current value. Read the matching `*Scaled` field for a scaled value.
-- Convert a scaled price with `toPricePerLamportScale` before you pass it in.
-
-### Breaking Changes
-
-Signature changes on exported internals. No change is required if you use the `DLMM` class, because it supplies these arguments itself.
-
-| Symbol | Change | Affects you only if |
-| --- | --- | --- |
-| `BinLiquidity.fromBin`, `BinLiquidity.empty` | Require a `TokenScale` argument | You build `BinLiquidity` objects yourself |
-| `enumerateBins` | Requires a `TokenScale` argument | You iterate bins without `getBins*` |
-| `BinLiquidity`, `PositionBinData`, `PositionData` | Gained the required `*Scaled` fields listed under Added | You build these objects yourself. Reading them is unaffected |
 
 ## @meteora-ag/dlmm [1.9.14]
 
