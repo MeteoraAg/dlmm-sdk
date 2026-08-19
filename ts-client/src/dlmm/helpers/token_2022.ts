@@ -321,15 +321,6 @@ export class TokenScale {
   }
 
   /**
-   * Returns a scale whose multipliers are both 1, so it leaves every value
-   * unchanged. Use it for a pair whose mints do not carry the ScaledUiAmount
-   * extension.
-   */
-  static default(): TokenScale {
-    return new TokenScale(ONE, ONE);
-  }
-
-  /**
    * Reads the multiplier of each mint of a pair.
    *
    * @param baseMint The base (X) mint of the pair.
