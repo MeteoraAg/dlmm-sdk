@@ -19,6 +19,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.9.15]
+
+Adds support for the Token-2022 [ScaledUiAmount](https://solana.com/docs/tokens/extensions/scaled-ui-amount) extension. Scaled prices and amounts are exposed in new fields and new methods. No existing field or method changes its value.
+
+### Added
+
+New symbols:
+
+| Symbol | Description |
+| --- | --- |
+| `getScaledUiAmountMultiplier(mint, unixTimestamp)` | Returns the effective multiplier of a mint, or `1` if the mint has no ScaledUiAmount extension. Throws if the multiplier is zero, negative or `NaN` |
+| `TokenScale` | Holds the multiplier of each mint of a pair and applies them |
+| `TokenScale.fromMints(baseMint, quoteMint, unixTimestamp)` | Reads the multiplier of both mints |
+| `TokenScale.scaleAmount(amount, isBaseToken)` | Applies `baseMultiplier` or `quoteMultiplier`. Returns a `Decimal`. Round it down before you put it in a `BN` |
+| `TokenScale.scalePrice`, `unscalePrice`, `scalePriceString` | Apply `priceFactor`, which is the quote multiplier divided by the base multiplier. A price is quote per base |
+| `DLMM.fromPricePerLamportScale(pricePerLamport)` | Applies `priceFactor` to the result of `fromPricePerLamport` |
+| `DLMM.toPricePerLamportScale(price)` | Removes `priceFactor`, then converts the price with `toPricePerLamport`. It round-trips with `fromPricePerLamportScale` |
+
+New `*Scaled` fields. Each one holds the scaled value next to the raw field. For a pair whose mints have no extension, the scaled value equals the raw value.
+
+| Type | New field | Multiplier |
+| --- | --- | --- |
+| `BinLiquidity` | `pricePerTokenScaled` | `priceFactor` |
+| `PositionBinData` | `pricePerTokenScaled` | `priceFactor` |
+| `PositionBinData` | `positionXAmountScaled`, `positionFeeXAmountScaled` | base mint |
+| `PositionBinData` | `positionYAmountScaled`, `positionFeeYAmountScaled` | quote mint |
+| `PositionData` | `totalXAmountScaled`, `feeXScaled` | base mint |
+| `PositionData` | `totalYAmountScaled`, `feeYScaled` | quote mint |
+
+`feeXScaled` and `feeYScaled` are `BN`, so they are rounded down to a whole lamport. The `string` fields keep the fraction.
+
 ## @meteora-ag/dlmm [1.9.14]
 
 ### Added

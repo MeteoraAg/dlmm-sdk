@@ -3,6 +3,7 @@ import {
   calculateFee,
   createTransferCheckedInstruction,
   getEpochFee,
+  getScaledUiAmountConfig,
   getTransferFeeConfig,
   getTransferHook,
   MAX_FEE_BASIS_POINTS,
@@ -19,6 +20,7 @@ import {
   PublicKey,
 } from "@solana/web3.js";
 import BN from "bn.js";
+import Decimal from "decimal.js";
 
 export async function getMultipleMintsExtraAccountMetasForTransferHook(
   connection: Connection,
@@ -232,4 +234,72 @@ export function calculateTransferFeeExcludedAmount(
     amount: transferFeeExcludedAmount,
     transferFee: new BN(transferFee.toString()),
   };
+}
+
+export function getScaledUiAmountMultiplier(
+  mint: Mint,
+  unixTimestamp: number
+): Decimal {
+  const config = getScaledUiAmountConfig(mint);
+  if (config === null) {
+    return new Decimal(1);
+  }
+
+  const effectiveMultiplier =
+    BigInt(unixTimestamp) >= config.newMultiplierEffectiveTimestamp
+      ? config.newMultiplier
+      : config.multiplier;
+
+  if (!Number.isFinite(effectiveMultiplier) || effectiveMultiplier <= 0) {
+    throw new Error(
+      `Invalid ScaledUiAmount multiplier ${effectiveMultiplier} for mint ${mint.address.toBase58()}`
+    );
+  }
+
+  return new Decimal(effectiveMultiplier);
+}
+
+export class TokenScale {
+  /** The quote multiplier divided by the base multiplier. */
+  readonly priceFactor: Decimal;
+
+  private constructor(
+    readonly baseMultiplier: Decimal,
+    readonly quoteMultiplier: Decimal
+  ) {
+    this.priceFactor = quoteMultiplier.div(baseMultiplier);
+  }
+
+  static fromMints(
+    baseMint: Mint,
+    quoteMint: Mint,
+    unixTimestamp: number
+  ): TokenScale {
+    return new TokenScale(
+      getScaledUiAmountMultiplier(baseMint, unixTimestamp),
+      getScaledUiAmountMultiplier(quoteMint, unixTimestamp)
+    );
+  }
+
+  scalePrice(price: Decimal): Decimal {
+    return price.mul(this.priceFactor);
+  }
+
+  unscalePrice(price: Decimal): Decimal {
+    return price.div(this.priceFactor);
+  }
+
+  scalePriceString(price: string): string {
+    return this.priceFactor.eq(new Decimal(1))
+      ? price
+      : this.scalePrice(new Decimal(price)).toString();
+  }
+
+  scaleAmount(amount: BN | Decimal, isBaseToken: boolean): Decimal {
+    const multiplier = isBaseToken ? this.baseMultiplier : this.quoteMultiplier;
+    const decimalAmount =
+      amount instanceof Decimal ? amount : new Decimal(amount.toString());
+
+    return decimalAmount.mul(multiplier);
+  }
 }
