@@ -32,7 +32,7 @@ jobs:
     needs: sdk_changed_files
     if: needs.sdk_changed_files.outputs.sdk == 'true'
     env:
-      RPC: ${{ secrets.RPC }}
+      RPC: ${{ 'https://api.mainnet-beta.solana.com' }}
     steps:
       - uses: actions/checkout@v2
       - uses: ./.github/actions/setup-solana
