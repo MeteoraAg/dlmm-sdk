@@ -195,6 +195,28 @@ describe("calculate_distribution", () => {
   });
 
   describe("spot distribution", () => {
+    test("returns a distribution summing to 10000 when the active bin is outside the range", () => {
+      // Bid side: every bin sits below the active bin, remainder of 1 bps.
+      const bid = calculateSpotDistribution(100, [50, 51, 52]);
+      const bidX = bid.reduce((a, d) => a + d.xAmountBpsOfTotal.toNumber(), 0);
+      const bidY = bid.reduce((a, d) => a + d.yAmountBpsOfTotal.toNumber(), 0);
+      expect(bidX).toBe(0);
+      expect(bidY).toBe(10_000);
+
+      // Larger remainder (10000 % 7 === 4): the whole remainder must go back to
+      // the edge bin, not a single bps.
+      const bid7 = calculateSpotDistribution(100, [50, 51, 52, 53, 54, 55, 56]);
+      const bid7Y = bid7.reduce((a, d) => a + d.yAmountBpsOfTotal.toNumber(), 0);
+      expect(bid7Y).toBe(10_000);
+
+      // Ask side: every bin sits above the active bin.
+      const ask = calculateSpotDistribution(100, [150, 151, 152]);
+      const askX = ask.reduce((a, d) => a + d.xAmountBpsOfTotal.toNumber(), 0);
+      const askY = ask.reduce((a, d) => a + d.yAmountBpsOfTotal.toNumber(), 0);
+      expect(askX).toBe(10_000);
+      expect(askY).toBe(0);
+    });
+
     test("should return correct distribution with equal delta", () => {
       const binIds = [1, 2, 3, 4, 5];
       const activeBin = 3;
