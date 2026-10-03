@@ -1,5 +1,7 @@
 # LB CLMM SDK
 
+[![Tracked on web3-discover](https://web3-discover.vercel.app/badge/meteora-met-season-2.svg)](https://web3-discover.vercel.app/airdrops/meteora-met-season-2)
+
 #### Quote Testing
 
 ```
