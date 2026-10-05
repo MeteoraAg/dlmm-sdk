@@ -795,7 +795,9 @@ class DLMM_CLIENT:
         activation_type: int,
         has_alpha_vault: bool,
         creator_key: Pubkey,
-        activation_point: Optional[int] = None
+        activation_point: Optional[int] = None,
+        *,
+        rpc: str,
     ) -> Transaction:
         
         if(type(bin_step) != int):
@@ -825,8 +827,11 @@ class DLMM_CLIENT:
         if(activation_point is not None and type(activation_point) != int):
             raise TypeError("activation_point must be of type `int`")
         
+        if type(rpc) != str:
+            raise TypeError("rpc must be of type `str`")
+
         try:
-            data = json.dumps({
+            payload = {
                 "binStep": bin_step,
                 "tokenX": str(token_x),
                 "tokenY": str(token_y),
@@ -836,9 +841,15 @@ class DLMM_CLIENT:
                 "hasAlphaVault": has_alpha_vault,
                 "creatorKey": str(creator_key),
                 "activationPoint": activation_point
-            })
-            result = requests.post(f"{API_URL}/dlmm/create-customizable-permissionless-lb-pair", data=data).json()
-            return convert_to_transaction(result)
+            }
+            response = requests.post(
+                f"{API_URL}/dlmm/create-customizable-permissionless-lb-pair",
+                json=payload,
+                headers={"rpc": rpc},
+                timeout=30,
+            )
+            response.raise_for_status()
+            return convert_to_transaction(response.json())
 
         except requests.exceptions.HTTPError as e:
             raise HTTPError(f"Error creating customizable permissionless lb pair: {e}")
