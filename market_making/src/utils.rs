@@ -2,6 +2,7 @@ use crate::*;
 use anchor_spl::associated_token::get_associated_token_address_with_program_id;
 use commitment_config::CommitmentConfig;
 use dlmm::events::Swap as SwapEvent;
+use solana_client::rpc_config::RpcSimulateTransactionConfig;
 use solana_client::rpc_response::{Response, RpcSimulateTransactionResult};
 use solana_sdk::instruction::Instruction;
 use solana_transaction_status::option_serializer::OptionSerializer;
@@ -64,13 +65,15 @@ pub async fn send_tx(
 ) -> Result<Signature> {
     let latest_blockhash = rpc_client.get_latest_blockhash().await?;
 
-    let mut tx = Transaction::new_signed_with_payer(
-        instructions,
-        Some(&payer.pubkey()),
-        keypairs,
-        latest_blockhash,
-    );
-    tx.sign(&[payer], latest_blockhash);
+    let mut tx = Transaction::new_with_payer(instructions, Some(&payer.pubkey()));
+    let mut signing_keypairs = keypairs.to_vec();
+    if !signing_keypairs
+        .iter()
+        .any(|keypair| keypair.pubkey() == payer.pubkey())
+    {
+        signing_keypairs.push(payer);
+    }
+    tx.try_sign(&signing_keypairs, latest_blockhash)?;
 
     let signature = rpc_client.send_and_confirm_transaction(&tx).await?;
 
@@ -85,9 +88,18 @@ pub async fn simulate_transaction(
 ) -> Result<Response<RpcSimulateTransactionResult>> {
     let latest_blockhash = rpc_client.get_latest_blockhash().await?;
 
-    let tx =
-        Transaction::new_signed_with_payer(&instructions, Some(&payer), keypairs, latest_blockhash);
-    let simulation = rpc_client.simulate_transaction(&tx).await?;
+    let mut tx = Transaction::new_with_payer(instructions, Some(&payer));
+    tx.try_partial_sign(keypairs, latest_blockhash)?;
+    let simulation = rpc_client
+        .simulate_transaction_with_config(
+            &tx,
+            RpcSimulateTransactionConfig {
+                sig_verify: false,
+                commitment: Some(rpc_client.commitment()),
+                ..Default::default()
+            },
+        )
+        .await?;
 
     Ok(simulation)
 }

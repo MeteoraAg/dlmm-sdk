@@ -682,6 +682,10 @@ impl Core {
             )
             .await?;
 
+            if let Some(err) = simulate_tx.value.err.as_ref() {
+                return Err(Error::msg(format!("Deposit simulation failed: {err:?}")));
+            }
+
             info!("Deposit {amount_x} {amount_y} {position} {:?}", simulate_tx);
         } else {
             let signature = send_tx(&instructions, &rpc_client, &[&position_kp], &payer).await?;
@@ -826,16 +830,8 @@ impl Core {
 
         // deposit again, just test with 1 position only
         info!("deposit {}", state.lb_pair);
-        match self
-            .deposit(state, amount_x, amount_y, lb_pair_state.active_id, false)
-            .await
-        {
-            Err(_) => {
-                self.deposit(state, amount_x, amount_y, lb_pair_state.active_id, true)
-                    .await?;
-            }
-            _ => {}
-        }
+        self.deposit(state, amount_x, amount_y, lb_pair_state.active_id, false)
+            .await?;
         info!("refresh state {}", state.lb_pair);
         // fetch positions again
         self.refresh_state().await?;
@@ -876,16 +872,8 @@ impl Core {
         // sanity check with real balances
         let (amount_x, amount_y) = self.get_deposit_amount(state, amount_x, amount_y).await?;
         info!("deposit {}", state.lb_pair);
-        match self
-            .deposit(state, amount_x, amount_y, lb_pair_state.active_id, false)
-            .await
-        {
-            Err(_) => {
-                self.deposit(state, amount_x, amount_y, lb_pair_state.active_id, true)
-                    .await?;
-            }
-            _ => {}
-        }
+        self.deposit(state, amount_x, amount_y, lb_pair_state.active_id, false)
+            .await?;
 
         info!("refresh state {}", state.lb_pair);
         // fetch positions again
