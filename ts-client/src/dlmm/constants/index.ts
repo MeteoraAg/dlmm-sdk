@@ -36,14 +36,14 @@ export const MAX_FEE_RATE = new BN(100_000_000);
 // Bin array version 3 is release_0.11.0 which support limit order.
 export const BIN_ARRAY_DEFAULT_VERSION = 3;
 
-// https://solscan.io/tx/5JgHgEiVoqV61p3SASYzP4gnedvYFLhewPchBdFgPQZjHEiitjZCqs8u4rXyDYnGJ9zqAscknv9NoBiodsfDE1qR
-export const BIN_ARRAY_FEE = 0.07143744;
-// https://solscan.io/tx/37yEmHsTU6tKjUc6iGG8GPiEuPHxiyBezwexsnnsqXQQKuDgwsNciEzkQZFWJShcdLpfug5xqNBPJkzit7eWvkDD
-export const POSITION_FEE = 0.05740608;
-export const TOKEN_ACCOUNT_FEE = 0.00203928;
-// https://solscan.io/tx/4QkTyVZbZgS3Go7ksEWzmHef7SBVgoJ8Fjjxk3eL9LZBBmrXHJarVM4TPy5Nq3XcjwdhWALeCCbL7xonExBGpNry
-export const POOL_FEE = 0.00718272;
-export const BIN_ARRAY_BITMAP_FEE = 0.01180416;
+// https://solscan.io/tx/214YL6DULEBs6cURSXfb2DJT1shcv6Us2yXtU5bz1wpfc1EJxREiUBvHC8zCP5koFUcEg53RY5UwNMBv1p1mhjiS
+export const BIN_ARRAY_FEE = 0.05214112;
+// https://solscan.io/tx/5JYQFRB4R6SrF1DXBXKnkRf1qooCrMRpnSAv6D6MzMK98ih8gRtwToh3WRtNcDkvDw8pqtDvGZ9tyZrdXXZLJgd9
+export const POSITION_FEE = 0.04189984;
+export const TOKEN_ACCOUNT_FEE = 0.00148844;
+// https://solscan.io/tx/62bkPjKdoByqa5J65z8RQSTZ9tvyXi6x5GLEfkCuQbJgviCAMWqmsyXn5sbuRmkKZy2zkBzitSRUvKsxFxBbJdn4
+export const POOL_FEE = 0.00524256;
+export const BIN_ARRAY_BITMAP_FEE = 0.00861568;
 
 export const BIN_ARRAY_FEE_BN = new BN(
   new Decimal(BIN_ARRAY_FEE).mul(LAMPORTS_PER_SOL).toString(),
