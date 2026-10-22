@@ -174,6 +174,24 @@ export function derivePosition(
   );
 }
 
+/**
+ * Derives the BinArray PDA for a given lb pair and bin array index.
+ *
+ * Seeds: `["bin_array", lb_pair, index_i64_le]`
+ *
+ * The index is a signed 64-bit integer encoded as 8 bytes, little-endian.
+ * Negative indices use two's complement:
+ * `-5` -> `fb ff ff ff ff ff ff ff`, `-8` -> `f8 ff ff ff ff ff ff ff`.
+ *
+ * Note: the absolute value must NOT be used for negative indices. `abs(-5)`
+ * produces the same seed bytes as `+5`, which would silently resolve to a
+ * different bin array's address.
+ *
+ * @param lbPair The lb pair the bin array belongs to.
+ * @param index The signed bin array index (not the bin id).
+ * @param programId The lb_clmm program id.
+ * @returns The bin array address and its bump seed.
+ */
 export function deriveBinArray(
   lbPair: PublicKey,
   index: BN,

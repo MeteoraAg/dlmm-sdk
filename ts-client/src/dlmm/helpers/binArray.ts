@@ -94,9 +94,12 @@ function findSetBit(
   binArrayBitmapExtension: BinArrayBitmapExtension,
 ): number | null {
   const getBinArrayOffset = (binArrayIndex: BN) => {
+    // Use umod: bn.js `mod` keeps the sign of the dividend, so `(-1).mod(512)`
+    // is `-1` instead of `511`. For bin array index 0 that produced a negative
+    // bit offset.
     return binArrayIndex.gt(new BN(0))
-      ? binArrayIndex.mod(BIN_ARRAY_BITMAP_SIZE)
-      : binArrayIndex.add(new BN(1)).neg().mod(BIN_ARRAY_BITMAP_SIZE);
+      ? binArrayIndex.umod(BIN_ARRAY_BITMAP_SIZE)
+      : binArrayIndex.add(new BN(1)).neg().umod(BIN_ARRAY_BITMAP_SIZE);
   };
 
   const getBitmapOffset = (binArrayIndex: BN) => {
