@@ -19,6 +19,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## @meteora-ag/dlmm [1.9.15]
+
+### Added
+
+- Adds support for the Token-2022 [ScaledUiAmount](https://solana.com/docs/tokens/extensions/scaled-ui-amount) extension. Scaled prices and amounts are exposed in new fields and new methods. No existing field or method changes its value.
+  - New methods: `getScaledUiAmountMultiplier`, the `TokenScale` class, `DLMM.fromPricePerLamportScale` and `DLMM.toPricePerLamportScale`.
+  - New fields: `pricePerTokenScaled` on `BinLiquidity` and `PositionBinData`, plus a `*Scaled` copy of each amount and fee field on `PositionBinData` and `PositionData`. They equal the raw values when a mint has no extension.
+
 ## @meteora-ag/dlmm [1.9.14]
 
 ### Added
