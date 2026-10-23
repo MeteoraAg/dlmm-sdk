@@ -1,5 +1,5 @@
 import { GetProgramAccountsFilter, PublicKey } from "@solana/web3.js";
-import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
+import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes/index.js";
 import BN from "bn.js";
 import { getAccountDiscriminator } from ".";
 
