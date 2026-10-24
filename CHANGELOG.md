@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed `chunkDepositWithRebalanceEndpoint` choosing the parallel shrink mode by `chunkBinRange.length` (the function's parameter count) instead of the number of chunks, so the last chunk now gets `NoShrinkLeft` for any chunk count.
+
 ### Security
 
 ## @meteora-ag/dlmm [1.9.15]
