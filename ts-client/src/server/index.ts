@@ -1,5 +1,6 @@
 import { Connection, PublicKey } from "@solana/web3.js";
 import express from "express";
+import helmet from "helmet";
 import { DLMM } from "../dlmm";
 import { BinArrayAccount, LbPosition } from "../dlmm/types";
 import { BN } from "bn.js";
@@ -25,6 +26,7 @@ declare global {
 }
 
 const app = express();
+app.use(helmet());
 app.use(express.urlencoded());
 app.use(express.json());
 app.use(function (req, res, next) {
