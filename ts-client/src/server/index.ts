@@ -31,7 +31,12 @@ app.use(function (req, res, next) {
   console.log(req.method, req.url);
   console.log(req.body);
 
-  req.pool = new PublicKey(req.headers.pool as string);
+  const isPoolCreation =
+    req.method === "POST" &&
+    req.path === "/dlmm/create-customizable-permissionless-lb-pair";
+  if (!isPoolCreation) {
+    req.pool = new PublicKey(req.headers.pool as string);
+  }
   req.rpc = req.headers.rpc as string;
   req.connect = new Connection(req.rpc, "finalized");
   next();
@@ -115,7 +120,7 @@ app.post(
       const collectFeeMode = req.body.collectFeeMode
         ? parseInt(req.body.collectFeeMode)
         : CollectFeeMode.InputOnly;
-      const transaction = DLMM.createCustomizablePermissionlessLbPair(
+      const transaction = await DLMM.createCustomizablePermissionlessLbPair(
         req.connect,
         binStep,
         tokenX,
@@ -130,7 +135,16 @@ app.post(
         concreteFunctionType,
         collectFeeMode,
       );
-      return res.status(200).send(safeStringify(transaction));
+      const { blockhash, lastValidBlockHeight } =
+        await req.connect.getLatestBlockhash();
+      transaction.feePayer = creatorKey;
+      transaction.recentBlockhash = blockhash;
+      transaction.lastValidBlockHeight = lastValidBlockHeight;
+      const transactionData = JSON.parse(safeStringify(transaction));
+      return res.status(200).send({
+        ...transactionData,
+        lastValidBlockHeight,
+      });
     } catch (error) {
       console.log(error);
       return res.status(400).send(error);
