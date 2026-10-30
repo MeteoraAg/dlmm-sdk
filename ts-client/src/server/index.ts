@@ -306,7 +306,7 @@ app.post("/dlmm/close-position", async (req, res) => {
 
 app.post("/dlmm/get-bin-array-for-swap", async (req, res) => {
   try {
-    const swapYtoX = Boolean(req.body.swapYtoX);
+    const swapYtoX = Boolean(req.body.swapYToX ?? req.body.swapYtoX);
     const count = parseInt(req.body.count);
 
     const poolAddress = req.pool;
