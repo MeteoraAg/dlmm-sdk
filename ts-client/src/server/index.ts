@@ -4,15 +4,13 @@ import { DLMM } from "../dlmm";
 import { BinArrayAccount, LbPosition } from "../dlmm/types";
 import { BN } from "bn.js";
 import { convertToPosition } from "./utils";
+import { deserializeBin, serializeBin } from "./bin";
 import {
   CollectFeeMode,
   ConcreteFunctionType,
   FunctionType,
 } from "../dlmm/constants";
-import {
-  decodeRewardPerTokenStored,
-  isSupportLimitOrder,
-} from "../dlmm/helpers";
+import { isSupportLimitOrder } from "../dlmm/helpers";
 
 declare global {
   namespace Express {
@@ -24,7 +22,7 @@ declare global {
   }
 }
 
-const app = express();
+export const app = express();
 app.use(express.urlencoded());
 app.use(express.json());
 app.use(function (req, res, next) {
@@ -318,20 +316,9 @@ app.post("/dlmm/get-bin-array-for-swap", async (req, res) => {
         account: {
           ...binArray.account,
           index: binArray.account.index.toString("hex"),
-          bins: binArray.account.bins.map((bin) => ({
-            amountX: bin.amountX.toString("hex"),
-            amountY: bin.amountY.toString("hex"),
-            feeAmountXPerTokenStored:
-              bin.feeAmountXPerTokenStored.toString("hex"),
-            feeAmountYPerTokenStored:
-              bin.feeAmountYPerTokenStored.toString("hex"),
-            liquiditySupply: bin.liquiditySupply.toString("hex"),
-            price: bin.price.toString("hex"),
-            rewardPerTokenStored: (supportLimitOrder
-              ? [new BN(0), new BN(0)]
-              : decodeRewardPerTokenStored(bin)
-            ).map((r) => r.toString("hex")),
-          })),
+          bins: binArray.account.bins.map((bin) =>
+            serializeBin(bin, supportLimitOrder),
+          ),
         },
       }),
     );
@@ -348,29 +335,22 @@ app.post("/dlmm/swap-quote", async (req, res) => {
     const swapYtoX = req.body.swapYToX;
     const swapAmount = new BN(req.body.amount);
     const allowedSlippage = new BN(req.body.allowedSlippage);
+    const poolAddress = req.pool;
+    const dlmm = await DLMM.create(req.connect, poolAddress);
+    const supportLimitOrder = isSupportLimitOrder(dlmm.lbPair);
     const binArrays: BinArrayAccount[] = req.body.binArrays.map((bin) => ({
       publicKey: new PublicKey(bin["publicKey"]),
       account: {
         ...bin["account"],
         index: new BN(bin["account"]["index"], 16),
         lbPair: new PublicKey(bin["account"]["lbPair"]),
-        bins: bin["account"]["bins"].map((b) => ({
-          amountX: new BN(b["amountX"], 16),
-          amountY: new BN(b["amountY"], 16),
-          feeAmountXPerTokenStored: new BN(b["feeAmountXPerTokenStored"], 16),
-          feeAmountYPerTokenStored: new BN(b["feeAmountYPerTokenStored"], 16),
-          liquiditySupply: new BN(b["liquiditySupply"], 16),
-          price: new BN(b["price"], 16),
-          rewardPerTokenStored: b["rewardPerTokenStored"].map(
-            (r) => new BN(r, 16),
-          ),
-        })),
+        bins: bin["account"]["bins"].map((b) =>
+          deserializeBin(b, supportLimitOrder),
+        ),
       },
     }));
     const isPartialFill = req.body.isPartialFilled;
 
-    const poolAddress = req.pool;
-    const dlmm = await DLMM.create(req.connect, poolAddress);
     // const binArrays = await dlmm.getBinArrayForSwap(swapYtoX, 10); // TEMP SOLUTION
     const quote = dlmm.swapQuote(
       swapAmount,
@@ -438,18 +418,7 @@ app.get("/dlmm/get-bin-arrays", async (req, res) => {
       account: {
         ...bin.account,
         index: bin.account.index.toString("hex"),
-        bins: bin.account.bins.map((b) => ({
-          amountX: b.amountX.toString("hex"),
-          amountY: b.amountY.toString("hex"),
-          feeAmountXPerTokenStored: b.feeAmountXPerTokenStored.toString("hex"),
-          feeAmountYPerTokenStored: b.feeAmountYPerTokenStored.toString("hex"),
-          liquiditySupply: b.liquiditySupply.toString("hex"),
-          price: b.price.toString("hex"),
-          rewardPerTokenStored: (supportLimitOrder
-            ? [new BN(0), new BN(0)]
-            : decodeRewardPerTokenStored(b)
-          ).map((r) => r.toString("hex")),
-        })),
+        bins: bin.account.bins.map((b) => serializeBin(b, supportLimitOrder)),
       },
     }));
     return res.status(200).send(safeStringify(binArray));
@@ -624,6 +593,8 @@ app.post("/dlmm/claim-all-rewards", async (req, res) => {
   }
 });
 
-app.listen(3000, () => {
-  console.log("Server is running on http://localhost:3000");
-});
+if (require.main === module) {
+  app.listen(3000, () => {
+    console.log("Server is running on http://localhost:3000");
+  });
+}
