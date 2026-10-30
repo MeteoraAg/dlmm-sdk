@@ -227,6 +227,40 @@ describe("Python bridge bin round trips", () => {
   );
 
   it.each([
+    ["/dlmm/get-bin-array-for-swap", true],
+    ["/dlmm/get-bin-array-for-swap", false],
+    ["/dlmm/get-bin-arrays", true],
+    ["/dlmm/get-bin-arrays", false],
+  ])(
+    "quotes processed-only order liquidity from %s in the %s direction",
+    async (route, swapForY) => {
+      const bin = arrays[0].account.bins[69];
+      bin.processedOrderRemainingAmount = new BN(1500);
+      bin.limitOrderAskSide = swapForY ? 0 : 1;
+      const expected = client.swapQuote(
+        new BN(1000),
+        swapForY,
+        new BN(0),
+        arrays,
+      );
+
+      const wire = await fetchArrays(route);
+      const response = await quote(wire, swapForY);
+      expect(response.status).toBe(200);
+      for (const field of [
+        "consumedInAmount",
+        "outAmount",
+        "fee",
+        "protocolFee",
+        "minOutAmount",
+      ] as const) {
+        expect(new BN(response.body[field], 16).eq(expected[field])).toBe(true);
+      }
+      expect(new BN(response.body.outAmount, 16).toNumber()).toBe(1000);
+    },
+  );
+
+  it.each([
     "openOrderAmount",
     "processedOrderRemainingAmount",
     "limitOrderAskSide",
