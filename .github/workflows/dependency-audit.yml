@@ -34,8 +34,8 @@ jobs:
         working-directory: ts-client
         shell: bash
 
-  # advisories of every dependency, dev ones included, of ts-client and the root package.json.
-  # Ignored ones are in ts-client/osv-scanner.toml
+  # advisories of every dependency, dev ones included, of ts-client, the root package.json and
+  # python-client. Ignored ones are in ts-client/osv-scanner.toml
   osv_scanner:
     runs-on: ubuntu-latest
     steps:
@@ -50,3 +50,5 @@ jobs:
             ts-client/pnpm-lock.yaml
             -L
             package-lock.json
+            -L
+            python-client/dlmm/poetry.lock
