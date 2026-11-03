@@ -213,7 +213,7 @@ impl LbPairExtension for LbPair {
         .context("overflow")?;
 
         ensure!(
-            next_active_bin_id >= MIN_BIN_ID && next_active_bin_id <= MAX_BIN_ID,
+            (MIN_BIN_ID..=MAX_BIN_ID).contains(&next_active_bin_id),
             "Insufficient liquidity"
         );
 
@@ -304,29 +304,29 @@ impl LbPairExtension for LbPair {
                 bin_array_bitmap.shl(bitmap_range.checked_sub(array_offset).context("overflow")?);
 
             if offset_bit_map.eq(&U1024::ZERO) {
-                return Ok((min_bitmap_id.checked_sub(1).context("overflow")?, false));
+                Ok((min_bitmap_id.checked_sub(1).context("overflow")?, false))
             } else {
                 let next_bit = offset_bit_map.leading_zeros();
-                return Ok((
+                Ok((
                     start_array_index
                         .checked_sub(next_bit as i32)
                         .context("overflow")?,
                     true,
-                ));
+                ))
             }
         } else {
             let offset_bit_map = bin_array_bitmap.shr(array_offset);
             if offset_bit_map.eq(&U1024::ZERO) {
-                return Ok((max_bitmap_id.checked_add(1).context("overflow")?, false));
+                Ok((max_bitmap_id.checked_add(1).context("overflow")?, false))
             } else {
                 let next_bit = offset_bit_map.trailing_zeros();
-                return Ok((
+                Ok((
                     start_array_index
                         .checked_add(next_bit as i32)
                         .context("overflow")?,
                     true,
-                ));
-            };
+                ))
+            }
         }
     }
 }

@@ -3,6 +3,7 @@ name = "market_making"
 version = "0.0.1"
 description = "Market making bot"
 edition = "2021"
+publish = false
 authors = ["andrew <andrew@racoons.dev>"]
 
 [dependencies]

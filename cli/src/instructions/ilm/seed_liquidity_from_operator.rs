@@ -1,4 +1,4 @@
-use std::{collections::HashMap, ops::Index, u64};
+use std::{collections::HashMap, ops::Index};
 
 use crate::*;
 use anchor_lang::{prelude::Clock, AccountDeserialize};
@@ -712,6 +712,7 @@ pub async fn execute_seed_liquidity_by_operator<C: Deref<Target = impl Signer> +
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn get_bin_deposit_amount(
     amount: u64,
     bin_step: u16,
@@ -746,12 +747,12 @@ fn get_bin_deposit_amount(
 
     assert!(c1 > c0);
 
-    let amount_into_bin = c1 - c0;
-    amount_into_bin
+    c1 - c0
 }
 
 // c(p) = 5 * 10^8 ((p - 0.1)/0.7) ^ 1.25, where P = ui price
 // c(p) = 5 * 10^8 ((p - min_price)/(max_price - min_price)) ^ 1.25
+#[allow(clippy::too_many_arguments)]
 fn get_c(
     amount: u64,
     bin_step: u16,
@@ -774,6 +775,7 @@ fn get_c(
     c as u64
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn generate_amount_for_bins(
     bin_step: u16,
     min_bin_id: i32,

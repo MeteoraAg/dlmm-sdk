@@ -68,7 +68,7 @@ impl Core {
             let mut max_bin_id = 0;
             let mut bin_arrays = HashMap::new();
 
-            if position_key_with_state.len() > 0 {
+            if !position_key_with_state.is_empty() {
                 // sort position by bin id
                 position_key_with_state
                     .sort_by(|(_, a), (_, b)| a.lower_bin_id.cmp(&b.lower_bin_id));
@@ -187,7 +187,7 @@ impl Core {
 
     // withdraw all positions
     pub async fn withdraw(&self, state: &SinglePosition, is_simulation: bool) -> Result<()> {
-        if state.position_pks.len() == 0 {
+        if state.position_pks.is_empty() {
             return Ok(());
         }
 
@@ -747,7 +747,7 @@ impl Core {
     pub fn get_all_positions(&self) -> Vec<SinglePosition> {
         let state = self.state.lock().unwrap();
         let mut positions = vec![];
-        for (_, position) in &state.all_positions {
+        for position in state.all_positions.values() {
             positions.push(position.clone());
         }
         positions
@@ -767,23 +767,23 @@ impl Core {
             if pair_config.mode == MarketMakingMode::ModeRight
                 && lb_pair_state.active_id > position.max_bin_id
             {
-                self.shift_right(&position).await?;
+                self.shift_right(position).await?;
                 self.inc_rebalance_time(position.lb_pair);
             }
 
             if pair_config.mode == MarketMakingMode::ModeLeft
                 && lb_pair_state.active_id < position.min_bin_id
             {
-                self.shift_left(&position).await?;
+                self.shift_left(position).await?;
                 self.inc_rebalance_time(position.lb_pair);
             }
 
             if pair_config.mode == MarketMakingMode::ModeBoth {
                 if lb_pair_state.active_id < position.min_bin_id {
-                    self.shift_left(&position).await?;
+                    self.shift_left(position).await?;
                     self.inc_rebalance_time(position.lb_pair);
                 } else if lb_pair_state.active_id > position.max_bin_id {
-                    self.shift_right(&position).await?;
+                    self.shift_right(position).await?;
                     self.inc_rebalance_time(position.lb_pair);
                 }
             }
@@ -826,15 +826,13 @@ impl Core {
 
         // deposit again, just test with 1 position only
         info!("deposit {}", state.lb_pair);
-        match self
+        if self
             .deposit(state, amount_x, amount_y, lb_pair_state.active_id, false)
             .await
+            .is_err()
         {
-            Err(_) => {
-                self.deposit(state, amount_x, amount_y, lb_pair_state.active_id, true)
-                    .await?;
-            }
-            _ => {}
+            self.deposit(state, amount_x, amount_y, lb_pair_state.active_id, true)
+                .await?;
         }
         info!("refresh state {}", state.lb_pair);
         // fetch positions again
@@ -876,15 +874,13 @@ impl Core {
         // sanity check with real balances
         let (amount_x, amount_y) = self.get_deposit_amount(state, amount_x, amount_y).await?;
         info!("deposit {}", state.lb_pair);
-        match self
+        if self
             .deposit(state, amount_x, amount_y, lb_pair_state.active_id, false)
             .await
+            .is_err()
         {
-            Err(_) => {
-                self.deposit(state, amount_x, amount_y, lb_pair_state.active_id, true)
-                    .await?;
-            }
-            _ => {}
+            self.deposit(state, amount_x, amount_y, lb_pair_state.active_id, true)
+                .await?;
         }
 
         info!("refresh state {}", state.lb_pair);
@@ -911,7 +907,7 @@ impl Core {
             let position_raw = position.get_positions()?;
             position_infos.push(position_raw.to_position_info(x_decimals, y_decimals)?);
         }
-        return Ok(position_infos);
+        Ok(position_infos)
     }
 }
 

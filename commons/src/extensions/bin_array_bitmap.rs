@@ -20,10 +20,10 @@ pub trait BinArrayBitmapExtExtension {
 
 impl BinArrayBitmapExtExtension for BinArrayBitmapExtension {
     fn bitmap_range() -> (i32, i32) {
-        return (
+        (
             -BIN_ARRAY_BITMAP_SIZE * (EXTENSION_BINARRAY_BITMAP_SIZE as i32 + 1),
             BIN_ARRAY_BITMAP_SIZE * (EXTENSION_BINARRAY_BITMAP_SIZE as i32 + 1) - 1,
-        );
+        )
     }
 
     fn next_bin_array_index_with_liquidity(
@@ -35,13 +35,13 @@ impl BinArrayBitmapExtExtension for BinArrayBitmapExtension {
         if start_index > 0 {
             if swap_for_y {
                 match self.iter_bitmap(start_index, BIN_ARRAY_BITMAP_SIZE)? {
-                    Some(value) => return Ok((value, true)),
-                    None => return Ok((BIN_ARRAY_BITMAP_SIZE - 1, false)),
+                    Some(value) => Ok((value, true)),
+                    None => Ok((BIN_ARRAY_BITMAP_SIZE - 1, false)),
                 }
             } else {
                 match self.iter_bitmap(start_index, max_bit_map_id)? {
-                    Some(value) => return Ok((value, true)),
-                    None => return Err(anyhow!("Cannot find non-zero liquidity bin array id")),
+                    Some(value) => Ok((value, true)),
+                    None => Err(anyhow!("Cannot find non-zero liquidity bin array id")),
                 }
             }
         } else if swap_for_y {
@@ -61,7 +61,7 @@ impl BinArrayBitmapExtExtension for BinArrayBitmapExtension {
         let (_, bin_array_bitmap) = self.get_bitmap(bin_array_index)?;
         let bin_array_offset_in_bitmap = Self::bin_array_offset_in_bitmap(bin_array_index)?;
         let bin_array_bitmap = U512::from_limbs(bin_array_bitmap);
-        Ok(bin_array_bitmap.bit(bin_array_offset_in_bitmap as usize))
+        Ok(bin_array_bitmap.bit(bin_array_offset_in_bitmap))
     }
 
     fn get_bitmap(&self, bin_array_index: i32) -> Result<(usize, [u64; 8])> {
@@ -125,8 +125,7 @@ impl BinArrayBitmapExtExtension for BinArrayBitmapExtension {
                     let mut bin_array_bitmap = U512::from_limbs(self.negative_bin_array_bitmap[i]);
 
                     if i == offset {
-                        bin_array_bitmap = bin_array_bitmap
-                            << BIN_ARRAY_BITMAP_SIZE as usize - bin_array_offset - 1;
+                        bin_array_bitmap <<= BIN_ARRAY_BITMAP_SIZE as usize - bin_array_offset - 1;
                         if bin_array_bitmap.eq(&U512::ZERO) {
                             continue;
                         }
@@ -155,7 +154,7 @@ impl BinArrayBitmapExtExtension for BinArrayBitmapExtension {
                 for i in offset..EXTENSION_BINARRAY_BITMAP_SIZE {
                     let mut bin_array_bitmap = U512::from_limbs(self.negative_bin_array_bitmap[i]);
                     if i == offset {
-                        bin_array_bitmap = bin_array_bitmap >> bin_array_offset;
+                        bin_array_bitmap >>= bin_array_offset;
                         if bin_array_bitmap.eq(&U512::ZERO) {
                             continue;
                         }
@@ -188,7 +187,7 @@ impl BinArrayBitmapExtExtension for BinArrayBitmapExtension {
                 for i in offset..EXTENSION_BINARRAY_BITMAP_SIZE {
                     let mut bin_array_bitmap = U512::from_limbs(self.positive_bin_array_bitmap[i]);
                     if i == offset {
-                        bin_array_bitmap = bin_array_bitmap >> bin_array_offset;
+                        bin_array_bitmap >>= bin_array_offset;
                         if bin_array_bitmap.eq(&U512::ZERO) {
                             continue;
                         }
@@ -218,8 +217,7 @@ impl BinArrayBitmapExtExtension for BinArrayBitmapExtension {
                     let mut bin_array_bitmap = U512::from_limbs(self.positive_bin_array_bitmap[i]);
 
                     if i == offset {
-                        bin_array_bitmap = bin_array_bitmap
-                            << BIN_ARRAY_BITMAP_SIZE as usize - bin_array_offset - 1;
+                        bin_array_bitmap <<= BIN_ARRAY_BITMAP_SIZE as usize - bin_array_offset - 1;
 
                         if bin_array_bitmap.eq(&U512::ZERO) {
                             continue;

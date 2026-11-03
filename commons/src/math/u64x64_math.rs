@@ -26,7 +26,11 @@ pub fn pow(base: u128, exp: i32) -> Option<u128> {
     }
 
     // Make the exponential positive. Which will compute the result later by 1 / base^exp
-    let exp: u32 = if invert { exp.abs() as u32 } else { exp as u32 };
+    let exp: u32 = if invert {
+        exp.unsigned_abs()
+    } else {
+        exp as u32
+    };
 
     // No point to continue the calculation as it will overflow the maximum value Q64.64 can support
     if exp >= MAX_EXPONENTIAL {

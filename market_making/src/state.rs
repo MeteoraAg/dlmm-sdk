@@ -11,7 +11,7 @@ pub struct AllPosition {
 }
 
 impl AllPosition {
-    pub fn new(config: &Vec<PairConfig>) -> Self {
+    pub fn new(config: &[PairConfig]) -> Self {
         let mut all_positions = HashMap::new();
         for pair in config.iter() {
             let pool_pk = Pubkey::from_str(&pair.pair_address).unwrap();
@@ -63,7 +63,7 @@ impl SinglePosition {
     }
 
     pub fn get_positions(&self) -> Result<PositionRaw> {
-        if self.positions.len() == 0 {
+        if self.positions.is_empty() {
             return Ok(PositionRaw::default());
         }
 
@@ -169,7 +169,7 @@ impl PositionRaw {
         let min_price =
             Decimal::from_u128(min_price_fp).context("Math is overflow")? / Decimal::from(ONE);
         let adjusted_min_price = min_price
-            .checked_mul(ui_price_adjustment_factor.into())
+            .checked_mul(ui_price_adjustment_factor)
             .context("Math is overflow")?
             .to_f64()
             .context("Math is overflow")?;
@@ -178,7 +178,7 @@ impl PositionRaw {
         let max_price =
             Decimal::from_u128(max_price_fp).context("Math is overflow")? / Decimal::from(ONE);
         let adjusted_max_price = max_price
-            .checked_mul(ui_price_adjustment_factor.into())
+            .checked_mul(ui_price_adjustment_factor)
             .context("Math is overflow")?
             .to_f64()
             .context("Math is overflow")?;
@@ -187,7 +187,7 @@ impl PositionRaw {
         let current_price =
             Decimal::from_u128(current_price_fp).context("Math is overflow")? / Decimal::from(ONE);
         let adjusted_current_price = current_price
-            .checked_mul(ui_price_adjustment_factor.into())
+            .checked_mul(ui_price_adjustment_factor)
             .context("Math is overflow")?
             .to_f64()
             .context("Math is overflow")?;
@@ -198,7 +198,7 @@ impl PositionRaw {
         let fee_x = self.fee_x as f64 / token_x_ui_adjustment_factor;
         let fee_y = self.fee_y as f64 / token_y_ui_adjustment_factor;
 
-        return Ok(PositionInfo {
+        Ok(PositionInfo {
             position_len: self.position_len,
             rebalance_time: self.rebalance_time,
             max_price: adjusted_max_price,
@@ -209,7 +209,7 @@ impl PositionRaw {
             fee_x,
             fee_y,
             last_update_timestamp: self.last_update_timestamp,
-        });
+        })
     }
 }
 
@@ -245,5 +245,5 @@ impl SinglePosition {
 
 pub fn get_decimals(token_mint_pk: Pubkey, all_tokens: &HashMap<Pubkey, MintWithProgramId>) -> u8 {
     let token = all_tokens.get(&token_mint_pk).unwrap();
-    return token.0.decimals;
+    token.0.decimals
 }

@@ -26,7 +26,7 @@ pub async fn execute_list_all_bin_step<C: Deref<Target = impl Signer> + Clone>(
             RpcProgramAccountsConfig {
                 filters: Some(vec![RpcFilterType::Memcmp(Memcmp::new_base58_encoded(
                     0,
-                    &PresetParameter::DISCRIMINATOR,
+                    PresetParameter::DISCRIMINATOR,
                 ))]),
                 account_config: account_config.clone(),
                 ..Default::default()
@@ -43,7 +43,7 @@ pub async fn execute_list_all_bin_step<C: Deref<Target = impl Signer> + Clone>(
             RpcProgramAccountsConfig {
                 filters: Some(vec![RpcFilterType::Memcmp(Memcmp::new_base58_encoded(
                     0,
-                    &PresetParameter2::DISCRIMINATOR,
+                    PresetParameter2::DISCRIMINATOR,
                 ))]),
                 account_config,
                 ..Default::default()

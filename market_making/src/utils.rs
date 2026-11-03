@@ -86,7 +86,7 @@ pub async fn simulate_transaction(
     let latest_blockhash = rpc_client.get_latest_blockhash().await?;
 
     let tx =
-        Transaction::new_signed_with_payer(&instructions, Some(&payer), keypairs, latest_blockhash);
+        Transaction::new_signed_with_payer(instructions, Some(&payer), keypairs, latest_blockhash);
     let simulation = rpc_client.simulate_transaction(&tx).await?;
 
     Ok(simulation)
@@ -111,15 +111,12 @@ pub async fn parse_swap_event(rpc_client: &RpcClient, signature: Signature) -> R
                 .flat_map(|ix| ix.instructions.as_slice());
 
             for ix in inner_ixs {
-                match ix {
-                    UiInstruction::Compiled(compiled_ix) => {
-                        if let std::result::Result::Ok(ix_data) =
-                            bs58::decode(compiled_ix.data.as_str()).into_vec()
-                        {
-                            return Ok(SwapEvent::deserialize(&mut ix_data.as_ref())?);
-                        };
-                    }
-                    _ => {}
+                if let UiInstruction::Compiled(compiled_ix) = ix {
+                    if let std::result::Result::Ok(ix_data) =
+                        bs58::decode(compiled_ix.data.as_str()).into_vec()
+                    {
+                        return Ok(SwapEvent::deserialize(&mut ix_data.as_ref())?);
+                    };
                 }
             }
         }
