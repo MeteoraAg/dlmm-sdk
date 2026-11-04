@@ -108,13 +108,7 @@ async fn test_swap_exact_out() {
 
     let (mut banks_client, payer, _recent_blockhash) = test.start().await;
 
-    warp_sol(
-        &payer,
-        payer.pubkey(),
-        1 * LAMPORTS_PER_SOL,
-        &mut banks_client,
-    )
-    .await;
+    warp_sol(&payer, payer.pubkey(), LAMPORTS_PER_SOL, &mut banks_client).await;
 
     for (in_mint, out_mint, out_amount) in [
         (token_y_mint, token_x_mint, 10_000_000),
@@ -231,13 +225,7 @@ async fn test_swap() {
 
     let (mut banks_client, payer, _recent_blockhash) = test.start().await;
 
-    warp_sol(
-        &payer,
-        payer.pubkey(),
-        1 * LAMPORTS_PER_SOL,
-        &mut banks_client,
-    )
-    .await;
+    warp_sol(&payer, payer.pubkey(), LAMPORTS_PER_SOL, &mut banks_client).await;
 
     for (in_mint, out_mint, amount_in) in [
         (token_y_mint, token_x_mint, 10_000_000),

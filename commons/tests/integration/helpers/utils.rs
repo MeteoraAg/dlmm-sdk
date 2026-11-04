@@ -114,8 +114,8 @@ pub async fn warp_sol(
 
     process_and_assert_ok(
         &[create_wsol_ata_ix, transfer_sol_ix, sync_native_ix],
-        &payer,
-        &[&payer],
+        payer,
+        &[payer],
         banks_client,
     )
     .await;
