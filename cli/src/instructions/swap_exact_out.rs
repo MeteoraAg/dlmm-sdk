@@ -75,7 +75,7 @@ pub async fn execute_swap_exact_out<C: Deref<Target = impl Signer> + Clone>(
         &lb_pair_state,
         amount_out,
         swap_for_y,
-        bin_arrays,
+        &bin_arrays,
         bitmap_extension.as_ref(),
         &clock,
         &mint_x_account,
