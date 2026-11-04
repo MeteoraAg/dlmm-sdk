@@ -14,22 +14,22 @@ pub struct PairConfig {
     pub mode: MarketMakingMode,
 }
 
-pub fn should_market_making(config: &Vec<PairConfig>) -> bool {
+pub fn should_market_making(config: &[PairConfig]) -> bool {
     for pair in config.iter() {
         if pair.mode != MarketMakingMode::ModeView {
             return true;
         }
     }
-    return false;
+    false
 }
 
-pub fn get_pair_config(config: &Vec<PairConfig>, pair_addr: Pubkey) -> PairConfig {
+pub fn get_pair_config(config: &[PairConfig], pair_addr: Pubkey) -> PairConfig {
     for pair_config in config.iter() {
         if pair_config.pair_address == pair_addr.to_string() {
             return pair_config.clone();
         }
     }
-    return PairConfig::default();
+    PairConfig::default()
 }
 
 pub fn get_config_from_file(path: &str) -> Result<Vec<PairConfig>> {

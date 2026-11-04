@@ -1,0 +1,51 @@
+name: Dependency audit
+
+# Runs on every PR, whatever the base branch or the files changed: new advisories are published
+# against dependencies that are already in the lockfile
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # advisories, licenses, bans and sources, see deny.toml
+  cargo_deny:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
+        with:
+          command: check
+
+  # advisories of the published dependencies, ignored ones are in ts-client/pnpm-workspace.yaml
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+        with:
+          package_json_file: ts-client/package.json
+      - run: pnpm audit --prod
+        working-directory: ts-client
+        shell: bash
+
+  # poetry has no audit command, so python-client is scanned against OSV, along with the root
+  # package-lock.json (only pako) rather than a separate npm audit job for it
+  osv_scanner:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: google/osv-scanner-action/osv-scanner-action@b1d267aea5211fa648d9d442fa64b90dbdcbdd36 # v2.7.0
+        with:
+          scan-args: |-
+            scan
+            source
+            -L
+            package-lock.json
+            -L
+            python-client/dlmm/poetry.lock

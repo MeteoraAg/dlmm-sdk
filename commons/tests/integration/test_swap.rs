@@ -107,13 +107,7 @@ async fn test_swap_exact_out() {
 
     let (mut banks_client, payer, _recent_blockhash) = test.start().await;
 
-    warp_sol(
-        &payer,
-        payer.pubkey(),
-        1 * LAMPORTS_PER_SOL,
-        &mut banks_client,
-    )
-    .await;
+    warp_sol(&payer, payer.pubkey(), LAMPORTS_PER_SOL, &mut banks_client).await;
 
     let user_token_in =
         get_or_create_ata(&payer, &token_y_mint, &payer.pubkey(), &mut banks_client).await;

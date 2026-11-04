@@ -54,7 +54,7 @@ pub async fn execute_initialize_preset_parameter<C: Deref<Target = impl Signer> 
             RpcProgramAccountsConfig {
                 filters: Some(vec![RpcFilterType::Memcmp(Memcmp::new_base58_encoded(
                     0,
-                    &PresetParameter2::DISCRIMINATOR,
+                    PresetParameter2::DISCRIMINATOR,
                 ))]),
                 account_config: RpcAccountInfoConfig {
                     encoding: Some(UiAccountEncoding::Base64),

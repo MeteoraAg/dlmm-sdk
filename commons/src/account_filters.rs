@@ -21,7 +21,7 @@ pub fn limit_order_filter_by_owner_and_pair(
     pair: Pubkey,
 ) -> Vec<RpcFilterType> {
     let discriminator_filter =
-        RpcFilterType::Memcmp(Memcmp::new_base58_encoded(0, &LimitOrder::DISCRIMINATOR));
+        RpcFilterType::Memcmp(Memcmp::new_base58_encoded(0, LimitOrder::DISCRIMINATOR));
 
     let pair_filter = RpcFilterType::Memcmp(Memcmp::new_base58_encoded(8, &pair.to_bytes()));
 

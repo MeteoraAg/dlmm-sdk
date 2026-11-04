@@ -16,12 +16,15 @@ impl TryFrom<u8> for PairType {
 
 impl PartialEq for PairType {
     fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (&PairType::Permissionless, &PairType::Permissionless) => true,
-            (&PairType::Permission, &PairType::Permission) => true,
-            (&PairType::CustomizablePermissionless, &PairType::CustomizablePermissionless) => true,
-            (&PairType::PermissionlessV2, &PairType::PermissionlessV2) => true,
-            _ => false,
-        }
+        matches!(
+            (self, other),
+            (&PairType::Permissionless, &PairType::Permissionless)
+                | (&PairType::Permission, &PairType::Permission)
+                | (
+                    &PairType::CustomizablePermissionless,
+                    &PairType::CustomizablePermissionless
+                )
+                | (&PairType::PermissionlessV2, &PairType::PermissionlessV2)
+        )
     }
 }

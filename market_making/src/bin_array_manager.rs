@@ -4,7 +4,7 @@ pub struct BinArrayManager<'a> {
     pub bin_arrays: &'a [BinArray],
 }
 
-impl<'a> BinArrayManager<'a> {
+impl BinArrayManager<'_> {
     pub fn get_bin(&self, bin_id: i32) -> Result<&Bin> {
         let bin_array_idx = BinArray::bin_id_to_bin_array_index(bin_id)?;
         match self
@@ -51,7 +51,7 @@ impl<'a> BinArrayManager<'a> {
         for bin_id in position.lower_bin_id..=position.upper_bin_id {
             let bin = self.get_bin(bin_id)?;
             let (fee_x_pending, fee_y_pending) =
-                BinArrayManager::get_fee_pending_for_a_bin(position, bin_id, &bin)?;
+                BinArrayManager::get_fee_pending_for_a_bin(position, bin_id, bin)?;
             total_fee_x = fee_x_pending
                 .checked_add(total_fee_x)
                 .context("math is overflow")?;

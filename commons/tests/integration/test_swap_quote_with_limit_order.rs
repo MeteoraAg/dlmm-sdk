@@ -1,7 +1,6 @@
 use crate::*;
 use commons::dlmm::accounts::BinArray;
 use solana_sdk::signature::Keypair;
-use std::collections::HashMap;
 use std::rc::Rc;
 
 const FIXTURE_FOLDER: &str = "9t3EyC9FweyL7PBWvKz3mrXg8B9fwFc9SK3QxM4ENqhd";
@@ -675,6 +674,7 @@ async fn test_swap_exact_out_y_to_x_with_limit_order() {
     );
 }
 
+#[allow(clippy::enum_variant_names)]
 enum ActiveBinOutKind {
     MmOnly,
     MmPlusProcessed,

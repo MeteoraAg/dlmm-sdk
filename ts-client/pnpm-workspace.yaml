@@ -1,0 +1,30 @@
+# only resolve versions published at least a week ago (in minutes), a compromised release is
+# usually caught and unpublished within days
+minimumReleaseAge: 10080
+
+overrides:
+  # rpc-websockets 9.3.9 needs uuid 14, which is ESM only and jest can't require it. 9.3.10
+  # drops uuid but is deprecated
+  "rpc-websockets@9": 9.3.8
+
+auditConfig:
+  # Advisories of transitive dependencies that need a major bump upstream, checked as not
+  # reachable from the SDK. Drop an entry once upstream moves to the patched version.
+  ignoreGhsas:
+    # bigint-buffer has no patched version. @solana/spl-token > @solana/buffer-layout-utils only
+    # passes it the fixed length buffers of its u64/u128 layouts
+    - GHSA-3gc7-fjrx-p6mg
+    # stream-json 1 (fixed in 3): @solana/web3.js > jayson only uses it in its server and stream
+    # utils, web3.js loads `jayson/lib/client/browser`
+    - GHSA-528h-pc64-c93x
+    - GHSA-hqr4-qq8f-hg3x
+    - GHSA-mjw6-4jj6-33hc
+    # toml 3 (fixed in 5): @coral-xyz/anchor only parses Anchor.toml in `workspace`, which the SDK
+    # doesn't use
+    - GHSA-4qx8-w7c3-pj3p
+    - GHSA-82x6-q7mm-w9cf
+    - GHSA-9j65-hcg3-gc64
+    - GHSA-9qmh-m7c6-f92p
+    - GHSA-v5mp-jgw5-2x6j
+    # uuid 8 (fixed in 11): jayson only calls v4, the advisory is v3/v5/v6 with `buf`
+    - GHSA-w5hq-g745-h8pq

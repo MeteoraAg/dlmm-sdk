@@ -10,8 +10,8 @@ pub trait BinArrayExtension {
     fn bin_id_to_bin_array_index(bin_id: i32) -> Result<i32>;
     fn bin_id_to_bin_array_key(lb_pair: Pubkey, bin_id: i32) -> Result<Pubkey>;
 
-    fn get_bin_mut<'a>(&'a mut self, bin_id: i32) -> Result<&'a mut Bin>;
-    fn get_bin<'a>(&'a self, bin_id: i32) -> Result<&'a Bin>;
+    fn get_bin_mut(&mut self, bin_id: i32) -> Result<&mut Bin>;
+    fn get_bin(&self, bin_id: i32) -> Result<&Bin>;
 
     fn get_bin_array_account_metas_coverage(
         lower_bin_id: i32,
@@ -44,11 +44,11 @@ impl BinArrayExtension for BinArray {
         Ok(bin_id >= lower_bin_id && bin_id <= upper_bin_id)
     }
 
-    fn get_bin_mut<'a>(&'a mut self, bin_id: i32) -> Result<&'a mut Bin> {
+    fn get_bin_mut(&mut self, bin_id: i32) -> Result<&mut Bin> {
         Ok(&mut self.bins[self.get_bin_index_in_array(bin_id)?])
     }
 
-    fn get_bin<'a>(&'a self, bin_id: i32) -> Result<&'a Bin> {
+    fn get_bin(&self, bin_id: i32) -> Result<&Bin> {
         Ok(&self.bins[self.get_bin_index_in_array(bin_id)?])
     }
 
