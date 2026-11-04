@@ -648,15 +648,14 @@ pub fn quote_exact_in(
     })
 }
 
-pub fn get_bin_array_pubkeys_for_swap(
-    lb_pair_pubkey: Pubkey,
+pub fn next_bin_array_indexes_for_swap(
     lb_pair: &LbPair,
     bitmap_extension: Option<&BinArrayBitmapExtension>,
     swap_for_y: bool,
     take_count: u8,
-) -> Result<Vec<Pubkey>> {
+    bin_array_idx: &mut Vec<i32>,
+) -> Result<()> {
     let mut start_bin_array_idx = BinArray::bin_id_to_bin_array_index(lb_pair.active_id)?;
-    let mut bin_array_idx = vec![];
     let increment = if swap_for_y { -1 } else { 1 };
 
     loop {
@@ -696,6 +695,36 @@ pub fn get_bin_array_pubkeys_for_swap(
             }
         }
     }
+
+    Ok(())
+}
+
+pub fn get_bin_array_indexes_for_swap(
+    lb_pair: &LbPair,
+    bitmap_extension: Option<&BinArrayBitmapExtension>,
+    swap_for_y: bool,
+    take_count: u8,
+) -> Result<Vec<i32>> {
+    let mut bin_array_idx = Vec::with_capacity(take_count as usize);
+    next_bin_array_indexes_for_swap(
+        lb_pair,
+        bitmap_extension,
+        swap_for_y,
+        take_count,
+        &mut bin_array_idx,
+    )?;
+    Ok(bin_array_idx)
+}
+
+pub fn get_bin_array_pubkeys_for_swap(
+    lb_pair_pubkey: Pubkey,
+    lb_pair: &LbPair,
+    bitmap_extension: Option<&BinArrayBitmapExtension>,
+    swap_for_y: bool,
+    take_count: u8,
+) -> Result<Vec<Pubkey>> {
+    let bin_array_idx =
+        get_bin_array_indexes_for_swap(lb_pair, bitmap_extension, swap_for_y, take_count)?;
 
     let bin_array_pubkeys = bin_array_idx
         .into_iter()
@@ -958,6 +987,49 @@ mod tests {
             "100 USDC -> {:?} SOL",
             quote_result.amount_out as f64 / 1_000_000_000.0
         );
+    }
+
+    #[test]
+    fn get_bin_array_pubkeys_for_swap_equals_pda_of_get_bin_array_indexes_for_swap() {
+        let test_pair = Pubkey::from_str_const("FJbEo74c2W4QLBBVUfUvi8VBWXtMdJVPuFpq2f6UV1iB");
+        let associated_accounts_folder_path = format!("../artifacts/{}", test_pair);
+
+        let mut svm = LiteSVM::new().with_sysvars();
+        let accounts_dir = std::fs::read_dir(associated_accounts_folder_path).unwrap();
+        for entry in accounts_dir {
+            let account_data = std::fs::read_to_string(entry.unwrap().path()).unwrap();
+            let rpc_account: RpcKeyedAccount =
+                serde_json::from_str(&account_data).expect("Failed to deserialize account data");
+            let account: anchor_client::solana_sdk::account::Account =
+                rpc_account.account.decode().unwrap();
+            let account_pubkey = Pubkey::from_str_const(&rpc_account.pubkey);
+
+            svm.set_account(account_pubkey, account.clone()).unwrap();
+        }
+
+        let lb_pair_account = svm.get_account(&test_pair).unwrap();
+        let lb_pair: LbPair = bytemuck::pod_read_unaligned(&lb_pair_account.data[8..]);
+
+        for swap_for_y in [true, false] {
+            for take_count in 1..=5u8 {
+                let pubkeys = get_bin_array_pubkeys_for_swap(
+                    test_pair, &lb_pair, None, swap_for_y, take_count,
+                )
+                .unwrap();
+                let indexes =
+                    get_bin_array_indexes_for_swap(&lb_pair, None, swap_for_y, take_count).unwrap();
+
+                let derived = indexes
+                    .iter()
+                    .map(|&idx| derive_bin_array_pda(test_pair, idx.into()).0)
+                    .collect::<Vec<Pubkey>>();
+
+                assert_eq!(
+                    pubkeys, derived,
+                    "swap_for_y={swap_for_y} take_count={take_count}"
+                );
+            }
+        }
     }
 
     #[test]
