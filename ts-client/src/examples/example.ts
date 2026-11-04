@@ -6,7 +6,7 @@ import {
   TransactionMessage,
   VersionedTransaction,
 } from "@solana/web3.js";
-import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
+import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes/index.js";
 import { DLMM } from "../dlmm";
 import BN from "bn.js";
 import { BinLiquidity, LbPosition, StrategyType } from "../dlmm/types";
