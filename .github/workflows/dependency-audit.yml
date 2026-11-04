@@ -34,8 +34,8 @@ jobs:
         working-directory: ts-client
         shell: bash
 
-  # advisories of every dependency, dev ones included, of ts-client, the root package.json and
-  # python-client. Ignored ones are in ts-client/osv-scanner.toml
+  # poetry has no audit command, so python-client is scanned against OSV, along with the root
+  # package-lock.json (only pako) rather than a separate npm audit job for it
   osv_scanner:
     runs-on: ubuntu-latest
     steps:
@@ -45,9 +45,6 @@ jobs:
           scan-args: |-
             scan
             source
-            --config=ts-client/osv-scanner.toml
-            -L
-            ts-client/pnpm-lock.yaml
             -L
             package-lock.json
             -L
