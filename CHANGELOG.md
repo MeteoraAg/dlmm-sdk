@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added regression tests pinning `deriveBinArray` against verified mainnet BinArray accounts, including negative bin array indexes, and documented that indexes are encoded as signed 64-bit little-endian (two's complement) seed bytes.
+
 ### Changed
 
 ### Deprecated
@@ -16,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 ### Fixed
+
+- Fixed `findSetBit` using bn.js `mod` instead of `umod`, which produced a negative bit offset for bin array index `0`.
 
 ### Security
 
