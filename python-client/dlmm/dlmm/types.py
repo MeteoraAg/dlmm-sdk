@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from enum import Enum
 from solders.pubkey import Pubkey
-from typing import Any, List, TypedDict, Union
+from typing import Any, List, Optional, TypedDict, Union
 
 class DlmmHttpError(Exception):
     def __init__(self, message):
@@ -372,28 +372,53 @@ class GetBins():
         self.active_bin = int(data["activeBin"])
         self.bin_liquidty = [BinLiquidty(bin_data) for bin_data in data["bins"]]
 
+def _optional_hex_field(data: dict, name: str) -> Optional[int]:
+    value = data.get(name)
+    return None if value is None else int(value, 16)
+
+
 @dataclass
 class Bin:
     amount_x: int
-    amount_x_in: int
+    # Removed from the current IDL; retain values from older server responses.
+    amount_x_in: Optional[int]
     amount_y: int
-    amount_y_in: int
+    amount_y_in: Optional[int]
     fee_amount_x_per_token_stored: int
     fee_amount_y_per_token_stored: int
     liquidity_supply: int
     price: int
     reward_per_token_stored: List[int]
+    # None means an older response omitted the field, rather than zero liquidity.
+    fulfilled_order_amount_x: Optional[int]
+    fulfilled_order_amount_y: Optional[int]
+    limit_order_fee_ask_side: Optional[int]
+    limit_order_fee_bid_side: Optional[int]
+    open_order_amount: Optional[int]
+    total_processing_order_amount: Optional[int]
+    processed_order_remaining_amount: Optional[int]
+    order_age: Optional[int]
+    limit_order_ask_side: Optional[int]
 
     def __init__(self, data: dict) -> None:
         self.amount_x = int(data["amountX"], 16)
-        self.amount_x_in = int(data["amountXIn"], 16)
+        self.amount_x_in = _optional_hex_field(data, "amountXIn")
         self.amount_y = int(data["amountY"], 16)
-        self.amount_y_in = int(data["amountYIn"], 16)
+        self.amount_y_in = _optional_hex_field(data, "amountYIn")
         self.fee_amount_x_per_token_stored = int(data["feeAmountXPerTokenStored"], 16)
         self.fee_amount_y_per_token_stored = int(data["feeAmountYPerTokenStored"], 16)
         self.liquidity_supply = int(data["liquiditySupply"], 16)
         self.price = int(data["price"], 16)
         self.reward_per_token_stored = [int(r, 16) for r in data["rewardPerTokenStored"]]
+        self.fulfilled_order_amount_x = _optional_hex_field(data, "fulfilledOrderAmountX")
+        self.fulfilled_order_amount_y = _optional_hex_field(data, "fulfilledOrderAmountY")
+        self.limit_order_fee_ask_side = _optional_hex_field(data, "limitOrderFeeAskSide")
+        self.limit_order_fee_bid_side = _optional_hex_field(data, "limitOrderFeeBidSide")
+        self.open_order_amount = _optional_hex_field(data, "openOrderAmount")
+        self.total_processing_order_amount = _optional_hex_field(data, "totalProcessingOrderAmount")
+        self.processed_order_remaining_amount = _optional_hex_field(data, "processedOrderRemainingAmount")
+        self.order_age = int(data["orderAge"]) if data.get("orderAge") is not None else None
+        self.limit_order_ask_side = int(data["limitOrderAskSide"]) if data.get("limitOrderAskSide") is not None else None
 
 
 @dataclass
