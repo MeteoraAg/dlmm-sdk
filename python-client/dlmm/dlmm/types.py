@@ -244,11 +244,11 @@ class SwapQuote():
     bin_arrays_pubkey: List[Pubkey]
 
     def __init__(self, data: dict):
-        self.consumed_in_amount = int(data["consumedInAmount"])
-        self.out_amount = int(data["outAmount"])
-        self.fee = int(data["fee"])
-        self.protocol_fee = int(data["protocolFee"])
-        self.min_out_amount = int(data["minOutAmount"])
+        self.consumed_in_amount = int(data["consumedInAmount"], 16)
+        self.out_amount = int(data["outAmount"], 16)
+        self.fee = int(data["fee"], 16)
+        self.protocol_fee = int(data["protocolFee"], 16)
+        self.min_out_amount = int(data["minOutAmount"], 16)
         self.price_impact = float(data["priceImpact"])
         self.bin_arrays_pubkey = list(map(lambda x: Pubkey.from_string(x), data["binArraysPubkey"]))
 
