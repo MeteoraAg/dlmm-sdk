@@ -839,7 +839,7 @@ export async function chunkDepositWithRebalanceEndpoint(
     if (isParallel) {
       if (i == 0) {
         shrinkMode = ShrinkMode.NoShrinkRight;
-      } else if (i == chunkBinRange.length - 1) {
+      } else if (i == chunkedBinRange.length - 1) {
         shrinkMode = ShrinkMode.NoShrinkLeft;
       } else {
         shrinkMode = ShrinkMode.NoShrinkBoth;
