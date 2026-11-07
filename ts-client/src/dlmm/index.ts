@@ -3661,7 +3661,7 @@ export class DLMM {
     totalYAmount,
     strategy,
     user,
-    slippage,
+    slippage = 0,
   }: TInitializePositionAndAddLiquidityParamsByStrategy): Promise<
     Transaction[]
   > {
