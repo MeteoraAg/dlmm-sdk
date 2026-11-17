@@ -86,6 +86,7 @@ ignore = [
     { id = "RUSTSEC-2025-0161", reason = "libsecp256k1 is unmaintained, no fix. Pulled in by solana-sdk 2.2 through solana-precompiles > solana-secp256k1-program, the validator's secp256k1 precompile" },
     { id = "RUSTSEC-2025-0119", reason = "number_prefix is unmaintained, no fix. Pulled in by solana-client 2.2 through indicatif" },
     { id = "RUSTSEC-2024-0436", reason = "paste is unmaintained, no fix. Proc macro pulled in by solana-sdk 2.2 through solana-bn254's arkworks 0.4 crates" },
+    { id = "RUSTSEC-2026-0441", reason = "pin-utils is unmaintained, no fix. Pulled in by futures-util 0.3.31 and by solana-rpc-client 2.2 through reqwest-middleware 0.2 > task-local-extensions, whose last release still depends on it" },
     { id = "RUSTSEC-2026-0173", reason = "proc-macro-error2 is unmaintained, no fix. Dev only, proc macro pulled in by solana-program-test > solana-runtime > aquamarine for the commons tests" },
     { id = "RUSTSEC-2026-0220", reason = "ruint shift overflow flags, the fix in 1.20 needs Rust 1.90 and the workspace builds with 1.85 (rust-toolchain.toml). commons only uses the wrapping << and >> on U512 and U1024, by less than 1024 bits. Their results were always correct: the bug is in the flag of the checked, overflowing and saturating shifts, and in wrapping shifts by 2^32 or more on 64 to 256 bit types" },
     { id = "RUSTSEC-2026-0346", reason = "rustls 0.21 Debug impls, only fixed in 0.23. Pulled in by solana-rpc-client 2.2's reqwest 0.11, and nothing here logs TLS sessions" },

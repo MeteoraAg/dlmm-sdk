@@ -18,23 +18,25 @@ pub struct SwapExactOutQuote {
     pub protocol_fee: u64,
 }
 
-/// Internal fill result for a single liquidity layer within a bin.
-struct FillResult {
-    amount_in: u64,
-    amount_left: u64,
-    out_amount: u64,
+/// Fill result for a single liquidity layer within a bin.
+#[derive(Debug)]
+pub struct FillResult {
+    pub amount_in: u64,
+    pub amount_left: u64,
+    pub out_amount: u64,
 }
 
-/// Internal result for filling across all liquidity layers (MM + limit orders) in a bin.
-struct ExactInFillResult {
-    amount_in: u64,
-    amount_left: u64,
-    out_amount: u64,
-    mm_amount_in: u64,
+/// Result for filling across all liquidity layers (MM + limit orders) in a bin.
+#[derive(Debug)]
+pub struct ExactInFillResult {
+    pub amount_in: u64,
+    pub amount_left: u64,
+    pub out_amount: u64,
+    pub mm_amount_in: u64,
 }
 
 /// Calculate how much of `amount` can be filled against `max_amount_out` of liquidity at `price`.
-fn calculate_exact_in_fill_amount(
+pub fn calculate_exact_in_fill_amount(
     bin: &Bin,
     amount: u64,
     max_amount_out: u64,
@@ -65,7 +67,7 @@ fn calculate_exact_in_fill_amount(
 }
 
 /// Fill a bin's liquidity layers: MM first, then processed limit orders, then open limit orders.
-fn get_exact_in_fill_amount_result(
+pub fn get_exact_in_fill_amount_result(
     bin: &Bin,
     amount_in: u64,
     swap_for_y: bool,
@@ -137,7 +139,7 @@ fn get_exact_in_fill_amount_result(
 }
 
 /// Split trading fee between user (LP) fee and protocol fee, accounting for limit order fee share.
-fn split_fee(
+pub fn split_fee(
     trading_fee: u64,
     protocol_share: u16,
     mm_amount_in: u64,
@@ -195,7 +197,7 @@ fn split_fee(
 }
 
 /// Per-bin exact-in quote with limit order and fee mode support.
-fn swap_exact_in_quote_at_bin(
+pub fn swap_exact_in_quote_at_bin(
     bin: &Bin,
     lb_pair: &LbPair,
     in_amount: u64,
@@ -262,7 +264,7 @@ fn swap_exact_in_quote_at_bin(
     })
 }
 
-fn get_excluded_fee_amount_in(
+pub fn get_excluded_fee_amount_in(
     bin: &Bin,
     swap_for_y: bool,
     included_fee_amount_out: u64,
@@ -312,7 +314,7 @@ fn get_excluded_fee_amount_in(
 }
 
 /// Per-bin exact-out quote with limit order and fee mode support.
-fn swap_exact_out_quote_at_bin(
+pub fn swap_exact_out_quote_at_bin(
     bin: &Bin,
     lb_pair: &LbPair,
     out_amount: u64,
