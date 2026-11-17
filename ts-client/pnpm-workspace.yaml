@@ -25,6 +25,7 @@ auditConfig:
     - GHSA-82x6-q7mm-w9cf
     - GHSA-9j65-hcg3-gc64
     - GHSA-9qmh-m7c6-f92p
+    - GHSA-h895-cgqg-jf52
     - GHSA-v5mp-jgw5-2x6j
     # uuid 8 (fixed in 11): jayson only calls v4, the advisory is v3/v5/v6 with `buf`
     - GHSA-w5hq-g745-h8pq
