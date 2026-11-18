@@ -5393,7 +5393,7 @@ export class DLMM {
       currentTimestamp,
     );
 
-    let startBinId = activeId;
+    let startBinId: BN | null = outAmountLeft.isZero() ? activeId : null;
     let binArraysForSwap = new Map();
     let actualInAmount: BN = new BN(0);
     let feeAmount: BN = new BN(0);
@@ -5455,6 +5455,10 @@ export class DLMM {
             actualInAmount = actualInAmount.add(amountIn);
             feeAmount = feeAmount.add(fee);
             protocolFeeAmount = protocolFeeAmount.add(protocolFee);
+
+            if (startBinId === null) {
+              startBinId = activeId;
+            }
           }
         }
       }
@@ -5466,6 +5470,13 @@ export class DLMM {
           activeId = activeId.add(new BN(1));
         }
       }
+    }
+
+    if (startBinId === null) {
+      throw new DlmmSdkError(
+        "SWAP_QUOTE_INSUFFICIENT_LIQUIDITY",
+        "Insufficient liquidity",
+      );
     }
 
     const startPrice = getPriceOfBinByBinId(
